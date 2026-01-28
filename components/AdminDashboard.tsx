@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Product, Category, Order } from '../types';
 
@@ -30,8 +31,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
   }, [products, categories, orders]);
 
-  // دالة مخصصة لفتح صفحة الإضافة الجديدة
+  // دالة مخصصة لفتح صفحة الإضافة الجديدة بشكل صحيح
   const handleOpenAddPage = () => {
+    // التحقق مما إذا كان الملف موجوداً قبل التحويل (اختياري، لكن يفضل التحويل المباشر)
     window.location.href = 'add-product.php';
   };
 
@@ -142,7 +144,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {products.sort((a,b) => a.stockQuantity - b.stockQuantity).slice(0, 5).map(p => (
                       <div key={p.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
                          <div className="flex items-center gap-4">
-                           <img src={p.images[0]} className="w-10 h-10 rounded-lg object-cover" alt="" />
+                           <img src={p.images[0] ? p.images[0] : ''} className="w-10 h-10 rounded-lg object-cover" alt="" />
                            <span className="font-bold text-slate-800 text-xs truncate max-w-[150px]">{p.name}</span>
                          </div>
                          <div className="flex items-center gap-4">
@@ -242,7 +244,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <tr key={p.id} className="hover:bg-slate-50/50 transition">
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
-                          <img src={p.images[0]} className="w-14 h-14 rounded-2xl object-cover shadow-sm border border-slate-100" alt="" />
+                          <img src={p.images[0] ? p.images[0] : ''} className="w-14 h-14 rounded-2xl object-cover shadow-sm border border-slate-100" alt="" />
                           <div>
                              <div className="font-black text-slate-800 text-sm">{p.name}</div>
                              <div className="text-[10px] text-slate-400 font-bold">{categories.find(c => c.id === p.categoryId)?.name}</div>

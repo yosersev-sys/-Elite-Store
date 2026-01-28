@@ -1,9 +1,8 @@
 <?php
 /**
- * API Backend for Elite Store - Strict JSON Mode
+ * API Backend for Elite Store - Robust Version
  */
-ob_start();
-error_reporting(E_ALL);
+error_reporting(0); // منع عرض أي أخطاء PHP مباشرة قد تفسد الـ JSON
 ini_set('display_errors', 0);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -16,14 +15,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+ob_start();
+
 try {
-    if (!file_exists('config.php')) throw new Exception("config.php not found");
+    if (!file_exists('config.php')) {
+        throw new Exception("config.php file not found on the server.");
+    }
     require_once 'config.php';
 
     $action = $_GET['action'] ?? '';
     $output = null;
 
-    // قراءة البيانات من الـ POST
     $input = json_decode(file_get_contents('php://input'), true);
 
     switch ($action) {
@@ -61,7 +63,7 @@ try {
             break;
 
         case 'add_product':
-            if (!$input) throw new Exception("No data provided");
+            if (!$input) throw new Exception("No data received for adding product.");
             $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, seoSettings, salesCount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $input['id'] ?? 'p_'.time(), 
@@ -80,15 +82,34 @@ try {
             $output = ['status' => 'success'];
             break;
 
+        case 'update_product':
+            if (!$input) throw new Exception("No data received for update.");
+            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=? WHERE id=?");
+            $stmt->execute([
+                $input['name'], 
+                $input['description'], 
+                $input['price'], 
+                $input['categoryId'], 
+                json_encode($input['images'] ?? []), 
+                json_encode($input['sizes'] ?? []), 
+                json_encode($input['colors'] ?? []), 
+                (int)($input['stockQuantity'] ?? 0), 
+                json_encode($input['seoSettings'] ?? null), 
+                $input['id']
+            ]);
+            $output = ['status' => 'success'];
+            break;
+
         case 'delete_product':
             $id = $_GET['id'] ?? '';
+            if (!$id) throw new Exception("Product ID is required for deletion.");
             $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
             $stmt->execute([$id]);
             $output = ['status' => 'success'];
             break;
 
         case 'add_category':
-            if (!$input) throw new Exception("No data provided");
+            if (!$input) throw new Exception("No category data provided.");
             $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
             $stmt->execute([$input['id'], $input['name']]);
             $output = ['status' => 'success'];
@@ -102,7 +123,7 @@ try {
             break;
 
         case 'save_order':
-            if (!$input) throw new Exception("No data provided");
+            if (!$input) throw new Exception("No order data provided.");
             $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, items, subtotal, total, paymentMethod, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $input['id'], 
@@ -121,14 +142,16 @@ try {
             break;
 
         default:
-            $output = ['error' => 'unknown_action', 'action' => $action];
+            $output = ['status' => 'error', 'message' => 'Unknown action: ' . $action];
             break;
     }
 
-    ob_clean();
+    ob_end_clean();
     echo json_encode($output);
+
 } catch (Exception $e) {
-    ob_clean();
+    ob_end_clean();
+    http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 exit;

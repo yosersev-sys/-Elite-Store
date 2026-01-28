@@ -1,16 +1,26 @@
 
 import { Product, Category, Order } from '../types';
 
-// نستخدم './api.php' لضمان البحث عن الملف في المجلد الحالي للجذر
-const API_URL = './api.php';
+// الحصول على المسار الأساسي لضمان عمل الـ API في أي مجلد
+const getBaseUrl = () => {
+  const path = window.location.pathname;
+  const directory = path.substring(0, path.lastIndexOf('/'));
+  return directory;
+};
+
+const API_URL = 'api.php';
 
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
     const url = `${API_URL}?action=${action}`;
     const response = await fetch(url, options);
     
+    if (response.status === 404) {
+      console.error(`API File Not Found (404): ${url}. تأكد من وجود ملف api.php في نفس مجلد index.html`);
+      throw new Error(`الملف api.php غير موجود في المسار المطلوب.`);
+    }
+
     if (!response.ok) {
-      console.error(`HTTP error! status: ${response.status} for action: ${action}`);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
@@ -25,7 +35,7 @@ const safeFetch = async (action: string, options?: RequestInit) => {
       }
       return data;
     } catch (e) {
-      console.error("Malformed JSON response from api.php:", text);
+      console.error("Malformed JSON response from api.php. Response was:", text);
       return null;
     }
   } catch (error) {
