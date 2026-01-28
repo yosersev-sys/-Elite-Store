@@ -1,18 +1,21 @@
+# Elite Store - Advanced Redirect Rules
 Options -Indexes
 DirectoryIndex index.html
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    
-    # 1. إذا كان الملف موجوداً فعلياً، لا تقم بأي إعادة توجيه
+    RewriteBase /
+
+    # 1. إذا كان الملف موجوداً فعلياً (مثل صور، CSS، JS) - لا تفعل شيئاً
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
 
-    # 2. استثناء ملف api.php بشكل صريح
-    RewriteRule ^api\.php$ - [L]
+    # 2. إذا كان المجلد موجوداً فعلياً - لا تفعل شيئاً
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
 
-    # 3. توجيه كافة الطلبات الأخرى إلى index.html ليعالجها React
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
+    # 3. توجيه كافة الطلبات إلى index.html بشرط ألا تكون لملف api.php
+    # هذا يضمن أن أي مسار React Router سيعمل، بينما تظل طلبات الـ API حرة
+    RewriteCond %{REQUEST_URI} !api\.php$ [NC]
     RewriteRule ^ index.html [L]
 </IfModule>

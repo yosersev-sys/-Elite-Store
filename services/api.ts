@@ -1,42 +1,65 @@
 import { Product, Category, Order } from '../types';
 
-// حساب مسار الـ API بشكل ديناميكي بناءً على موقع ملف index.html
-// يقوم الكود بإزالة مسارات React المعروفة من الرابط الحالي للوصول للمجلد الرئيسي
-const getBaseUrl = () => {
+/**
+ * دالة محسنة لاكتشاف المسار الصحيح لملف api.php
+ * تأخذ بعين الاعتبار المجلدات الفرعية ومعرفات بيئات المعاينة
+ */
+const getDynamicApiUrl = () => {
+  const reactSegments = ['product', 'category', 'admin', 'cart', 'wishlist', 'checkout', 'auth', 'order-success'];
   const path = window.location.pathname;
-  // إزالة أي مسارات فرعية وهمية خاصة بـ React
-  const cleanPath = path.replace(/\/product\/.*|\/category\/.*|\/admin.*|\/cart.*|\/wishlist.*|\/checkout.*|\/auth.*|\/order-success.*/, '');
-  // التأكد من أن المسار ينتهي بـ / ثم اسم الملف
-  return (cleanPath.endsWith('/') ? cleanPath : cleanPath + '/') + 'api.php';
+  const segments = path.split('/').filter(Boolean);
+  
+  // تحديد الأجزاء التي تسبق مسارات React
+  const physicalSegments = [];
+  for (const seg of segments) {
+    if (reactSegments.includes(seg)) break;
+    physicalSegments.push(seg);
+  }
+  
+  // بناء المسار الفيزيائي (المجلد الذي يحتوي على api.php)
+  const baseDir = physicalSegments.length > 0 ? `/${physicalSegments.join('/')}/` : '/';
+  
+  // دمج المسار مع النطاق الحالي
+  const fullUrl = window.location.origin + baseDir + 'api.php';
+  
+  // تنظيف المائلات المزدوجة الناتجة عن الدمج
+  return fullUrl.replace(/([^:]\/)\/+/g, "$1");
 };
 
-const BASE_URL = getBaseUrl();
+const BASE_URL = getDynamicApiUrl();
 
 const safeFetch = async (url: string, options?: RequestInit) => {
   try {
     const response = await fetch(url, options);
-    const text = await response.text();
     
-    // التحقق مما إذا كانت الاستجابة صفحة خطأ HTML (غالباً 404 من الخادم)
-    if (text.trim().toLowerCase().startsWith('<!doctype') || text.trim().toLowerCase().startsWith('<html')) {
-      console.error('Server returned HTML instead of JSON. Likely a 404 or 500 error page.');
+    if (!response.ok) {
+      // إذا حدث خطأ 404، نقوم بطباعة الرابط الذي تم استخدامه بدقة للتشخيص
+      console.error(`Fetch error: ${response.status} at ${url}`);
+      return null;
+    }
+
+    const text = await response.text();
+    const trimmed = text.trim();
+
+    // التحقق من نوع الاستجابة
+    if (trimmed.toLowerCase().startsWith('<!doctype') || trimmed.toLowerCase().startsWith('<html')) {
+      console.error('API Error: Server returned HTML instead of JSON. This usually means api.php is being redirected to index.html.');
       return null;
     }
 
     try {
-      return JSON.parse(text);
+      return JSON.parse(trimmed);
     } catch (e) {
-      console.error('Invalid JSON response from server. Body:', text.substring(0, 100));
+      console.error('API Error: Failed to parse JSON. Raw response:', trimmed.substring(0, 100));
       return null;
     }
   } catch (e) {
-    console.error('Network error during fetch:', e);
+    console.error('Network Error:', e);
     return null;
   }
 };
 
 export const ApiService = {
-  // المنتجات
   async getProducts(): Promise<Product[]> {
     const data = await safeFetch(`${BASE_URL}?action=get_products`);
     return Array.isArray(data) ? data : [];
@@ -67,7 +90,6 @@ export const ApiService = {
     return data?.status === 'success';
   },
 
-  // التصنيفات
   async getCategories(): Promise<Category[]> {
     const data = await safeFetch(`${BASE_URL}?action=get_categories`);
     return Array.isArray(data) ? data : [];
@@ -87,7 +109,6 @@ export const ApiService = {
     });
   },
 
-  // الطلبات
   async getOrders(): Promise<Order[]> {
     const data = await safeFetch(`${BASE_URL}?action=get_orders`);
     return Array.isArray(data) ? data : [];
