@@ -15,7 +15,6 @@ header('Content-Type: text/html; charset=utf-8');
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
       * { font-family: 'Cairo', sans-serif; }
@@ -34,7 +33,6 @@ header('Content-Type: text/html; charset=utf-8');
     <script type="text/babel">
       const { useState, useEffect, useMemo } = React;
 
-      // مكون بطاقة الإحصائيات
       const StatCard = ({ title, value, icon, color }) => (
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 transition hover:shadow-md">
           <div className={`${color} w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg`}>{icon}</div>
@@ -47,34 +45,31 @@ header('Content-Type: text/html; charset=utf-8');
 
       const App = () => {
         const [view, setView] = useState('store');
-        const [adminTab, setAdminTab] = useState('stats');
         const [products, setProducts] = useState([]);
         const [categories, setCategories] = useState([]);
         const [orders, setOrders] = useState([]);
         const [cart, setCart] = useState([]);
         const [searchQuery, setSearchQuery] = useState('');
         const [selectedCatId, setSelectedCatId] = useState('all');
-        const [selectedProduct, setSelectedProduct] = useState(null);
         const [isLoading, setIsLoading] = useState(true);
-        const [lastOrder, setLastOrder] = useState(null);
 
-        // وظيفة جلب البيانات - تم تصحيح المسار ليكون نسبياً ومستقراً
         const loadData = async () => {
+          setIsLoading(true);
           try {
-            // المسار النسبي لملف api.php في نفس المجلد
             const apiBase = 'api.php'; 
-
+            // إضافة طابع زمني لمنع التخزين المؤقت للمتصفح (Cache)
+            const ts = Date.now();
             const [pRes, cRes, oRes] = await Promise.all([
-              fetch(`${apiBase}?action=get_products`).then(r => r.ok ? r.json() : []),
-              fetch(`${apiBase}?action=get_categories`).then(r => r.ok ? r.json() : []),
-              fetch(`${apiBase}?action=get_orders`).then(r => r.ok ? r.json() : [])
+              fetch(`${apiBase}?action=get_products&t=${ts}`).then(r => r.json()),
+              fetch(`${apiBase}?action=get_categories&t=${ts}`).then(r => r.json()),
+              fetch(`${apiBase}?action=get_orders&t=${ts}`).then(r => r.json())
             ]);
 
             setProducts(Array.isArray(pRes) ? pRes : []);
             setCategories(Array.isArray(cRes) ? cRes : []);
             setOrders(Array.isArray(oRes) ? oRes : []);
           } catch (e) {
-            console.error("خطأ في جلب البيانات من api.php:", e);
+            console.error("Data fetch error:", e);
           } finally {
             setIsLoading(false);
           }
@@ -85,10 +80,6 @@ header('Content-Type: text/html; charset=utf-8');
           const savedCart = localStorage.getItem('elite_cart');
           if (savedCart) setCart(JSON.parse(savedCart));
         }, []);
-
-        useEffect(() => {
-          localStorage.setItem('elite_cart', JSON.stringify(cart));
-        }, [cart]);
 
         const filteredProducts = useMemo(() => {
           return products.filter(p => {
@@ -107,13 +98,12 @@ header('Content-Type: text/html; charset=utf-8');
         if (isLoading) return (
           <div className="h-screen flex flex-col items-center justify-center gap-4">
             <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="font-bold text-slate-500">جاري تحميل المتجر...</p>
+            <p className="font-bold text-slate-500">جاري تحميل بيانات المتجر من قاعدة البيانات...</p>
           </div>
         );
 
         return (
           <div className="min-h-screen flex flex-col">
-            {/* الهيدر مع الأقسام من قاعدة البيانات */}
             <header className="header-glass shadow-sm sticky top-0 z-50 border-b border-gray-100">
               <div className="container mx-auto px-4 pt-4 pb-3">
                 <div className="flex items-center justify-between gap-4 mb-3">
@@ -121,15 +111,11 @@ header('Content-Type: text/html; charset=utf-8');
                     <h1 onClick={() => { setView('store'); setSelectedCatId('all'); }} className="text-2xl font-black text-indigo-600 cursor-pointer select-none">
                       ELITE<span className="text-slate-900">STORE</span>
                     </h1>
-                    <button onClick={() => setView('admin')} className="hidden sm:block px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black hover:bg-indigo-100 transition">
-                      لوحة الإدارة
-                    </button>
                   </div>
                   
                   <div className="flex-grow max-w-md hidden md:block">
                     <div className="relative">
-                      <input type="text" placeholder="ابحث عن منتجك المفضل..." onChange={e => setSearchQuery(e.target.value)} className="w-full px-5 py-2 bg-gray-100 border-none rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold" />
-                      <span className="absolute left-4 top-2 opacity-30">🔍</span>
+                      <input type="text" placeholder="ماذا تريد أن تتسوق اليوم؟" onChange={e => setSearchQuery(e.target.value)} className="w-full px-5 py-2 bg-gray-100 border-none rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold" />
                     </div>
                   </div>
 
@@ -137,11 +123,10 @@ header('Content-Type: text/html; charset=utf-8');
                     <button onClick={() => setView('cart')} className="relative p-2.5 bg-gray-50 rounded-xl hover:bg-indigo-50 transition">
                       🛒 <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-white">{cart.length}</span>
                     </button>
-                    <button onClick={() => setView('admin')} className="sm:hidden p-2.5 bg-slate-900 text-white rounded-xl">⚙️</button>
+                    <button onClick={() => setView('admin')} className="p-2.5 bg-slate-900 text-white rounded-xl">⚙️ لوحة التحكم</button>
                   </div>
                 </div>
 
-                {/* شريط الأقسام الديناميكي (يعمل من قاعدة البيانات) */}
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                   <button
                     onClick={() => { setSelectedCatId('all'); setView('store'); }}
@@ -165,24 +150,34 @@ header('Content-Type: text/html; charset=utf-8');
             <main className="flex-grow container mx-auto px-4 py-8">
               {view === 'store' && (
                 <div className="animate-fadeIn">
-                  {/* Hero */}
-                  <div className="bg-slate-900 rounded-[2.5rem] p-10 mb-12 text-white relative overflow-hidden">
-                    <h2 className="text-3xl md:text-5xl font-black mb-4">متجرك الفاخر <br/> لكل ما هو <span className="text-indigo-400">جديد</span></h2>
-                    <p className="text-slate-400 max-w-sm text-sm font-bold">تصفح تشكيلتنا المختارة بعناية من أفضل العلامات التجارية العالمية.</p>
+                  <div className="bg-slate-900 rounded-[2.5rem] p-12 mb-12 text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between">
+                    <div className="relative z-10 text-center md:text-right">
+                        <h2 className="text-3xl md:text-6xl font-black mb-4">نخبة المنتجات <br/> <span className="text-indigo-400">بين يديك</span></h2>
+                        <p className="text-slate-400 max-w-sm text-sm font-bold mx-auto md:mx-0">اكتشف تشكيلة حصرية من الأجهزة والأزياء العالمية مع ضمان الجودة.</p>
+                    </div>
+                    <div className="mt-8 md:mt-0 relative z-10 bg-white/10 backdrop-blur-xl p-6 rounded-[2rem] border border-white/20">
+                        <p className="text-xs font-black uppercase tracking-widest text-indigo-300 mb-2">عرض الأسبوع</p>
+                        <p className="text-2xl font-black">شحن مجاني لكافة الطلبات</p>
+                    </div>
                   </div>
 
-                  {/* Grid */}
-                  <div id="products-grid" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                     {filteredProducts.map(p => (
-                      <div key={p.id} className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm">
-                        <div className="aspect-square bg-gray-50 cursor-pointer overflow-hidden relative" onClick={() => { setSelectedProduct(p); setView('details'); }}>
-                          <img src={p.images[0]} className="w-full h-full object-cover" />
+                      <div key={p.id} className="bg-white rounded-[2.5rem] border border-gray-100 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm hover:border-indigo-100">
+                        <div className="aspect-square bg-gray-50 cursor-pointer overflow-hidden relative group">
+                          <img src={p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                          {p.stockQuantity < 5 && p.stockQuantity > 0 && (
+                            <span className="absolute top-4 right-4 bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full">كمية محدودة!</span>
+                          )}
                         </div>
-                        <div className="p-5 flex flex-col flex-grow">
-                          <h3 className="font-black text-slate-800 text-sm mb-3 line-clamp-1">{p.name}</h3>
+                        <div className="p-6 flex flex-col flex-grow">
+                          <div className="text-[10px] font-black text-indigo-500 uppercase mb-2">
+                             {categories.find(c => c.id === p.categoryId)?.name || 'عام'}
+                          </div>
+                          <h3 className="font-black text-slate-800 text-base mb-4 line-clamp-2 h-12">{p.name}</h3>
                           <div className="mt-auto flex justify-between items-center">
-                            <span className="text-lg font-black text-indigo-600">{p.price} <small className="text-[10px]">ر.س</small></span>
-                            <button onClick={() => addToCart(p)} className="bg-slate-900 text-white w-9 h-9 flex items-center justify-center rounded-xl hover:bg-indigo-600 transition">🛒</button>
+                            <span className="text-xl font-black text-slate-900">{p.price} <small className="text-xs font-bold">ر.س</small></span>
+                            <button onClick={() => addToCart(p)} className="bg-slate-900 text-white w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-indigo-600 transition shadow-lg active:scale-95">🛒</button>
                           </div>
                         </div>
                       </div>
@@ -192,41 +187,59 @@ header('Content-Type: text/html; charset=utf-8');
               )}
 
               {view === 'admin' && (
-                <div className="bg-white rounded-[2.5rem] p-8 shadow-xl animate-fadeIn">
-                  <h2 className="text-2xl font-black mb-8 text-slate-800">لوحة الإحصائيات</h2>
+                <div className="space-y-8 animate-fadeIn">
+                   <div className="flex justify-between items-center">
+                      <h2 className="text-3xl font-black text-slate-800">نظرة عامة على المتجر</h2>
+                      <button onClick={loadData} className="px-4 py-2 bg-white border rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-50">تحديث البيانات 🔄</button>
+                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <StatCard title="إجمالي المبيعات" value={`${orders.reduce((s, o) => s + o.total, 0)} ر.س`} icon="💰" color="bg-emerald-500" />
-                    <StatCard title="الطلبات" value={orders.length} icon="📈" color="bg-blue-500" />
-                    <StatCard title="المنتجات" value={products.length} icon="📦" color="bg-indigo-500" />
+                    <StatCard title="إجمالي المبيعات" value={`${orders.reduce((s, o) => s + o.total, 0).toLocaleString()} ر.س`} icon="💰" color="bg-emerald-500" />
+                    <StatCard title="عدد الطلبات" value={orders.length} icon="📈" color="bg-blue-500" />
+                    <StatCard title="إجمالي المنتجات" value={products.length} icon="📦" color="bg-indigo-500" />
                   </div>
-                  <div className="mt-12">
-                    <button onClick={() => window.location.href = 'add-product.php'} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm">+ إضافة منتج جديد</button>
+                  <div className="bg-white p-10 rounded-[3rem] border shadow-sm text-center">
+                    <p className="text-slate-400 font-bold mb-6 italic">هذه البيانات مستمدة مباشرة من قاعدة البيانات على Hostinger.</p>
+                    <button onClick={() => window.location.href = 'add-product.php'} className="bg-indigo-600 text-white px-10 py-4 rounded-[2rem] font-black text-sm shadow-xl shadow-indigo-100 hover:scale-105 transition">+ إضافة منتج جديد للقاعدة</button>
                   </div>
                 </div>
               )}
 
               {view === 'cart' && (
-                <div className="max-w-2xl mx-auto bg-white p-10 rounded-[3rem] shadow-xl animate-fadeIn text-center">
-                  <h2 className="text-2xl font-black mb-6">سلة التسوق</h2>
+                <div className="max-w-xl mx-auto bg-white p-12 rounded-[3rem] shadow-2xl animate-fadeIn text-center border border-gray-50">
+                  <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl">🛍️</div>
+                  <h2 className="text-3xl font-black mb-6">سلة التسوق الخاصة بك</h2>
                   {cart.length === 0 ? (
-                    <p className="text-slate-400 font-bold">السلة فارغة حالياً</p>
+                    <div className="py-10">
+                        <p className="text-slate-400 font-bold mb-8">سلتك خالية تماماً.. ابدأ رحلة التسوق الآن!</p>
+                        <button onClick={() => setView('store')} className="bg-slate-900 text-white px-10 py-4 rounded-[2rem] font-black">اكتشف المنتجات</button>
+                    </div>
                   ) : (
                     <div className="space-y-4">
                       {cart.map((item, i) => (
-                        <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
-                          <span className="font-bold">{item.name}</span>
+                        <div key={i} className="flex justify-between items-center p-5 bg-slate-50 rounded-3xl border border-gray-100">
+                          <div className="flex items-center gap-4">
+                             <img src={item.images[0]} className="w-12 h-12 rounded-xl object-cover" />
+                             <span className="font-bold text-right text-sm">{item.name}</span>
+                          </div>
                           <span className="font-black text-indigo-600">{item.price} ر.س</span>
                         </div>
                       ))}
-                      <button onClick={() => setView('store')} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black mt-8">إتمام الطلب (قريباً)</button>
+                      <div className="pt-6 border-t mt-6 flex justify-between items-center">
+                         <span className="font-black text-xl">الإجمالي:</span>
+                         <span className="font-black text-2xl text-indigo-600">{cart.reduce((s, i) => s + i.price, 0)} ر.س</span>
+                      </div>
+                      <button onClick={() => alert('سيتم تفعيل بوابة الدفع قريباً')} className="w-full bg-indigo-600 text-white py-5 rounded-[2rem] font-black mt-8 shadow-xl shadow-indigo-100">إتمام الشراء والطلب</button>
                     </div>
                   )}
                 </div>
               )}
             </main>
 
-            <footer className="py-10 text-center border-t mt-20 text-slate-300 text-xs font-black">
-              &copy; {new Date().getFullYear()} متجر النخبة | جميع الحقوق محفوظة
+            <footer className="py-12 text-center border-t mt-20 bg-white">
+                <div className="mb-4">
+                    <span className="text-xl font-black text-slate-800">ELITE<span className="text-indigo-600">STORE</span></span>
+                </div>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} متجر النخبة | فخر الاستضافة على Hostinger</p>
             </footer>
           </div>
         );
