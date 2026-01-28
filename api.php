@@ -7,8 +7,8 @@ ini_set('display_errors', 0);
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 
+// دالة لإرجاع الخطأ بتنسيق JSON
 function sendError($msg, $code = 400) {
     http_response_code($code);
     echo json_encode(['status' => 'error', 'message' => $msg]);
@@ -17,7 +17,7 @@ function sendError($msg, $code = 400) {
 
 try {
     if (!file_exists('config.php')) {
-        sendError('Config file missing', 500);
+        sendError('الملف config.php غير موجود بالسيرفر', 500);
     }
     require_once 'config.php';
 
@@ -38,68 +38,57 @@ try {
 
         case 'get_categories':
             $stmt = $pdo->query("SELECT * FROM categories ORDER BY name ASC");
-            echo json_encode($stmt->fetchAll() ?: []);
+            $res = $stmt->fetchAll() ?: [];
+            echo json_encode($res);
             break;
 
         case 'get_orders':
             $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC");
-            echo json_encode($stmt->fetchAll() ?: []);
-            break;
-
-        case 'add_category':
-            if (!$input) sendError('No input');
-            $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
-            $stmt->execute([$input['id'], $input['name']]);
-            echo json_encode(['status' => 'success']);
-            break;
-
-        case 'delete_category':
-            $id = $_GET['id'] ?? '';
-            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
-            $stmt->execute([$id]);
-            echo json_encode(['status' => 'success']);
+            $res = $stmt->fetchAll() ?: [];
+            echo json_encode($res);
             break;
 
         case 'add_product':
-            if (!$input) sendError('No input');
+            if (!$input) sendError('لم يتم استلام بيانات المنتج');
             $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, stockQuantity, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
-                $input['id'] ?? 'p_'.time(),
-                $input['name'],
-                $input['description'],
-                $input['price'],
-                $input['categoryId'],
-                json_encode($input['images'] ?? []),
-                (int)$input['stockQuantity'],
-                $input['createdAt'] ?? time()
+                $input['id'] ?? 'p_'.time(), 
+                $input['name'], 
+                $input['description'], 
+                $input['price'], 
+                $input['categoryId'], 
+                json_encode($input['images'] ?? []), 
+                (int)($input['stockQuantity'] ?? 0), 
+                $input['createdAt'] ?? (time()*1000)
+            ]);
+            echo json_encode(['status' => 'success']);
+            break;
+
+        case 'save_order':
+            if (!$input) sendError('بيانات الطلب مفقودة');
+            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, total, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $input['id'], 
+                $input['customerName'], 
+                $input['phone'], 
+                $input['city'], 
+                $input['address'], 
+                $input['total'], 
+                time()*1000
             ]);
             echo json_encode(['status' => 'success']);
             break;
 
         case 'delete_product':
             $id = $_GET['id'] ?? '';
+            if(!$id) sendError('رقم المنتج مفقود');
             $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
             $stmt->execute([$id]);
             echo json_encode(['status' => 'success']);
             break;
 
-        case 'save_order':
-            if (!$input) sendError('No input');
-            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, total, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                $input['id'],
-                $input['customerName'],
-                $input['phone'],
-                $input['city'],
-                $input['address'],
-                $input['total'],
-                time()
-            ]);
-            echo json_encode(['status' => 'success']);
-            break;
-
         default:
-            sendError('Unknown action: ' . $action);
+            sendError('الإجراء المطلوب غير معروف: ' . $action);
     }
 
 } catch (Exception $e) {
