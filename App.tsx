@@ -28,15 +28,36 @@ const App: React.FC = () => {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // نظام معالجة الروابط (Routing Logic)
+  const handleRouting = (allProducts: Product[]) => {
+    const params = new URLSearchParams(window.location.search);
+    const productSlug = params.get('p');
+    const viewParam = params.get('v');
+
+    if (productSlug) {
+      const product = allProducts.find(p => p.seoSettings?.slug === productSlug);
+      if (product) {
+        setSelectedProduct(product);
+        setView('product-details');
+        return;
+      }
+    }
+
+    if (viewParam === 'admin') {
+      setView('admin');
+    } else if (viewParam === 'cart') {
+      setView('cart');
+    } else if (viewParam === 'wishlist') {
+      setView('wishlist');
+    } else {
+      setView('store');
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('v') === 'admin') {
-          setView('admin');
-        }
-
         const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
           ApiService.getProducts(),
           ApiService.getCategories(),
@@ -46,6 +67,9 @@ const App: React.FC = () => {
         setProducts(fetchedProducts);
         setCategories(fetchedCats);
         setOrders(fetchedOrders);
+
+        // معالجة الرابط الحالي عند التحميل
+        handleRouting(fetchedProducts);
 
         const savedCart = localStorage.getItem('elite_cart');
         if (savedCart) setCart(JSON.parse(savedCart));
@@ -60,6 +84,18 @@ const App: React.FC = () => {
     };
 
     loadData();
+
+    // الاستماع لتغييرات الروابط (Back/Forward)
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const slug = params.get('p');
+      if (!slug) {
+        setView('store');
+        setSelectedProduct(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   useEffect(() => {
@@ -69,6 +105,28 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('elite_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
+
+  const updateUrl = (params: Record<string, string | null>) => {
+    const url = new URL(window.location.href);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    });
+    window.history.pushState({}, '', url.toString());
+  };
+
+  const navigateToStore = () => {
+    updateUrl({ p: null, v: null });
+    setView('store');
+    setSelectedProduct(null);
+  };
+
+  const navigateToProduct = (product: Product) => {
+    const slug = product.seoSettings?.slug || product.id;
+    updateUrl({ p: slug, v: null });
+    setSelectedProduct(product);
+    setView('product-details');
+  };
 
   const toggleFavorite = (productId: string) => {
     setWishlist(prev => 
@@ -139,7 +197,7 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-bold">جاري جلب البيانات...</p>
+          <p className="text-gray-500 font-bold">جاري جلب البيانات من السيرفر...</p>
         </div>
       </div>
     );
@@ -156,7 +214,13 @@ const App: React.FC = () => {
         currentView={view}
         categories={categories}
         selectedCategoryId={selectedCategoryId}
-        onNavigate={(v) => { setView(v); setSelectedProduct(null); }}
+        onNavigate={(v) => { 
+          if (v === 'store') navigateToStore();
+          else {
+            setView(v);
+            updateUrl({ v, p: null });
+          }
+        }}
         onSearch={setSearchQuery}
         onCategorySelect={(id) => {
           setSelectedCategoryId(id);
@@ -176,7 +240,7 @@ const App: React.FC = () => {
               if (id !== 'all') setView('category-page');
             }}
             onAddToCart={(p) => addToCart(p, p.sizes?.[0], p.colors?.[0])} 
-            onViewProduct={(p) => { setSelectedProduct(p); setView('product-details'); }}
+            onViewProduct={navigateToProduct}
             wishlist={wishlist}
             onToggleFavorite={toggleFavorite}
           />
@@ -187,10 +251,10 @@ const App: React.FC = () => {
             category={currentCategory}
             products={products}
             onAddToCart={(p) => addToCart(p, p.sizes?.[0], p.colors?.[0])}
-            onViewProduct={(p) => { setSelectedProduct(p); setView('product-details'); }}
+            onViewProduct={navigateToProduct}
             wishlist={wishlist}
             onToggleFavorite={toggleFavorite}
-            onBack={() => { setView('store'); setSelectedCategoryId('all'); }}
+            onBack={navigateToStore}
           />
         )}
 
@@ -225,7 +289,7 @@ const App: React.FC = () => {
             onUpdateQuantity={(id, d) => setCart(prev => prev.map(item => (item.id === id) ? { ...item, quantity: Math.max(1, item.quantity + d) } : item))}
             onRemove={(id) => setCart(prev => prev.filter(item => item.id !== id))}
             onCheckout={() => setView('checkout')}
-            onContinueShopping={() => setView('store')}
+            onContinueShopping={navigateToStore}
           />
         )}
 
@@ -234,7 +298,7 @@ const App: React.FC = () => {
             product={selectedProduct}
             categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
             onAddToCart={addToCart}
-            onBack={() => setView('store')}
+            onBack={navigateToStore}
             isFavorite={wishlist.includes(selectedProduct.id)}
             onToggleFavorite={toggleFavorite}
           />
@@ -245,7 +309,7 @@ const App: React.FC = () => {
         )}
 
         {view === 'order-success' && lastPlacedOrder && (
-          <OrderSuccessView order={lastPlacedOrder} onContinueShopping={() => setView('store')} />
+          <OrderSuccessView order={lastPlacedOrder} onContinueShopping={navigateToStore} />
         )}
 
         {view === 'wishlist' && (
@@ -262,7 +326,7 @@ const App: React.FC = () => {
                     product={product} 
                     category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
                     onAddToCart={() => addToCart(product)} 
-                    onView={() => { setSelectedProduct(product); setView('product-details'); }}
+                    onView={() => navigateToProduct(product)}
                     isFavorite={true}
                     onToggleFavorite={() => toggleFavorite(product.id)}
                   />
@@ -271,61 +335,44 @@ const App: React.FC = () => {
             ) : (
               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
                 <p className="text-gray-500">لا توجد منتجات في المفضلة حالياً.</p>
-                <button onClick={() => setView('store')} className="mt-4 text-indigo-600 font-bold">تصفح المتجر الآن</button>
+                <button onClick={navigateToStore} className="mt-4 text-indigo-600 font-bold">تصفح المتجر الآن</button>
               </div>
             )}
           </div>
         )}
 
-        {view === 'auth' && <AuthView onSuccess={() => setView('store')} />}
-        {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={async (p) => { 
-          if (productToEdit) {
-            await ApiService.updateProduct(p);
-            setProducts(prev => prev.map(x => x.id === p.id ? p : x));
-          } else {
-            await ApiService.addProduct(p);
-            setProducts(prev => [p, ...prev]);
-          }
-          setView('admin'); 
-        }} onCancel={() => setView('admin')} />}
+        {view === 'auth' && <AuthView onSuccess={navigateToStore} />}
       </main>
 
       <footer className="bg-gray-900 text-white py-12 mt-12 text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-xl font-black mb-4">متجر النخبة | Elite Store</h2>
-          <p className="text-gray-500 text-sm">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة.</p>
+          <p className="text-gray-500 text-sm tracking-widest uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة.</p>
         </div>
       </footer>
 
-      {/* FAB Button with better visual feedback */}
+      {/* زر لوحة التحكم السريع */}
       <button 
-        onClick={() => setView(view === 'admin' || view === 'admin-form' ? 'store' : 'admin')}
+        onClick={() => {
+          const nextView = view === 'admin' ? 'store' : 'admin';
+          if (nextView === 'store') navigateToStore();
+          else {
+            setView('admin');
+            updateUrl({ v: 'admin', p: null });
+          }
+        }}
         className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-6 py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-500 transform hover:scale-110 active:scale-95 group ${
-          view === 'admin' || view === 'admin-form'
+          view === 'admin'
           ? 'bg-slate-900 text-white ring-4 ring-slate-100'
           : 'bg-indigo-600 text-white ring-4 ring-indigo-50 shadow-indigo-200'
         }`}
       >
         <span className="hidden sm:inline-block">
-          {view === 'admin' || view === 'admin-form' ? "الخروج من الإدارة" : "لوحة التحكم"}
+          {view === 'admin' ? "الخروج من الإدارة" : "لوحة التحكم"}
         </span>
-        <div className="relative">
-          <svg className={`w-6 h-6 transition-transform duration-500 ${view === 'admin' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {view === 'admin' ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            )}
-          </svg>
-          {pendingOrdersCount > 0 && !(view === 'admin') && (
-            <span className="absolute -top-3 -right-3 flex h-5 w-5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-5 w-5 bg-red-600 border-2 border-white text-[10px] items-center justify-center font-bold">
-                {pendingOrdersCount}
-              </span>
-            </span>
-          )}
-        </div>
+        <svg className={`w-6 h-6 transition-transform duration-500 ${view === 'admin' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
       </button>
     </div>
   );
