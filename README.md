@@ -7,14 +7,13 @@
 لربط هذا المشروع بمستودع GitHub وتفعيله على استضافة Hostinger مع التحديث التلقائي، اتبع الخطوات التالية:
 
 ### 1. تجهيز المستودع على GitHub
-1. قم بإنشاء مستودع جديد (New Repository) على حسابك في GitHub.
-2. افتح المجلد المحلي للمشروع وقم بتنفيذ الأوامر التالية:
+1. افتح المجلد المحلي للمشروع وقم بتنفيذ الأوامر التالية في الـ Terminal:
    ```bash
    git init
    git add .
    git commit -m "Initial commit: Elite Store Full Version"
    git branch -M main
-   git remote add origin [رابط_مستودعك_على_جيت_هاب]
+   git remote add origin https://github.com/yosersev-sys/-Elite-Store.git
    git push -u origin main
    ```
 
@@ -22,7 +21,7 @@
 1. ادخل إلى لوحة تحكم Hostinger.
 2. اذهب إلى **Advanced (متقدم)** -> **Git**.
 3. قم بإنشاء رابط جديد (Create a new repository link):
-   - **Repository URL**: رابط مشروعك على GitHub.
+   - **Repository URL**: `https://github.com/yosersev-sys/-Elite-Store.git`
    - **Branch**: `main`.
    - **Install Directory**: `/public_html`.
 4. اضغط على **Create**.
@@ -33,12 +32,6 @@
 3. اذهب إلى مستودعك في GitHub -> **Settings** -> **Webhooks**.
 4. اضغط على **Add webhook**.
 5. الصق الرابط في **Payload URL**، وتأكد من اختيار `application/json` في الـ Content type.
-6. الآن، أي "Push" تقوم به لـ GitHub سيتم تحديث الموقع فوراً على الاستضافة.
-
-### 4. إعدادات قاعدة البيانات (Laravel)
-- اذهب إلى **Databases** في Hostinger وأنشئ قاعدة بيانات MySQL.
-- قم بتعديل ملف `.env` في مجلد `api` (أو المجلد الذي وضعت فيه ملفات Laravel) بالبيانات الجديدة.
-- تأكد من استيراد الجداول عبر phpMyAdmin أو تشغيل الميجريشنز.
 
 ---
 تم التطوير بواسطة **نظام النخبة الذكي**.

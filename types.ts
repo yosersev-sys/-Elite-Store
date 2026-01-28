@@ -46,4 +46,6 @@ export interface Order {
   createdAt: number;
 }
 
+export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'deployment-guide';
+
 export type View = 'store' | 'admin' | 'cart' | 'product-details' | 'admin-form' | 'auth' | 'checkout' | 'wishlist' | 'order-success' | 'category-page';
