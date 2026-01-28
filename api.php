@@ -4,10 +4,9 @@
  * Hostinger Optimized
  */
 
-// منع ظهور الأخطاء في مخرجات الاستجابة لضمان صحة JSON
-error_reporting(E_ALL);
+// تعطيل عرض الأخطاء لضمان مخرجات JSON نظيفة
+error_reporting(0);
 ini_set('display_errors', 0);
-ini_set('log_errors', 1);
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -19,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// بيانات قاعدة البيانات
 $host = 'localhost';
 $db_name = 'u588213546_store';
 $db_user = 'u588213546_store';
@@ -35,7 +35,9 @@ try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(50), city VARCHAR(100), address TEXT, items LONGTEXT, subtotal DECIMAL(10, 2), total DECIMAL(10, 2), paymentMethod VARCHAR(50), status VARCHAR(50) DEFAULT 'pending', createdAt BIGINT) ENGINE=InnoDB;");
 
 } catch (PDOException $e) {
-    echo json_encode(['error' => 'db_error', 'message' => $e->getMessage()]);
+    // إرجاع خطأ JSON واضح بدلاً من انهيار السكربت
+    http_response_code(500);
+    echo json_encode(['error' => 'db_error', 'message' => 'تعذر الاتصال بقاعدة البيانات. تأكد من صحة البيانات في ملف api.php']);
     exit;
 }
 
@@ -100,6 +102,15 @@ switch ($action) {
         if ($d) {
             $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
             $stmt->execute([$d['id'], $d['name']]);
+            echo json_encode(['status' => 'success']);
+        }
+        break;
+
+    case 'delete_category':
+        $id = $_GET['id'] ?? '';
+        if ($id) {
+            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+            $stmt->execute([$id]);
             echo json_encode(['status' => 'success']);
         }
         break;
