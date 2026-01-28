@@ -1,27 +1,25 @@
 
-# Elite Store - Static Hosting Rules
+# Elite Store - Hosting Optimizations
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
 
-    # إذا كان الملف موجوداً كملف حقيقي، قم بفتحه مباشرة
+    # السماح بالوصول المباشر للملفات الموجودة
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
 
-    # توجيه كافة المسارات الأخرى لـ index.html لدعم نظام React
+    # توجيه كل شيء لـ index.html
     RewriteRule ^ index.html [L]
 </IfModule>
 
-# إجبار السيرفر على تقديم ملفات TSX كنص ليتمكن المحرك الخارجي من ترجمتها
+# ضمان أن المتصفح يرى ملفات البرمجة كنصوص قابلة للقراءة
 <FilesMatch "\.(tsx|ts|jsx)$">
     ForceType text/plain
     Header set Content-Type "text/plain"
     Header set Access-Control-Allow-Origin "*"
 </FilesMatch>
 
-# تعطيل الكاش مؤقتاً لضمان وصول التحديثات الجديدة فوراً
-<FilesMatch "\.(html|tsx|ts|js)$">
+# منع التخزين المؤقت أثناء التطوير لضمان رؤية التحديثات
+<FilesMatch "\.(html|tsx|ts)$">
     Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
-    Header set Pragma "no-cache"
-    Header set Expires "0"
 </FilesMatch>

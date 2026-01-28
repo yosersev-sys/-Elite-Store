@@ -6,50 +6,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>متجر النخبة | Elite Store</title>
     
+    <!-- تهيئة البيئة -->
     <script>
-      // تهيئة البيئة وتتبع الأخطاء العالمية
       window.process = { env: { API_KEY: "" } };
-      window.addEventListener('error', function(e) {
-        console.error('Global Error:', e);
-        const log = document.getElementById('debug-log');
-        if (log) log.innerHTML += '<div class="text-red-500">❌ ' + e.message + '</div>';
-      });
     </script>
 
+    <!-- المكتبات الأساسية (التحميل من CDN موثوق) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- مترجم البابل المدمج - يترجم TSX مباشرة في المتصفح -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
     <style>
       * { font-family: 'Cairo', sans-serif; }
       #loading-overlay {
-        position: fixed;
-        inset: 0;
-        background: white;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        transition: opacity 0.5s;
+        position: fixed; inset: 0; background: white;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        z-index: 9999; transition: opacity 0.5s;
       }
       .loader {
-        width: 50px;
-        height: 50px;
-        border: 5px solid #f3f3f3;
-        border-top: 5px solid #4f46e5;
-        border-radius: 50%;
+        width: 40px; height: 40px; border: 4px solid #f3f3f3;
+        border-top: 4px solid #4f46e5; border-radius: 50%;
         animation: spin 1s linear infinite;
       }
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      .hidden-fade { opacity: 0; pointer-events: none; }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
     "react/": "https://esm.sh/react@^19.2.4/",
     "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
   }
@@ -59,66 +50,66 @@
   <body>
     <div id="loading-overlay">
       <div class="loader"></div>
-      <p id="loading-text" class="mt-6 font-bold text-gray-600 animate-pulse text-center px-4">
-        جاري تشغيل المتجر الذكي...<br/>
-        <span class="text-[10px] text-gray-400 font-normal">قد يستغرق التشغيل الأول بضع ثوانٍ لتهيئة الملفات</span>
-      </p>
-      
-      <div id="debug-log" class="mt-4 text-[10px] font-mono text-gray-300 max-w-xs overflow-hidden text-center"></div>
-      
-      <div id="error-action" class="hidden mt-6 text-center">
-        <div class="bg-red-50 p-6 rounded-[2rem] border border-red-100 mb-4 max-w-xs">
-          <p class="text-red-600 font-black text-sm mb-2">تعذر تشغيل التطبيق</p>
-          <p class="text-gray-500 text-[10px] leading-relaxed">فشل تحميل ملفات البرمجة الأساسية. يرجى التأكد من رفع كافة الملفات.</p>
-        </div>
-        <button onclick="location.reload()" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm shadow-lg shadow-indigo-100 active:scale-95 transition">إعادة المحاولة</button>
-      </div>
+      <p class="mt-4 font-bold text-gray-500 animate-pulse">جاري تحضير المتجر...</p>
     </div>
 
     <div id="root"></div>
 
+    <!-- تعريف خريطة المكتبات لـ Babel -->
+    <script type="text/babel" data-presets="react,typescript">
+      // نحن بحاجة لتعريف المكونات بشكل يسمح لـ Babel بفهم الاستيرادات
+      // بدلاً من الاستيراد الديناميكي المعقد، سنقوم بتعريف نقطة البدء هنا
+      
+      // ملاحظة: لتحقيق أفضل استقرار، سنقوم بتحويل App.tsx لاستيراد محلي
+      // لكن كحل سريع للمشكلة الحالية، سنقوم بتحميل المكونات الأساسية
+    </script>
+
     <script type="module">
-      import { createRoot } from 'https://esm.sh/react-dom@19/client';
-      import React from 'https://esm.sh/react@19';
-
-      async function startApp() {
-        const loadingText = document.getElementById('loading-text');
-        const timeout = setTimeout(() => {
-          document.getElementById('error-action').classList.remove('hidden');
-          loadingText.classList.add('hidden');
-        }, 12000); // 12 ثانية قبل إظهار خطأ المهلة
-
+      // محرك التشغيل الذكي الجديد
+      async function bootstrap() {
         try {
-          // استخدام esm.sh لترجمة ملف App.tsx محلياً وتحويله لجافا سكريبت صالحة
-          // نقوم بتوليد رابط كامل للملف لضمان عدم حدوث مشاكل في المسارات النسبية
-          const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
-          const appUrl = baseUrl + 'App.tsx';
+          // جلب محتوى App.tsx كمتن نصي لتجنب مشاكل الاستيراد الديناميكي
+          const response = await fetch('./App.tsx');
+          if (!response.ok) throw new Error("تعذر الوصول لملف App.tsx");
+          const code = await response.text();
+
+          // ترجمة الكود باستخدام Babel محلياً
+          const transformed = Babel.transform(code, {
+            presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
+            filename: 'App.tsx'
+          }).code;
+
+          // تحويل الكود المترجم إلى وحدة قابلة للتنفيذ
+          const scriptBlob = new Blob([transformed], { type: 'application/javascript' });
+          const scriptUrl = URL.createObjectURL(scriptBlob);
           
-          const module = await import('https://esm.sh/run/' + appUrl);
+          // استيراد التطبيق وتشغيله
+          const module = await import(scriptUrl);
           const App = module.default;
 
-          if (!App) throw new Error("الملف App.tsx لا يحتوي على تصدير افتراضي (Default Export)");
-
-          const container = document.getElementById('root');
-          const root = createRoot(container);
+          const root = ReactDOM.createRoot(document.getElementById('root'));
           root.render(React.createElement(App));
 
-          clearTimeout(timeout);
-          
-          // إخفاء شاشة التحميل
-          const overlay = document.getElementById('loading-overlay');
-          overlay.classList.add('hidden-fade');
-          setTimeout(() => overlay.remove(), 500);
+          // إخفاء التحميل
+          setTimeout(() => {
+            const overlay = document.getElementById('loading-overlay');
+            if(overlay) overlay.style.opacity = '0';
+            setTimeout(() => overlay?.remove(), 500);
+          }, 500);
 
         } catch (err) {
-          console.error("Mounting Error:", err);
-          loadingText.innerHTML = '<span class="text-red-500 font-black">فشل في تحميل الملفات</span>';
-          document.getElementById('debug-log').innerHTML = '<div class="text-red-400 mt-2">' + err.message + '</div>';
-          document.getElementById('error-action').classList.remove('hidden');
+          console.error("Critical Start Error:", err);
+          document.getElementById('loading-overlay').innerHTML = `
+            <div class="text-center p-8">
+              <h2 class="text-red-600 font-bold mb-2">فشل تشغيل المحرك</h2>
+              <p class="text-gray-500 text-sm">لم نتمكن من ترجمة ملفات البرمجة. يرجى التأكد من أن جميع الملفات (.tsx) مرفوعة بشكل صحيح في المجلد الرئيسي.</p>
+              <button onclick="location.reload()" class="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-xl">إعادة المحاولة</button>
+            </div>
+          `;
         }
       }
 
-      startApp();
+      bootstrap();
     </script>
   </body>
 </html>
