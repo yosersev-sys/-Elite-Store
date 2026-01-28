@@ -294,14 +294,15 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* زر لوحة التحكم العائم المحسن */}
+      {/* زر لوحة التحكم العائم (FAB) */}
       <button 
         onClick={() => setView(view === 'admin' || view === 'admin-form' ? 'store' : 'admin')}
-        className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-6 py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-500 transform hover:scale-105 active:scale-95 group ${
+        className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-5 py-4 sm:px-6 sm:py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-500 transform hover:scale-110 active:scale-90 group ${
           view === 'admin' || view === 'admin-form'
           ? 'bg-slate-900 text-white ring-4 ring-slate-100'
           : 'bg-indigo-600 text-white ring-4 ring-indigo-50 shadow-indigo-200'
         }`}
+        aria-label="Toggle Dashboard"
       >
         <span className="hidden sm:inline-block">
           {view === 'admin' || view === 'admin-form' ? "العودة للمتجر" : "لوحة التحكم"}
@@ -316,7 +317,7 @@ const App: React.FC = () => {
             )}
           </svg>
           
-          {/* تنبيه نبضي للطلبات الجديدة */}
+          {/* تنبيه نبضي للطلبات الجديدة في وضع المتجر */}
           {pendingOrdersCount > 0 && !(view === 'admin' || view === 'admin-form') && (
             <span className="absolute -top-2 -right-2 flex h-5 w-5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
