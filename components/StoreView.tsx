@@ -55,14 +55,17 @@ const StoreView: React.FC<StoreViewProps> = ({
 
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-t border-gray-100 pt-12">
-          <h2 className="text-3xl font-black text-gray-900">
-            {selectedCategoryId === 'all' ? 'كل المنتجات' : `قسم ${categories.find(c => c.id === selectedCategoryId)?.name}`}
-          </h2>
+          <div className="space-y-1">
+             <h2 className="text-3xl font-black text-gray-900">
+               {selectedCategoryId === 'all' ? 'كل المنتجات' : `قسم ${categories.find(c => c.id === selectedCategoryId)?.name}`}
+             </h2>
+             <p className="text-gray-400 text-sm font-bold">تصفح مجموعتنا الحصرية في جميع الأقسام</p>
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <button 
               onClick={() => onCategorySelect('all')}
-              className={`px-5 py-2 rounded-full text-sm transition font-bold ${selectedCategoryId === 'all' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'}`}
+              className={`px-5 py-2 rounded-full text-xs transition font-black border-2 ${selectedCategoryId === 'all' ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500 hover:border-indigo-200'}`}
             >
               الكل
             </button>
@@ -70,7 +73,7 @@ const StoreView: React.FC<StoreViewProps> = ({
               <button 
                 key={cat.id}
                 onClick={() => onCategorySelect(cat.id)}
-                className={`px-5 py-2 rounded-full text-sm transition font-bold ${selectedCategoryId === cat.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'}`}
+                className={`px-5 py-2 rounded-full text-xs transition font-black border-2 ${selectedCategoryId === cat.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500 hover:border-indigo-200'}`}
               >
                 {cat.name}
               </button>
@@ -91,6 +94,12 @@ const StoreView: React.FC<StoreViewProps> = ({
             />
           ))}
         </div>
+
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-20 bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-200">
+             <p className="text-gray-400 font-bold">لا توجد منتجات تطابق بحثك حالياً.</p>
+          </div>
+        )}
       </div>
     </div>
   );

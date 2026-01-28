@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // تحديث الرابط في شريط العنوان
   const updateUrl = (params: Record<string, string | null>) => {
     const url = new URL(window.location.href);
     Object.entries(params).forEach(([key, value]) => {
@@ -66,6 +67,8 @@ const App: React.FC = () => {
       setView('cart');
     } else if (viewParam === 'wishlist') {
       setView('wishlist');
+    } else if (viewParam === 'checkout') {
+      setView('checkout');
     } else {
       setView('store');
       setSelectedCategoryId('all');
@@ -86,7 +89,7 @@ const App: React.FC = () => {
         setCategories(fetchedCats);
         setOrders(fetchedOrders);
 
-        // معالجة الرابط الحالي عند التحميل
+        // معالجة الرابط الحالي عند التحميل الأول
         handleRouting(fetchedProducts, fetchedCats);
 
         const savedCart = localStorage.getItem('elite_cart');
@@ -105,12 +108,16 @@ const App: React.FC = () => {
 
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
-      const productSlug = params.get('p');
       const categoryId = params.get('c');
+      const productSlug = params.get('p');
       const viewParam = params.get('v');
 
       if (productSlug) {
-        setView('product-details');
+        const prod = products.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
+        if (prod) {
+          setSelectedProduct(prod);
+          setView('product-details');
+        }
       } else if (categoryId) {
         setSelectedCategoryId(categoryId);
         setView('category-page');
@@ -119,19 +126,13 @@ const App: React.FC = () => {
       } else {
         setView('store');
         setSelectedCategoryId('all');
+        setSelectedProduct(null);
       }
     };
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('elite_cart', JSON.stringify(cart));
-  }, [cart]);
-
-  useEffect(() => {
-    localStorage.setItem('elite_wishlist', JSON.stringify(wishlist));
-  }, [wishlist]);
+  }, [products]);
 
   const navigateToStore = () => {
     updateUrl({ p: null, v: null, c: null });
@@ -151,6 +152,7 @@ const App: React.FC = () => {
     if (id === 'all') {
       navigateToStore();
     } else {
+      // تحديث الرابط ليحتوي على اسم/معرف القسم
       updateUrl({ c: id, p: null, v: null });
       setSelectedCategoryId(id);
       setView('category-page');
@@ -201,17 +203,6 @@ const App: React.FC = () => {
 
     await ApiService.saveOrder(newOrder);
     
-    for (const item of cart) {
-      const prod = products.find(p => p.id === item.id);
-      if (prod) {
-        await ApiService.updateProduct({
-          ...prod,
-          stockQuantity: Math.max(0, prod.stockQuantity - item.quantity),
-          salesCount: (prod.salesCount || 0) + item.quantity
-        });
-      }
-    }
-
     setOrders(prev => [newOrder, ...prev]);
     const updatedProducts = await ApiService.getProducts();
     setProducts(updatedProducts);
@@ -219,14 +210,15 @@ const App: React.FC = () => {
     setLastPlacedOrder(newOrder);
     setCart([]);
     setView('order-success');
+    updateUrl({ v: 'order-success' });
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 font-sans">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-bold">جاري جلب البيانات من السيرفر...</p>
+          <p className="text-gray-500 font-bold">جاري تحميل المتجر...</p>
         </div>
       </div>
     );
