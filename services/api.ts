@@ -1,12 +1,12 @@
 import { Product, Category, Order } from '../types';
 
 /**
- * دالة للحصول على المسار الأساسي لـ API بشكل مطلق من جذر الموقع
- * لضمان عمل الطلبات من أي صفحة فرعية
+ * دالة للحصول على المسار الأساسي لـ API بشكل نسبي
+ * لضمان عمل الطلبات من أي مكان يوجد فيه التطبيق
  */
 const getBaseUrl = () => {
-  // استخدام المسار المطلق من الجذر لملف api.php
-  return '/api.php';
+  // استخدام مسار نسبي لضمان التوافق مع المجلدات الفرعية
+  return 'api.php';
 };
 
 const safeFetch = async (action: string, options?: RequestInit) => {

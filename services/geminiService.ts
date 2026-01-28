@@ -1,22 +1,23 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// الوصول الآمن لمفتاح API لمنع الشاشة البيضاء
+// الوصول الآمن لمفتاح API لمنع الشاشة البيضاء في المتصفح
 const getApiKey = () => {
-  try {
-    return process.env.API_KEY || "";
-  } catch (e) {
-    return "";
+  // التحقق من وجود process قبل محاولة استخدامه
+  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+    return process.env.API_KEY;
   }
+  return "";
 };
 
 const apiKey = getApiKey();
+// لا نقوم بإنشاء كائن AI إلا إذا كان المفتاح متوفراً
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-/**
- * Generates an Arabic marketing description using Gemini 3 Flash.
- */
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
-  if (!ai) return "خدمة الذكاء الاصطناعي غير متوفرة حالياً.";
+  if (!ai) {
+    console.warn("AI service disabled: No API key provided.");
+    return "خدمة الذكاء الاصطناعي غير متوفرة حالياً (يرجى إعداد API_KEY).";
+  }
   
   try {
     const response = await ai.models.generateContent({
@@ -31,9 +32,6 @@ export const generateProductDescription = async (productName: string, category: 
   }
 };
 
-/**
- * Generates SEO metadata including title, description, keywords, and slug using a JSON schema.
- */
 export const generateSeoData = async (productName: string, description: string) => {
   if (!ai) return null;
 
