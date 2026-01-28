@@ -6,7 +6,6 @@ import StoreView from './components/StoreView';
 import AdminDashboard from './components/AdminDashboard';
 import CartView from './components/CartView';
 import ProductDetailsView from './components/ProductDetailsView';
-import AdminProductForm from './components/AdminProductForm';
 import AuthView from './components/AuthView';
 import CheckoutView from './components/CheckoutView';
 import OrderSuccessView from './components/OrderSuccessView';
@@ -24,21 +23,39 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const updateUrl = (params: Record<string, string | null>) => {
+    const url = new URL(window.location.href);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    });
+    window.history.pushState({}, '', url.toString());
+  };
+
   // نظام معالجة الروابط (Routing Logic)
-  const handleRouting = (allProducts: Product[]) => {
+  const handleRouting = (allProducts: Product[], allCategories: Category[]) => {
     const params = new URLSearchParams(window.location.search);
     const productSlug = params.get('p');
+    const categoryId = params.get('c');
     const viewParam = params.get('v');
 
     if (productSlug) {
-      const product = allProducts.find(p => p.seoSettings?.slug === productSlug);
+      const product = allProducts.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
       if (product) {
         setSelectedProduct(product);
         setView('product-details');
+        return;
+      }
+    }
+
+    if (categoryId) {
+      const categoryExists = allCategories.some(cat => cat.id === categoryId);
+      if (categoryExists) {
+        setSelectedCategoryId(categoryId);
+        setView('category-page');
         return;
       }
     }
@@ -51,6 +68,7 @@ const App: React.FC = () => {
       setView('wishlist');
     } else {
       setView('store');
+      setSelectedCategoryId('all');
     }
   };
 
@@ -69,7 +87,7 @@ const App: React.FC = () => {
         setOrders(fetchedOrders);
 
         // معالجة الرابط الحالي عند التحميل
-        handleRouting(fetchedProducts);
+        handleRouting(fetchedProducts, fetchedCats);
 
         const savedCart = localStorage.getItem('elite_cart');
         if (savedCart) setCart(JSON.parse(savedCart));
@@ -85,13 +103,22 @@ const App: React.FC = () => {
 
     loadData();
 
-    // الاستماع لتغييرات الروابط (Back/Forward)
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
-      const slug = params.get('p');
-      if (!slug) {
+      const productSlug = params.get('p');
+      const categoryId = params.get('c');
+      const viewParam = params.get('v');
+
+      if (productSlug) {
+        setView('product-details');
+      } else if (categoryId) {
+        setSelectedCategoryId(categoryId);
+        setView('category-page');
+      } else if (viewParam) {
+        setView(viewParam as View);
+      } else {
         setView('store');
-        setSelectedProduct(null);
+        setSelectedCategoryId('all');
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -106,26 +133,28 @@ const App: React.FC = () => {
     localStorage.setItem('elite_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
-  const updateUrl = (params: Record<string, string | null>) => {
-    const url = new URL(window.location.href);
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) url.searchParams.set(key, value);
-      else url.searchParams.delete(key);
-    });
-    window.history.pushState({}, '', url.toString());
-  };
-
   const navigateToStore = () => {
-    updateUrl({ p: null, v: null });
+    updateUrl({ p: null, v: null, c: null });
+    setSelectedCategoryId('all');
     setView('store');
     setSelectedProduct(null);
   };
 
   const navigateToProduct = (product: Product) => {
     const slug = product.seoSettings?.slug || product.id;
-    updateUrl({ p: slug, v: null });
+    updateUrl({ p: slug, v: null, c: null });
     setSelectedProduct(product);
     setView('product-details');
+  };
+
+  const navigateToCategory = (id: string | 'all') => {
+    if (id === 'all') {
+      navigateToStore();
+    } else {
+      updateUrl({ c: id, p: null, v: null });
+      setSelectedCategoryId(id);
+      setView('category-page');
+    }
   };
 
   const toggleFavorite = (productId: string) => {
@@ -204,7 +233,6 @@ const App: React.FC = () => {
   }
 
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
-  const pendingOrdersCount = orders.filter(o => o.status === 'pending').length;
 
   return (
     <div className="min-h-screen flex flex-col font-sans relative">
@@ -218,14 +246,11 @@ const App: React.FC = () => {
           if (v === 'store') navigateToStore();
           else {
             setView(v);
-            updateUrl({ v, p: null });
+            updateUrl({ v, p: null, c: null });
           }
         }}
         onSearch={setSearchQuery}
-        onCategorySelect={(id) => {
-          setSelectedCategoryId(id);
-          setView(id === 'all' ? 'store' : 'category-page');
-        }}
+        onCategorySelect={navigateToCategory}
       />
 
       <main className="flex-grow container mx-auto px-4 py-8">
@@ -235,10 +260,7 @@ const App: React.FC = () => {
             categories={categories}
             searchQuery={searchQuery}
             selectedCategoryId={selectedCategoryId}
-            onCategorySelect={(id) => {
-              setSelectedCategoryId(id);
-              if (id !== 'all') setView('category-page');
-            }}
+            onCategorySelect={navigateToCategory}
             onAddToCart={(p) => addToCart(p, p.sizes?.[0], p.colors?.[0])} 
             onViewProduct={navigateToProduct}
             wishlist={wishlist}
@@ -288,7 +310,7 @@ const App: React.FC = () => {
             cart={cart} 
             onUpdateQuantity={(id, d) => setCart(prev => prev.map(item => (item.id === id) ? { ...item, quantity: Math.max(1, item.quantity + d) } : item))}
             onRemove={(id) => setCart(prev => prev.filter(item => item.id !== id))}
-            onCheckout={() => setView('checkout')}
+            onCheckout={() => { setView('checkout'); updateUrl({ v: 'checkout', p: null, c: null }); }}
             onContinueShopping={navigateToStore}
           />
         )}
@@ -358,7 +380,7 @@ const App: React.FC = () => {
           if (nextView === 'store') navigateToStore();
           else {
             setView('admin');
-            updateUrl({ v: 'admin', p: null });
+            updateUrl({ v: 'admin', p: null, c: null });
           }
         }}
         className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-6 py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-500 transform hover:scale-110 active:scale-95 group ${
