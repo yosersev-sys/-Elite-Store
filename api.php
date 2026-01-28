@@ -1,11 +1,12 @@
 <?php
 /**
- * API Backend for Elite Store - Strict JSON Mode
+ * API Backend for Elite Store
  */
 ob_start();
-error_reporting(0);
+error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
+// إعدادات الـ CORS للسماح بالطلبات من واجهات برمجية مختلفة
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -17,11 +18,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 try {
-    if (!file_exists('config.php')) throw new Exception("config.php not found");
+    if (!file_exists('config.php')) {
+        throw new Exception("File config.php not found.");
+    }
     require_once 'config.php';
 
     $action = $_GET['action'] ?? '';
     $output = null;
+
+    // قراءة البيانات المرسلة بصيغة JSON
+    $inputData = json_decode(file_get_contents('php://input'), true);
 
     switch ($action) {
         case 'get_products':
@@ -58,47 +64,86 @@ try {
             break;
 
         case 'add_product':
-            $d = json_decode(file_get_contents('php://input'), true);
+            if (!$inputData) throw new Exception("No product data provided.");
             $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, seoSettings, salesCount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$d['id'], $d['name'], $d['description'], $d['price'], $d['categoryId'], json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), (int)$d['stockQuantity'], $d['createdAt'] ?: (time()*1000), json_encode($d['seoSettings'] ?? null), 0]);
+            $stmt->execute([
+                $inputData['id'] ?? 'p_'.time(),
+                $inputData['name'],
+                $inputData['description'],
+                $inputData['price'],
+                $inputData['categoryId'],
+                json_encode($inputData['images'] ?? []),
+                json_encode($inputData['sizes'] ?? []),
+                json_encode($inputData['colors'] ?? []),
+                (int)$inputData['stockQuantity'],
+                $inputData['createdAt'] ?? (time() * 1000),
+                json_encode($inputData['seoSettings'] ?? null),
+                0
+            ]);
             $output = ['status' => 'success'];
             break;
 
         case 'update_product':
-            $d = json_decode(file_get_contents('php://input'), true);
-            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=? WHERE id=?");
-            $stmt->execute([$d['name'], $d['description'], $d['price'], $d['categoryId'], json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), (int)$d['stockQuantity'], json_encode($d['seoSettings'] ?? null), $d['id']]);
+            if (!$inputData) throw new Exception("No update data provided.");
+            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=?, salesCount=? WHERE id=?");
+            $stmt->execute([
+                $inputData['name'],
+                $inputData['description'],
+                $inputData['price'],
+                $inputData['categoryId'],
+                json_encode($inputData['images']),
+                json_encode($inputData['sizes'] ?? []),
+                json_encode($inputData['colors'] ?? []),
+                (int)$inputData['stockQuantity'],
+                json_encode($inputData['seoSettings']),
+                (int)($inputData['salesCount'] ?? 0),
+                $inputData['id']
+            ]);
             $output = ['status' => 'success'];
             break;
 
         case 'delete_product':
+            $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-            $stmt->execute([$_GET['id']]);
+            $stmt->execute([$id]);
             $output = ['status' => 'success'];
             break;
 
         case 'add_category':
-            $d = json_decode(file_get_contents('php://input'), true);
+            if (!$inputData) throw new Exception("No category data provided.");
             $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
-            $stmt->execute([$d['id'], $d['name']]);
+            $stmt->execute([$inputData['id'], $inputData['name']]);
             $output = ['status' => 'success'];
             break;
 
         case 'delete_category':
+            $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
-            $stmt->execute([$_GET['id']]);
+            $stmt->execute([$id]);
             $output = ['status' => 'success'];
             break;
 
         case 'save_order':
-            $d = json_decode(file_get_contents('php://input'), true);
+            if (!$inputData) throw new Exception("No order data provided.");
             $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, items, subtotal, total, paymentMethod, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$d['id'], $d['customerName'], $d['phone'], $d['city'], $d['address'], json_encode($d['items']), $d['subtotal'], $d['total'], $d['paymentMethod'], 'pending', $d['createdAt'] ?: (time()*1000)]);
+            $stmt->execute([
+                $inputData['id'],
+                $inputData['customerName'],
+                $inputData['phone'],
+                $inputData['city'],
+                $inputData['address'],
+                json_encode($inputData['items']),
+                $inputData['subtotal'],
+                $inputData['total'],
+                $inputData['paymentMethod'],
+                $inputData['status'],
+                $inputData['createdAt']
+            ]);
             $output = ['status' => 'success'];
             break;
 
         default:
-            $output = ['error' => 'unknown_action'];
+            $output = ['status' => 'error', 'message' => "Unknown action: $action"];
             break;
     }
 
@@ -106,6 +151,7 @@ try {
     echo json_encode($output);
 } catch (Exception $e) {
     ob_clean();
+    http_response_code(200); // Return 200 but with error status to be handled by JS
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 exit;

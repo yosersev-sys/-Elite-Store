@@ -1,8 +1,13 @@
-
-DirectoryIndex index.php
+DirectoryIndex index.php index.html
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    
+    # السماح بالوصول المباشر للملفات الموجودة فعلياً (مثل api.php, images, css, js)
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+    
+    # تحويل كل الطلبات الأخرى إلى index.php لدعم الـ Routing في React
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ index.php [L]
