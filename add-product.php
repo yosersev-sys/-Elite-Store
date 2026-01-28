@@ -7,16 +7,20 @@ header('Content-Type: text/html; charset=utf-8');
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>إضافة منتج جديد | متجر النخبة</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
+    <!-- Babel for JSX support in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <script type="importmap">
     {
       "imports": {
         "react": "https://esm.sh/react@19.0.0",
-        "react/": "https://esm.sh/react@19.0.0/",
         "react-dom": "https://esm.sh/react-dom@19.0.0",
         "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
         "@google/genai": "https://esm.sh/@google/genai@1.38.0"
@@ -29,27 +33,17 @@ header('Content-Type: text/html; charset=utf-8');
         body { background-color: #f8fafc; margin: 0; padding: 0; }
         .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        #error-display { display: none; padding: 20px; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; margin: 20px; border-radius: 10px; }
+        #error-display { display: none; padding: 20px; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; margin: 20px; border-radius: 10px; text-align: center; font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="error-display"></div>
     <div id="root"></div>
 
-    <script type="module">
+    <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useRef } from 'react';
         import ReactDOM from 'react-dom/client';
         import { GoogleGenAI, Type } from "@google/genai";
-
-        // التعامل مع أخطاء التحميل الأولية
-        window.onerror = function(msg, url, lineNo, columnNo, error) {
-            const display = document.getElementById('error-display');
-            if (display) {
-                display.style.display = 'block';
-                display.innerHTML = `حدث خطأ في تحميل الصفحة: ${msg} (السطر: ${lineNo})`;
-            }
-            return false;
-        };
 
         const App = () => {
             const [categories, setCategories] = useState([]);
@@ -86,7 +80,7 @@ header('Content-Type: text/html; charset=utf-8');
             }, []);
 
             const generateDescription = async () => {
-                if (!formData.name) return alert('يرجى إدخال اسم المنتج');
+                if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً');
                 setIsLoadingAi(true);
                 try {
                     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -97,7 +91,7 @@ header('Content-Type: text/html; charset=utf-8');
                     });
                     setFormData(prev => ({ ...prev, description: response.text || "" }));
                 } catch (e) { 
-                    console.error(e);
+                    console.error("AI Error:", e);
                     alert('خطأ في الاتصال بالذكاء الاصطناعي'); 
                 }
                 setIsLoadingAi(false);
@@ -154,9 +148,9 @@ header('Content-Type: text/html; charset=utf-8');
                     <div className="flex justify-between items-center mb-10">
                         <div>
                             <h1 className="text-3xl font-black text-slate-900">إضافة منتج جديد</h1>
-                            <p className="text-slate-500 mt-2">قم بإدخال تفاصيل المنتج بدقة لضمان أفضل عرض للعملاء</p>
+                            <p className="text-slate-500 mt-2 font-bold italic">لوحة التحكم السحابية - متجر النخبة</p>
                         </div>
-                        <a href="index.php?v=admin" className="px-6 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition">إلغاء</a>
+                        <a href="index.php?v=admin" className="px-6 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition">إلغاء والعودة</a>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-8 bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
@@ -168,7 +162,7 @@ header('Content-Type: text/html; charset=utf-8');
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-400 mr-2">التصنيف</label>
                                 <select value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition">
-                                    {categories.length > 0 ? categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>) : <option>لا توجد تصنيفات</option>}
+                                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-2">
@@ -183,9 +177,9 @@ header('Content-Type: text/html; charset=utf-8');
 
                         <div className="space-y-2 relative">
                             <label className="text-sm font-bold text-slate-400 mr-2">الوصف</label>
-                            <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none min-h-[150px] focus:ring-2 focus:ring-indigo-500 transition" placeholder="اكتب وصفاً جذاباً للمنتج..." />
-                            <button type="button" onClick={generateDescription} disabled={isLoadingAi} className="absolute left-4 bottom-4 bg-indigo-600 text-white text-[10px] px-3 py-1.5 rounded-lg hover:bg-slate-900 transition disabled:opacity-50">
-                                {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي بواسطة Gemini'}
+                            <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none min-h-[150px] focus:ring-2 focus:ring-indigo-500 transition" placeholder="اكتب وصفاً جذاباً للمنتج أو استخدم الذكاء الاصطناعي..." />
+                            <button type="button" onClick={generateDescription} disabled={isLoadingAi} className="absolute left-4 bottom-4 bg-indigo-600 text-white text-[11px] px-4 py-2 rounded-xl hover:bg-slate-900 transition disabled:opacity-50 shadow-lg shadow-indigo-100">
+                                {isLoadingAi ? 'جاري التوليد...' : '✨ إنشاء وصف ذكي بواسطة Gemini'}
                             </button>
                         </div>
 
@@ -198,16 +192,16 @@ header('Content-Type: text/html; charset=utf-8');
                                         <button type="button" onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, idx) => idx !== i)}))} className="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-lg opacity-0 group-hover:opacity-100 transition">✕</button>
                                     </div>
                                 ))}
-                                <button type="button" onClick={() => fileInputRef.current.click()} className="w-24 h-24 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-300 hover:border-indigo-500 hover:text-indigo-500 transition">
+                                <button type="button" onClick={() => fileInputRef.current.click()} className="w-24 h-24 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-300 hover:border-indigo-500 hover:text-indigo-500 transition bg-slate-50/50">
                                     <span className="text-2xl">+</span>
-                                    <span className="text-[10px] font-bold">رفع</span>
+                                    <span className="text-[10px] font-bold">رفع صور</span>
                                 </button>
                                 <input type="file" ref={fileInputRef} hidden multiple onChange={handleFileChange} accept="image/*" />
                             </div>
                         </div>
 
                         <button type="submit" disabled={isSaving} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl shadow-2xl hover:bg-indigo-600 transition disabled:opacity-50 active:scale-95 transform">
-                            {isSaving ? 'جاري الحفظ...' : 'نشر المنتج الآن 🚀'}
+                            {isSaving ? 'جاري معالجة البيانات...' : 'نشر المنتج في المتجر الآن 🚀'}
                         </button>
                     </form>
                 </div>
@@ -216,7 +210,7 @@ header('Content-Type: text/html; charset=utf-8');
 
         const container = document.getElementById('root');
         const root = ReactDOM.createRoot(container);
-        root.render(React.createElement(App));
+        root.render(<App />);
     </script>
 </body>
 </html>
