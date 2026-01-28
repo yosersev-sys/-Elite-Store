@@ -1,27 +1,44 @@
 
 <?php
-// إعدادات الـ API
 header('Content-Type: application/json');
-$dataFile = 'database.json';
+$productsFile = 'products.json';
+$catsFile = 'categories.json';
 
-// إنشاء الملف إذا لم يكن موجوداً
-if (!file_exists($dataFile)) {
-    file_put_contents($dataFile, json_encode([
-        ["id" => 1, "name" => "ساعة ذكية برو", "price" => 250, "images" => ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600"]]
-    ]));
+// تهيئة البيانات الافتراضية إذا لم توجد
+if (!file_exists($productsFile)) {
+    file_put_contents($productsFile, json_encode([
+        ["id" => 1, "name" => "ساعة ذكية ألترا", "price" => 450, "description" => "شاشة أموليد متطورة مع تتبع للنشاط الرياضي والقلب.", "images" => ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600"]]
+    ], JSON_UNESCAPED_UNICODE));
+}
+if (!file_exists($catsFile)) {
+    file_put_contents($catsFile, json_encode([
+        ["id" => "cat_1", "name" => "إلكترونيات"],
+        ["id" => "cat_2", "name" => "أزياء"]
+    ], JSON_UNESCAPED_UNICODE));
 }
 
 $action = $_GET['action'] ?? '';
 
-if ($action == 'get_products') {
-    echo file_get_contents($dataFile);
-}
-
-if ($action == 'add_product') {
-    $newProduct = json_decode(file_get_contents('php://input'), true);
-    $currentData = json_decode(file_get_contents($dataFile), true);
-    $currentData[] = $newProduct;
-    file_put_contents($dataFile, json_encode($currentData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-    echo json_encode(['status' => 'success']);
+switch($action) {
+    case 'get_products':
+        echo file_get_contents($productsFile);
+        break;
+    case 'get_categories':
+        echo file_get_contents($catsFile);
+        break;
+    case 'add_product':
+        $new = json_decode(file_get_contents('php://input'), true);
+        $data = json_decode(file_get_contents($productsFile), true);
+        $data[] = $new;
+        file_put_contents($productsFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        echo json_encode(['status' => 'success']);
+        break;
+    case 'delete_product':
+        $req = json_decode(file_get_contents('php://input'), true);
+        $data = json_decode(file_get_contents($productsFile), true);
+        $newData = array_filter($data, function($p) use ($req) { return $p['id'] != $req['id']; });
+        file_put_contents($productsFile, json_encode(array_values($newData), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        echo json_encode(['status' => 'success']);
+        break;
 }
 ?>
