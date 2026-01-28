@@ -1,24 +1,24 @@
 
-RewriteEngine On
-RewriteBase /
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # إذا كان الملف موجوداً كملف حقيقي، لا تلمسه
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+  
+  # توجيه الروابط الوهمية لـ index.html لدعم React Router
+  RewriteRule . /index.html [L]
+</IfModule>
 
-# 1. إذا كان الملف موجوداً كملف حقيقي، قدمه فوراً ولا تطبق القواعد
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^ - [L]
-
-# 2. إجبار السيرفر على تقديم ملفات الموديولات كجافا سكريبت
-<FilesMatch "\.(tsx|ts|jsx)$">
-    Header set Content-Type "application/javascript"
+# منع السيرفر من اعتبار ملفات الكود كجافا سكريبت تنفيذية قبل الترجمة
+# هذا يحل خطأ SyntaxError لأن المترجم هو من سيقوم بطلبها
+<FilesMatch "\.(tsx|ts)$">
+    ForceType text/plain
+    Header set Content-Type "text/plain"
 </FilesMatch>
 
-# 3. توجيه كافة المسارات الأخرى لـ index.html لدعم روابط الـ SPA
-RewriteRule ^ index.html [L]
-
-# منع التخزين المؤقت لملفات البرمجة أثناء التطوير لضمان رؤية التحديثات
-<FilesMatch "\.(tsx|ts|html)$">
-    Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
-    Header set Pragma "no-cache"
-    Header set Expires "0"
-</FilesMatch>
-
-AddType application/javascript .js .jsx .ts .tsx
+# تفعيل CORS للسماح للمترجم بسحب الملفات
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>

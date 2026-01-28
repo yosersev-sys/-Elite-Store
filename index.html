@@ -4,20 +4,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>متجر النخبة | افضل متجر الكتروني</title>
+    <title>متجر النخبة | Elite Store</title>
+    
+    <!-- تعريف بيئة العمل قبل أي شيء -->
+    <script>
+      window.process = { env: { API_KEY: "" } };
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- تحميل Babel لتحويل كود TSX/React في المتصفح -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <script>
-      // تعريف بيئة العمل لمنع الأخطاء
-      window.process = { env: { API_KEY: "" } };
-    </script>
-
     <!-- مكتبات مساعدة -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -31,9 +29,10 @@
         },
       }
     </script>
+    
     <style>
       * { font-family: 'Cairo', sans-serif; }
-      body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; margin: 0; padding: 0; }
+      body { margin: 0; padding: 0; background-color: #f9fafb; }
       #loading-overlay {
         position: fixed;
         inset: 0;
@@ -43,83 +42,61 @@
         align-items: center;
         justify-content: center;
         z-index: 9999;
-        transition: opacity 0.5s ease-out;
       }
       .loader {
-        width: 48px;
-        height: 48px;
-        border: 5px solid #4f46e5;
+        width: 40px;
+        height: 40px;
+        border: 4px solid #4f46e5;
         border-bottom-color: transparent;
         border-radius: 50%;
         animation: rotation 1s linear infinite;
       }
       @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      .no-export, .no-screenshot { display: none !important; }
     </style>
-    
-    <script type="importmap">
+
+    <!-- محرك التشغيل الذكي للموديولات والـ TSX -->
+    <script src="https://esm.sh/run" type="module"></script>
+  <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
-    "react-dom": "https://esm.sh/react-dom@^19.2.4",
-    "react-dom/client": "https://esm.sh/react-dom@^19.2.4/client",
-    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
   }
 }
 </script>
-  </head>
-  <body class="bg-gray-50 text-gray-900">
+</head>
+  <body>
     <div id="loading-overlay">
       <span class="loader"></span>
-      <p class="font-bold text-gray-600 mt-4">جاري تشغيل المتجر الذكي...</p>
+      <p class="font-bold text-gray-600 mt-4 tracking-widest">جاري معالجة الكود الذكي...</p>
     </div>
 
     <div id="root"></div>
 
-    <!-- كود التشغيل الأساسي (سيتم تحويله بواسطة Babel) -->
-    <script type="text/babel" data-type="module">
+    <!-- كود البدء الرئيسي بنظام Babel/TSX -->
+    <script type="text/babel">
       import React from 'react';
       import ReactDOM from 'react-dom/client';
       import App from './App.tsx';
 
-      const rootElement = document.getElementById('root');
-      if (rootElement) {
-        const root = ReactDOM.createRoot(rootElement);
-        root.render(
-          <React.StrictMode>
-            <App />
-          </React.StrictMode>
-        );
-      }
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
 
-      // إخفاء شاشة التحميل بعد التنفيذ
+      // إخفاء شاشة التحميل بعد استقرار التطبيق
       setTimeout(() => {
         const overlay = document.getElementById('loading-overlay');
         if (overlay) {
+          overlay.style.transition = 'opacity 0.5s';
           overlay.style.opacity = '0';
           setTimeout(() => overlay.remove(), 500);
         }
-      }, 800);
-    </script>
-
-    <script>
-      // معالجة الأخطاء العالمية
-      window.onerror = function(msg, url, line, col, error) {
-        console.error('Babel/React Error:', msg);
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) {
-          overlay.innerHTML = `
-            <div class="text-center p-10 bg-white shadow-2xl rounded-3xl max-w-sm">
-              <p class="text-red-500 font-bold mb-4">⚠️ حدث خطأ في تحميل الملفات</p>
-              <p class="text-xs text-gray-400 mb-6">${msg}</p>
-              <button onclick="location.reload()" class="bg-indigo-600 text-white px-6 py-2 rounded-xl">إعادة المحاولة</button>
-            </div>
-          `;
-          overlay.style.opacity = '1';
-        }
-      };
+      }, 1000);
     </script>
   </body>
 </html>
