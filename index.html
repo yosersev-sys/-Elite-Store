@@ -7,18 +7,15 @@
     <title>متجر النخبة | Elite Store</title>
     
     <script>
+      // تهيئة البيئة للذكاء الاصطناعي
       window.process = { env: { API_KEY: "" } };
     </script>
 
+    <!-- تنسيقات Tailwind والخطوط -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
-    <!-- مكتبة Babel للترجمة الفورية -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <script>
       tailwind.config = {
@@ -32,7 +29,6 @@
     
     <style>
       * { font-family: 'Cairo', sans-serif; }
-      body { margin: 0; padding: 0; background-color: #f9fafb; }
       #loading-overlay {
         position: fixed;
         inset: 0;
@@ -42,88 +38,72 @@
         align-items: center;
         justify-content: center;
         z-index: 9999;
-        transition: opacity 0.5s;
       }
       .loader {
-        width: 40px;
-        height: 40px;
-        border: 4px solid #4f46e5;
-        border-bottom-color: transparent;
+        width: 48px;
+        height: 48px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #4f46e5;
         border-radius: 50%;
-        animation: rotation 1s linear infinite;
+        animation: spin 1s linear infinite;
       }
-      @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      .error-box { background: #fef2f2; border: 1px solid #fee2e2; padding: 25px; border-radius: 20px; text-align: center; max-width: 400px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 
-    <script type="importmap">
+    <!-- محرك التشغيل الذكي - يقوم بترجمة TSX تلقائياً -->
+    <script src="https://esm.sh/run" type="module"></script>
+  <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@19.0.0",
-    "react-dom": "https://esm.sh/react-dom@19.0.0",
-    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "@google/genai": "https://esm.sh/@google/genai@1.3.0",
+    "react": "https://esm.sh/react@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/"
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
   }
 }
 </script>
-  </head>
+</head>
   <body>
     <div id="loading-overlay">
-      <div id="status-container" class="flex flex-col items-center">
-        <span class="loader"></span>
-        <p id="loading-text" class="font-bold text-gray-600 mt-4 tracking-widest">جاري تهيئة المتجر الذكي...</p>
-        <p class="text-[10px] text-gray-400 mt-2">قد يستغرق التشغيل الأول ثوانٍ إضافية للترجمة</p>
-      </div>
+      <div class="loader"></div>
+      <p class="mt-4 font-bold text-gray-600 animate-pulse">جاري تشغيل المتجر...</p>
     </div>
 
     <div id="root"></div>
 
-    <script type="text/babel" data-presets="react,typescript" data-type="module">
+    <!-- نقطة الدخول الأساسية بالتنسيق الذي يفهمه المحرك -->
+    <script type="text/tsx">
       import React from 'react';
-      import ReactDOM from 'react-dom/client';
-      
-      // وظيفة ذكية لتحميل ملف App.tsx وترجمته
-      // سنقوم هنا باستدعاء المكون الرئيسي مباشرة
-      // بسبب تعقيد الـ imports في البيئة المتصفحية، سنقوم بتحميل App كـ Module
-      
-      async function startApp() {
-        try {
-          // استخدام esm.sh لتحميل ملفات المشروع المحلية مع الترجمة التلقائية
-          // هذا المحرك يقوم بتحويل ملفات .tsx إلى js صالحة للمتصفح
-          const { default: App } = await import('https://esm.sh/run' + window.location.origin + window.location.pathname + 'App.tsx');
+      import { createRoot } from 'react-dom/client';
+      import App from './App.tsx';
+
+      try {
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+          const root = createRoot(rootElement);
+          root.render(<App />);
           
-          const root = ReactDOM.createRoot(document.getElementById('root'));
-          root.render(
-            <React.StrictMode>
-              <App />
-            </React.StrictMode>
-          );
-
-          // إخفاء شاشة التحميل
-          const overlay = document.getElementById('loading-overlay');
-          if (overlay) {
-            overlay.style.opacity = '0';
-            setTimeout(() => overlay.remove(), 500);
-          }
-        } catch (error) {
-          console.error("Critical Start Error:", error);
-          const container = document.getElementById('status-container');
-          container.innerHTML = `
-            <div class="error-box">
-              <div class="text-4xl mb-4">⚠️</div>
-              <h3 class="text-red-600 font-black text-xl mb-2">فشل تشغيل المحرك</h3>
-              <p class="text-gray-500 text-sm mb-6 leading-relaxed">
-                لم نتمكن من ترجمة ملفات البرمجة. يرجى التأكد من أن جميع الملفات (.tsx) مرفوعة بشكل صحيح في المجلد الرئيسي.
-              </p>
-              <button onclick="location.reload()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 active:scale-95 transition">إعادة المحاولة</button>
-            </div>
-          `;
+          // إخفاء شاشة التحميل بمجرد بدء الرندر
+          setTimeout(() => {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+              overlay.style.transition = 'opacity 0.5s';
+              overlay.style.opacity = '0';
+              setTimeout(() => overlay.remove(), 500);
+            }
+          }, 800);
         }
+      } catch (err) {
+        console.error("Startup Error:", err);
+        document.body.innerHTML = `
+          <div style="padding: 40px; text-align: center; font-family: sans-serif;">
+            <h2 style="color: red;">⚠️ فشل تشغيل المتجر</h2>
+            <p>حدث خطأ تقني أثناء تحميل الملفات البرمجية.</p>
+            <p style="font-size: 12px; color: #666;">${err.message}</p>
+            <button onclick="location.reload()" style="padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer;">إعادة المحاولة</button>
+          </div>
+        `;
       }
-
-      startApp();
     </script>
   </body>
 </html>
