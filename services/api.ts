@@ -1,105 +1,72 @@
+
 import { Product, Category, Order } from '../types';
 
-/**
- * دالة للحصول على المسار الأساسي لـ API بشكل نسبي
- * لضمان عمل الطلبات من أي مكان يوجد فيه التطبيق
- */
-const getBaseUrl = () => {
-  // استخدام مسار نسبي لضمان التوافق مع المجلدات الفرعية
-  return 'api.php';
-};
-
-const safeFetch = async (action: string, options?: RequestInit) => {
-  const url = `${getBaseUrl()}?action=${action}`;
-  try {
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
-      console.error(`Fetch error: ${response.status} at ${url}`);
-      return null;
-    }
-
-    const text = await response.text();
-    const trimmed = text.trim();
-
-    // التحقق من أن الاستجابة هي JSON وليست صفحة خطأ HTML
-    if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) {
-      console.error('API Error: Server returned HTML instead of JSON. Check database connection in api.php');
-      return null;
-    }
-
-    try {
-      return JSON.parse(trimmed);
-    } catch (e) {
-      console.error('API Error: Failed to parse JSON:', trimmed);
-      return null;
-    }
-  } catch (e) {
-    console.error('Network Error:', e);
-    return null;
-  }
-};
-
 export const ApiService = {
-  getProducts: async (): Promise<Product[]> => {
-    const data = await safeFetch('get_products');
-    return Array.isArray(data) ? data : [];
+  // المنتجات
+  async getProducts(): Promise<Product[]> {
+    try {
+      const saved = localStorage.getItem('elite_products');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   },
 
-  addProduct: async (product: Product): Promise<boolean> => {
-    const data = await safeFetch('add_product', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(product)
-    });
-    return data?.status === 'success';
+  async addProduct(product: Product): Promise<boolean> {
+    try {
+      const products = await this.getProducts();
+      localStorage.setItem('elite_products', JSON.stringify([product, ...products]));
+      return true;
+    } catch (e) {
+      return false;
+    }
   },
 
-  updateProduct: async (product: Product): Promise<boolean> => {
-    const data = await safeFetch('update_product', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(product)
-    });
-    return data?.status === 'success';
+  async updateProduct(updatedProduct: Product): Promise<boolean> {
+    try {
+      const products = await this.getProducts();
+      const newProducts = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+      localStorage.setItem('elite_products', JSON.stringify(newProducts));
+      return true;
+    } catch (e) {
+      return false;
+    }
   },
 
-  deleteProduct: async (id: string): Promise<boolean> => {
-    const data = await safeFetch(`delete_product&id=${id}`, {
-      method: 'DELETE'
-    });
-    return data?.status === 'success';
+  async deleteProduct(id: string): Promise<boolean> {
+    try {
+      const products = await this.getProducts();
+      localStorage.setItem('elite_products', JSON.stringify(products.filter(p => p.id !== id)));
+      return true;
+    } catch (e) {
+      return false;
+    }
   },
 
-  getCategories: async (): Promise<Category[]> => {
-    const data = await safeFetch('get_categories');
-    return Array.isArray(data) ? data : [];
+  // التصنيفات
+  async getCategories(): Promise<Category[]> {
+    const saved = localStorage.getItem('elite_categories');
+    return saved ? JSON.parse(saved) : [];
   },
 
-  addCategory: async (category: Category): Promise<void> => {
-    await safeFetch('add_category', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(category)
-    });
+  async addCategory(category: Category): Promise<void> {
+    const cats = await this.getCategories();
+    localStorage.setItem('elite_categories', JSON.stringify([...cats, category]));
   },
 
-  deleteCategory: async (id: string): Promise<void> => {
-    await safeFetch(`delete_category&id=${id}`, {
-      method: 'DELETE'
-    });
+  async deleteCategory(id: string): Promise<void> {
+    const cats = await this.getCategories();
+    localStorage.setItem('elite_categories', JSON.stringify(cats.filter(c => c.id !== id)));
   },
 
-  getOrders: async (): Promise<Order[]> => {
-    const data = await safeFetch('get_orders');
-    return Array.isArray(data) ? data : [];
+  // الطلبات
+  async getOrders(): Promise<Order[]> {
+    const saved = localStorage.getItem('elite_orders');
+    return saved ? JSON.parse(saved) : [];
   },
 
-  saveOrder: async (order: Order): Promise<void> => {
-    await safeFetch('save_order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(order)
-    });
+  async saveOrder(order: Order): Promise<void> {
+    const orders = await this.getOrders();
+    localStorage.setItem('elite_orders', JSON.stringify([order, ...orders]));
   }
 };

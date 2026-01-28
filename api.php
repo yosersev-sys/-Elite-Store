@@ -1,132 +1,61 @@
+
 <?php
-/**
- * API Backend for Elite Store
- * Hostinger Optimized
- */
-
-// تعطيل عرض الأخطاء لضمان مخرجات JSON نظيفة
-error_reporting(0);
-ini_set('display_errors', 0);
-
-header('Content-Type: application/json; charset=utf-8');
+// إعدادات الـ API
+header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
+$productsFile = 'products.json';
+$catsFile = 'categories.json';
+
+// تهيئة البيانات إذا لم توجد
+if (!file_exists($productsFile)) {
+    file_put_contents($productsFile, json_encode([
+        ["id" => 1, "name" => "سماعة بلوتوث لاسلكية", "price" => 120, "categoryId" => "cat_1", "description" => "سماعة عالية الجودة مع عزل للضجيج وبطارية تدوم طويلاً.", "images" => ["https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600"]],
+        ["id" => 2, "name" => "ساعة رياضية ذكية", "price" => 280, "categoryId" => "cat_1", "description" => "تتبع نبضات القلب والنشاط البدني مع شاشة ملونة.", "images" => ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600"]]
+    ], JSON_UNESCAPED_UNICODE));
 }
 
-// بيانات قاعدة البيانات
-$host = 'localhost';
-$db_name = 'u588213546_store';
-$db_user = 'u588213546_store';
-$db_pass = 'sK0KAGUm|';
-
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-
-    // التأكد من وجود الجداول
-    $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL) ENGINE=InnoDB;");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10, 2), categoryId VARCHAR(50), images LONGTEXT, sizes LONGTEXT, colors LONGTEXT, stockQuantity INT DEFAULT 0, salesCount INT DEFAULT 0, seoSettings LONGTEXT, createdAt BIGINT) ENGINE=InnoDB;");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(50), city VARCHAR(100), address TEXT, items LONGTEXT, subtotal DECIMAL(10, 2), total DECIMAL(10, 2), paymentMethod VARCHAR(50), status VARCHAR(50) DEFAULT 'pending', createdAt BIGINT) ENGINE=InnoDB;");
-
-} catch (PDOException $e) {
-    // إرجاع خطأ JSON واضح بدلاً من انهيار السكربت
-    http_response_code(500);
-    echo json_encode(['error' => 'db_error', 'message' => 'تعذر الاتصال بقاعدة البيانات. تأكد من صحة البيانات في ملف api.php']);
-    exit;
+if (!file_exists($catsFile)) {
+    file_put_contents($catsFile, json_encode([
+        ["id" => "cat_1", "name" => "إلكترونيات"],
+        ["id" => "cat_2", "name" => "أزياء"],
+        ["id" => "cat_3", "name" => "منزل ومطبخ"],
+        ["id" => "cat_4", "name" => "جمال وعناية"],
+        ["id" => "cat_5", "name" => "اكسسوارات"]
+    ], JSON_UNESCAPED_UNICODE));
 }
 
 $action = $_GET['action'] ?? '';
 
-switch ($action) {
+switch($action) {
     case 'get_products':
-        $stmt = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC");
-        $res = $stmt->fetchAll();
-        foreach ($res as &$p) {
-            $p['images'] = json_decode($p['images'] ?? '[]') ?: [];
-            $p['sizes'] = json_decode($p['sizes'] ?? '[]') ?: [];
-            $p['colors'] = json_decode($p['colors'] ?? '[]') ?: [];
-            $p['seoSettings'] = json_decode($p['seoSettings'] ?? 'null') ?: null;
-        }
-        echo json_encode($res);
+        echo file_get_contents($productsFile);
         break;
-
+        
     case 'get_categories':
-        $stmt = $pdo->query("SELECT * FROM categories");
-        echo json_encode($stmt->fetchAll());
+        echo file_get_contents($catsFile);
         break;
-
-    case 'get_orders':
-        $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC");
-        $res = $stmt->fetchAll();
-        foreach ($res as &$o) {
-            $o['items'] = json_decode($o['items'] ?? '[]') ?: [];
-        }
-        echo json_encode($res);
-        break;
-
+        
     case 'add_product':
-        $d = json_decode(file_get_contents('php://input'), true);
-        if ($d) {
-            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, seoSettings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$d['id'], $d['name'], $d['description'], $d['price'], $d['categoryId'], json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), $d['stockQuantity'] ?? 0, $d['createdAt'] ?? time(), json_encode($d['seoSettings'] ?? null)]);
+        $new = json_decode(file_get_contents('php://input'), true);
+        if ($new) {
+            $data = json_decode(file_get_contents($productsFile), true);
+            $data[] = $new;
+            file_put_contents($productsFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
             echo json_encode(['status' => 'success']);
         }
         break;
-
-    case 'update_product':
-        $d = json_decode(file_get_contents('php://input'), true);
-        if ($d) {
-            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=? WHERE id=?");
-            $stmt->execute([$d['name'], $d['description'], $d['price'], $d['categoryId'], json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), $d['stockQuantity'] ?? 0, json_encode($d['seoSettings'] ?? null), $d['id']]);
-            echo json_encode(['status' => 'success']);
-        }
-        break;
-
+        
     case 'delete_product':
-        $id = $_GET['id'] ?? '';
-        if ($id) {
-            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-            $stmt->execute([$id]);
+        $req = json_decode(file_get_contents('php://input'), true);
+        if (isset($req['id'])) {
+            $data = json_decode(file_get_contents($productsFile), true);
+            $newData = array_filter($data, function($p) use ($req) {
+                return (string)$p['id'] !== (string)$req['id'];
+            });
+            file_put_contents($productsFile, json_encode(array_values($newData), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
             echo json_encode(['status' => 'success']);
         }
-        break;
-
-    case 'add_category':
-        $d = json_decode(file_get_contents('php://input'), true);
-        if ($d) {
-            $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
-            $stmt->execute([$d['id'], $d['name']]);
-            echo json_encode(['status' => 'success']);
-        }
-        break;
-
-    case 'delete_category':
-        $id = $_GET['id'] ?? '';
-        if ($id) {
-            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
-            $stmt->execute([$id]);
-            echo json_encode(['status' => 'success']);
-        }
-        break;
-
-    case 'save_order':
-        $d = json_decode(file_get_contents('php://input'), true);
-        if ($d) {
-            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, items, subtotal, total, paymentMethod, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$d['id'], $d['customerName'], $d['phone'], $d['city'], $d['address'], json_encode($d['items']), $d['subtotal'], $d['total'], $d['paymentMethod'], 'pending', $d['createdAt'] ?? time()]);
-            echo json_encode(['status' => 'success']);
-        }
-        break;
-
-    default:
-        echo json_encode(['error' => 'invalid_action']);
         break;
 }
-exit;
 ?>

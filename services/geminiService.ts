@@ -1,24 +1,9 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
-// الوصول الآمن لمفتاح API لمنع الشاشة البيضاء في المتصفح
-const getApiKey = () => {
-  // التحقق من وجود process قبل محاولة استخدامه
-  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-    return process.env.API_KEY;
-  }
-  return "";
-};
-
-const apiKey = getApiKey();
-// لا نقوم بإنشاء كائن AI إلا إذا كان المفتاح متوفراً
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
-  if (!ai) {
-    console.warn("AI service disabled: No API key provided.");
-    return "خدمة الذكاء الاصطناعي غير متوفرة حالياً (يرجى إعداد API_KEY).";
-  }
-  
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -33,8 +18,6 @@ export const generateProductDescription = async (productName: string, category: 
 };
 
 export const generateSeoData = async (productName: string, description: string) => {
-  if (!ai) return null;
-
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -55,8 +38,7 @@ export const generateSeoData = async (productName: string, description: string) 
       }
     });
     
-    const text = response.text;
-    return text ? JSON.parse(text) : null;
+    return JSON.parse(response.text);
   } catch (error) {
     console.error("SEO AI Error:", error);
     return null;

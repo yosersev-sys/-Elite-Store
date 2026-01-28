@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { View, Product, CartItem, Category, Order } from './types';
 import Header from './components/Header';
 import StoreView from './components/StoreView';
@@ -32,8 +33,19 @@ const INITIAL_PRODUCTS: Product[] = [
     colors: ['أسود', 'أبيض', 'أزرق'],
     stockQuantity: 15,
     createdAt: Date.now(),
-    salesCount: 150,
-    seoSettings: { metaTitle: 'سماعات برو | متجر النخبة', metaDescription: 'أفضل سماعات لاسلكية', metaKeywords: 'سماعات, بلوتوث', slug: 'wireless-headphones-pro' }
+    salesCount: 150
+  },
+  {
+    id: '2',
+    name: 'ساعة ذكية رياضية',
+    description: 'تتبع نشاطك البدني، نبضات القلب، والنوم مع شاشة AMOLED واضحة ومقاومة للماء.',
+    price: 450,
+    categoryId: 'cat_1',
+    images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600'],
+    colors: ['أسود', 'فضي', 'وردي'],
+    stockQuantity: 3,
+    createdAt: Date.now() - 100000,
+    salesCount: 85
   }
 ];
 
@@ -49,94 +61,39 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const handleRouting = useCallback(() => {
-    const path = window.location.pathname;
-    const parts = path.split('/').filter(Boolean);
-
-    if (parts.length === 0) {
-      setView('store');
-      setSelectedCategoryId('all');
-      setSelectedProduct(null);
-    } else if (parts[0] === 'product' && parts[1]) {
-      const product = products.find(p => p.seoSettings?.slug === parts[1] || p.id === parts[1]);
-      if (product) {
-        setSelectedProduct(product);
-        setView('product-details');
-      } else {
-        setView('store');
-      }
-    } else if (parts[0] === 'category' && parts[1]) {
-      const category = categories.find(c => c.id === parts[1]);
-      if (category) {
-        setSelectedCategoryId(category.id);
-        setView('category-page');
-      } else {
-        setView('store');
-      }
-    } else {
-      const validViews: View[] = ['admin', 'cart', 'auth', 'checkout', 'wishlist'];
-      if (validViews.includes(parts[0] as View)) {
-        setView(parts[0] as View);
-      } else {
-        setView('store');
-      }
-    }
-  }, [products, categories]);
-
-  const navigate = useCallback((newView: View, params?: { slug?: string, id?: string }) => {
-    let path = '/';
-    if (newView === 'product-details' && params?.slug) path = `/product/${params.slug}`;
-    else if (newView === 'category-page' && params?.id) path = `/category/${params.id}`;
-    else if (newView !== 'store') path = `/${newView}`;
-
-    window.history.pushState({}, '', path);
-    handleRouting();
-  }, [handleRouting]);
 
   useEffect(() => {
     const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const fetchedProducts = await ApiService.getProducts();
-        let fetchedCats = await ApiService.getCategories();
-        const fetchedOrders = await ApiService.getOrders();
+      const fetchedProducts = await ApiService.getProducts();
+      const fetchedCats = await ApiService.getCategories();
+      const fetchedOrders = await ApiService.getOrders();
 
-        if (fetchedCats.length === 0) {
-          // محاولة إضافة التصنيفات الافتراضية إذا كانت فارغة
-          for (const cat of DEFAULT_CATEGORIES) {
-            await ApiService.addCategory(cat);
-          }
-          fetchedCats = DEFAULT_CATEGORIES;
-        }
-
-        setProducts(Array.isArray(fetchedProducts) ? fetchedProducts : []);
-        setCategories(Array.isArray(fetchedCats) ? fetchedCats : DEFAULT_CATEGORIES);
-        setOrders(Array.isArray(fetchedOrders) ? fetchedOrders : []);
-
-        const savedCart = localStorage.getItem('elite_cart');
-        if (savedCart) setCart(JSON.parse(savedCart));
-
-        const savedWishlist = localStorage.getItem('elite_wishlist');
-        if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
-      } catch (err) {
-        console.error("Critical failure during loadData:", err);
-      } finally {
-        setIsLoading(false);
+      if (fetchedProducts.length === 0) {
+        setProducts(INITIAL_PRODUCTS);
+        localStorage.setItem('elite_products', JSON.stringify(INITIAL_PRODUCTS));
+      } else {
+        setProducts(fetchedProducts);
       }
+
+      if (fetchedCats.length === 0) {
+        setCategories(DEFAULT_CATEGORIES);
+        // حفظ الأقسام الافتراضية في التخزين المحلي لضمان وجودها
+        localStorage.setItem('elite_categories', JSON.stringify(DEFAULT_CATEGORIES));
+      } else {
+        setCategories(fetchedCats);
+      }
+
+      setOrders(fetchedOrders);
+
+      const savedCart = localStorage.getItem('elite_cart');
+      if (savedCart) setCart(JSON.parse(savedCart));
+
+      const savedWishlist = localStorage.getItem('elite_wishlist');
+      if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
     };
 
     loadData();
-    window.addEventListener('popstate', handleRouting);
-    return () => window.removeEventListener('popstate', handleRouting);
   }, []);
-
-  useEffect(() => {
-    if (!isLoading && products.length >= 0) {
-      handleRouting();
-    }
-  }, [isLoading, products.length, handleRouting]);
 
   useEffect(() => {
     localStorage.setItem('elite_cart', JSON.stringify(cart));
@@ -154,6 +111,7 @@ const App: React.FC = () => {
 
   const addToCart = (product: Product, size?: string, color?: string) => {
     if (product.stockQuantity <= 0) return alert('عذراً، هذا المنتج غير متوفر حالياً');
+    
     setCart(prev => {
       const existing = prev.find(item => 
         item.id === product.id && item.selectedSize === size && item.selectedColor === color
@@ -168,7 +126,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handlePlaceOrder = useCallback(async (details: any) => {
+  const handlePlaceOrder = async (details: any) => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const tax = subtotal * 0.15;
     const total = subtotal + tax;
@@ -188,38 +146,20 @@ const App: React.FC = () => {
     };
 
     await ApiService.saveOrder(newOrder);
-    
-    // تحديث الكميات
-    for (const item of cart) {
-      const p = products.find(x => x.id === item.id);
-      if (p) {
-        await ApiService.updateProduct({
-          ...p,
-          stockQuantity: Math.max(0, p.stockQuantity - item.quantity),
-          salesCount: (p.salesCount || 0) + item.quantity
-        });
-      }
-    }
-
     setOrders(prev => [newOrder, ...prev]);
-    const refreshedProducts = await ApiService.getProducts();
-    setProducts(refreshedProducts);
     
+    setProducts(prev => prev.map(p => {
+      const cartItem = cart.find(c => c.id === p.id);
+      if (cartItem) {
+        return { ...p, stockQuantity: Math.max(0, p.stockQuantity - cartItem.quantity) };
+      }
+      return p;
+    }));
+
     setLastPlacedOrder(newOrder);
     setCart([]);
     setView('order-success');
-  }, [cart, products]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 font-sans">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-bold">جاري تحميل المتجر...</p>
-        </div>
-      </div>
-    );
-  }
+  };
 
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
 
@@ -231,11 +171,11 @@ const App: React.FC = () => {
         currentView={view}
         categories={categories}
         selectedCategoryId={selectedCategoryId}
-        onNavigate={(v) => navigate(v)}
+        onNavigate={(v) => { setView(v); setSelectedProduct(null); }}
         onSearch={setSearchQuery}
         onCategorySelect={(id) => {
-          if (id === 'all') navigate('store');
-          else navigate('category-page', { id });
+          setSelectedCategoryId(id);
+          setView(id === 'all' ? 'store' : 'category-page');
         }}
       />
 
@@ -247,11 +187,11 @@ const App: React.FC = () => {
             searchQuery={searchQuery}
             selectedCategoryId={selectedCategoryId}
             onCategorySelect={(id) => {
-              if (id === 'all') navigate('store');
-              else navigate('category-page', { id });
+              setSelectedCategoryId(id);
+              if (id !== 'all') setView('category-page');
             }}
             onAddToCart={(p) => addToCart(p, p.sizes?.[0], p.colors?.[0])} 
-            onViewProduct={(p) => navigate('product-details', { slug: p.seoSettings?.slug || p.id })}
+            onViewProduct={(p) => { setSelectedProduct(p); setView('product-details'); }}
             wishlist={wishlist}
             onToggleFavorite={toggleFavorite}
           />
@@ -262,10 +202,10 @@ const App: React.FC = () => {
             category={currentCategory}
             products={products}
             onAddToCart={(p) => addToCart(p, p.sizes?.[0], p.colors?.[0])}
-            onViewProduct={(p) => navigate('product-details', { slug: p.seoSettings?.slug || p.id })}
+            onViewProduct={(p) => { setSelectedProduct(p); setView('product-details'); }}
             wishlist={wishlist}
             onToggleFavorite={toggleFavorite}
-            onBack={() => navigate('store')}
+            onBack={() => { setView('store'); setSelectedCategoryId('all'); }}
           />
         )}
 
@@ -285,7 +225,7 @@ const App: React.FC = () => {
                     product={product} 
                     category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
                     onAddToCart={() => addToCart(product)} 
-                    onView={() => navigate('product-details', { slug: product.seoSettings?.slug || product.id })}
+                    onView={() => { setSelectedProduct(product); setView('product-details'); }}
                     isFavorite={true}
                     onToggleFavorite={() => toggleFavorite(product.id)}
                   />
@@ -294,7 +234,7 @@ const App: React.FC = () => {
             ) : (
               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
                 <p className="text-gray-500">لا توجد منتجات في المفضلة حالياً.</p>
-                <button onClick={() => navigate('store')} className="mt-4 text-indigo-600 font-bold">تصفح المتجر الآن</button>
+                <button onClick={() => setView('store')} className="mt-4 text-indigo-600 font-bold">تصفح المتجر الآن</button>
               </div>
             )}
           </div>
@@ -307,18 +247,9 @@ const App: React.FC = () => {
             orders={orders}
             onOpenAddForm={() => setView('admin-form')}
             onOpenEditForm={(p) => { setProductToEdit(p); setView('admin-form'); }}
-            onDeleteProduct={async (id) => { 
-              const success = await ApiService.deleteProduct(id);
-              if(success) setProducts(prev => prev.filter(p => p.id !== id));
-            }}
-            onAddCategory={async (c) => { 
-              await ApiService.addCategory(c);
-              setCategories(prev => [...prev, c]);
-            }}
-            onDeleteCategory={async (id) => { 
-              await ApiService.deleteCategory(id);
-              setCategories(prev => prev.filter(c => c.id !== id));
-            }}
+            onDeleteProduct={async (id) => { setProducts(prev => prev.filter(p => p.id !== id)); ApiService.deleteProduct(id); }}
+            onAddCategory={(c) => { setCategories(prev => [...prev, c]); ApiService.addCategory(c); }}
+            onDeleteCategory={(id) => { setCategories(prev => prev.filter(c => c.id !== id)); ApiService.deleteCategory(id); }}
           />
         )}
 
@@ -327,8 +258,8 @@ const App: React.FC = () => {
             cart={cart} 
             onUpdateQuantity={(id, d) => setCart(prev => prev.map(item => (item.id === id) ? { ...item, quantity: Math.max(1, item.quantity + d) } : item))}
             onRemove={(id) => setCart(prev => prev.filter(item => item.id !== id))}
-            onCheckout={() => navigate('checkout')}
-            onContinueShopping={() => navigate('store')}
+            onCheckout={() => setView('checkout')}
+            onContinueShopping={() => setView('store')}
           />
         )}
 
@@ -337,31 +268,22 @@ const App: React.FC = () => {
             product={selectedProduct}
             categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
             onAddToCart={addToCart}
-            onBack={() => navigate('store')}
+            onBack={() => setView('store')}
             isFavorite={wishlist.includes(selectedProduct.id)}
             onToggleFavorite={toggleFavorite}
           />
         )}
 
         {view === 'checkout' && (
-          <CheckoutView cart={cart} onPlaceOrder={handlePlaceOrder} onBack={() => navigate('cart')} />
+          <CheckoutView cart={cart} onPlaceOrder={handlePlaceOrder} onBack={() => setView('cart')} />
         )}
 
         {view === 'order-success' && lastPlacedOrder && (
-          <OrderSuccessView order={lastPlacedOrder} onContinueShopping={() => navigate('store')} />
+          <OrderSuccessView order={lastPlacedOrder} onContinueShopping={() => setView('store')} />
         )}
 
-        {view === 'auth' && <AuthView onSuccess={() => navigate('store')} />}
-        {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={async (p) => { 
-          if(productToEdit) {
-            await ApiService.updateProduct(p);
-            setProducts(prev => prev.map(x => x.id === p.id ? p : x));
-          } else {
-            await ApiService.addProduct(p);
-            setProducts(prev => [p, ...prev]);
-          }
-          setView('admin'); 
-        }} onCancel={() => setView('admin')} />}
+        {view === 'auth' && <AuthView onSuccess={() => setView('store')} />}
+        {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={(p) => { setProducts(prev => productToEdit ? prev.map(x => x.id === p.id ? p : x) : [p, ...prev]); setView('admin'); }} onCancel={() => setView('admin')} />}
       </main>
 
       <footer className="bg-gray-900 text-white py-12 mt-12 text-center text-gray-500">

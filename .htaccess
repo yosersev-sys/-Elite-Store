@@ -1,18 +1,9 @@
-# Elite Store - Robust Redirects
-Options -Indexes
-DirectoryIndex index.html
+
+DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    
-    # 1. إذا كان الملف موجوداً فعلياً (مثل api.php أو الصور)، توقف عن إعادة التوجيه
-    RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule ^ - [L]
-
-    # 2. إذا كان المجلد موجوداً فعلياً، توقف
-    RewriteCond %{REQUEST_FILENAME} -d
-    RewriteRule ^ - [L]
-
-    # 3. أي شيء آخر يتم توجيهه إلى index.html ليعالجه React Router
-    RewriteRule ^ index.html [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
 </IfModule>
