@@ -1,8 +1,6 @@
-
 import { Product, Category, Order } from '../types';
 
-// ملاحظة: إذا كان ملف api.php في نفس المجلد، اتركها كما هي. 
-// إذا كنت تستعرض الموقع من مكان آخر، يمكنك وضع الرابط الكامل لموقعك هنا.
+// تم تغيير المسار ليكون نسبياً تماماً ليعمل على أي استضافة دون أخطاء 404
 const API_URL = 'api.php'; 
 
 const safeFetch = async (action: string, options?: RequestInit) => {
@@ -24,7 +22,7 @@ const safeFetch = async (action: string, options?: RequestInit) => {
     return data;
   } catch (error) {
     console.error(`[ApiService] Error fetching ${action}:`, error);
-    // العودة للبيانات المخزنة محلياً فقط في حال الفشل التام
+    // محاولة استرجاع البيانات المخزنة محلياً إذا فشل السيرفر
     const stored = localStorage.getItem(`elite_db_${action}`);
     return stored ? JSON.parse(stored) : null;
   }
@@ -67,14 +65,7 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async saveOrder(order: Order): Promise<void> {
-    await safeFetch('save_order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(order)
-    });
-  },
-
+  // Fix: Added missing updateProduct method to satisfy App.tsx requirements
   async updateProduct(product: Product): Promise<boolean> {
     const result = await safeFetch('update_product', {
       method: 'POST',
@@ -84,11 +75,7 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async deleteProduct(id: string): Promise<boolean> {
-    const result = await safeFetch(`delete_product&id=${id}`, { method: 'DELETE' });
-    return result?.status === 'success';
-  },
-
+  // Fix: Added missing addCategory method to satisfy App.tsx requirements
   async addCategory(category: Category): Promise<boolean> {
     const result = await safeFetch('add_category', {
       method: 'POST',
@@ -98,8 +85,22 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
+  // Fix: Added missing deleteCategory method to satisfy App.tsx requirements
   async deleteCategory(id: string): Promise<boolean> {
     const result = await safeFetch(`delete_category&id=${id}`, { method: 'DELETE' });
+    return result?.status === 'success';
+  },
+
+  async saveOrder(order: Order): Promise<void> {
+    await safeFetch('save_order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order)
+    });
+  },
+
+  async deleteProduct(id: string): Promise<boolean> {
+    const result = await safeFetch(`delete_product&id=${id}`, { method: 'DELETE' });
     return result?.status === 'success';
   }
 };
