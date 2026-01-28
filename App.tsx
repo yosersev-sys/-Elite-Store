@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Product, CartItem, Category, Order } from './types';
 import Header from './components/Header';
 import StoreView from './components/StoreView';
@@ -18,7 +18,8 @@ const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat_1', name: 'إلكترونيات' },
   { id: 'cat_2', name: 'أزياء' },
   { id: 'cat_3', name: 'منزل ومطبخ' },
-  { id: 'cat_4', name: 'جمال وعناية' }
+  { id: 'cat_4', name: 'جمال وعناية' },
+  { id: 'cat_5', name: 'اكسسوارات' }
 ];
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -32,7 +33,8 @@ const INITIAL_PRODUCTS: Product[] = [
     colors: ['أسود', 'أبيض', 'أزرق'],
     stockQuantity: 15,
     createdAt: Date.now(),
-    salesCount: 150
+    salesCount: 150,
+    seoSettings: { metaTitle: '', metaDescription: '', metaKeywords: '', slug: 'wireless-headphones-pro' }
   },
   {
     id: '2',
@@ -44,7 +46,8 @@ const INITIAL_PRODUCTS: Product[] = [
     colors: ['أسود', 'فضي', 'وردي'],
     stockQuantity: 3,
     createdAt: Date.now() - 100000,
-    salesCount: 85
+    salesCount: 85,
+    seoSettings: { metaTitle: '', metaDescription: '', metaKeywords: '', slug: 'smart-watch-sport' }
   }
 ];
 
@@ -61,26 +64,66 @@ const App: React.FC = () => {
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
 
+  // نظام الراوتر البسيط
+  const navigate = useCallback((newView: View, params?: { slug?: string, id?: string }) => {
+    let path = '/';
+    if (newView === 'product-details' && params?.slug) path = `/product/${params.slug}`;
+    else if (newView === 'category-page' && params?.id) path = `/category/${params.id}`;
+    else if (newView !== 'store') path = `/${newView}`;
+
+    window.history.pushState({}, '', path);
+    handleRouting();
+  }, [products, categories]);
+
+  const handleRouting = useCallback(() => {
+    const path = window.location.pathname;
+    const parts = path.split('/').filter(Boolean);
+
+    if (parts.length === 0) {
+      setView('store');
+      setSelectedCategoryId('all');
+      setSelectedProduct(null);
+    } else if (parts[0] === 'product' && parts[1]) {
+      const product = products.find(p => p.seoSettings?.slug === parts[1] || p.id === parts[1]);
+      if (product) {
+        setSelectedProduct(product);
+        setView('product-details');
+      } else {
+        setView('store');
+      }
+    } else if (parts[0] === 'category' && parts[1]) {
+      const category = categories.find(c => c.id === parts[1]);
+      if (category) {
+        setSelectedCategoryId(category.id);
+        setView('category-page');
+      } else {
+        setView('store');
+      }
+    } else {
+      const validViews: View[] = ['admin', 'cart', 'auth', 'checkout', 'wishlist'];
+      if (validViews.includes(parts[0] as View)) {
+        setView(parts[0] as View);
+      } else {
+        setView('store');
+      }
+    }
+  }, [products, categories]);
+
   useEffect(() => {
     const loadData = async () => {
       const fetchedProducts = await ApiService.getProducts();
       const fetchedCats = await ApiService.getCategories();
       const fetchedOrders = await ApiService.getOrders();
 
-      if (fetchedProducts.length === 0) {
-        setProducts(INITIAL_PRODUCTS);
-        localStorage.setItem('elite_products', JSON.stringify(INITIAL_PRODUCTS));
-      } else {
-        setProducts(fetchedProducts);
-      }
+      const finalProducts = fetchedProducts.length === 0 ? INITIAL_PRODUCTS : fetchedProducts;
+      const finalCats = fetchedCats.length === 0 ? DEFAULT_CATEGORIES : fetchedCats;
 
-      if (fetchedCats.length === 0) {
-        setCategories(DEFAULT_CATEGORIES);
-      } else {
-        setCategories(fetchedCats);
-      }
-
+      setProducts(finalProducts);
+      setCategories(finalCats);
       setOrders(fetchedOrders);
+
+      if (fetchedProducts.length === 0) localStorage.setItem('elite_products', JSON.stringify(INITIAL_PRODUCTS));
+      if (fetchedCats.length === 0) localStorage.setItem('elite_categories', JSON.stringify(DEFAULT_CATEGORIES));
 
       const savedCart = localStorage.getItem('elite_cart');
       if (savedCart) setCart(JSON.parse(savedCart));
@@ -90,7 +133,16 @@ const App: React.FC = () => {
     };
 
     loadData();
+    window.addEventListener('popstate', handleRouting);
+    return () => window.removeEventListener('popstate', handleRouting);
   }, []);
+
+  // تحديث التوجيه عند اكتمال تحميل المنتجات والأقسام
+  useEffect(() => {
+    if (products.length > 0 && categories.length > 0) {
+      handleRouting();
+    }
+  }, [products, categories, handleRouting]);
 
   useEffect(() => {
     localStorage.setItem('elite_cart', JSON.stringify(cart));
@@ -123,7 +175,8 @@ const App: React.FC = () => {
     });
   };
 
-  const handlePlaceOrder = async (details: any) => {
+  // Fix: Wrapped handlePlaceOrder in useCallback to fix redeclaration error and invalid syntax at line 211
+  const handlePlaceOrder = useCallback(async (details: any) => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const tax = subtotal * 0.15;
     const total = subtotal + tax;
@@ -156,7 +209,7 @@ const App: React.FC = () => {
     setLastPlacedOrder(newOrder);
     setCart([]);
     setView('order-success');
-  };
+  }, [cart]);
 
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
 
@@ -168,11 +221,11 @@ const App: React.FC = () => {
         currentView={view}
         categories={categories}
         selectedCategoryId={selectedCategoryId}
-        onNavigate={(v) => { setView(v); setSelectedProduct(null); }}
+        onNavigate={(v) => navigate(v)}
         onSearch={setSearchQuery}
         onCategorySelect={(id) => {
-          setSelectedCategoryId(id);
-          setView(id === 'all' ? 'store' : 'category-page');
+          if (id === 'all') navigate('store');
+          else navigate('category-page', { id });
         }}
       />
 
@@ -184,11 +237,11 @@ const App: React.FC = () => {
             searchQuery={searchQuery}
             selectedCategoryId={selectedCategoryId}
             onCategorySelect={(id) => {
-              setSelectedCategoryId(id);
-              if (id !== 'all') setView('category-page');
+              if (id === 'all') navigate('store');
+              else navigate('category-page', { id });
             }}
             onAddToCart={(p) => addToCart(p, p.sizes?.[0], p.colors?.[0])} 
-            onViewProduct={(p) => { setSelectedProduct(p); setView('product-details'); }}
+            onViewProduct={(p) => navigate('product-details', { slug: p.seoSettings?.slug || p.id })}
             wishlist={wishlist}
             onToggleFavorite={toggleFavorite}
           />
@@ -199,10 +252,10 @@ const App: React.FC = () => {
             category={currentCategory}
             products={products}
             onAddToCart={(p) => addToCart(p, p.sizes?.[0], p.colors?.[0])}
-            onViewProduct={(p) => { setSelectedProduct(p); setView('product-details'); }}
+            onViewProduct={(p) => navigate('product-details', { slug: p.seoSettings?.slug || p.id })}
             wishlist={wishlist}
             onToggleFavorite={toggleFavorite}
-            onBack={() => { setView('store'); setSelectedCategoryId('all'); }}
+            onBack={() => navigate('store')}
           />
         )}
 
@@ -222,7 +275,7 @@ const App: React.FC = () => {
                     product={product} 
                     category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
                     onAddToCart={() => addToCart(product)} 
-                    onView={() => { setSelectedProduct(product); setView('product-details'); }}
+                    onView={() => navigate('product-details', { slug: product.seoSettings?.slug || product.id })}
                     isFavorite={true}
                     onToggleFavorite={() => toggleFavorite(product.id)}
                   />
@@ -231,7 +284,7 @@ const App: React.FC = () => {
             ) : (
               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
                 <p className="text-gray-500">لا توجد منتجات في المفضلة حالياً.</p>
-                <button onClick={() => setView('store')} className="mt-4 text-indigo-600 font-bold">تصفح المتجر الآن</button>
+                <button onClick={() => navigate('store')} className="mt-4 text-indigo-600 font-bold">تصفح المتجر الآن</button>
               </div>
             )}
           </div>
@@ -255,8 +308,8 @@ const App: React.FC = () => {
             cart={cart} 
             onUpdateQuantity={(id, d) => setCart(prev => prev.map(item => (item.id === id) ? { ...item, quantity: Math.max(1, item.quantity + d) } : item))}
             onRemove={(id) => setCart(prev => prev.filter(item => item.id !== id))}
-            onCheckout={() => setView('checkout')}
-            onContinueShopping={() => setView('store')}
+            onCheckout={() => navigate('checkout')}
+            onContinueShopping={() => navigate('store')}
           />
         )}
 
@@ -265,22 +318,26 @@ const App: React.FC = () => {
             product={selectedProduct}
             categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
             onAddToCart={addToCart}
-            onBack={() => setView('store')}
+            onBack={() => navigate('store')}
             isFavorite={wishlist.includes(selectedProduct.id)}
             onToggleFavorite={toggleFavorite}
           />
         )}
 
         {view === 'checkout' && (
-          <CheckoutView cart={cart} onPlaceOrder={handlePlaceOrder} onBack={() => setView('cart')} />
+          <CheckoutView cart={cart} onPlaceOrder={handlePlaceOrder} onBack={() => navigate('cart')} />
         )}
 
         {view === 'order-success' && lastPlacedOrder && (
-          <OrderSuccessView order={lastPlacedOrder} onContinueShopping={() => setView('store')} />
+          <OrderSuccessView order={lastPlacedOrder} onContinueShopping={() => navigate('store')} />
         )}
 
-        {view === 'auth' && <AuthView onSuccess={() => setView('store')} />}
-        {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={(p) => { setProducts(prev => productToEdit ? prev.map(x => x.id === p.id ? p : x) : [p, ...prev]); setView('admin'); }} onCancel={() => setView('admin')} />}
+        {view === 'auth' && <AuthView onSuccess={() => navigate('store')} />}
+        {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={(p) => { 
+          setProducts(prev => productToEdit ? prev.map(x => x.id === p.id ? p : x) : [p, ...prev]); 
+          if(productToEdit) ApiService.updateProduct(p); else ApiService.addProduct(p);
+          setView('admin'); 
+        }} onCancel={() => setView('admin')} />}
       </main>
 
       <footer className="bg-gray-900 text-white py-12 mt-12 text-center text-gray-500">

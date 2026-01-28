@@ -19,7 +19,9 @@ if (!file_exists($catsFile)) {
     file_put_contents($catsFile, json_encode([
         ["id" => "cat_1", "name" => "إلكترونيات"],
         ["id" => "cat_2", "name" => "أزياء"],
-        ["id" => "cat_3", "name" => "منزل"]
+        ["id" => "cat_3", "name" => "منزل ومطبخ"],
+        ["id" => "cat_4", "name" => "جمال وعناية"],
+        ["id" => "cat_5", "name" => "اكسسوارات"]
     ], JSON_UNESCAPED_UNICODE));
 }
 
