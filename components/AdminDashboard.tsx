@@ -30,6 +30,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
   }, [products, categories, orders]);
 
+  // دالة مخصصة لفتح صفحة الإضافة الجديدة
+  const handleOpenAddPage = () => {
+    window.location.href = 'add-product.php';
+  };
+
   return (
     <div className="flex flex-col lg:flex-row min-h-[80vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100 animate-fadeIn">
       
@@ -69,17 +74,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </nav>
 
         <div className="pt-8 mt-8 border-t border-slate-800">
-           <button onClick={() => window.location.reload()} className="flex items-center gap-3 text-slate-400 hover:text-white transition font-bold text-sm">
+           <button onClick={() => window.location.href = 'index.php'} className="flex items-center gap-3 text-slate-400 hover:text-white transition font-bold text-sm">
              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
              </svg>
-             خروج
+             العودة للمتجر
            </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-grow p-10 bg-slate-50 overflow-y-auto">
+      <main className="flex-grow p-10 bg-slate-50 overflow-y-auto custom-scrollbar">
         
         {activeTab === 'stats' && (
           <div className="space-y-10 animate-fadeIn">
@@ -215,10 +220,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                  <p className="text-slate-400 font-bold text-xs mt-1">إدارة منتجاتك وعرض الكميات المتوفرة</p>
               </div>
               <button 
-                onClick={onOpenAddForm} 
+                onClick={handleOpenAddPage} 
                 className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition transform hover:-translate-y-1 active:scale-95"
               >
-                + إضافة منتج جديد
+                + إضافة منتج جديد (في صفحة خاصة)
               </button>
             </header>
 

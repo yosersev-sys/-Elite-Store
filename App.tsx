@@ -31,6 +31,12 @@ const App: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
+        // التحقق مما إذا كان المستخدم قادماً من صفحة الإضافة
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('v') === 'admin') {
+          setView('admin');
+        }
+
         const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
           ApiService.getProducts(),
           ApiService.getCategories(),
@@ -224,7 +230,7 @@ const App: React.FC = () => {
             products={products} 
             categories={categories}
             orders={orders}
-            onOpenAddForm={() => setView('admin-form')}
+            onOpenAddForm={() => window.location.href = 'add-product.php'} // تحويل إضافي لضمان عمل كافة الأزرار
             onOpenEditForm={(p) => { setProductToEdit(p); setView('admin-form'); }}
             onDeleteProduct={async (id) => { 
               const success = await ApiService.deleteProduct(id);
