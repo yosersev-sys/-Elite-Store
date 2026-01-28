@@ -4,22 +4,23 @@
     RewriteEngine On
     RewriteBase /
 
-    # إذا كان الملف موجوداً، قدمه مباشرة
+    # إذا كان الملف موجوداً كملف حقيقي، قم بفتحه مباشرة
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
 
-    # توجيه كافة المسارات لـ index.html لدعم React Router
+    # توجيه كافة المسارات الأخرى لـ index.html لدعم نظام React
     RewriteRule ^ index.html [L]
 </IfModule>
 
-# إجبار السيرفر على تقديم ملفات TSX كنص ليتمكن المحرك من قراءتها
+# إجبار السيرفر على تقديم ملفات TSX كنص ليتمكن المحرك الخارجي من ترجمتها
 <FilesMatch "\.(tsx|ts|jsx)$">
     ForceType text/plain
     Header set Content-Type "text/plain"
+    Header set Access-Control-Allow-Origin "*"
 </FilesMatch>
 
-# تعطيل الكاش لضمان تحديث الكود فوراً عند الرفع
-<FilesMatch "\.(html|tsx|ts)$">
+# تعطيل الكاش مؤقتاً لضمان وصول التحديثات الجديدة فوراً
+<FilesMatch "\.(html|tsx|ts|js)$">
     Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
     Header set Expires "0"
