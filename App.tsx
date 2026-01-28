@@ -49,6 +49,7 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const handleRouting = useCallback(() => {
     const path = window.location.pathname;
@@ -96,33 +97,34 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      const fetchedProducts = await ApiService.getProducts();
-      let fetchedCats = await ApiService.getCategories();
-      const fetchedOrders = await ApiService.getOrders();
+      try {
+        setIsLoading(true);
+        const fetchedProducts = await ApiService.getProducts();
+        let fetchedCats = await ApiService.getCategories();
+        const fetchedOrders = await ApiService.getOrders();
 
-      if (fetchedCats.length === 0) {
-        for (const cat of DEFAULT_CATEGORIES) {
-          await ApiService.addCategory(cat);
+        if (fetchedCats.length === 0) {
+          // محاولة إضافة التصنيفات الافتراضية إذا كانت فارغة
+          for (const cat of DEFAULT_CATEGORIES) {
+            await ApiService.addCategory(cat);
+          }
+          fetchedCats = DEFAULT_CATEGORIES;
         }
-        fetchedCats = DEFAULT_CATEGORIES;
+
+        setProducts(Array.isArray(fetchedProducts) ? fetchedProducts : []);
+        setCategories(Array.isArray(fetchedCats) ? fetchedCats : DEFAULT_CATEGORIES);
+        setOrders(Array.isArray(fetchedOrders) ? fetchedOrders : []);
+
+        const savedCart = localStorage.getItem('elite_cart');
+        if (savedCart) setCart(JSON.parse(savedCart));
+
+        const savedWishlist = localStorage.getItem('elite_wishlist');
+        if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
+      } catch (err) {
+        console.error("Critical failure during loadData:", err);
+      } finally {
+        setIsLoading(false);
       }
-
-      if (fetchedProducts.length === 0 && fetchedCats.length > 0) {
-        // إضافة منتج افتراضي واحد فقط عند أول تشغيل
-        await ApiService.addProduct(INITIAL_PRODUCTS[0]);
-        setProducts(INITIAL_PRODUCTS);
-      } else {
-        setProducts(fetchedProducts);
-      }
-
-      setCategories(fetchedCats);
-      setOrders(fetchedOrders);
-
-      const savedCart = localStorage.getItem('elite_cart');
-      if (savedCart) setCart(JSON.parse(savedCart));
-
-      const savedWishlist = localStorage.getItem('elite_wishlist');
-      if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
     };
 
     loadData();
@@ -131,10 +133,10 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (products.length > 0 && categories.length > 0) {
+    if (!isLoading && products.length >= 0) {
       handleRouting();
     }
-  }, [products.length, categories.length, handleRouting]);
+  }, [isLoading, products.length, handleRouting]);
 
   useEffect(() => {
     localStorage.setItem('elite_cart', JSON.stringify(cart));
@@ -187,7 +189,7 @@ const App: React.FC = () => {
 
     await ApiService.saveOrder(newOrder);
     
-    // تحديث الكميات في قاعدة البيانات
+    // تحديث الكميات
     for (const item of cart) {
       const p = products.find(x => x.id === item.id);
       if (p) {
@@ -207,6 +209,17 @@ const App: React.FC = () => {
     setCart([]);
     setView('order-success');
   }, [cart, products]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-500 font-bold">جاري تحميل المتجر...</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
 
