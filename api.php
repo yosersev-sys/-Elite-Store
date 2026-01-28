@@ -63,31 +63,6 @@ try {
             echo json_encode($res);
             break;
 
-        case 'get_brands':
-            $stmt = $pdo->query("SELECT * FROM brands ORDER BY name ASC");
-            $res = $stmt->fetchAll() ?: [];
-            echo json_encode($res);
-            break;
-
-        case 'add_brand':
-            if (!$input) sendError('بيانات البراند مفقودة');
-            $stmt = $pdo->prepare("INSERT INTO brands (id, name, logo) VALUES (?, ?, ?)");
-            $stmt->execute([
-                $input['id'] ?? 'br_'.time(), 
-                $input['name'], 
-                $input['logo']
-            ]);
-            echo json_encode(['status' => 'success']);
-            break;
-
-        case 'delete_brand':
-            $id = $_GET['id'] ?? '';
-            if(!$id) sendError('رقم البراند مفقود');
-            $stmt = $pdo->prepare("DELETE FROM brands WHERE id = ?");
-            $stmt->execute([$id]);
-            echo json_encode(['status' => 'success']);
-            break;
-
         case 'get_orders':
             $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC");
             $res = $stmt->fetchAll() ?: [];
