@@ -4,135 +4,72 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>متجر النخبة | Elite Store</title>
-    
-    <!-- تهيئة البيئة -->
-    <script>
-      window.process = { env: { API_KEY: "" } };
-      // منع التخزين المؤقت أثناء التشغيل الأول
-      const cacheBuster = `?v=${Date.now()}`;
-    </script>
-
-    <!-- تحميل المكتبات الأساسية من مصادر موثوقة (UMD) -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <title>متجر النخبة | منصة التسوق الذكية</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
-    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- مكتبة التقاط لقطات الشاشة -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- مكتبة تحويل HTML إلى PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Cairo', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
     <style>
-      * { font-family: 'Cairo', sans-serif; }
-      #boot-loader {
-        position: fixed; inset: 0; background: #ffffff;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        z-index: 9999;
+      * {
+        font-family: 'Cairo', sans-serif;
       }
-      .spinner {
-        width: 40px; height: 40px; border: 3px solid #f3f3f3;
-        border-top: 3px solid #4f46e5; border-radius: 50%;
-        animation: spin 1s linear infinite;
+      
+      body {
+        font-family: 'Cairo', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
-      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      .error-panel { display: none; margin-top: 20px; padding: 20px; background: #fff1f2; border: 1px solid #fda4af; border-radius: 12px; max-width: 90%; text-align: center; }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #c7d2fe;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #818cf8;
+      }
+
+      /* إخفاء العناصر أثناء التقاط الصورة أو ملف PDF */
+      .no-export {
+        display: none !important;
+      }
+      
+      .no-screenshot {
+        display: none !important;
+      }
     </style>
   <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
   }
 }
 </script>
 </head>
-  <body>
-    <div id="boot-loader">
-      <div class="spinner" id="main-spinner"></div>
-      <p id="boot-status" class="mt-4 text-gray-600 font-bold">جاري فحص ملفات المتجر...</p>
-      
-      <div id="boot-error" class="error-panel">
-        <p class="text-red-600 font-black mb-2">عذراً، تعذر الوصول لملفات البرمجة</p>
-        <p id="error-details" class="text-xs text-red-500 font-mono mb-4"></p>
-        <button onclick="location.reload()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold">إعادة المحاولة</button>
-      </div>
-    </div>
-
+  <body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
-
-    <script type="module">
-      const statusText = document.getElementById('boot-status');
-      const errorPanel = document.getElementById('boot-error');
-      const errorDetails = document.getElementById('error-details');
-      const spinner = document.getElementById('main-spinner');
-
-      const moduleCache = new Map();
-
-      // وظيفة جلب وترجمة الملفات محلياً
-      async function loadComponent(path) {
-        const cleanPath = path.replace(/^\.\//, '');
-        const fullPath = cleanPath.endsWith('.tsx') ? cleanPath : cleanPath + '.tsx';
-        
-        if (moduleCache.has(fullPath)) return moduleCache.get(fullPath);
-
-        statusText.innerText = `جاري قراءة: ${fullPath}...`;
-
-        try {
-          // محاولة جلب الملف من السيرفر
-          const response = await fetch(`./${fullPath}${window.cacheBuster}`);
-          
-          if (!response.ok) {
-            throw new Error(`السيرفر رفض الوصول للملف (خطأ ${response.status}). تأكد من وجود ملف ${fullPath} في المجلد الرئيسي.`);
-          }
-
-          let code = await response.text();
-
-          // ترجمة الكود من TSX إلى JS باستخدام Babel
-          statusText.innerText = `جاري معالجة: ${fullPath}...`;
-          const transformed = Babel.transform(code, {
-            presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
-            filename: fullPath
-          }).code;
-
-          // إنشاء رابط وهمي لتشغيل الكود كـ Module
-          const blob = new Blob([transformed], { type: 'application/javascript' });
-          const url = URL.createObjectURL(blob);
-          
-          const module = await import(url);
-          moduleCache.set(fullPath, module);
-          return module;
-        } catch (err) {
-          console.error(`Boot Error:`, err);
-          showError(err.message);
-          throw err;
-        }
-      }
-
-      function showError(msg) {
-        spinner.style.display = 'none';
-        statusText.style.display = 'none';
-        errorPanel.style.display = 'block';
-        errorDetails.innerText = msg;
-      }
-
-      async function startApp() {
-        try {
-          // تحميل ملف App.tsx الأساسي
-          const AppM = await loadComponent('App.tsx');
-          const App = AppM.default || AppM;
-
-          const root = ReactDOM.createRoot(document.getElementById('root'));
-          root.render(React.createElement(App));
-
-          // إخفاء شاشة التحميل
-          document.getElementById('boot-loader').style.display = 'none';
-        } catch (err) {
-          // الخطأ تم معالجته في loadComponent
-        }
-      }
-
-      startApp();
-    </script>
   </body>
 </html>
