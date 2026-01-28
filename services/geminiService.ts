@@ -1,8 +1,12 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+// Initialize Gemini AI with process.env.API_KEY.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+/**
+ * Generates an Arabic marketing description using Gemini 3 Flash.
+ */
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
   try {
     const response = await ai.models.generateContent({
@@ -10,6 +14,7 @@ export const generateProductDescription = async (productName: string, category: 
       contents: `قم بكتابة وصف تسويقي جذاب ومختصر باللغة العربية لمنتج يسمى "${productName}" في قسم "${category}". ركز على الفوائد والجودة.`,
       config: { temperature: 0.7 }
     });
+    // Use .text property to access string content directly.
     return response.text || "فشل في إنشاء الوصف.";
   } catch (error) {
     console.error("Error generating description:", error);
@@ -17,6 +22,9 @@ export const generateProductDescription = async (productName: string, category: 
   }
 };
 
+/**
+ * Generates SEO metadata including title, description, keywords, and slug using a JSON schema.
+ */
 export const generateSeoData = async (productName: string, description: string) => {
   try {
     const response = await ai.models.generateContent({
@@ -38,7 +46,12 @@ export const generateSeoData = async (productName: string, description: string) 
       }
     });
     
-    return JSON.parse(response.text);
+    // Safely extract text and parse the JSON response.
+    const text = response.text;
+    if (!text) {
+      return null;
+    }
+    return JSON.parse(text);
   } catch (error) {
     console.error("SEO AI Error:", error);
     return null;

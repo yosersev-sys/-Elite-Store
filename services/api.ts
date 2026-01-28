@@ -1,122 +1,105 @@
+
 import { Product, Category, Order } from '../types';
 
 /**
- * دالة ذكية لحساب المسار النسبي لملف api.php
- * تعتمد على معرفة "عمق" المسار الحالي بالنسبة لجذر التطبيق
+ * ApiService provides a persistence layer for products, categories, and orders.
+ * It uses localStorage to ensure the application state is maintained across sessions.
  */
-const getDynamicApiUrl = () => {
-  const reactSegments = ['product', 'category', 'admin', 'cart', 'wishlist', 'checkout', 'auth', 'order-success'];
-  const path = window.location.pathname;
-  const segments = path.split('/').filter(Boolean);
-  
-  // البحث عن أول جزء في المسار ينتمي لـ React Router لتحديد العمق
-  let depth = 0;
-  for (let i = 0; i < segments.length; i++) {
-    if (reactSegments.includes(segments[i])) {
-      depth = segments.length - i;
-      break;
-    }
-  }
-
-  // إذا لم نكن في مسار خاص بـ React، نعتبر أننا في الجذر
-  if (depth === 0) return 'api.php';
-  
-  // بناء المسار النسبي للرجوع للخلف (../) بقدر العمق المكتشف
-  return '../'.repeat(depth) + 'api.php';
+const STORAGE_KEYS = {
+  PRODUCTS: 'elite_products',
+  CATEGORIES: 'elite_categories',
+  ORDERS: 'elite_orders',
 };
 
-const safeFetch = async (url: string, options?: RequestInit) => {
-  // تحديث المسار في كل طلب لضمان صحته إذا تغير مسار الصفحة
-  const dynamicUrl = getDynamicApiUrl() + (url.includes('?') ? url.substring(url.indexOf('?')) : '');
-  
+const getFromStorage = <T>(key: string, defaultValue: T): T => {
   try {
-    const response = await fetch(dynamicUrl, options);
-    
-    if (!response.ok) {
-      console.error(`Fetch error: ${response.status} at ${dynamicUrl}`);
-      return null;
-    }
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : defaultValue;
+  } catch (error) {
+    console.error(`Error reading from storage for key ${key}:`, error);
+    return defaultValue;
+  }
+};
 
-    const text = await response.text();
-    const trimmed = text.trim();
-
-    if (trimmed.toLowerCase().startsWith('<!doctype') || trimmed.toLowerCase().startsWith('<html')) {
-      console.error('API Error: Server returned HTML instead of JSON. Check if api.php exists. URL:', dynamicUrl);
-      return null;
-    }
-
-    try {
-      return JSON.parse(trimmed);
-    } catch (e) {
-      console.error('API Error: Failed to parse JSON. URL:', dynamicUrl);
-      return null;
-    }
-  } catch (e) {
-    console.error('Network Error:', e);
-    return null;
+const saveToStorage = <T>(key: string, data: T): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving to storage for key ${key}:`, error);
   }
 };
 
 export const ApiService = {
-  async getProducts(): Promise<Product[]> {
-    const data = await safeFetch(`?action=get_products`);
-    return Array.isArray(data) ? data : [];
+  /**
+   * Retrieves all products from the store.
+   */
+  getProducts: async (): Promise<Product[]> => {
+    return getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, []);
   },
 
-  async addProduct(product: Product): Promise<boolean> {
-    const data = await safeFetch(`?action=add_product`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(product)
-    });
-    return data?.status === 'success';
+  /**
+   * Adds a new product to the catalog.
+   */
+  addProduct: async (product: Product): Promise<void> => {
+    const products = await ApiService.getProducts();
+    saveToStorage(STORAGE_KEYS.PRODUCTS, [product, ...products]);
   },
 
-  async updateProduct(updatedProduct: Product): Promise<boolean> {
-    const data = await safeFetch(`?action=update_product`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedProduct)
-    });
-    return data?.status === 'success';
+  /**
+   * Updates existing product details including stock levels.
+   */
+  updateProduct: async (product: Product): Promise<void> => {
+    const products = await ApiService.getProducts();
+    const updated = products.map(p => p.id === product.id ? product : p);
+    saveToStorage(STORAGE_KEYS.PRODUCTS, updated);
   },
 
-  async deleteProduct(id: string): Promise<boolean> {
-    const data = await safeFetch(`?action=delete_product&id=${id}`, {
-      method: 'DELETE'
-    });
-    return data?.status === 'success';
+  /**
+   * Removes a product from the catalog.
+   */
+  deleteProduct: async (id: string): Promise<boolean> => {
+    const products = await ApiService.getProducts();
+    saveToStorage(STORAGE_KEYS.PRODUCTS, products.filter(p => p.id !== id));
+    return true;
   },
 
-  async getCategories(): Promise<Category[]> {
-    const data = await safeFetch(`?action=get_categories`);
-    return Array.isArray(data) ? data : [];
+  /**
+   * Retrieves all product categories.
+   */
+  getCategories: async (): Promise<Category[]> => {
+    return getFromStorage<Category[]>(STORAGE_KEYS.CATEGORIES, []);
   },
 
-  async addCategory(category: Category): Promise<void> {
-    await safeFetch(`?action=add_category`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(category)
-    });
+  /**
+   * Adds a new category.
+   */
+  addCategory: async (category: Category): Promise<void> => {
+    const categories = await ApiService.getCategories();
+    if (!categories.find(c => c.id === category.id)) {
+      saveToStorage(STORAGE_KEYS.CATEGORIES, [...categories, category]);
+    }
   },
 
-  async deleteCategory(id: string): Promise<void> {
-    await safeFetch(`?action=delete_category&id=${id}`, {
-      method: 'DELETE'
-    });
+  /**
+   * Removes a category.
+   */
+  deleteCategory: async (id: string): Promise<void> => {
+    const categories = await ApiService.getCategories();
+    saveToStorage(STORAGE_KEYS.CATEGORIES, categories.filter(c => c.id !== id));
   },
 
-  async getOrders(): Promise<Order[]> {
-    const data = await safeFetch(`?action=get_orders`);
-    return Array.isArray(data) ? data : [];
+  /**
+   * Retrieves the order history.
+   */
+  getOrders: async (): Promise<Order[]> => {
+    return getFromStorage<Order[]>(STORAGE_KEYS.ORDERS, []);
   },
 
-  async saveOrder(order: Order): Promise<void> {
-    await safeFetch(`?action=save_order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(order)
-    });
-  }
+  /**
+   * Persists a new customer order.
+   */
+  saveOrder: async (order: Order): Promise<void> => {
+    const orders = await ApiService.getOrders();
+    saveToStorage(STORAGE_KEYS.ORDERS, [order, ...orders]);
+  },
 };
