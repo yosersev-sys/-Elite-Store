@@ -1,13 +1,9 @@
-DirectoryIndex index.html
+
+DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    # السماح بمرور الملفات الموجودة فعلياً
-    RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule ^ - [L]
-    
-    # تحويل الطلبات الأخرى إلى index.html (وليس PHP) لدعم SPA
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ index.html [L]
+    RewriteRule ^ index.php [L]
 </IfModule>

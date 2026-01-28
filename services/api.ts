@@ -5,16 +5,10 @@ const API_URL = 'api.php';
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
     const response = await fetch(`${API_URL}?action=${action}`, options);
-    const data = await response.json();
-    
-    if (!response.ok) {
-      console.error(`API Detailed Error (${action}):`, data.message || 'Unknown Server Error');
-      throw new Error(data.message || 'Network response was not ok');
-    }
-    
-    return data;
-  } catch (error: any) {
-    console.error(`Fetch failure (${action}):`, error.message);
+    if (!response.ok) throw new Error('Network response was not ok');
+    return await response.json();
+  } catch (error) {
+    console.error(`API Error (${action}):`, error);
     return null;
   }
 };
