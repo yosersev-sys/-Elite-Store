@@ -1,8 +1,7 @@
 <?php
 /**
- * إعدادات قاعدة البيانات - متجر النخبة
+ * Database Config - Strictly silent
  */
-
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'u588213546_store');
 define('DB_USER', 'u588213546_store');
@@ -20,15 +19,10 @@ try {
         ]
     );
 } catch (PDOException $e) {
-    // لا نضع وسم إغلاق لضمان عدم وجود مسافات زائدة
     if (!headers_sent()) {
         header('Content-Type: application/json; charset=utf-8');
     }
     http_response_code(500);
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'DB Connection failed',
-        'debug' => $e->getMessage()
-    ]);
+    echo json_encode(['status' => 'error', 'message' => 'DB Conn Failed']);
     exit;
 }

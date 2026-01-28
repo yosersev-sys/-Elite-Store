@@ -1,9 +1,7 @@
 <?php
 /**
- * API Backend for Elite Store - Clean JSON Edition
+ * API Backend for Elite Store - Strict JSON Mode
  */
-
-// منع أي مخرجات قبل الـ JSON
 ob_start();
 
 error_reporting(0);
@@ -21,21 +19,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 try {
     if (!file_exists('config.php')) {
-        throw new Exception("config.php missing");
+        throw new Exception("Missing config.php");
     }
     require_once 'config.php';
 
     if (!isset($pdo)) {
-        throw new Exception("PDO connection failed");
+        throw new Exception("Database connection failed");
     }
 
-    // تهيئة الجداول
-    $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10, 2), categoryId VARCHAR(50), images LONGTEXT, sizes LONGTEXT, colors LONGTEXT, stockQuantity INT DEFAULT 0, salesCount INT DEFAULT 0, seoSettings LONGTEXT, createdAt BIGINT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(50), city VARCHAR(100), address TEXT, items LONGTEXT, subtotal DECIMAL(10, 2), total DECIMAL(10, 2), paymentMethod VARCHAR(50), status VARCHAR(50) DEFAULT 'pending', createdAt BIGINT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
     $action = $_GET['action'] ?? '';
-    $output = null;
+    $output = [];
 
     switch ($action) {
         case 'get_products':
@@ -72,82 +65,50 @@ try {
             break;
 
         case 'add_product':
-            $d = json_decode(file_get_contents('php://input'), true);
-            if ($d) {
-                $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, seoSettings, salesCount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([
-                    $d['id'], $d['name'], $d['description'], $d['price'], $d['categoryId'], 
-                    json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), 
-                    (int)$d['stockQuantity'], $d['createdAt'] ?: (time() * 1000), 
-                    json_encode($d['seoSettings'] ?? null), (int)($d['salesCount'] ?? 0)
-                ]);
-                $output = ['status' => 'success'];
-            }
-            break;
-
         case 'update_product':
+        case 'add_category':
+        case 'save_order':
             $d = json_decode(file_get_contents('php://input'), true);
-            if ($d) {
+            if (!$d) throw new Exception("Invalid JSON input");
+            
+            if ($action === 'add_product') {
+                $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, seoSettings, salesCount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$d['id'], $d['name'], $d['description'], $d['price'], $d['categoryId'], json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), (int)$d['stockQuantity'], $d['createdAt'] ?: (time() * 1000), json_encode($d['seoSettings'] ?? null), (int)($d['salesCount'] ?? 0)]);
+            } elseif ($action === 'update_product') {
                 $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=?, salesCount=? WHERE id=?");
-                $stmt->execute([
-                    $d['name'], $d['description'], $d['price'], $d['categoryId'], 
-                    json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), 
-                    (int)$d['stockQuantity'], json_encode($d['seoSettings'] ?? null), 
-                    (int)($d['salesCount'] ?? 0), $d['id']
-                ]);
-                $output = ['status' => 'success'];
+                $stmt->execute([$d['name'], $d['description'], $d['price'], $d['categoryId'], json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), (int)$d['stockQuantity'], json_encode($d['seoSettings'] ?? null), (int)($d['salesCount'] ?? 0), $d['id']]);
+            } elseif ($action === 'add_category') {
+                $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
+                $stmt->execute([$d['id'], $d['name']]);
+            } elseif ($action === 'save_order') {
+                $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, items, subtotal, total, paymentMethod, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$d['id'], $d['customerName'], $d['phone'], $d['city'], $d['address'], json_encode($d['items']), $d['subtotal'], $d['total'], $d['paymentMethod'], 'pending', $d['createdAt'] ?: (time() * 1000)]);
             }
+            $output = ['status' => 'success'];
             break;
 
         case 'delete_product':
-            $id = $_GET['id'] ?? '';
-            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-            $stmt->execute([$id]);
-            $output = ['status' => 'success'];
-            break;
-
-        case 'add_category':
-            $d = json_decode(file_get_contents('php://input'), true);
-            if ($d) {
-                $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
-                $stmt->execute([$d['id'], $d['name']]);
-                $output = ['status' => 'success'];
-            }
-            break;
-
         case 'delete_category':
             $id = $_GET['id'] ?? '';
-            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+            $table = ($action === 'delete_product') ? 'products' : 'categories';
+            $stmt = $pdo->prepare("DELETE FROM $table WHERE id = ?");
             $stmt->execute([$id]);
             $output = ['status' => 'success'];
-            break;
-
-        case 'save_order':
-            $d = json_decode(file_get_contents('php://input'), true);
-            if ($d) {
-                $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, items, subtotal, total, paymentMethod, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([
-                    $d['id'], $d['customerName'], $d['phone'], $d['city'], $d['address'], 
-                    json_encode($d['items']), $d['subtotal'], $d['total'], $d['paymentMethod'], 
-                    'pending', $d['createdAt'] ?: (time() * 1000)
-                ]);
-                $output = ['status' => 'success'];
-            }
             break;
 
         default:
             http_response_code(404);
-            $output = ['error' => 'Not Found'];
+            $output = ['error' => 'Action not found'];
             break;
     }
 
-    // مسح أي مخرجات غريبة قبل إرسال الـ JSON النهائي
     ob_clean();
     echo json_encode($output);
+    exit;
 
 } catch (Exception $e) {
     ob_clean();
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    exit;
 }
-exit;
