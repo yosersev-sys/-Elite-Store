@@ -3,7 +3,7 @@
 /**
  * API Backend for Elite Store - Robust Version
  */
-error_reporting(0); // منع ظهور أي أخطاء نصية تفسد الـ JSON
+error_reporting(0); 
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -46,7 +46,12 @@ try {
 
         case 'get_categories':
             $stmt = $pdo->query("SELECT * FROM categories ORDER BY name ASC");
-            $output = $stmt->fetchAll() ?: [];
+            $res = $stmt->fetchAll() ?: [];
+            // ضمان وجود قيم افتراضية إذا كانت فارغة
+            if (empty($res)) {
+                $res = [];
+            }
+            $output = $res;
             break;
 
         case 'get_orders':
