@@ -1,24 +1,27 @@
 
+# Elite Store - Production Rules
 <IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  
-  # إذا كان الملف موجوداً كملف حقيقي، لا تلمسه
-  RewriteCond %{REQUEST_FILENAME} -f
-  RewriteRule ^ - [L]
-  
-  # توجيه الروابط الوهمية لـ index.html لدعم React Router
-  RewriteRule . /index.html [L]
+    RewriteEngine On
+    RewriteBase /
+
+    # إذا كان الطلب لملف حقيقي موجود، اتركه يمر
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # توجيه أي مسار آخر لـ index.html لدعم React Router
+    RewriteRule ^ index.html [L]
 </IfModule>
 
-# منع السيرفر من اعتبار ملفات الكود كجافا سكريبت تنفيذية قبل الترجمة
-# هذا يحل خطأ SyntaxError لأن المترجم هو من سيقوم بطلبها
-<FilesMatch "\.(tsx|ts)$">
+# السماح لملفات الكود بالظهور كملفات نصية ليتمكن المترجم من سحبها
+<FilesMatch "\.(tsx|ts|jsx)$">
     ForceType text/plain
     Header set Content-Type "text/plain"
+    Header set Access-Control-Allow-Origin "*"
 </FilesMatch>
 
-# تفعيل CORS للسماح للمترجم بسحب الملفات
-<IfModule mod_headers.c>
-    Header set Access-Control-Allow-Origin "*"
-</IfModule>
+# تعطيل التخزين المؤقت أثناء حل المشكلة لضمان رؤية النتائج فوراً
+<FilesMatch "\.(html|tsx|ts|js)$">
+    Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</FilesMatch>
