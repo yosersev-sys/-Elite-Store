@@ -9,10 +9,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- تعريف بيئة العمل للمتصفح لمنع خطأ process is not defined -->
+    <script>
+      window.process = {
+        env: {
+          API_KEY: "" // سيتم حقن المفتاح تلقائياً من نظام الاستضافة أو البيئة
+        }
+      };
+    </script>
+
     <!-- مكتبة التقاط لقطات الشاشة -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- مكتبة تحويل HTML إلى PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <script>
       tailwind.config = {
         theme: {
@@ -25,51 +36,72 @@
       }
     </script>
     <style>
-      * {
-        font-family: 'Cairo', sans-serif;
-      }
+      * { font-family: 'Cairo', sans-serif; }
+      body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: #f1f1f1; }
+      ::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #818cf8; }
+      .no-export, .no-screenshot { display: none !important; }
       
-      body {
-        font-family: 'Cairo', sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-      }
-
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #c7d2fe;
-        border-radius: 10px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #818cf8;
-      }
-
-      /* إخفاء العناصر أثناء التقاط الصورة أو ملف PDF */
-      .no-export {
-        display: none !important;
-      }
-      
-      .no-screenshot {
-        display: none !important;
+      /* شاشة تحميل أولية بسيطة */
+      #loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.5s;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
-  }
-}
-</script>
-</head>
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@^19.2.4",
+        "react/": "https://esm.sh/react@^19.2.4/",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+        "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
+      }
+    }
+    </script>
+  </head>
   <body class="bg-gray-50 text-gray-900">
+    <div id="loading-overlay">
+      <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p class="font-bold text-gray-600">جاري تحميل متجر النخبة...</p>
+    </div>
+
     <div id="root"></div>
+
+    <script>
+      // إخفاء شاشة التحميل بعد انتهاء تحميل React
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const overlay = document.getElementById('loading-overlay');
+          if (overlay) overlay.style.opacity = '0';
+          setTimeout(() => overlay?.remove(), 500);
+        }, 1000);
+      });
+
+      // رصد أخطاء التحميل البرمجية
+      window.onerror = function(msg, url, lineNo, columnNo, error) {
+        console.error('تحذير: حدث خطأ في تحميل التطبيق:', msg);
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+          overlay.innerHTML = `
+            <div class="text-center p-8">
+              <p class="text-red-500 font-bold mb-4">عذراً، حدث خطأ أثناء تشغيل التطبيق</p>
+              <p class="text-xs text-gray-400 mb-6">${msg}</p>
+              <button onclick="location.reload()" class="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold">إعادة المحاولة</button>
+            </div>
+          `;
+        }
+        return false;
+      };
+    </script>
   </body>
 </html>
