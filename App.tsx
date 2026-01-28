@@ -144,6 +144,7 @@ const App: React.FC = () => {
   }
 
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
+  const pendingOrdersCount = orders.filter(o => o.status === 'pending').length;
 
   return (
     <div className="min-h-screen flex flex-col font-sans relative">
@@ -293,19 +294,19 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* زر لوحة التحكم العائم */}
+      {/* زر لوحة التحكم العائم المحسن */}
       <button 
         onClick={() => setView(view === 'admin' || view === 'admin-form' ? 'store' : 'admin')}
-        className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-6 py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-300 group hover:scale-105 active:scale-95 ${
+        className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-6 py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-500 transform hover:scale-105 active:scale-95 group ${
           view === 'admin' || view === 'admin-form'
-          ? 'bg-slate-900 text-white shadow-slate-900/30'
-          : 'bg-indigo-600 text-white shadow-indigo-600/30'
+          ? 'bg-slate-900 text-white ring-4 ring-slate-100'
+          : 'bg-indigo-600 text-white ring-4 ring-indigo-50 shadow-indigo-200'
         }`}
-        title={view === 'admin' || view === 'admin-form' ? "العودة للمتجر" : "فتح لوحة التحكم"}
       >
-        <span className="hidden sm:inline">
+        <span className="hidden sm:inline-block">
           {view === 'admin' || view === 'admin-form' ? "العودة للمتجر" : "لوحة التحكم"}
         </span>
+        
         <div className="relative">
           <svg className={`w-6 h-6 transition-transform duration-500 ${view === 'admin' || view === 'admin-form' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {view === 'admin' || view === 'admin-form' ? (
@@ -314,10 +315,14 @@ const App: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             )}
           </svg>
-          {orders.length > 0 && !(view === 'admin' || view === 'admin-form') && (
-            <span className="absolute -top-2 -right-2 flex h-3 w-3">
+          
+          {/* تنبيه نبضي للطلبات الجديدة */}
+          {pendingOrdersCount > 0 && !(view === 'admin' || view === 'admin-form') && (
+            <span className="absolute -top-2 -right-2 flex h-5 w-5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              <span className="relative inline-flex rounded-full h-5 w-5 bg-red-600 border-2 border-white text-[10px] items-center justify-center font-bold">
+                {pendingOrdersCount}
+              </span>
             </span>
           )}
         </div>
