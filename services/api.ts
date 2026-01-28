@@ -1,5 +1,5 @@
 
-import { Product, Category, Order } from '../types';
+import { Product, Category, Order, Brand } from '../types';
 
 const API_URL = 'api.php'; 
 
@@ -44,6 +44,29 @@ export const ApiService = {
       return data;
     }
     return [];
+  },
+
+  async getBrands(): Promise<Brand[]> {
+    const data = await safeFetch('get_brands');
+    if (data && Array.isArray(data)) {
+      localStorage.setItem('elite_db_get_brands', JSON.stringify(data));
+      return data;
+    }
+    return [];
+  },
+
+  async addBrand(brand: Brand): Promise<boolean> {
+    const result = await safeFetch('add_brand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(brand)
+    });
+    return result?.status === 'success';
+  },
+
+  async deleteBrand(id: string): Promise<boolean> {
+    const result = await safeFetch(`delete_brand&id=${id}`, { method: 'DELETE' });
+    return result?.status === 'success';
   },
 
   async getOrders(): Promise<Order[]> {
