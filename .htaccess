@@ -1,25 +1,24 @@
 
-# Elite Store - Production Rules
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
 
-    # إذا كان الطلب لملف حقيقي موجود، اتركه يمر
+    # السماح للملفات الحقيقية بالتحميل مباشرة
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
 
-    # توجيه أي مسار آخر لـ index.html لدعم React Router
+    # توجيه باقي المسارات لـ index.html
     RewriteRule ^ index.html [L]
 </IfModule>
 
-# السماح لملفات الكود بالظهور كملفات نصية ليتمكن المترجم من سحبها
-<FilesMatch "\.(tsx|ts|jsx)$">
+# تأمين إرسال ملفات التايب سكريبت كنصوص ليتمكن المترجم من معالجتها
+<FilesMatch "\.(tsx|ts)$">
     ForceType text/plain
     Header set Content-Type "text/plain"
     Header set Access-Control-Allow-Origin "*"
 </FilesMatch>
 
-# تعطيل التخزين المؤقت أثناء حل المشكلة لضمان رؤية النتائج فوراً
+# منع التخزين المؤقت للملفات البرمجية أثناء ضبط الإعدادات
 <FilesMatch "\.(html|tsx|ts|js)$">
     Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"

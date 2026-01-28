@@ -7,7 +7,6 @@
     <title>متجر النخبة | Elite Store</title>
     
     <script>
-      // إعداد بيئة العمل
       window.process = { env: { API_KEY: "" } };
     </script>
 
@@ -16,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- مكتبات المعالجة المباشرة -->
+    <!-- مكتبة Babel للترجمة الفورية -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -54,10 +53,9 @@
         animation: rotation 1s linear infinite;
       }
       @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      .error-box { background: #fef2f2; border: 1px solid #fee2e2; padding: 20px; border-radius: 15px; text-align: center; max-width: 90%; }
+      .error-box { background: #fef2f2; border: 1px solid #fee2e2; padding: 25px; border-radius: 20px; text-align: center; max-width: 400px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
     </style>
 
-    <!-- خريطة المكتبات لضمان التوافق -->
     <script type="importmap">
 {
   "imports": {
@@ -75,61 +73,57 @@
     <div id="loading-overlay">
       <div id="status-container" class="flex flex-col items-center">
         <span class="loader"></span>
-        <p id="loading-text" class="font-bold text-gray-600 mt-4 tracking-widest">جاري تشغيل محرك المتجر...</p>
+        <p id="loading-text" class="font-bold text-gray-600 mt-4 tracking-widest">جاري تهيئة المتجر الذكي...</p>
+        <p class="text-[10px] text-gray-400 mt-2">قد يستغرق التشغيل الأول ثوانٍ إضافية للترجمة</p>
       </div>
     </div>
 
     <div id="root"></div>
 
-    <!-- محرك التشغيل الأساسي -->
-    <script type="module">
-      // نحن نستخدم وحدة (Module) عادية لتحميل التطبيق، وسيقوم المترجم بمعالجة الملفات المطلوبة
+    <script type="text/babel" data-presets="react,typescript" data-type="module">
       import React from 'react';
       import ReactDOM from 'react-dom/client';
       
-      // دالة لتحديث واجهة التحميل في حال حدوث خطأ
-      const showError = (msg) => {
-        const container = document.getElementById('status-container');
-        if (container) {
+      // وظيفة ذكية لتحميل ملف App.tsx وترجمته
+      // سنقوم هنا باستدعاء المكون الرئيسي مباشرة
+      // بسبب تعقيد الـ imports في البيئة المتصفحية، سنقوم بتحميل App كـ Module
+      
+      async function startApp() {
+        try {
+          // استخدام esm.sh لتحميل ملفات المشروع المحلية مع الترجمة التلقائية
+          // هذا المحرك يقوم بتحويل ملفات .tsx إلى js صالحة للمتصفح
+          const { default: App } = await import('https://esm.sh/run' + window.location.origin + window.location.pathname + 'App.tsx');
+          
+          const root = ReactDOM.createRoot(document.getElementById('root'));
+          root.render(
+            <React.StrictMode>
+              <App />
+            </React.StrictMode>
+          );
+
+          // إخفاء شاشة التحميل
+          const overlay = document.getElementById('loading-overlay');
+          if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 500);
+          }
+        } catch (error) {
+          console.error("Critical Start Error:", error);
+          const container = document.getElementById('status-container');
           container.innerHTML = `
             <div class="error-box">
-              <p class="text-red-600 font-black mb-2">⚠️ تعذر تشغيل التطبيق</p>
-              <p class="text-xs text-gray-500 mb-4">${msg}</p>
-              <button onclick="location.reload()" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold">إعادة محاولة التحميل</button>
+              <div class="text-4xl mb-4">⚠️</div>
+              <h3 class="text-red-600 font-black text-xl mb-2">فشل تشغيل المحرك</h3>
+              <p class="text-gray-500 text-sm mb-6 leading-relaxed">
+                لم نتمكن من ترجمة ملفات البرمجة. يرجى التأكد من أن جميع الملفات (.tsx) مرفوعة بشكل صحيح في المجلد الرئيسي.
+              </p>
+              <button onclick="location.reload()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 active:scale-95 transition">إعادة المحاولة</button>
             </div>
           `;
         }
-      };
-
-      try {
-        // تحميل ملف App.tsx ومعالجته يدوياً إذا لزم الأمر أو عبر المترجم التلقائي
-        // ملاحظة: esm.sh يقوم بترجمة TSX تلقائياً عند طلبه بهذه الطريقة
-        const AppPath = './App.tsx';
-        
-        import(AppPath)
-          .then((module) => {
-            const App = module.default;
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(React.createElement(React.StrictMode, null, React.createElement(App)));
-            
-            // إخفاء الشاشة بعد النجاح
-            setTimeout(() => {
-              const overlay = document.getElementById('loading-overlay');
-              if (overlay) {
-                overlay.style.opacity = '0';
-                setTimeout(() => overlay.remove(), 500);
-              }
-            }, 1000);
-          })
-          .catch((err) => {
-            console.error("Import Error:", err);
-            showError("فشل تحميل ملفات البرمجة الأساسية. يرجى التأكد من رفع كافة الملفات.");
-          });
-
-      } catch (err) {
-        console.error("Runtime Error:", err);
-        showError(err.message);
       }
+
+      startApp();
     </script>
   </body>
 </html>
