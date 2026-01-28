@@ -28,39 +28,36 @@ const App: React.FC = () => {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
+        ApiService.getProducts(),
+        ApiService.getCategories(),
+        ApiService.getOrders()
+      ]);
+
+      setProducts(Array.isArray(fetchedProducts) ? fetchedProducts : []);
+      setCategories(Array.isArray(fetchedCats) ? fetchedCats : []);
+      setOrders(Array.isArray(fetchedOrders) ? fetchedOrders : []);
+
+      const savedCart = localStorage.getItem('elite_cart');
+      if (savedCart) setCart(JSON.parse(savedCart));
+
+      const savedWishlist = localStorage.getItem('elite_wishlist');
+      if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
+    } catch (err) {
+      console.error("Failed to load initial data from API:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('v') === 'admin') {
-          setView('admin');
-        }
-
-        // جلب البيانات مع ضمان توفر قيم افتراضية
-        const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
-          ApiService.getProducts(),
-          ApiService.getCategories(),
-          ApiService.getOrders()
-        ]);
-
-        setProducts(fetchedProducts);
-        setCategories(fetchedCats);
-        setOrders(fetchedOrders);
-
-        const savedCart = localStorage.getItem('elite_cart');
-        if (savedCart) setCart(JSON.parse(savedCart));
-
-        const savedWishlist = localStorage.getItem('elite_wishlist');
-        if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
-      } catch (err) {
-        console.error("Failed to load initial data:", err);
-      } finally {
-        // ننهي التحميل دائماً لضمان ظهور الواجهة حتى مع الأخطاء
-        setIsLoading(false);
-      }
-    };
-
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('v') === 'admin') {
+      setView('admin');
+    }
     loadData();
   }, []);
 
@@ -93,6 +90,7 @@ const App: React.FC = () => {
       }
       return [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
     });
+    alert('تمت الإضافة للسلة بنجاح');
   };
 
   const handlePlaceOrder = async (details: any) => {
@@ -114,26 +112,29 @@ const App: React.FC = () => {
       createdAt: Date.now()
     };
 
-    await ApiService.saveOrder(newOrder);
-    
-    for (const item of cart) {
-      const prod = products.find(p => p.id === item.id);
-      if (prod) {
-        await ApiService.updateProduct({
-          ...prod,
-          stockQuantity: Math.max(0, prod.stockQuantity - item.quantity),
-          salesCount: (prod.salesCount || 0) + item.quantity
-        });
+    try {
+      await ApiService.saveOrder(newOrder);
+      
+      // تحديث المخزون
+      for (const item of cart) {
+        const prod = products.find(p => p.id === item.id);
+        if (prod) {
+          await ApiService.updateProduct({
+            ...prod,
+            stockQuantity: Math.max(0, prod.stockQuantity - item.quantity),
+            salesCount: (prod.salesCount || 0) + item.quantity
+          });
+        }
       }
-    }
 
-    setOrders(prev => [newOrder, ...prev]);
-    const updatedProducts = await ApiService.getProducts();
-    setProducts(updatedProducts);
-    
-    setLastPlacedOrder(newOrder);
-    setCart([]);
-    setView('order-success');
+      setOrders(prev => [newOrder, ...prev]);
+      setLastPlacedOrder(newOrder);
+      setCart([]);
+      setView('order-success');
+      loadData(); // إعادة تحميل البيانات لتحديث المخزون في الواجهة
+    } catch (e) {
+      alert('فشل في إرسال الطلب، يرجى المحاولة مرة أخرى');
+    }
   };
 
   if (isLoading) {
@@ -141,7 +142,7 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-bold">جاري جلب البيانات...</p>
+          <p className="text-gray-500 font-bold">جاري تحميل المتجر من السيرفر...</p>
         </div>
       </div>
     );
@@ -235,16 +236,20 @@ const App: React.FC = () => {
             onOpenAddForm={() => window.location.href = 'add-product.php'} 
             onOpenEditForm={(p) => { setProductToEdit(p); setView('admin-form'); }}
             onDeleteProduct={async (id) => { 
-              const success = await ApiService.deleteProduct(id);
-              if (success) setProducts(prev => prev.filter(p => p.id !== id));
+              if(confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+                const success = await ApiService.deleteProduct(id);
+                if (success) setProducts(prev => prev.filter(p => p.id !== id));
+              }
             }}
             onAddCategory={async (c) => { 
               await ApiService.addCategory(c);
               setCategories(prev => [...prev, c]);
             }}
             onDeleteCategory={async (id) => { 
-              await ApiService.deleteCategory(id);
-              setCategories(prev => prev.filter(c => c.id !== id));
+              if(confirm('حذف القسم سيؤثر على المنتجات التابعة له، هل أنت متأكد؟')) {
+                await ApiService.deleteCategory(id);
+                setCategories(prev => prev.filter(c => c.id !== id));
+              }
             }}
           />
         )}
@@ -279,57 +284,38 @@ const App: React.FC = () => {
         )}
 
         {view === 'auth' && <AuthView onSuccess={() => setView('store')} />}
+        
         {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={async (p) => { 
           if (productToEdit) {
             await ApiService.updateProduct(p);
-            setProducts(prev => prev.map(x => x.id === p.id ? p : x));
           } else {
             await ApiService.addProduct(p);
-            setProducts(prev => [p, ...prev]);
           }
+          await loadData();
           setView('admin'); 
         }} onCancel={() => setView('admin')} />}
       </main>
 
       <footer className="bg-gray-900 text-white py-12 mt-12 text-center">
         <div className="container mx-auto px-4">
-          <h2 className="text-xl font-black mb-4">متجر النخبة | Elite Store</h2>
-          <p className="text-gray-500 text-sm">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة.</p>
+          <h2 className="text-xl font-black mb-4 tracking-tighter">ELITE<span className="text-indigo-500">STORE</span></h2>
+          <p className="text-gray-500 text-sm">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة لمتجر النخبة.</p>
         </div>
       </footer>
 
-      {/* زر لوحة التحكم العائم (FAB) */}
+      {/* زر لوحة التحكم العائم */}
       <button 
         onClick={() => setView(view === 'admin' || view === 'admin-form' ? 'store' : 'admin')}
-        className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-5 py-4 sm:px-6 sm:py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-500 transform hover:scale-110 active:scale-90 group ${
+        className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-6 py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-500 transform hover:scale-110 active:scale-90 ${
           view === 'admin' || view === 'admin-form'
-          ? 'bg-slate-900 text-white ring-4 ring-slate-100'
-          : 'bg-indigo-600 text-white ring-4 ring-indigo-50 shadow-indigo-200'
+          ? 'bg-slate-900 text-white'
+          : 'bg-indigo-600 text-white shadow-indigo-200'
         }`}
-        aria-label="Toggle Dashboard"
       >
-        <span className="hidden sm:inline-block">
-          {view === 'admin' || view === 'admin-form' ? "العودة للمتجر" : "لوحة التحكم"}
-        </span>
-        
-        <div className="relative">
-          <svg className={`w-6 h-6 transition-transform duration-500 ${view === 'admin' || view === 'admin-form' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {view === 'admin' || view === 'admin-form' ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            )}
-          </svg>
-          
-          {pendingOrdersCount > 0 && !(view === 'admin' || view === 'admin-form') && (
-            <span className="absolute -top-2 -right-2 flex h-5 w-5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-5 w-5 bg-red-600 border-2 border-white text-[10px] items-center justify-center font-bold">
-                {pendingOrdersCount}
-              </span>
-            </span>
-          )}
-        </div>
+        <span>{view === 'admin' || view === 'admin-form' ? "العودة للمتجر" : "لوحة التحكم"}</span>
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
       </button>
     </div>
   );

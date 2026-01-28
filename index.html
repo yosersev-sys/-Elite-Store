@@ -2,18 +2,45 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=index.php">
-    <title>جاري التحويل...</title>
-<script type="importmap">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>متجر النخبة | Elite Store</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts (Cairo) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- html2pdf for Invoices -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+      * { font-family: 'Cairo', sans-serif; }
+      body { background-color: #f8fafc; scroll-behavior: smooth; overflow-x: hidden; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    </style>
+
+    <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "@google/genai": "https://esm.sh/@google/genai@1.38.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/"
   }
 }
 </script>
 </head>
 <body>
-    <p>جاري تحويلك إلى النسخة النشطة من المتجر... إذا لم يتم التحويل تلقائياً <a href="index.php">اضغط هنا</a>.</p>
+    <div id="root"></div>
 </body>
 </html>
