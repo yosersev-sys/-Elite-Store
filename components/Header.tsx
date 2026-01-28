@@ -26,7 +26,7 @@ const Header: React.FC<HeaderProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
+    <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between gap-4">
           {/* Logo */}
@@ -46,10 +46,10 @@ const Header: React.FC<HeaderProps> = ({
                 الرئيسية
               </button>
               <button 
-                onClick={() => onNavigate('admin')}
-                className={`px-4 py-2 rounded-xl text-sm transition font-bold ${currentView === 'admin' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-gray-50'}`}
+                onClick={() => onNavigate('wishlist')}
+                className={`px-4 py-2 rounded-xl text-sm transition font-bold ${currentView === 'wishlist' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-gray-50'}`}
               >
-                لوحة التحكم
+                المفضلة
               </button>
             </nav>
           </div>
