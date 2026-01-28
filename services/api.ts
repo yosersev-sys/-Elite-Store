@@ -1,56 +1,54 @@
 import { Product, Category, Order } from '../types';
 
 /**
- * دالة محسنة لاكتشاف المسار الصحيح لملف api.php
- * تأخذ بعين الاعتبار المجلدات الفرعية ومعرفات بيئات المعاينة
+ * دالة ذكية لحساب المسار النسبي لملف api.php
+ * تعتمد على معرفة "عمق" المسار الحالي بالنسبة لجذر التطبيق
  */
 const getDynamicApiUrl = () => {
   const reactSegments = ['product', 'category', 'admin', 'cart', 'wishlist', 'checkout', 'auth', 'order-success'];
   const path = window.location.pathname;
   const segments = path.split('/').filter(Boolean);
   
-  // تحديد الأجزاء التي تسبق مسارات React
-  const physicalSegments = [];
-  for (const seg of segments) {
-    if (reactSegments.includes(seg)) break;
-    physicalSegments.push(seg);
+  // البحث عن أول جزء في المسار ينتمي لـ React Router لتحديد العمق
+  let depth = 0;
+  for (let i = 0; i < segments.length; i++) {
+    if (reactSegments.includes(segments[i])) {
+      depth = segments.length - i;
+      break;
+    }
   }
+
+  // إذا لم نكن في مسار خاص بـ React، نعتبر أننا في الجذر
+  if (depth === 0) return 'api.php';
   
-  // بناء المسار الفيزيائي (المجلد الذي يحتوي على api.php)
-  const baseDir = physicalSegments.length > 0 ? `/${physicalSegments.join('/')}/` : '/';
-  
-  // دمج المسار مع النطاق الحالي
-  const fullUrl = window.location.origin + baseDir + 'api.php';
-  
-  // تنظيف المائلات المزدوجة الناتجة عن الدمج
-  return fullUrl.replace(/([^:]\/)\/+/g, "$1");
+  // بناء المسار النسبي للرجوع للخلف (../) بقدر العمق المكتشف
+  return '../'.repeat(depth) + 'api.php';
 };
 
-const BASE_URL = getDynamicApiUrl();
-
 const safeFetch = async (url: string, options?: RequestInit) => {
+  // تحديث المسار في كل طلب لضمان صحته إذا تغير مسار الصفحة
+  const dynamicUrl = getDynamicApiUrl() + (url.includes('?') ? url.substring(url.indexOf('?')) : '');
+  
   try {
-    const response = await fetch(url, options);
+    const response = await fetch(dynamicUrl, options);
     
     if (!response.ok) {
-      // إذا حدث خطأ 404، نقوم بطباعة الرابط الذي تم استخدامه بدقة للتشخيص
-      console.error(`Fetch error: ${response.status} at ${url}`);
+      console.error(`Fetch error: ${response.status} at ${dynamicUrl}`);
       return null;
     }
 
     const text = await response.text();
     const trimmed = text.trim();
 
-    // التحقق من نوع الاستجابة
     if (trimmed.toLowerCase().startsWith('<!doctype') || trimmed.toLowerCase().startsWith('<html')) {
-      console.error('API Error: Server returned HTML instead of JSON. This usually means api.php is being redirected to index.html.');
+      console.error('API Error: Server returned HTML instead of JSON. Check if api.php exists. URL:', dynamicUrl);
       return null;
     }
 
     try {
       return JSON.parse(trimmed);
     } catch (e) {
-      console.error('API Error: Failed to parse JSON. Raw response:', trimmed.substring(0, 100));
+      console.error('API Error: Failed to parse JSON. URL:', dynamicUrl);
       return null;
     }
   } catch (e) {
@@ -61,12 +59,12 @@ const safeFetch = async (url: string, options?: RequestInit) => {
 
 export const ApiService = {
   async getProducts(): Promise<Product[]> {
-    const data = await safeFetch(`${BASE_URL}?action=get_products`);
+    const data = await safeFetch(`?action=get_products`);
     return Array.isArray(data) ? data : [];
   },
 
   async addProduct(product: Product): Promise<boolean> {
-    const data = await safeFetch(`${BASE_URL}?action=add_product`, {
+    const data = await safeFetch(`?action=add_product`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(product)
@@ -75,7 +73,7 @@ export const ApiService = {
   },
 
   async updateProduct(updatedProduct: Product): Promise<boolean> {
-    const data = await safeFetch(`${BASE_URL}?action=update_product`, {
+    const data = await safeFetch(`?action=update_product`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedProduct)
@@ -84,19 +82,19 @@ export const ApiService = {
   },
 
   async deleteProduct(id: string): Promise<boolean> {
-    const data = await safeFetch(`${BASE_URL}?action=delete_product&id=${id}`, {
+    const data = await safeFetch(`?action=delete_product&id=${id}`, {
       method: 'DELETE'
     });
     return data?.status === 'success';
   },
 
   async getCategories(): Promise<Category[]> {
-    const data = await safeFetch(`${BASE_URL}?action=get_categories`);
+    const data = await safeFetch(`?action=get_categories`);
     return Array.isArray(data) ? data : [];
   },
 
   async addCategory(category: Category): Promise<void> {
-    await safeFetch(`${BASE_URL}?action=add_category`, {
+    await safeFetch(`?action=add_category`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(category)
@@ -104,18 +102,18 @@ export const ApiService = {
   },
 
   async deleteCategory(id: string): Promise<void> {
-    await safeFetch(`${BASE_URL}?action=delete_category&id=${id}`, {
+    await safeFetch(`?action=delete_category&id=${id}`, {
       method: 'DELETE'
     });
   },
 
   async getOrders(): Promise<Order[]> {
-    const data = await safeFetch(`${BASE_URL}?action=get_orders`);
+    const data = await safeFetch(`?action=get_orders`);
     return Array.isArray(data) ? data : [];
   },
 
   async saveOrder(order: Order): Promise<void> {
-    await safeFetch(`${BASE_URL}?action=save_order`, {
+    await safeFetch(`?action=save_order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(order)
