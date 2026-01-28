@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, Product, CartItem, Category, Order } from './types';
 import Header from './components/Header';
@@ -14,41 +13,6 @@ import CategoryPageView from './components/CategoryPageView';
 import ProductCard from './components/ProductCard';
 import { ApiService } from './services/api';
 
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat_1', name: 'إلكترونيات' },
-  { id: 'cat_2', name: 'أزياء' },
-  { id: 'cat_3', name: 'منزل ومطبخ' },
-  { id: 'cat_4', name: 'جمال وعناية' },
-  { id: 'cat_5', name: 'اكسسوارات' }
-];
-
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    name: 'سماعات لاسلكية برو',
-    description: 'تجربة صوتية محيطية مع خاصية إلغاء الضجيج وعمر بطارية طويل يصل لـ 40 ساعة.',
-    price: 299,
-    categoryId: 'cat_1',
-    images: ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600'],
-    colors: ['أسود', 'أبيض', 'أزرق'],
-    stockQuantity: 15,
-    createdAt: Date.now(),
-    salesCount: 150
-  },
-  {
-    id: '2',
-    name: 'ساعة ذكية رياضية',
-    description: 'تتبع نشاطك البدني، نبضات القلب، والنوم مع شاشة AMOLED واضحة ومقاومة للماء.',
-    price: 450,
-    categoryId: 'cat_1',
-    images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600'],
-    colors: ['أسود', 'فضي', 'وردي'],
-    stockQuantity: 3,
-    createdAt: Date.now() - 100000,
-    salesCount: 85
-  }
-];
-
 const App: React.FC = () => {
   const [view, setView] = useState<View>('store');
   const [products, setProducts] = useState<Product[]>([]);
@@ -61,35 +25,32 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
-      const fetchedProducts = await ApiService.getProducts();
-      const fetchedCats = await ApiService.getCategories();
-      const fetchedOrders = await ApiService.getOrders();
+      setIsLoading(true);
+      try {
+        const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
+          ApiService.getProducts(),
+          ApiService.getCategories(),
+          ApiService.getOrders()
+        ]);
 
-      if (fetchedProducts.length === 0) {
-        setProducts(INITIAL_PRODUCTS);
-        localStorage.setItem('elite_products', JSON.stringify(INITIAL_PRODUCTS));
-      } else {
-        setProducts(fetchedProducts);
+        setProducts(fetchedProducts || []);
+        setCategories(fetchedCats || []);
+        setOrders(fetchedOrders || []);
+
+        const savedCart = localStorage.getItem('elite_cart');
+        if (savedCart) setCart(JSON.parse(savedCart));
+
+        const savedWishlist = localStorage.getItem('elite_wishlist');
+        if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
+      } catch (err) {
+        console.error("Failed to load data from MySQL:", err);
+      } finally {
+        setIsLoading(false);
       }
-
-      if (fetchedCats.length === 0) {
-        setCategories(DEFAULT_CATEGORIES);
-        // حفظ الأقسام الافتراضية في التخزين المحلي لضمان وجودها
-        localStorage.setItem('elite_categories', JSON.stringify(DEFAULT_CATEGORIES));
-      } else {
-        setCategories(fetchedCats);
-      }
-
-      setOrders(fetchedOrders);
-
-      const savedCart = localStorage.getItem('elite_cart');
-      if (savedCart) setCart(JSON.parse(savedCart));
-
-      const savedWishlist = localStorage.getItem('elite_wishlist');
-      if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
     };
 
     loadData();
@@ -146,20 +107,38 @@ const App: React.FC = () => {
     };
 
     await ApiService.saveOrder(newOrder);
-    setOrders(prev => [newOrder, ...prev]);
     
-    setProducts(prev => prev.map(p => {
-      const cartItem = cart.find(c => c.id === p.id);
-      if (cartItem) {
-        return { ...p, stockQuantity: Math.max(0, p.stockQuantity - cartItem.quantity) };
+    // تحديث المخزون في السيرفر
+    for (const item of cart) {
+      const prod = products.find(p => p.id === item.id);
+      if (prod) {
+        await ApiService.updateProduct({
+          ...prod,
+          stockQuantity: Math.max(0, prod.stockQuantity - item.quantity),
+          salesCount: (prod.salesCount || 0) + item.quantity
+        });
       }
-      return p;
-    }));
+    }
 
+    setOrders(prev => [newOrder, ...prev]);
+    const updatedProducts = await ApiService.getProducts();
+    setProducts(updatedProducts);
+    
     setLastPlacedOrder(newOrder);
     setCart([]);
     setView('order-success');
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-500 font-bold">جاري الاتصال بقاعدة البيانات...</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
 
@@ -247,9 +226,18 @@ const App: React.FC = () => {
             orders={orders}
             onOpenAddForm={() => setView('admin-form')}
             onOpenEditForm={(p) => { setProductToEdit(p); setView('admin-form'); }}
-            onDeleteProduct={async (id) => { setProducts(prev => prev.filter(p => p.id !== id)); ApiService.deleteProduct(id); }}
-            onAddCategory={(c) => { setCategories(prev => [...prev, c]); ApiService.addCategory(c); }}
-            onDeleteCategory={(id) => { setCategories(prev => prev.filter(c => c.id !== id)); ApiService.deleteCategory(id); }}
+            onDeleteProduct={async (id) => { 
+              const success = await ApiService.deleteProduct(id);
+              if (success) setProducts(prev => prev.filter(p => p.id !== id));
+            }}
+            onAddCategory={async (c) => { 
+              await ApiService.addCategory(c);
+              setCategories(prev => [...prev, c]);
+            }}
+            onDeleteCategory={async (id) => { 
+              await ApiService.deleteCategory(id);
+              setCategories(prev => prev.filter(c => c.id !== id));
+            }}
           />
         )}
 
@@ -283,7 +271,16 @@ const App: React.FC = () => {
         )}
 
         {view === 'auth' && <AuthView onSuccess={() => setView('store')} />}
-        {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={(p) => { setProducts(prev => productToEdit ? prev.map(x => x.id === p.id ? p : x) : [p, ...prev]); setView('admin'); }} onCancel={() => setView('admin')} />}
+        {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={async (p) => { 
+          if (productToEdit) {
+            await ApiService.updateProduct(p);
+            setProducts(prev => prev.map(x => x.id === p.id ? p : x));
+          } else {
+            await ApiService.addProduct(p);
+            setProducts(prev => [p, ...prev]);
+          }
+          setView('admin'); 
+        }} onCancel={() => setView('admin')} />}
       </main>
 
       <footer className="bg-gray-900 text-white py-12 mt-12 text-center text-gray-500">
