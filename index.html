@@ -14,7 +14,7 @@
     <script>
       window.process = {
         env: {
-          API_KEY: "" // سيتم حقن المفتاح تلقائياً من نظام الاستضافة أو البيئة
+          API_KEY: "" 
         }
       };
     </script>
@@ -37,14 +37,13 @@
     </script>
     <style>
       * { font-family: 'Cairo', sans-serif; }
-      body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+      body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; margin: 0; padding: 0; }
       ::-webkit-scrollbar { width: 8px; }
       ::-webkit-scrollbar-track { background: #f1f1f1; }
       ::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 10px; }
       ::-webkit-scrollbar-thumb:hover { background: #818cf8; }
       .no-export, .no-screenshot { display: none !important; }
       
-      /* شاشة تحميل أولية بسيطة */
       #loading-overlay {
         position: fixed;
         inset: 0;
@@ -54,7 +53,21 @@
         align-items: center;
         justify-content: center;
         z-index: 9999;
-        transition: opacity 0.5s;
+        transition: opacity 0.5s ease-out;
+      }
+      .loader {
+        width: 48px;
+        height: 48px;
+        border: 5px solid #4f46e5;
+        border-bottom-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        box-sizing: border-box;
+        animation: rotation 1s linear infinite;
+      }
+      @keyframes rotation {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
     </style>
     
@@ -71,34 +84,40 @@
   </head>
   <body class="bg-gray-50 text-gray-900">
     <div id="loading-overlay">
-      <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p class="font-bold text-gray-600">جاري تحميل متجر النخبة...</p>
+      <span class="loader"></span>
+      <p class="font-bold text-gray-600 mt-4">جاري تحميل متجر النخبة...</p>
     </div>
 
     <div id="root"></div>
 
+    <!-- تشغيل التطبيق الأساسي -->
+    <script type="module" src="index.tsx"></script>
+
     <script>
-      // إخفاء شاشة التحميل بعد انتهاء تحميل React
+      // إخفاء شاشة التحميل عند نجاح تحميل التطبيق
       window.addEventListener('load', () => {
         setTimeout(() => {
           const overlay = document.getElementById('loading-overlay');
-          if (overlay) overlay.style.opacity = '0';
-          setTimeout(() => overlay?.remove(), 500);
-        }, 1000);
+          if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 500);
+          }
+        }, 1500);
       });
 
-      // رصد أخطاء التحميل البرمجية
+      // رصد الأخطاء وإظهارها للمستخدم بدلاً من الشاشة البيضاء
       window.onerror = function(msg, url, lineNo, columnNo, error) {
-        console.error('تحذير: حدث خطأ في تحميل التطبيق:', msg);
         const overlay = document.getElementById('loading-overlay');
         if (overlay) {
           overlay.innerHTML = `
-            <div class="text-center p-8">
-              <p class="text-red-500 font-bold mb-4">عذراً، حدث خطأ أثناء تشغيل التطبيق</p>
-              <p class="text-xs text-gray-400 mb-6">${msg}</p>
-              <button onclick="location.reload()" class="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold">إعادة المحاولة</button>
+            <div class="text-center p-10 bg-white rounded-3xl shadow-xl max-w-sm mx-auto">
+              <div class="text-red-500 text-5xl mb-4">⚠️</div>
+              <h3 class="text-xl font-black text-gray-800 mb-2">حدث خطأ في التشغيل</h3>
+              <p class="text-gray-500 text-sm mb-6">${msg}</p>
+              <button onclick="location.reload()" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100">إعادة تحميل الصفحة</button>
             </div>
           `;
+          overlay.style.opacity = '1';
         }
         return false;
       };

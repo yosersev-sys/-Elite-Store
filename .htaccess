@@ -2,16 +2,29 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  
+  # منع الدخول للمجلدات الحساسة
+  RewriteRule ^laravel/ - [F,L]
+  
+  # توجيه كافة المسارات لـ index.html لدعم تطبيقات SPA
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
 </IfModule>
 
-# تفعيل أنواع الملفات البرمجية
+# تعريف أنواع الملفات البرمجية بدقة لمتصفحات Chrome/Safari
 <IfModule mod_mime.c>
   AddType application/javascript .js
   AddType application/javascript .jsx
-  AddType application/typescript .ts
-  AddType application/typescript .tsx
+  AddType application/javascript .ts
+  AddType application/javascript .tsx
+</IfModule>
+
+# تفعيل الكاش للملفات الثابتة لزيادة السرعة
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 month"
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType application/javascript "access plus 1 week"
 </IfModule>
