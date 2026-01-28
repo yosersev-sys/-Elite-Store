@@ -3,7 +3,7 @@
  * API Backend for Elite Store - Strict JSON Mode
  */
 ob_start();
-error_reporting(0);
+error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -22,6 +22,9 @@ try {
 
     $action = $_GET['action'] ?? '';
     $output = null;
+
+    // قراءة البيانات من الـ POST
+    $input = json_decode(file_get_contents('php://input'), true);
 
     switch ($action) {
         case 'get_products':
@@ -58,47 +61,67 @@ try {
             break;
 
         case 'add_product':
-            $d = json_decode(file_get_contents('php://input'), true);
+            if (!$input) throw new Exception("No data provided");
             $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, seoSettings, salesCount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$d['id'], $d['name'], $d['description'], $d['price'], $d['categoryId'], json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), (int)$d['stockQuantity'], $d['createdAt'] ?: (time()*1000), json_encode($d['seoSettings'] ?? null), 0]);
-            $output = ['status' => 'success'];
-            break;
-
-        case 'update_product':
-            $d = json_decode(file_get_contents('php://input'), true);
-            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=? WHERE id=?");
-            $stmt->execute([$d['name'], $d['description'], $d['price'], $d['categoryId'], json_encode($d['images']), json_encode($d['sizes'] ?? []), json_encode($d['colors'] ?? []), (int)$d['stockQuantity'], json_encode($d['seoSettings'] ?? null), $d['id']]);
+            $stmt->execute([
+                $input['id'] ?? 'p_'.time(), 
+                $input['name'], 
+                $input['description'], 
+                $input['price'], 
+                $input['categoryId'], 
+                json_encode($input['images'] ?? []), 
+                json_encode($input['sizes'] ?? []), 
+                json_encode($input['colors'] ?? []), 
+                (int)($input['stockQuantity'] ?? 0), 
+                $input['createdAt'] ?: (time()*1000), 
+                json_encode($input['seoSettings'] ?? null), 
+                0
+            ]);
             $output = ['status' => 'success'];
             break;
 
         case 'delete_product':
+            $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-            $stmt->execute([$_GET['id']]);
+            $stmt->execute([$id]);
             $output = ['status' => 'success'];
             break;
 
         case 'add_category':
-            $d = json_decode(file_get_contents('php://input'), true);
+            if (!$input) throw new Exception("No data provided");
             $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
-            $stmt->execute([$d['id'], $d['name']]);
+            $stmt->execute([$input['id'], $input['name']]);
             $output = ['status' => 'success'];
             break;
 
         case 'delete_category':
+            $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
-            $stmt->execute([$_GET['id']]);
+            $stmt->execute([$id]);
             $output = ['status' => 'success'];
             break;
 
         case 'save_order':
-            $d = json_decode(file_get_contents('php://input'), true);
+            if (!$input) throw new Exception("No data provided");
             $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, items, subtotal, total, paymentMethod, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$d['id'], $d['customerName'], $d['phone'], $d['city'], $d['address'], json_encode($d['items']), $d['subtotal'], $d['total'], $d['paymentMethod'], 'pending', $d['createdAt'] ?: (time()*1000)]);
+            $stmt->execute([
+                $input['id'], 
+                $input['customerName'], 
+                $input['phone'], 
+                $input['city'], 
+                $input['address'], 
+                json_encode($input['items']), 
+                $input['subtotal'], 
+                $input['total'], 
+                $input['paymentMethod'], 
+                'pending', 
+                $input['createdAt'] ?: (time()*1000)
+            ]);
             $output = ['status' => 'success'];
             break;
 
         default:
-            $output = ['error' => 'unknown_action'];
+            $output = ['error' => 'unknown_action', 'action' => $action];
             break;
     }
 
