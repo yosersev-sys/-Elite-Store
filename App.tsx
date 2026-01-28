@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Product, CartItem, Category, Order } from './types';
 import Header from './components/Header';
@@ -31,17 +32,14 @@ const App: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // التحقق مما إذا كان المستخدم قادماً من صفحة الإضافة
         const params = new URLSearchParams(window.location.search);
         if (params.get('v') === 'admin') {
           setView('admin');
         }
 
-        const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
-          ApiService.getProducts(),
-          ApiService.getCategories(),
-          ApiService.getOrders()
-        ]);
+        const fetchedProducts = await ApiService.getProducts();
+        const fetchedCats = await ApiService.getCategories();
+        const fetchedOrders = await ApiService.getOrders();
 
         setProducts(fetchedProducts || []);
         setCategories(fetchedCats || []);
@@ -53,7 +51,7 @@ const App: React.FC = () => {
         const savedWishlist = localStorage.getItem('elite_wishlist');
         if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
       } catch (err) {
-        console.error("Failed to load data from MySQL:", err);
+        console.error("Failed to load initial data:", err);
       } finally {
         setIsLoading(false);
       }
@@ -114,7 +112,6 @@ const App: React.FC = () => {
 
     await ApiService.saveOrder(newOrder);
     
-    // تحديث المخزون في السيرفر
     for (const item of cart) {
       const prod = products.find(p => p.id === item.id);
       if (prod) {
@@ -140,7 +137,7 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-bold">جاري الاتصال بقاعدة البيانات...</p>
+          <p className="text-gray-500 font-bold">جاري جلب البيانات...</p>
         </div>
       </div>
     );
@@ -230,7 +227,7 @@ const App: React.FC = () => {
             products={products} 
             categories={categories}
             orders={orders}
-            onOpenAddForm={() => window.location.href = 'add-product.php'} // تحويل إضافي لضمان عمل كافة الأزرار
+            onOpenAddForm={() => window.location.href = 'add-product.php'} 
             onOpenEditForm={(p) => { setProductToEdit(p); setView('admin-form'); }}
             onDeleteProduct={async (id) => { 
               const success = await ApiService.deleteProduct(id);
@@ -289,8 +286,11 @@ const App: React.FC = () => {
         }} onCancel={() => setView('admin')} />}
       </main>
 
-      <footer className="bg-gray-900 text-white py-12 mt-12 text-center text-gray-500">
-        &copy; {new Date().getFullYear()} متجر النخبة. جميع الحقوق محفوظة.
+      <footer className="bg-gray-900 text-white py-12 mt-12 text-center">
+        <div className="container mx-auto px-4">
+          <h2 className="text-xl font-black mb-4">متجر النخبة | Elite Store</h2>
+          <p className="text-gray-500 text-sm">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة.</p>
+        </div>
       </footer>
     </div>
   );

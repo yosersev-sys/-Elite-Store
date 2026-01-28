@@ -1,9 +1,10 @@
+
 <?php
 /**
  * API Backend for Elite Store - Robust Version
  */
-error_reporting(0); // منع عرض أي أخطاء PHP مباشرة قد تفسد الـ JSON
-ini_set('display_errors', 0);
+error_reporting(E_ALL); 
+ini_set('display_errors', 0); // لا تعرض الأخطاء كنص، بل سجلها في الخلفية
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -150,8 +151,8 @@ try {
     echo json_encode($output);
 
 } catch (Exception $e) {
-    ob_end_clean();
-    http_response_code(500);
+    if (ob_get_length()) ob_end_clean();
+    // تجنب إرسال 500 في بيئات التطوير إذا كان الخطأ بسيطاً
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 exit;
