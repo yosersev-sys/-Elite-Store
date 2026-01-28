@@ -199,7 +199,7 @@ header('Content-Type: text/html; charset=utf-8');
                       <div className="space-y-6 animate-fadeIn">
                         <div className="flex justify-between items-center">
                           <h2 className="text-2xl font-black">إدارة المخزون</h2>
-                          <button onClick={() => alert('لإضافة منتج كامل بالصور، يرجى استخدام تطبيق React المحلي أو رفع ملف AdminProductForm.tsx')} className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold text-sm">إضافة منتج جديد +</button>
+                          <button onClick={() => window.location.href = 'add-product.php'} className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold text-sm">إضافة منتج جديد +</button>
                         </div>
                         <div className="bg-white rounded-3xl overflow-hidden border">
                           <table className="w-full text-right text-sm">
