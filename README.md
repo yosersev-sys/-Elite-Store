@@ -1,37 +1,20 @@
-# متجر النخبة - Elite Store 🚀
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-منصة تجارة إلكترونية متكاملة مبنية باستخدام React و Laravel مع دعم الذكاء الاصطناعي (Gemini AI).
+# Run and deploy your AI Studio app
 
-## 🛠️ دليل الربط والاستضافة (Hostinger + GitHub)
+This contains everything you need to run your app locally.
 
-لربط هذا المشروع بمستودع GitHub وتفعيله على استضافة Hostinger مع التحديث التلقائي، اتبع الخطوات التالية:
+View your app in AI Studio: https://ai.studio/apps/drive/1PTiIHpBn9K9vH0UTHsTB5SFqW4FNYPn-
 
-### 1. تجهيز المستودع على GitHub
-1. افتح المجلد المحلي للمشروع وقم بتنفيذ الأوامر التالية في الـ Terminal:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: Elite Store Full Version"
-   git branch -M main
-   git remote add origin https://github.com/yosersev-sys/-Elite-Store.git
-   git push -u origin main
-   ```
+## Run Locally
 
-### 2. الربط مع Hostinger (hPanel)
-1. ادخل إلى لوحة تحكم Hostinger.
-2. اذهب إلى **Advanced (متقدم)** -> **Git**.
-3. قم بإنشاء رابط جديد (Create a new repository link):
-   - **Repository URL**: `https://github.com/yosersev-sys/-Elite-Store.git`
-   - **Branch**: `main`.
-   - **Install Directory**: `/public_html`.
-4. اضغط على **Create**.
+**Prerequisites:**  Node.js
 
-### 3. تفعيل التحديث التلقائي (Auto Deployment)
-1. بعد نجاح الربط، ابحث عن زر **Auto Deployment** في نفس الصفحة واضغط على **Enable**.
-2. سيظهر لك رابط **Webhook URL**، قم بنسخه.
-3. اذهب إلى مستودعك في GitHub -> **Settings** -> **Webhooks**.
-4. اضغط على **Add webhook**.
-5. الصق الرابط في **Payload URL**، وتأكد من اختيار `application/json` في الـ Content type.
 
----
-تم التطوير بواسطة **نظام النخبة الذكي**.
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

@@ -4,112 +4,72 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>متجر النخبة | Elite Store</title>
-    
-    <!-- تهيئة البيئة -->
-    <script>
-      window.process = { env: { API_KEY: "" } };
-    </script>
-
-    <!-- المكتبات الأساسية (التحميل من CDN موثوق) -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- مترجم البابل المدمج - يترجم TSX مباشرة في المتصفح -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind CSS -->
+    <title>متجر النخبة | منصة التسوق الذكية</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
-    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- مكتبة التقاط لقطات الشاشة -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- مكتبة تحويل HTML إلى PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Cairo', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
     <style>
-      * { font-family: 'Cairo', sans-serif; }
-      #loading-overlay {
-        position: fixed; inset: 0; background: white;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        z-index: 9999; transition: opacity 0.5s;
+      * {
+        font-family: 'Cairo', sans-serif;
       }
-      .loader {
-        width: 40px; height: 40px; border: 4px solid #f3f3f3;
-        border-top: 4px solid #4f46e5; border-radius: 50%;
-        animation: spin 1s linear infinite;
+      
+      body {
+        font-family: 'Cairo', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
-      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #c7d2fe;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #818cf8;
+      }
+
+      /* إخفاء العناصر أثناء التقاط الصورة أو ملف PDF */
+      .no-export {
+        display: none !important;
+      }
+      
+      .no-screenshot {
+        display: none !important;
+      }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
     "react/": "https://esm.sh/react@^19.2.4/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
   }
 }
 </script>
 </head>
-  <body>
-    <div id="loading-overlay">
-      <div class="loader"></div>
-      <p class="mt-4 font-bold text-gray-500 animate-pulse">جاري تحضير المتجر...</p>
-    </div>
-
+  <body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
-
-    <!-- تعريف خريطة المكتبات لـ Babel -->
-    <script type="text/babel" data-presets="react,typescript">
-      // نحن بحاجة لتعريف المكونات بشكل يسمح لـ Babel بفهم الاستيرادات
-      // بدلاً من الاستيراد الديناميكي المعقد، سنقوم بتعريف نقطة البدء هنا
-      
-      // ملاحظة: لتحقيق أفضل استقرار، سنقوم بتحويل App.tsx لاستيراد محلي
-      // لكن كحل سريع للمشكلة الحالية، سنقوم بتحميل المكونات الأساسية
-    </script>
-
-    <script type="module">
-      // محرك التشغيل الذكي الجديد
-      async function bootstrap() {
-        try {
-          // جلب محتوى App.tsx كمتن نصي لتجنب مشاكل الاستيراد الديناميكي
-          const response = await fetch('./App.tsx');
-          if (!response.ok) throw new Error("تعذر الوصول لملف App.tsx");
-          const code = await response.text();
-
-          // ترجمة الكود باستخدام Babel محلياً
-          const transformed = Babel.transform(code, {
-            presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
-            filename: 'App.tsx'
-          }).code;
-
-          // تحويل الكود المترجم إلى وحدة قابلة للتنفيذ
-          const scriptBlob = new Blob([transformed], { type: 'application/javascript' });
-          const scriptUrl = URL.createObjectURL(scriptBlob);
-          
-          // استيراد التطبيق وتشغيله
-          const module = await import(scriptUrl);
-          const App = module.default;
-
-          const root = ReactDOM.createRoot(document.getElementById('root'));
-          root.render(React.createElement(App));
-
-          // إخفاء التحميل
-          setTimeout(() => {
-            const overlay = document.getElementById('loading-overlay');
-            if(overlay) overlay.style.opacity = '0';
-            setTimeout(() => overlay?.remove(), 500);
-          }, 500);
-
-        } catch (err) {
-          console.error("Critical Start Error:", err);
-          document.getElementById('loading-overlay').innerHTML = `
-            <div class="text-center p-8">
-              <h2 class="text-red-600 font-bold mb-2">فشل تشغيل المحرك</h2>
-              <p class="text-gray-500 text-sm">لم نتمكن من ترجمة ملفات البرمجة. يرجى التأكد من أن جميع الملفات (.tsx) مرفوعة بشكل صحيح في المجلد الرئيسي.</p>
-              <button onclick="location.reload()" class="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-xl">إعادة المحاولة</button>
-            </div>
-          `;
-        }
-      }
-
-      bootstrap();
-    </script>
   </body>
 </html>
