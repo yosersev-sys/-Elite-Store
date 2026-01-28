@@ -10,27 +10,23 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- تعريف بيئة العمل للمتصفح لمنع خطأ process is not defined -->
+    <!-- تحميل Babel لتحويل كود TSX/React في المتصفح -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <script>
-      window.process = {
-        env: {
-          API_KEY: "" 
-        }
-      };
+      // تعريف بيئة العمل لمنع الأخطاء
+      window.process = { env: { API_KEY: "" } };
     </script>
 
-    <!-- مكتبة التقاط لقطات الشاشة -->
+    <!-- مكتبات مساعدة -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <!-- مكتبة تحويل HTML إلى PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <script>
       tailwind.config = {
         theme: {
           extend: {
-            fontFamily: {
-              sans: ['Cairo', 'sans-serif'],
-            },
+            fontFamily: { sans: ['Cairo', 'sans-serif'] },
           },
         },
       }
@@ -38,12 +34,6 @@
     <style>
       * { font-family: 'Cairo', sans-serif; }
       body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; margin: 0; padding: 0; }
-      ::-webkit-scrollbar { width: 8px; }
-      ::-webkit-scrollbar-track { background: #f1f1f1; }
-      ::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: #818cf8; }
-      .no-export, .no-screenshot { display: none !important; }
-      
       #loading-overlay {
         position: fixed;
         inset: 0;
@@ -61,65 +51,74 @@
         border: 5px solid #4f46e5;
         border-bottom-color: transparent;
         border-radius: 50%;
-        display: inline-block;
-        box-sizing: border-box;
         animation: rotation 1s linear infinite;
       }
-      @keyframes rotation {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
+      @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      .no-export, .no-screenshot { display: none !important; }
     </style>
     
     <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@^19.2.4",
-        "react/": "https://esm.sh/react@^19.2.4/",
-        "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-        "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
-      }
-    }
-    </script>
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react-dom": "https://esm.sh/react-dom@^19.2.4",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.4/client",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+  }
+}
+</script>
   </head>
   <body class="bg-gray-50 text-gray-900">
     <div id="loading-overlay">
       <span class="loader"></span>
-      <p class="font-bold text-gray-600 mt-4">جاري تحميل متجر النخبة...</p>
+      <p class="font-bold text-gray-600 mt-4">جاري تشغيل المتجر الذكي...</p>
     </div>
 
     <div id="root"></div>
 
-    <!-- تشغيل التطبيق الأساسي -->
-    <script type="module" src="index.tsx"></script>
+    <!-- كود التشغيل الأساسي (سيتم تحويله بواسطة Babel) -->
+    <script type="text/babel" data-type="module">
+      import React from 'react';
+      import ReactDOM from 'react-dom/client';
+      import App from './App.tsx';
+
+      const rootElement = document.getElementById('root');
+      if (rootElement) {
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        );
+      }
+
+      // إخفاء شاشة التحميل بعد التنفيذ
+      setTimeout(() => {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(() => overlay.remove(), 500);
+        }
+      }, 800);
+    </script>
 
     <script>
-      // إخفاء شاشة التحميل عند نجاح تحميل التطبيق
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          const overlay = document.getElementById('loading-overlay');
-          if (overlay) {
-            overlay.style.opacity = '0';
-            setTimeout(() => overlay.remove(), 500);
-          }
-        }, 1500);
-      });
-
-      // رصد الأخطاء وإظهارها للمستخدم بدلاً من الشاشة البيضاء
-      window.onerror = function(msg, url, lineNo, columnNo, error) {
+      // معالجة الأخطاء العالمية
+      window.onerror = function(msg, url, line, col, error) {
+        console.error('Babel/React Error:', msg);
         const overlay = document.getElementById('loading-overlay');
         if (overlay) {
           overlay.innerHTML = `
-            <div class="text-center p-10 bg-white rounded-3xl shadow-xl max-w-sm mx-auto">
-              <div class="text-red-500 text-5xl mb-4">⚠️</div>
-              <h3 class="text-xl font-black text-gray-800 mb-2">حدث خطأ في التشغيل</h3>
-              <p class="text-gray-500 text-sm mb-6">${msg}</p>
-              <button onclick="location.reload()" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-100">إعادة تحميل الصفحة</button>
+            <div class="text-center p-10 bg-white shadow-2xl rounded-3xl max-w-sm">
+              <p class="text-red-500 font-bold mb-4">⚠️ حدث خطأ في تحميل الملفات</p>
+              <p class="text-xs text-gray-400 mb-6">${msg}</p>
+              <button onclick="location.reload()" class="bg-indigo-600 text-white px-6 py-2 rounded-xl">إعادة المحاولة</button>
             </div>
           `;
           overlay.style.opacity = '1';
         }
-        return false;
       };
     </script>
   </body>

@@ -1,30 +1,24 @@
 
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  
-  # منع الدخول للمجلدات الحساسة
-  RewriteRule ^laravel/ - [F,L]
-  
-  # توجيه كافة المسارات لـ index.html لدعم تطبيقات SPA
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
-</IfModule>
+RewriteEngine On
+RewriteBase /
 
-# تعريف أنواع الملفات البرمجية بدقة لمتصفحات Chrome/Safari
-<IfModule mod_mime.c>
-  AddType application/javascript .js
-  AddType application/javascript .jsx
-  AddType application/javascript .ts
-  AddType application/javascript .tsx
-</IfModule>
+# 1. إذا كان الملف موجوداً كملف حقيقي، قدمه فوراً ولا تطبق القواعد
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
 
-# تفعيل الكاش للملفات الثابتة لزيادة السرعة
-<IfModule mod_expires.c>
-  ExpiresActive On
-  ExpiresDefault "access plus 1 month"
-  ExpiresByType text/html "access plus 0 seconds"
-  ExpiresByType application/javascript "access plus 1 week"
-</IfModule>
+# 2. إجبار السيرفر على تقديم ملفات الموديولات كجافا سكريبت
+<FilesMatch "\.(tsx|ts|jsx)$">
+    Header set Content-Type "application/javascript"
+</FilesMatch>
+
+# 3. توجيه كافة المسارات الأخرى لـ index.html لدعم روابط الـ SPA
+RewriteRule ^ index.html [L]
+
+# منع التخزين المؤقت لملفات البرمجة أثناء التطوير لضمان رؤية التحديثات
+<FilesMatch "\.(tsx|ts|html)$">
+    Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</FilesMatch>
+
+AddType application/javascript .js .jsx .ts .tsx
