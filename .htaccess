@@ -1,9 +1,18 @@
-
-DirectoryIndex index.php
+Options -Indexes
+DirectoryIndex index.html
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    
+    # 1. إذا كان الملف موجوداً فعلياً، لا تقم بأي إعادة توجيه
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # 2. استثناء ملف api.php بشكل صريح
+    RewriteRule ^api\.php$ - [L]
+
+    # 3. توجيه كافة الطلبات الأخرى إلى index.html ليعالجها React
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ index.php [L]
+    RewriteRule ^ index.html [L]
 </IfModule>

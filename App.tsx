@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Product, CartItem, Category, Order } from './types';
 import Header from './components/Header';
@@ -34,20 +33,7 @@ const INITIAL_PRODUCTS: Product[] = [
     stockQuantity: 15,
     createdAt: Date.now(),
     salesCount: 150,
-    seoSettings: { metaTitle: '', metaDescription: '', metaKeywords: '', slug: 'wireless-headphones-pro' }
-  },
-  {
-    id: '2',
-    name: 'ساعة ذكية رياضية',
-    description: 'تتبع نشاطك البدني، نبضات القلب، والنوم مع شاشة AMOLED واضحة ومقاومة للماء.',
-    price: 450,
-    categoryId: 'cat_1',
-    images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600'],
-    colors: ['أسود', 'فضي', 'وردي'],
-    stockQuantity: 3,
-    createdAt: Date.now() - 100000,
-    salesCount: 85,
-    seoSettings: { metaTitle: '', metaDescription: '', metaKeywords: '', slug: 'smart-watch-sport' }
+    seoSettings: { metaTitle: 'سماعات برو | متجر النخبة', metaDescription: 'أفضل سماعات لاسلكية', metaKeywords: 'سماعات, بلوتوث', slug: 'wireless-headphones-pro' }
   }
 ];
 
@@ -63,17 +49,6 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
-
-  // نظام الراوتر البسيط
-  const navigate = useCallback((newView: View, params?: { slug?: string, id?: string }) => {
-    let path = '/';
-    if (newView === 'product-details' && params?.slug) path = `/product/${params.slug}`;
-    else if (newView === 'category-page' && params?.id) path = `/category/${params.id}`;
-    else if (newView !== 'store') path = `/${newView}`;
-
-    window.history.pushState({}, '', path);
-    handleRouting();
-  }, [products, categories]);
 
   const handleRouting = useCallback(() => {
     const path = window.location.pathname;
@@ -109,21 +84,39 @@ const App: React.FC = () => {
     }
   }, [products, categories]);
 
+  const navigate = useCallback((newView: View, params?: { slug?: string, id?: string }) => {
+    let path = '/';
+    if (newView === 'product-details' && params?.slug) path = `/product/${params.slug}`;
+    else if (newView === 'category-page' && params?.id) path = `/category/${params.id}`;
+    else if (newView !== 'store') path = `/${newView}`;
+
+    window.history.pushState({}, '', path);
+    handleRouting();
+  }, [handleRouting]);
+
   useEffect(() => {
     const loadData = async () => {
       const fetchedProducts = await ApiService.getProducts();
-      const fetchedCats = await ApiService.getCategories();
+      let fetchedCats = await ApiService.getCategories();
       const fetchedOrders = await ApiService.getOrders();
 
-      const finalProducts = fetchedProducts.length === 0 ? INITIAL_PRODUCTS : fetchedProducts;
-      const finalCats = fetchedCats.length === 0 ? DEFAULT_CATEGORIES : fetchedCats;
+      if (fetchedCats.length === 0) {
+        for (const cat of DEFAULT_CATEGORIES) {
+          await ApiService.addCategory(cat);
+        }
+        fetchedCats = DEFAULT_CATEGORIES;
+      }
 
-      setProducts(finalProducts);
-      setCategories(finalCats);
+      if (fetchedProducts.length === 0 && fetchedCats.length > 0) {
+        // إضافة منتج افتراضي واحد فقط عند أول تشغيل
+        await ApiService.addProduct(INITIAL_PRODUCTS[0]);
+        setProducts(INITIAL_PRODUCTS);
+      } else {
+        setProducts(fetchedProducts);
+      }
+
+      setCategories(fetchedCats);
       setOrders(fetchedOrders);
-
-      if (fetchedProducts.length === 0) localStorage.setItem('elite_products', JSON.stringify(INITIAL_PRODUCTS));
-      if (fetchedCats.length === 0) localStorage.setItem('elite_categories', JSON.stringify(DEFAULT_CATEGORIES));
 
       const savedCart = localStorage.getItem('elite_cart');
       if (savedCart) setCart(JSON.parse(savedCart));
@@ -137,12 +130,11 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handleRouting);
   }, []);
 
-  // تحديث التوجيه عند اكتمال تحميل المنتجات والأقسام
   useEffect(() => {
     if (products.length > 0 && categories.length > 0) {
       handleRouting();
     }
-  }, [products, categories, handleRouting]);
+  }, [products.length, categories.length, handleRouting]);
 
   useEffect(() => {
     localStorage.setItem('elite_cart', JSON.stringify(cart));
@@ -160,7 +152,6 @@ const App: React.FC = () => {
 
   const addToCart = (product: Product, size?: string, color?: string) => {
     if (product.stockQuantity <= 0) return alert('عذراً، هذا المنتج غير متوفر حالياً');
-    
     setCart(prev => {
       const existing = prev.find(item => 
         item.id === product.id && item.selectedSize === size && item.selectedColor === color
@@ -175,7 +166,6 @@ const App: React.FC = () => {
     });
   };
 
-  // Fix: Wrapped handlePlaceOrder in useCallback to fix redeclaration error and invalid syntax at line 211
   const handlePlaceOrder = useCallback(async (details: any) => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const tax = subtotal * 0.15;
@@ -196,20 +186,27 @@ const App: React.FC = () => {
     };
 
     await ApiService.saveOrder(newOrder);
-    setOrders(prev => [newOrder, ...prev]);
     
-    setProducts(prev => prev.map(p => {
-      const cartItem = cart.find(c => c.id === p.id);
-      if (cartItem) {
-        return { ...p, stockQuantity: Math.max(0, p.stockQuantity - cartItem.quantity) };
+    // تحديث الكميات في قاعدة البيانات
+    for (const item of cart) {
+      const p = products.find(x => x.id === item.id);
+      if (p) {
+        await ApiService.updateProduct({
+          ...p,
+          stockQuantity: Math.max(0, p.stockQuantity - item.quantity),
+          salesCount: (p.salesCount || 0) + item.quantity
+        });
       }
-      return p;
-    }));
+    }
 
+    setOrders(prev => [newOrder, ...prev]);
+    const refreshedProducts = await ApiService.getProducts();
+    setProducts(refreshedProducts);
+    
     setLastPlacedOrder(newOrder);
     setCart([]);
     setView('order-success');
-  }, [cart]);
+  }, [cart, products]);
 
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
 
@@ -297,9 +294,18 @@ const App: React.FC = () => {
             orders={orders}
             onOpenAddForm={() => setView('admin-form')}
             onOpenEditForm={(p) => { setProductToEdit(p); setView('admin-form'); }}
-            onDeleteProduct={async (id) => { setProducts(prev => prev.filter(p => p.id !== id)); ApiService.deleteProduct(id); }}
-            onAddCategory={(c) => { setCategories(prev => [...prev, c]); ApiService.addCategory(c); }}
-            onDeleteCategory={(id) => { setCategories(prev => prev.filter(c => c.id !== id)); ApiService.deleteCategory(id); }}
+            onDeleteProduct={async (id) => { 
+              const success = await ApiService.deleteProduct(id);
+              if(success) setProducts(prev => prev.filter(p => p.id !== id));
+            }}
+            onAddCategory={async (c) => { 
+              await ApiService.addCategory(c);
+              setCategories(prev => [...prev, c]);
+            }}
+            onDeleteCategory={async (id) => { 
+              await ApiService.deleteCategory(id);
+              setCategories(prev => prev.filter(c => c.id !== id));
+            }}
           />
         )}
 
@@ -333,9 +339,14 @@ const App: React.FC = () => {
         )}
 
         {view === 'auth' && <AuthView onSuccess={() => navigate('store')} />}
-        {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={(p) => { 
-          setProducts(prev => productToEdit ? prev.map(x => x.id === p.id ? p : x) : [p, ...prev]); 
-          if(productToEdit) ApiService.updateProduct(p); else ApiService.addProduct(p);
+        {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={async (p) => { 
+          if(productToEdit) {
+            await ApiService.updateProduct(p);
+            setProducts(prev => prev.map(x => x.id === p.id ? p : x));
+          } else {
+            await ApiService.addProduct(p);
+            setProducts(prev => [p, ...prev]);
+          }
           setView('admin'); 
         }} onCancel={() => setView('admin')} />}
       </main>
