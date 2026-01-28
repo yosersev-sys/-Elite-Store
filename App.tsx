@@ -37,7 +37,6 @@ const App: React.FC = () => {
           setView('admin');
         }
 
-        // جلب البيانات مع ضمان توفر قيم افتراضية
         const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
           ApiService.getProducts(),
           ApiService.getCategories(),
@@ -56,7 +55,6 @@ const App: React.FC = () => {
       } catch (err) {
         console.error("Failed to load initial data:", err);
       } finally {
-        // ننهي التحميل دائماً لضمان ظهور الواجهة حتى مع الأخطاء
         setIsLoading(false);
       }
     };
@@ -196,37 +194,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {view === 'wishlist' && (
-          <div className="animate-fadeIn">
-            <h2 className="text-3xl font-black mb-8 flex items-center gap-3">
-              <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-              قائمة المفضلة ({wishlist.length})
-            </h2>
-            {wishlist.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {products.filter(p => wishlist.includes(p.id)).map(product => (
-                  <ProductCard 
-                    key={product.id} 
-                    product={product} 
-                    category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
-                    onAddToCart={() => addToCart(product)} 
-                    onView={() => { setSelectedProduct(product); setView('product-details'); }}
-                    isFavorite={true}
-                    onToggleFavorite={() => toggleFavorite(product.id)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
-                <p className="text-gray-500">لا توجد منتجات في المفضلة حالياً.</p>
-                <button onClick={() => setView('store')} className="mt-4 text-indigo-600 font-bold">تصفح المتجر الآن</button>
-              </div>
-            )}
-          </div>
-        )}
-
         {view === 'admin' && (
           <AdminDashboard 
             products={products} 
@@ -245,6 +212,9 @@ const App: React.FC = () => {
             onDeleteCategory={async (id) => { 
               await ApiService.deleteCategory(id);
               setCategories(prev => prev.filter(c => c.id !== id));
+            }}
+            onUpdateOrder={(updatedOrder) => {
+              setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
             }}
           />
         )}
@@ -278,6 +248,35 @@ const App: React.FC = () => {
           <OrderSuccessView order={lastPlacedOrder} onContinueShopping={() => setView('store')} />
         )}
 
+        {view === 'wishlist' && (
+           <div className="animate-fadeIn">
+            <h2 className="text-3xl font-black mb-8 flex items-center gap-3">
+              <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+              قائمة المفضلة ({wishlist.length})
+            </h2>
+            {wishlist.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {products.filter(p => wishlist.includes(p.id)).map(product => (
+                  <ProductCard 
+                    key={product.id} 
+                    product={product} 
+                    category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
+                    onAddToCart={() => addToCart(product)} 
+                    onView={() => { setSelectedProduct(product); setView('product-details'); }}
+                    isFavorite={true}
+                    onToggleFavorite={() => toggleFavorite(product.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+                <p className="text-gray-500">لا توجد منتجات في المفضلة حالياً.</p>
+                <button onClick={() => setView('store')} className="mt-4 text-indigo-600 font-bold">تصفح المتجر الآن</button>
+              </div>
+            )}
+          </div>
+        )}
+
         {view === 'auth' && <AuthView onSuccess={() => setView('store')} />}
         {view === 'admin-form' && <AdminProductForm product={productToEdit} categories={categories} onSubmit={async (p) => { 
           if (productToEdit) {
@@ -298,31 +297,28 @@ const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* زر لوحة التحكم العائم (FAB) */}
+      {/* FAB Button with better visual feedback */}
       <button 
         onClick={() => setView(view === 'admin' || view === 'admin-form' ? 'store' : 'admin')}
-        className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-5 py-4 sm:px-6 sm:py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-500 transform hover:scale-110 active:scale-90 group ${
+        className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-6 py-4 rounded-full font-black text-sm shadow-2xl transition-all duration-500 transform hover:scale-110 active:scale-95 group ${
           view === 'admin' || view === 'admin-form'
           ? 'bg-slate-900 text-white ring-4 ring-slate-100'
           : 'bg-indigo-600 text-white ring-4 ring-indigo-50 shadow-indigo-200'
         }`}
-        aria-label="Toggle Dashboard"
       >
         <span className="hidden sm:inline-block">
-          {view === 'admin' || view === 'admin-form' ? "العودة للمتجر" : "لوحة التحكم"}
+          {view === 'admin' || view === 'admin-form' ? "الخروج من الإدارة" : "لوحة التحكم"}
         </span>
-        
         <div className="relative">
-          <svg className={`w-6 h-6 transition-transform duration-500 ${view === 'admin' || view === 'admin-form' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {view === 'admin' || view === 'admin-form' ? (
+          <svg className={`w-6 h-6 transition-transform duration-500 ${view === 'admin' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {view === 'admin' ? (
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             ) : (
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             )}
           </svg>
-          
-          {pendingOrdersCount > 0 && !(view === 'admin' || view === 'admin-form') && (
-            <span className="absolute -top-2 -right-2 flex h-5 w-5">
+          {pendingOrdersCount > 0 && !(view === 'admin') && (
+            <span className="absolute -top-3 -right-3 flex h-5 w-5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-5 w-5 bg-red-600 border-2 border-white text-[10px] items-center justify-center font-bold">
                 {pendingOrdersCount}
