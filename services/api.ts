@@ -1,16 +1,23 @@
 import { Product, Category, Order } from '../types';
 
-const API_URL = 'api.php';
+const API_URL = './api.php';
 
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
     const response = await fetch(`${API_URL}?action=${action}`, options);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      console.error(`HTTP Error: ${response.status} for action: ${action}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     const text = await response.text();
     try {
-      return JSON.parse(text);
+      const data = JSON.parse(text);
+      if (data && data.status === 'error') {
+        throw new Error(data.message || 'Unknown server error');
+      }
+      return data;
     } catch (e) {
-      console.error("Malformed JSON from server:", text);
+      console.error("Malformed JSON from server for action:", action, "Response text:", text);
       throw new Error("Invalid response format from server");
     }
   } catch (error) {
