@@ -200,7 +200,7 @@ const App: React.FC = () => {
             categories={categories}
             orders={orders}
             onOpenAddForm={() => window.location.href = 'add-product.php'} 
-            onOpenEditForm={(p) => { setProductToEdit(p); setView('admin-form'); }}
+            onOpenEditForm={(p) => { window.location.href = `add-product.php?id=${p.id}`; }}
             onDeleteProduct={async (id) => { 
               const success = await ApiService.deleteProduct(id);
               if (success) setProducts(prev => prev.filter(p => p.id !== id));

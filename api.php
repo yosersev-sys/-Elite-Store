@@ -30,10 +30,31 @@ try {
             $res = $stmt->fetchAll() ?: [];
             foreach ($res as &$p) {
                 $p['images'] = json_decode($p['images'] ?? '[]') ?: [];
+                $p['sizes'] = json_decode($p['sizes'] ?? '[]') ?: [];
+                $p['colors'] = json_decode($p['colors'] ?? '[]') ?: [];
+                $p['seoSettings'] = json_decode($p['seoSettings'] ?? '{}') ?: null;
                 $p['price'] = (float)$p['price'];
                 $p['stockQuantity'] = (int)$p['stockQuantity'];
             }
             echo json_encode($res);
+            break;
+
+        case 'get_product':
+            $id = $_GET['id'] ?? '';
+            $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ?");
+            $stmt->execute([$id]);
+            $p = $stmt->fetch();
+            if ($p) {
+                $p['images'] = json_decode($p['images'] ?? '[]') ?: [];
+                $p['sizes'] = json_decode($p['sizes'] ?? '[]') ?: [];
+                $p['colors'] = json_decode($p['colors'] ?? '[]') ?: [];
+                $p['seoSettings'] = json_decode($p['seoSettings'] ?? '{}') ?: null;
+                $p['price'] = (float)$p['price'];
+                $p['stockQuantity'] = (int)$p['stockQuantity'];
+                echo json_encode($p);
+            } else {
+                sendError('المنتج غير موجود', 404);
+            }
             break;
 
         case 'get_categories':
@@ -50,7 +71,7 @@ try {
 
         case 'add_product':
             if (!$input) sendError('لم يتم استلام بيانات المنتج');
-            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, stockQuantity, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, seoSettings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $input['id'] ?? 'p_'.time(), 
                 $input['name'], 
@@ -58,8 +79,29 @@ try {
                 $input['price'], 
                 $input['categoryId'], 
                 json_encode($input['images'] ?? []), 
+                json_encode($input['sizes'] ?? []), 
+                json_encode($input['colors'] ?? []), 
                 (int)($input['stockQuantity'] ?? 0), 
-                $input['createdAt'] ?? (time()*1000)
+                $input['createdAt'] ?? (time()*1000),
+                json_encode($input['seoSettings'] ?? new stdClass())
+            ]);
+            echo json_encode(['status' => 'success']);
+            break;
+
+        case 'update_product':
+            if (!$input) sendError('بيانات التحديث مفقودة');
+            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=? WHERE id=?");
+            $stmt->execute([
+                $input['name'], 
+                $input['description'], 
+                $input['price'], 
+                $input['categoryId'], 
+                json_encode($input['images'] ?? []), 
+                json_encode($input['sizes'] ?? []), 
+                json_encode($input['colors'] ?? []), 
+                (int)($input['stockQuantity'] ?? 0), 
+                json_encode($input['seoSettings'] ?? new stdClass()),
+                $input['id']
             ]);
             echo json_encode(['status' => 'success']);
             break;
