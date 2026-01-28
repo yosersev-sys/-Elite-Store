@@ -1,34 +1,20 @@
 import { Product, Category, Order } from '../types';
 
-// نستخدم مساراً نسبياً يبدأ بـ / لضمان البحث من جذر الموقع
-const API_URL = './api.php';
+const API_URL = 'api.php';
 
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
-    const url = `${API_URL}?action=${action}`;
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
-      console.error(`Fetch Error: ${response.status} for action: ${action}`);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
+    const response = await fetch(`${API_URL}?action=${action}`, options);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const text = await response.text();
-    if (!text) return null;
-
     try {
-      const data = JSON.parse(text);
-      if (data && data.status === 'error') {
-        console.error("Server API Error:", data.message);
-        return null;
-      }
-      return data;
+      return JSON.parse(text);
     } catch (e) {
-      console.error("Malformed JSON response from api.php:", text);
-      return null;
+      console.error("Malformed JSON from server:", text);
+      throw new Error("Invalid response format from server");
     }
   } catch (error) {
-    console.error(`Connection Error (${action}):`, error);
+    console.error(`API Error (${action}):`, error);
     return null;
   }
 };
