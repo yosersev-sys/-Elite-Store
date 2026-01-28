@@ -23,10 +23,8 @@ try {
     );
 } catch (PDOException $e) {
     // في حال فشل الاتصال، يتم إرجاع خطأ JSON واضح للمتصفح
-    if (!headers_sent()) {
-        header('Content-Type: application/json; charset=utf-8');
-        http_response_code(500);
-    }
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(500);
     echo json_encode([
         'status' => 'error',
         'type' => 'db_connection_failed',
@@ -35,3 +33,4 @@ try {
     ]);
     exit;
 }
+?>
