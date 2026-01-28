@@ -1,7 +1,5 @@
 {
   "name": "متجر النخبة - Elite Store",
   "description": "منصة تجارة إلكترونية متكاملة باللغة العربية مع لوحة تحكم ذكية لإدارة المنتجات واستخدام الذكاء الاصطناعي لإنشاء الأوصاف.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "requestFramePermissions": []
 }

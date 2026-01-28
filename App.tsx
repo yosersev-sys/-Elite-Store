@@ -37,13 +37,16 @@ const App: React.FC = () => {
           setView('admin');
         }
 
-        const fetchedProducts = await ApiService.getProducts();
-        const fetchedCats = await ApiService.getCategories();
-        const fetchedOrders = await ApiService.getOrders();
+        // جلب البيانات مع ضمان توفر قيم افتراضية
+        const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
+          ApiService.getProducts(),
+          ApiService.getCategories(),
+          ApiService.getOrders()
+        ]);
 
-        setProducts(fetchedProducts || []);
-        setCategories(fetchedCats || []);
-        setOrders(fetchedOrders || []);
+        setProducts(fetchedProducts);
+        setCategories(fetchedCats);
+        setOrders(fetchedOrders);
 
         const savedCart = localStorage.getItem('elite_cart');
         if (savedCart) setCart(JSON.parse(savedCart));
@@ -53,6 +56,7 @@ const App: React.FC = () => {
       } catch (err) {
         console.error("Failed to load initial data:", err);
       } finally {
+        // ننهي التحميل دائماً لضمان ظهور الواجهة حتى مع الأخطاء
         setIsLoading(false);
       }
     };
@@ -317,7 +321,6 @@ const App: React.FC = () => {
             )}
           </svg>
           
-          {/* تنبيه نبضي للطلبات الجديدة في وضع المتجر */}
           {pendingOrdersCount > 0 && !(view === 'admin' || view === 'admin-form') && (
             <span className="absolute -top-2 -right-2 flex h-5 w-5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
