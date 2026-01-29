@@ -64,7 +64,7 @@ header('Content-Type: text/html; charset=utf-8');
           {
             image: "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?q=80&w=1600&auto=format&fit=crop",
             title: "منزلك.. بلمسة عصرية",
-            desc: "عروض حصرية على مستلزمات المنزل الذكي"
+            desc: "عروض حصرية على مستلزمت المنزل الذكي"
           }
         ];
         const [current, setCurrent] = useState(0);
@@ -294,7 +294,7 @@ header('Content-Type: text/html; charset=utf-8');
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                  <button onClick={() => navigateToCategory('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === 'all' && view === 'store' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>الكل</button>
+                  <button onClick={() => navigateToCategory('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === 'all' && view === 'store' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>الرئيسية</button>
                   {categories.map(cat => (
                     <button key={cat.id} onClick={() => navigateToCategory(cat.id)} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === cat.id && view === 'category-page' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>{cat.name}</button>
                   ))}

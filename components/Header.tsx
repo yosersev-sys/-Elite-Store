@@ -111,7 +111,7 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Categories Chips - تم تعديلها لتغير الـ View بالكامل */}
+        {/* Categories Chips */}
         <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
           <button
             onClick={() => { onNavigate('store'); onCategorySelect('all'); }}
@@ -121,7 +121,7 @@ const Header: React.FC<HeaderProps> = ({
               : 'bg-white text-gray-400 border border-gray-100 hover:border-indigo-200'
             }`}
           >
-            كل المنتجات
+            الرئيسية
           </button>
           {categories.map(cat => (
             <button
