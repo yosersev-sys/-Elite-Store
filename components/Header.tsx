@@ -50,6 +50,12 @@ const Header: React.FC<HeaderProps> = ({
               >
                 المفضلة
               </button>
+              <button 
+                onClick={() => onNavigate('admin')}
+                className={`px-4 py-2 rounded-xl text-sm transition font-bold ${currentView === 'admin' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-gray-50'}`}
+              >
+                لوحة الإدارة
+              </button>
             </nav>
           </div>
 
@@ -105,24 +111,24 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Categories Chips - تفتح في رابط خاص */}
+        {/* Categories Chips - تم تعديلها لتغير الـ View بالكامل */}
         <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
           <button
-            onClick={() => onCategorySelect('all')}
+            onClick={() => { onNavigate('store'); onCategorySelect('all'); }}
             className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${
-              selectedCategoryId === 'all' 
+              currentView === 'store' && selectedCategoryId === 'all' 
               ? 'bg-indigo-600 text-white shadow-lg' 
               : 'bg-white text-gray-400 border border-gray-100 hover:border-indigo-200'
             }`}
           >
-            الكل
+            كل المنتجات
           </button>
           {categories.map(cat => (
             <button
               key={cat.id}
               onClick={() => onCategorySelect(cat.id)}
               className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${
-                selectedCategoryId === cat.id 
+                selectedCategoryId === cat.id && currentView === 'category-page'
                 ? 'bg-indigo-600 text-white shadow-lg' 
                 : 'bg-white text-gray-400 border border-gray-100 hover:border-indigo-200'
               }`}

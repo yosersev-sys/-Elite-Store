@@ -26,7 +26,7 @@ const App: React.FC = () => {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // تحديث الرابط في المتصفح وإطلاق حدث التغيير
+  // تحديث URL المتصفح ليعمل كروابط حقيقية
   const updateUrl = (params: Record<string, string | null>) => {
     const url = new URL(window.location.href);
     Object.entries(params).forEach(([key, value]) => {
@@ -34,7 +34,7 @@ const App: React.FC = () => {
       else url.searchParams.delete(key);
     });
     
-    // إذا كنا ننتقل للرئيسية، نحذف معامل القسم
+    // إذا عدنا للرئيسية، نحذف جميع المعاملات
     if (params.category === null && params.v === null && params.p === null) {
       url.searchParams.delete('category');
       url.searchParams.delete('v');
@@ -45,13 +45,14 @@ const App: React.FC = () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  // محرك التوجيه بناءً على URL
+  // مزامنة حالة التطبيق مع الرابط
   const syncWithUrl = useCallback((allProducts: Product[], allCategories: Category[]) => {
     const params = new URLSearchParams(window.location.search);
     const categoryName = params.get('category');
     const productSlug = params.get('p');
     const viewParam = params.get('v');
 
+    // أولوية صفحة المنتج
     if (productSlug) {
       const product = allProducts.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
       if (product) {
@@ -61,22 +62,24 @@ const App: React.FC = () => {
       }
     }
 
+    // أولوية صفحة القسم المنفصلة
     if (categoryName) {
       const category = allCategories.find(cat => cat.name === categoryName);
       if (category) {
         setSelectedCategoryId(category.id);
-        setView('category-page'); // هنا نضمن الانتقال لصفحة القسم المنفصلة
+        setView('category-page'); // الانتقال حصراً لصفحة القسم المنفصلة
         return;
       }
     }
 
+    // التنقلات الأخرى
     if (viewParam === 'admin') setView('admin');
     else if (viewParam === 'cart') setView('cart');
     else if (viewParam === 'wishlist') setView('wishlist');
     else if (viewParam === 'checkout') setView('checkout');
     else if (viewParam === 'order-success') setView('order-success');
     else {
-      setView('store'); // الواجهة الرئيسية
+      setView('store'); // العودة للواجهة الرئيسية (بدون تصفية)
       setSelectedCategoryId('all');
       setSelectedProduct(null);
     }
@@ -91,37 +94,29 @@ const App: React.FC = () => {
           ApiService.getCategories(),
           ApiService.getOrders()
         ]);
-
         setProducts(fetchedProducts);
         setCategories(fetchedCats);
         setOrders(fetchedOrders);
-
         syncWithUrl(fetchedProducts, fetchedCats);
 
         const savedCart = localStorage.getItem('elite_cart');
         if (savedCart) setCart(JSON.parse(savedCart));
-
         const savedWishlist = localStorage.getItem('elite_wishlist');
         if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
       } catch (err) {
-        console.error("Initialization failed:", err);
+        console.error("Initialization error:", err);
       } finally {
         setIsLoading(false);
       }
     };
     loadData();
 
-    const handleLocationChange = () => {
-      syncWithUrl(products, categories);
-    };
-
+    const handleLocationChange = () => syncWithUrl(products, categories);
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, [syncWithUrl, products.length, categories.length]);
 
-  const navigateToStore = () => {
-    updateUrl({ category: null, p: null, v: null });
-  };
+  const navigateToStore = () => updateUrl({ category: null, p: null, v: null });
 
   const navigateToCategory = (id: string | 'all') => {
     if (id === 'all') {
@@ -143,12 +138,9 @@ const App: React.FC = () => {
   const addToCart = (product: Product, size?: string, color?: string) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id && item.selectedSize === size && item.selectedColor === color);
-      let newList;
-      if (existing) {
-        newList = prev.map(item => (item.id === product.id && item.selectedSize === size && item.selectedColor === color) ? { ...item, quantity: item.quantity + 1 } : item);
-      } else {
-        newList = [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
-      }
+      let newList = existing 
+        ? prev.map(item => (item.id === product.id && item.selectedSize === size && item.selectedColor === color) ? { ...item, quantity: item.quantity + 1 } : item)
+        : [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
       localStorage.setItem('elite_cart', JSON.stringify(newList));
       return newList;
     });
@@ -166,7 +158,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-slate-800 tracking-tighter">تحميل عالم النخبة...</p>
+        <p className="font-black text-slate-800 tracking-tighter">تحميل متجر النخبة...</p>
       </div>
     );
   }
@@ -188,13 +180,13 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow container mx-auto px-4 py-8">
-        {/* الصفحة الرئيسية: تظهر فقط عند اختيار 'store' */}
+        {/* الواجهة الرئيسية: تظهر فقط في وضع store وبدون معامل قسم في الرابط */}
         {view === 'store' && (
           <StoreView 
             products={products}
             categories={categories}
             searchQuery={searchQuery}
-            selectedCategoryId="all"
+            selectedCategoryId="all" // منع الفلترة في الواجهة الرئيسية
             onCategorySelect={navigateToCategory}
             onAddToCart={(p) => addToCart(p)} 
             onViewProduct={navigateToProduct}
@@ -203,8 +195,8 @@ const App: React.FC = () => {
           />
         )}
         
-        {/* صفحة القسم: تظهر كصفحة منفصلة تماماً عند اختيار 'category-page' */}
-        {view === 'category-page' && selectedCategoryId !== 'all' && (
+        {/* صفحة القسم المنفصلة تماماً: تظهر حصراً عند اختيار قسم */}
+        {view === 'category-page' && (
           <CategoryPageView 
             category={categories.find(c => c.id === selectedCategoryId)!}
             products={products}
@@ -291,8 +283,8 @@ const App: React.FC = () => {
               </div>
             ) : (
               <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                <p className="text-slate-400 font-bold mb-6">المفضلة فارغة</p>
-                <button onClick={navigateToStore} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">تصفح المتجر</button>
+                <p className="text-slate-400 font-bold mb-6">قائمة المفضلة فارغة</p>
+                <button onClick={navigateToStore} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">ابدأ التسوق</button>
               </div>
             )}
           </div>
@@ -310,9 +302,11 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="bg-slate-900 text-white py-16 text-center mt-20">
-        <h2 className="text-2xl font-black mb-4 tracking-tighter">ELITE<span className="text-indigo-500">STORE</span></h2>
-        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+      <footer className="bg-slate-900 text-white py-20 text-center mt-20">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl font-black mb-4">ELITE<span className="text-indigo-500">STORE</span></h2>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} متجر النخبة - جميع الحقوق محفوظة</p>
+        </div>
       </footer>
     </div>
   );
