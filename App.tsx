@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // تحديث الرابط في المتصفح
   const updateUrl = (params: Record<string, string | null>) => {
     const url = new URL(window.location.href);
     Object.entries(params).forEach(([key, value]) => {
@@ -35,10 +36,11 @@ const App: React.FC = () => {
     window.history.pushState({}, '', url.toString());
   };
 
+  // معالجة التوجيه بناءً على الرابط الحالي
   const handleRouting = (allProducts: Product[], allCategories: Category[]) => {
     const params = new URLSearchParams(window.location.search);
-    const productSlug = params.get('p');
     const categoryName = params.get('category');
+    const productSlug = params.get('p');
     const viewParam = params.get('v');
 
     if (productSlug) {
@@ -98,42 +100,46 @@ const App: React.FC = () => {
     };
     loadData();
 
+    // الاستماع لزر الرجوع في المتصفح
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
       const categoryName = params.get('category');
-      const productSlug = params.get('p');
-      const viewParam = params.get('v');
-
-      if (productSlug) {
-        const prod = products.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
-        if (prod) {
-          setSelectedProduct(prod);
-          setView('product-details');
-        }
-      } else if (categoryName) {
-        const cat = categories.find(c => c.name === categoryName || c.id === categoryName);
+      
+      if (categoryName) {
+        const cat = categories.find(c => c.name === categoryName);
         if (cat) {
           setSelectedCategoryId(cat.id);
           setView('category-page');
         }
-      } else if (viewParam) {
-        setView(viewParam as View);
-      } else {
+      } else if (!params.get('v') && !params.get('p')) {
         setView('store');
         setSelectedCategoryId('all');
-        setSelectedProduct(null);
       }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [categories, products]);
+  }, [categories.length]);
 
   const navigateToStore = () => {
-    updateUrl({ p: null, v: null, category: null });
+    updateUrl({ category: null, p: null, v: null });
     setSelectedCategoryId('all');
     setView('store');
     setSelectedProduct(null);
+  };
+
+  const navigateToCategory = (id: string | 'all') => {
+    if (id === 'all') {
+      navigateToStore();
+    } else {
+      const cat = categories.find(c => c.id === id);
+      if (cat) {
+        updateUrl({ category: cat.name, p: null, v: null });
+        setSelectedCategoryId(id);
+        setView('category-page');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
   };
 
   const navigateToProduct = (product: Product) => {
@@ -144,32 +150,10 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
-  const navigateToCategory = (id: string | 'all') => {
-    if (id === 'all') {
-      navigateToStore();
-    } else {
-      const cat = categories.find(c => c.id === id);
-      const catUrlName = cat ? cat.name : id;
-      updateUrl({ category: catUrlName, p: null, v: null });
-      setSelectedCategoryId(id);
-      setView('category-page');
-      window.scrollTo(0, 0);
-    }
-  };
-
-  const toggleFavorite = (productId: string) => {
-    setWishlist(prev => {
-      const newList = prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId];
-      localStorage.setItem('elite_wishlist', JSON.stringify(newList));
-      return newList;
-    });
-  };
-
   const addToCart = (product: Product, size?: string, color?: string) => {
-    if (product.stockQuantity <= 0) return alert('عذراً، هذا المنتج غير متوفر حالياً');
     setCart(prev => {
-      let newList;
       const existing = prev.find(item => item.id === product.id && item.selectedSize === size && item.selectedColor === color);
+      let newList;
       if (existing) {
         newList = prev.map(item => (item.id === product.id && item.selectedSize === size && item.selectedColor === color) ? { ...item, quantity: item.quantity + 1 } : item);
       } else {
@@ -180,21 +164,25 @@ const App: React.FC = () => {
     });
   };
 
+  const toggleFavorite = (productId: string) => {
+    setWishlist(prev => {
+      const newList = prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId];
+      localStorage.setItem('elite_wishlist', JSON.stringify(newList));
+      return newList;
+    });
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 font-sans">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-bold">جاري تحميل المتجر...</p>
-        </div>
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-bold text-slate-500">تحميل عالم النخبة...</p>
       </div>
     );
   }
 
-  const currentCategory = categories.find(c => c.id === selectedCategoryId);
-
   return (
-    <div className="min-h-screen flex flex-col font-sans relative">
+    <div className="min-h-screen flex flex-col font-sans">
       <Header 
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
         wishlistCount={wishlist.length}
@@ -220,56 +208,22 @@ const App: React.FC = () => {
             searchQuery={searchQuery}
             selectedCategoryId={selectedCategoryId}
             onCategorySelect={navigateToCategory}
-            onAddToCart={(p) => addToCart(p, p.sizes?.[0], p.colors?.[0])} 
+            onAddToCart={(p) => addToCart(p)} 
             onViewProduct={navigateToProduct}
             wishlist={wishlist}
             onToggleFavorite={toggleFavorite}
           />
         )}
         
-        {view === 'category-page' && currentCategory && (
+        {view === 'category-page' && selectedCategoryId !== 'all' && (
           <CategoryPageView 
-            category={currentCategory}
+            category={categories.find(c => c.id === selectedCategoryId)!}
             products={products}
-            onAddToCart={(p) => addToCart(p, p.sizes?.[0], p.colors?.[0])}
+            onAddToCart={(p) => addToCart(p)}
             onViewProduct={navigateToProduct}
             wishlist={wishlist}
             onToggleFavorite={toggleFavorite}
             onBack={navigateToStore}
-          />
-        )}
-
-        {view === 'admin' && (
-          <AdminDashboard 
-            products={products} categories={categories} orders={orders}
-            onOpenAddForm={() => window.location.href = 'add-product.php'} 
-            onOpenEditForm={(p) => { window.location.href = `add-product.php?id=${p.id}`; }}
-            onDeleteProduct={async (id) => { const success = await ApiService.deleteProduct(id); if (success) setProducts(prev => prev.filter(p => p.id !== id)); }}
-            onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
-            onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); setCategories(prev => prev.filter(c => c.id !== id)); }}
-            onUpdateOrder={(updatedOrder) => { setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o)); }}
-          />
-        )}
-
-        {view === 'cart' && (
-          <CartView 
-            cart={cart} 
-            onUpdateQuantity={(id, d) => {
-              setCart(prev => {
-                const newList = prev.map(item => (item.id === id) ? { ...item, quantity: Math.max(1, item.quantity + d) } : item);
-                localStorage.setItem('elite_cart', JSON.stringify(newList));
-                return newList;
-              });
-            }}
-            onRemove={(id) => {
-              setCart(prev => {
-                const newList = prev.filter(item => item.id !== id);
-                localStorage.setItem('elite_cart', JSON.stringify(newList));
-                return newList;
-              });
-            }}
-            onCheckout={() => { setView('checkout'); updateUrl({ v: 'checkout', p: null, category: null }); }}
-            onContinueShopping={navigateToStore}
           />
         )}
 
@@ -284,22 +238,45 @@ const App: React.FC = () => {
           />
         )}
 
+        {view === 'cart' && (
+          <CartView 
+            cart={cart}
+            onUpdateQuantity={(id, d) => {
+              setCart(prev => {
+                const newList = prev.map(item => item.id === id ? { ...item, quantity: Math.max(1, item.quantity + d) } : item);
+                localStorage.setItem('elite_cart', JSON.stringify(newList));
+                return newList;
+              });
+            }}
+            onRemove={(id) => {
+              setCart(prev => {
+                const newList = prev.filter(item => item.id !== id);
+                localStorage.setItem('elite_cart', JSON.stringify(newList));
+                return newList;
+              });
+            }}
+            onCheckout={() => setView('checkout')}
+            onContinueShopping={navigateToStore}
+          />
+        )}
+
         {view === 'checkout' && (
-          <CheckoutView cart={cart} onPlaceOrder={async (details) => {
-            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const total = subtotal * 1.15;
-            const newOrder: Order = {
-              id: `ORD-${Date.now()}`, customerName: details.fullName, phone: details.phone, city: details.city, address: details.address,
-              items: [...cart], subtotal, total, paymentMethod: details.paymentMethod, status: 'pending', createdAt: Date.now()
-            };
-            await ApiService.saveOrder(newOrder);
-            setOrders(prev => [newOrder, ...prev]);
-            setCart([]);
-            localStorage.removeItem('elite_cart');
-            setLastPlacedOrder(newOrder);
-            setView('order-success');
-            updateUrl({ v: 'order-success' });
-          }} onBack={() => setView('cart')} />
+           <CheckoutView 
+             cart={cart} 
+             onPlaceOrder={async (details) => {
+               const newOrder: Order = {
+                 id: 'ORD-'+Date.now(), customerName: details.fullName, phone: details.phone, city: details.city, address: details.address,
+                 items: [...cart], subtotal: cart.reduce((s, i) => s + (i.price * i.quantity), 0), total: cart.reduce((s, i) => s + (i.price * i.quantity), 0) * 1.15,
+                 paymentMethod: details.paymentMethod, status: 'pending', createdAt: Date.now()
+               };
+               await ApiService.saveOrder(newOrder);
+               setLastPlacedOrder(newOrder);
+               setCart([]);
+               localStorage.removeItem('elite_cart');
+               setView('order-success');
+             }}
+             onBack={() => setView('cart')}
+           />
         )}
 
         {view === 'order-success' && lastPlacedOrder && (
@@ -308,45 +285,36 @@ const App: React.FC = () => {
 
         {view === 'wishlist' && (
            <div className="animate-fadeIn">
-            <h2 className="text-3xl font-black mb-8 flex items-center gap-3">
-              <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
-              المفضلة ({wishlist.length})
-            </h2>
-            {wishlist.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {products.filter(p => wishlist.includes(p.id)).map(product => (
-                  <ProductCard 
-                    key={product.id} product={product} 
-                    category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
-                    onAddToCart={() => addToCart(product)} onView={() => navigateToProduct(product)}
-                    isFavorite={true} onToggleFavorite={() => toggleFavorite(product.id)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
-                <p className="text-gray-500">لا توجد منتجات في المفضلة.</p>
-                <button onClick={navigateToStore} className="mt-4 text-indigo-600 font-bold">تصفح المتجر</button>
-              </div>
-            )}
+            <h2 className="text-3xl font-black mb-8">المفضلة ({wishlist.length})</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {products.filter(p => wishlist.includes(p.id)).map(product => (
+                <ProductCard 
+                  key={product.id} product={product} 
+                  category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
+                  onAddToCart={() => addToCart(product)} onView={() => navigateToProduct(product)}
+                  isFavorite={true} onToggleFavorite={() => toggleFavorite(product.id)}
+                />
+              ))}
+            </div>
           </div>
+        )}
+
+        {view === 'admin' && (
+          <AdminDashboard 
+            products={products} categories={categories} orders={orders}
+            onOpenAddForm={() => window.location.href = 'add-product.php'}
+            onOpenEditForm={(p) => window.location.href = `add-product.php?id=${p.id}`}
+            onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); setProducts(prev => prev.filter(p => p.id !== id)); }}
+            onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
+            onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); setCategories(prev => prev.filter(c => c.id !== id)); }}
+          />
         )}
       </main>
 
-      <footer className="bg-gray-900 text-white py-12 mt-12 text-center">
-        <div className="container mx-auto px-4">
-          <h2 className="text-xl font-black mb-4">متجر النخبة | Elite Store</h2>
-          <p className="text-gray-500 text-sm uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة.</p>
-        </div>
+      <footer className="bg-slate-900 text-white py-12 text-center mt-12">
+        <h2 className="text-xl font-black mb-2">متجر النخبة | Elite Store</h2>
+        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
       </footer>
-
-      <button 
-        onClick={() => { const nextView = view === 'admin' ? 'store' : 'admin'; if (nextView === 'store') navigateToStore(); else { setView('admin'); updateUrl({ v: 'admin', category: null }); } }}
-        className={`fixed bottom-8 left-8 z-50 flex items-center justify-center gap-3 px-6 py-4 rounded-full font-black text-sm shadow-2xl transition-all ${view === 'admin' ? 'bg-slate-900 text-white' : 'bg-indigo-600 text-white'}`}
-      >
-        <span>{view === 'admin' ? "المتجر" : "الإدارة"}</span>
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-      </button>
     </div>
   );
 };
