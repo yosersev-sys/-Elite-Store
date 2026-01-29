@@ -26,28 +26,32 @@ const App: React.FC = () => {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // تحديث الرابط في المتصفح
+  // تحديث الرابط في المتصفح وإطلاق حدث التغيير
   const updateUrl = (params: Record<string, string | null>) => {
     const url = new URL(window.location.href);
     Object.entries(params).forEach(([key, value]) => {
       if (value) url.searchParams.set(key, value);
       else url.searchParams.delete(key);
     });
-    // إذا كان التوجيه للرئيسية، نحذف معامل القسم
-    if (params.category === null) url.searchParams.delete('category');
     
+    // إذا كنا ننتقل للرئيسية، نحذف معامل القسم
+    if (params.category === null && params.v === null && params.p === null) {
+      url.searchParams.delete('category');
+      url.searchParams.delete('v');
+      url.searchParams.delete('p');
+    }
+
     window.history.pushState({}, '', url.toString());
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  // مزامنة الحالة مع الرابط (هذا هو المحرك الرئيسي للتوجيه)
+  // محرك التوجيه بناءً على URL
   const syncWithUrl = useCallback((allProducts: Product[], allCategories: Category[]) => {
     const params = new URLSearchParams(window.location.search);
     const categoryName = params.get('category');
     const productSlug = params.get('p');
     const viewParam = params.get('v');
 
-    // 1. صفحة المنتج (لها الأولوية)
     if (productSlug) {
       const product = allProducts.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
       if (product) {
@@ -57,25 +61,22 @@ const App: React.FC = () => {
       }
     }
 
-    // 2. صفحة القسم المنفصلة (إذا وُجد اسم القسم في الرابط)
     if (categoryName) {
       const category = allCategories.find(cat => cat.name === categoryName);
       if (category) {
         setSelectedCategoryId(category.id);
-        setView('category-page');
+        setView('category-page'); // هنا نضمن الانتقال لصفحة القسم المنفصلة
         return;
       }
     }
 
-    // 3. الواجهات الأخرى
     if (viewParam === 'admin') setView('admin');
     else if (viewParam === 'cart') setView('cart');
     else if (viewParam === 'wishlist') setView('wishlist');
     else if (viewParam === 'checkout') setView('checkout');
     else if (viewParam === 'order-success') setView('order-success');
     else {
-      // الواجهة الرئيسية (المتجر)
-      setView('store');
+      setView('store'); // الواجهة الرئيسية
       setSelectedCategoryId('all');
       setSelectedProduct(null);
     }
@@ -103,7 +104,7 @@ const App: React.FC = () => {
         const savedWishlist = localStorage.getItem('elite_wishlist');
         if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
       } catch (err) {
-        console.error("Failed to load data:", err);
+        console.error("Initialization failed:", err);
       } finally {
         setIsLoading(false);
       }
@@ -128,7 +129,6 @@ const App: React.FC = () => {
     } else {
       const cat = categories.find(c => c.id === id);
       if (cat) {
-        // تحديث الرابط فوراً ليصبح مخصصاً للقسم
         updateUrl({ category: cat.name, p: null, v: null });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -172,7 +172,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-slate-900">
+    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#fcfdfe]">
       <Header 
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
         wishlistCount={wishlist.length}
@@ -188,13 +188,13 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow container mx-auto px-4 py-8">
-        {/* الواجهة الرئيسية */}
+        {/* الصفحة الرئيسية: تظهر فقط عند اختيار 'store' */}
         {view === 'store' && (
           <StoreView 
             products={products}
             categories={categories}
             searchQuery={searchQuery}
-            selectedCategoryId="all" // الرئيسية تعرض الكل
+            selectedCategoryId="all"
             onCategorySelect={navigateToCategory}
             onAddToCart={(p) => addToCart(p)} 
             onViewProduct={navigateToProduct}
@@ -203,7 +203,7 @@ const App: React.FC = () => {
           />
         )}
         
-        {/* صفحة القسم المنفصلة تماماً */}
+        {/* صفحة القسم: تظهر كصفحة منفصلة تماماً عند اختيار 'category-page' */}
         {view === 'category-page' && selectedCategoryId !== 'all' && (
           <CategoryPageView 
             category={categories.find(c => c.id === selectedCategoryId)!}
@@ -276,7 +276,7 @@ const App: React.FC = () => {
           <div className="animate-fadeIn">
             <h2 className="text-4xl font-black mb-10 flex items-center gap-4">
               <span className="p-4 bg-red-50 rounded-3xl text-red-500">❤️</span>
-              المفضلة الخاصة بك
+              المفضلة
             </h2>
             {wishlist.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -291,8 +291,8 @@ const App: React.FC = () => {
               </div>
             ) : (
               <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                <p className="text-slate-400 font-bold text-lg mb-6">قائمة المفضلة فارغة حالياً</p>
-                <button onClick={navigateToStore} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-indigo-100 hover:scale-105 transition">ابدأ باكتشاف المنتجات</button>
+                <p className="text-slate-400 font-bold mb-6">المفضلة فارغة</p>
+                <button onClick={navigateToStore} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">تصفح المتجر</button>
               </div>
             )}
           </div>
@@ -311,15 +311,8 @@ const App: React.FC = () => {
       </main>
 
       <footer className="bg-slate-900 text-white py-16 text-center mt-20">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-black mb-4 tracking-tighter">ELITE<span className="text-indigo-500">STORE</span></h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-10">&copy; {new Date().getFullYear()} متجر النخبة - فخر الصناعة العربية</p>
-          <div className="flex flex-wrap justify-center gap-8">
-             <a href="#" className="text-slate-400 hover:text-white transition font-bold text-xs uppercase tracking-widest">Privacy Policy</a>
-             <a href="#" className="text-slate-400 hover:text-white transition font-bold text-xs uppercase tracking-widest">Terms & Conditions</a>
-             <a href="#" className="text-slate-400 hover:text-white transition font-bold text-xs uppercase tracking-widest">Support Center</a>
-          </div>
-        </div>
+        <h2 className="text-2xl font-black mb-4 tracking-tighter">ELITE<span className="text-indigo-500">STORE</span></h2>
+        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
       </footer>
     </div>
   );
