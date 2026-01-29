@@ -1,3 +1,4 @@
+
 <?php
 /**
  * API Backend for Elite Store
@@ -103,6 +104,28 @@ try {
                 json_encode($input['seoSettings'] ?? new stdClass()),
                 $input['id']
             ]);
+            echo json_encode(['status' => 'success']);
+            break;
+
+        case 'add_category':
+            if (!$input) sendError('بيانات القسم مفقودة');
+            $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
+            $stmt->execute([$input['id'], $input['name']]);
+            echo json_encode(['status' => 'success']);
+            break;
+
+        case 'update_category':
+            if (!$input) sendError('بيانات التحديث مفقودة');
+            $stmt = $pdo->prepare("UPDATE categories SET name=? WHERE id=?");
+            $stmt->execute([$input['name'], $input['id']]);
+            echo json_encode(['status' => 'success']);
+            break;
+
+        case 'delete_category':
+            $id = $_GET['id'] ?? '';
+            if(!$id) sendError('رقم القسم مفقود');
+            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+            $stmt->execute([$id]);
             echo json_encode(['status' => 'success']);
             break;
 

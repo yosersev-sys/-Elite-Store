@@ -176,6 +176,22 @@ export const ApiService = {
     return false;
   },
 
+  // Fix: Add missing updateCategory method to ApiService to support category editing in AdminDashboard.
+  async updateCategory(category: Category): Promise<boolean> {
+    const result = await safeFetch('update_category', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(category)
+    });
+    
+    if (result?.status === 'success' || isStaticMode) {
+      const current = MockDB.get('categories', INITIAL_CATEGORIES);
+      MockDB.set('categories', current.map(c => c.id === category.id ? category : c));
+      return true;
+    }
+    return false;
+  },
+
   async deleteCategory(id: string): Promise<boolean> {
     const result = await safeFetch(`delete_category&id=${id}`, { method: 'DELETE' });
     if (result?.status === 'success' || isStaticMode) {
