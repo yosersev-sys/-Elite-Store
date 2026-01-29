@@ -83,7 +83,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // جلب البيانات مرة واحدة عند التحميل
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -97,13 +96,27 @@ const App: React.FC = () => {
         setCategories(fetchedCats);
         setOrders(fetchedOrders);
         
-        // المزامنة فور جلب البيانات
         syncWithUrl(fetchedProducts, fetchedCats);
 
         const savedCart = localStorage.getItem('elite_cart');
-        if (savedCart) setCart(JSON.parse(savedCart));
+        if (savedCart) {
+           try {
+              const parsed = JSON.parse(savedCart);
+              setCart(Array.isArray(parsed) ? parsed : []);
+           } catch(e) {
+              setCart([]);
+           }
+        }
+        
         const savedWishlist = localStorage.getItem('elite_wishlist');
-        if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
+        if (savedWishlist) {
+           try {
+              const parsed = JSON.parse(savedWishlist);
+              setWishlist(Array.isArray(parsed) ? parsed : []);
+           } catch(e) {
+              setWishlist([]);
+           }
+        }
       } catch (err) {
         console.error("Initialization error:", err);
       } finally {
@@ -113,7 +126,6 @@ const App: React.FC = () => {
     loadData();
   }, [syncWithUrl]);
 
-  // مستمع تغيير الرابط يحتاج الوصول لأحدث المنتجات
   useEffect(() => {
     const handleLocationChange = () => syncWithUrl(products, categories);
     window.addEventListener('popstate', handleLocationChange);

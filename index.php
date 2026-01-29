@@ -214,7 +214,14 @@ header('Content-Type: text/html; charset=utf-8');
         useEffect(() => {
           loadData();
           const savedCart = localStorage.getItem('elite_cart');
-          if (savedCart) setCart(JSON.parse(savedCart));
+          if (savedCart) {
+             try {
+               const parsed = JSON.parse(savedCart);
+               setCart(Array.isArray(parsed) ? parsed : []);
+             } catch(e) {
+               setCart([]);
+             }
+          }
         }, [syncStateWithUrl]);
 
         useEffect(() => {
@@ -239,8 +246,24 @@ header('Content-Type: text/html; charset=utf-8');
 
         const addToCart = (product) => {
           if (product.stockQuantity <= 0) return alert('عذراً، المنتج نفذ من المخزون');
-          setCart([...cart, { ...product, quantity: 1 }]);
+          const newCart = [...cart, { ...product, quantity: 1 }];
+          setCart(newCart);
+          localStorage.setItem('elite_cart', JSON.stringify(newCart));
           alert('تمت الإضافة للسلة');
+        };
+
+        const updateCartQuantity = (id, delta) => {
+          const newCart = cart.map(item => 
+            item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
+          );
+          setCart(newCart);
+          localStorage.setItem('elite_cart', JSON.stringify(newCart));
+        };
+
+        const removeFromCart = (id) => {
+          const newCart = cart.filter(item => item.id !== id);
+          setCart(newCart);
+          localStorage.setItem('elite_cart', JSON.stringify(newCart));
         };
 
         const navigateToCategory = (id) => {
@@ -300,6 +323,8 @@ header('Content-Type: text/html; charset=utf-8');
           </div>
         );
 
+        const cartTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+
         return (
           <div className="min-h-screen flex flex-col">
             <header className="header-glass shadow-sm sticky top-0 z-50 border-b border-gray-100">
@@ -314,7 +339,7 @@ header('Content-Type: text/html; charset=utf-8');
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setView('cart')} className="relative p-2.5 bg-slate-900 text-white rounded-xl hover:bg-indigo-600 transition">
+                    <button onClick={() => updateUrl({v:'cart', p:null, category:null})} className="relative p-2.5 bg-slate-900 text-white rounded-xl hover:bg-indigo-600 transition">
                       🛒 <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-white">{cart.length}</span>
                     </button>
                     <button onClick={() => updateUrl({ v: 'admin', p: null, category: null })} className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition">⚙️ الإدارة</button>
@@ -409,6 +434,58 @@ header('Content-Type: text/html; charset=utf-8');
                         </div>
                      </div>
                   </div>
+                </div>
+              )}
+
+              {view === 'cart' && (
+                <div className="animate-fadeIn max-w-6xl mx-auto">
+                   <h2 className="text-3xl font-black mb-10">سلة التسوق ({cart.length})</h2>
+                   {cart.length === 0 ? (
+                      <div className="text-center py-20 bg-white rounded-[3rem] border shadow-sm">
+                         <p className="text-slate-400 font-bold mb-6">سلتك فارغة حالياً</p>
+                         <button onClick={navigateToStore} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">ابدأ التسوق</button>
+                      </div>
+                   ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                         <div className="lg:col-span-2 space-y-4">
+                            {cart.map(item => (
+                               <div key={item.id} className="bg-white p-6 rounded-[2.5rem] border flex items-center gap-6 group hover:shadow-lg transition">
+                                  <div className="w-24 h-24 rounded-2xl overflow-hidden border shrink-0">
+                                     <img src={item.images && item.images[0]} className="w-full h-full object-cover" />
+                                  </div>
+                                  <div className="flex-grow">
+                                     <h3 className="font-black text-slate-800">{item.name}</h3>
+                                     <div className="flex items-center gap-4 mt-4">
+                                        <div className="flex items-center bg-slate-50 rounded-xl px-1">
+                                           <button onClick={() => updateCartQuantity(item.id, 1)} className="w-8 h-8 font-black text-indigo-600">+</button>
+                                           <span className="px-4 font-black">{item.quantity}</span>
+                                           <button onClick={() => updateCartQuantity(item.id, -1)} className="w-8 h-8 font-black text-indigo-600">-</button>
+                                        </div>
+                                        <button onClick={() => removeFromCart(item.id)} className="text-rose-500 text-xs font-black">إزالة</button>
+                                     </div>
+                                  </div>
+                                  <div className="text-xl font-black text-indigo-600">{(item.price * item.quantity).toLocaleString()} ر.س</div>
+                               </div>
+                            ))}
+                         </div>
+                         <div className="lg:col-span-1">
+                            <div className="bg-white p-10 rounded-[3rem] border shadow-sm sticky top-24">
+                               <h3 className="text-xl font-black mb-6">ملخص الطلب</h3>
+                               <div className="space-y-4 mb-8">
+                                  <div className="flex justify-between text-slate-500 font-bold">
+                                     <span>المجموع</span>
+                                     <span>{cartTotal.toLocaleString()} ر.س</span>
+                                  </div>
+                                  <div className="flex justify-between text-2xl font-black text-slate-900 border-t pt-4">
+                                     <span>الإجمالي</span>
+                                     <span className="text-indigo-600">{cartTotal.toLocaleString()} ر.س</span>
+                                  </div>
+                               </div>
+                               <button onClick={() => updateUrl({v:'checkout', p:null, category:null})} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg hover:bg-indigo-600 shadow-xl transition active:scale-95">الدفع الآمن</button>
+                            </div>
+                         </div>
+                      </div>
+                   )}
                 </div>
               )}
 
