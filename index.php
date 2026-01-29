@@ -24,11 +24,9 @@ header('Content-Type: text/html; charset=utf-8');
       /* Animations */
       .animate-fadeIn { animation: fadeIn 0.6s ease-out forwards; }
       .animate-slideUp { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-      .animate-slideDown { animation: slideDown 0.5s ease-out forwards; }
       
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-      @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
       
       .header-glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
       .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -38,8 +36,6 @@ header('Content-Type: text/html; charset=utf-8');
       @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(50%); } }
       .animate-marquee { display: flex; animation: scroll 30s linear infinite; }
       .pause-on-hover:hover { animation-play-state: paused; }
-
-      .slider-dot-active { width: 24px; background: #4f46e5; }
     </style>
   </head>
   <body>
@@ -64,7 +60,7 @@ header('Content-Type: text/html; charset=utf-8');
           {
             image: "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?q=80&w=1600&auto=format&fit=crop",
             title: "منزلك.. بلمسة عصرية",
-            desc: "عروض حصرية على مستلزمت المنزل الذكي"
+            desc: "عروض حصرية على مستلزمات المنزل الذكي"
           }
         ];
         const [current, setCurrent] = useState(0);
@@ -130,7 +126,6 @@ header('Content-Type: text/html; charset=utf-8');
         </div>
       );
 
-      // --- Main App ---
       const App = () => {
         const [view, setView] = useState('store');
         const [products, setProducts] = useState([]);
@@ -232,6 +227,10 @@ header('Content-Type: text/html; charset=utf-8');
           });
         }, [products, searchQuery, selectedCatId]);
 
+        const activeCategory = useMemo(() => {
+          return categories.find(c => c.id === selectedCatId);
+        }, [categories, selectedCatId]);
+
         const addToCart = (product) => {
           if (product.stockQuantity <= 0) return alert('عذراً، المنتج نفذ من المخزون');
           setCart([...cart, { ...product, quantity: 1 }]);
@@ -254,38 +253,6 @@ header('Content-Type: text/html; charset=utf-8');
 
         const navigateToStore = () => {
           updateUrl({ p: null, v: null, category: null });
-        };
-
-        const handleDeleteProduct = async (id) => {
-          if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
-          try {
-            const res = await fetch(`api.php?action=delete_product&id=${id}`, { method: 'DELETE' }).then(r => r.json());
-            if (res.status === 'success') {
-              setProducts(products.filter(p => p.id !== id));
-            }
-          } catch (e) {}
-        };
-
-        const handleAddCategory = async () => {
-          if (!newCatName.trim()) return;
-          const newCat = { id: 'cat_' + Date.now(), name: newCatName };
-          const res = await fetch('api.php?action=add_category', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newCat)
-          }).then(r => r.json());
-          if (res.status === 'success') {
-            setCategories([...categories, newCat]);
-            setNewCatName('');
-          }
-        };
-
-        const handleDeleteCategory = async (id) => {
-          if (!confirm('هل أنت متأكد من حذف هذا القسم؟ سيتم حذف جميع منتجاته!')) return;
-          const res = await fetch(`api.php?action=delete_category&id=${id}`, { method: 'DELETE' }).then(r => r.json());
-          if (res.status === 'success') {
-            setCategories(categories.filter(c => c.id !== id));
-          }
         };
 
         if (isLoading) return (
@@ -330,10 +297,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <div className="animate-fadeIn">
                   <Slider />
                   <BrandsMarquee />
-                  <div className="flex items-center justify-between mb-8">
-                     <h2 className="text-3xl font-black text-slate-800">منتجاتنا الحصرية</h2>
-                     <div className="h-1 bg-slate-100 flex-grow mx-8 rounded-full hidden md:block"></div>
-                  </div>
+                  <h2 className="text-3xl font-black text-slate-800 mb-8">منتجاتنا الحصرية</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10">
                     {filteredProducts.map(p => (
                       <div key={p.id} onClick={() => navigateToProduct(p)} className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm cursor-pointer group">
@@ -354,70 +318,35 @@ header('Content-Type: text/html; charset=utf-8');
                 </div>
               )}
 
-              {view === 'admin' && (
-                <div className="space-y-8 animate-fadeIn">
-                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                      <h2 className="text-4xl font-black text-slate-900 tracking-tighter">لوحة التحكم</h2>
-                      <button onClick={() => window.location.href = 'add-product.php'} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100">+ منتج جديد</button>
+              {view === 'category-page' && activeCategory ? (
+                <div className="animate-fadeIn">
+                   <div className="bg-slate-900 rounded-[3rem] p-12 text-white mb-16 relative overflow-hidden">
+                      <h2 className="text-5xl md:text-7xl font-black mb-4 tracking-tighter italic">
+                         قسم {activeCategory.name}
+                      </h2>
+                      <p className="text-slate-400 font-bold text-xl">اكتشف أفضل المختارات في هذا القسم.</p>
                    </div>
-                   <div className="flex border-b border-slate-100 gap-8 mb-8">
-                      <button onClick={() => setAdminTab('stats')} className={`pb-4 text-sm font-black transition ${adminTab === 'stats' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>الإحصائيات</button>
-                      <button onClick={() => setAdminTab('products')} className={`pb-4 text-sm font-black transition ${adminTab === 'products' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>المخزون</button>
-                      <button onClick={() => setAdminTab('categories')} className={`pb-4 text-sm font-black transition ${adminTab === 'categories' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>الأقسام</button>
-                   </div>
-
-                  {adminTab === 'stats' && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <StatCard title="إجمالي الدخل" value={`${orders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0).toLocaleString()} ر.س`} icon="💰" color="bg-emerald-500" />
-                      <StatCard title="الطلبات" value={orders.length} icon="📦" color="bg-indigo-500" />
-                      <StatCard title="المنتجات" value={products.length} icon="✨" color="bg-slate-900" />
-                    </div>
-                  )}
-
-                  {adminTab === 'products' && (
-                    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-                        <table className="w-full text-right">
-                          <tbody className="divide-y divide-slate-50">
-                            {products.map(p => (
-                              <tr key={p.id} className="hover:bg-slate-50 transition group">
-                                <td className="px-8 py-5 flex items-center gap-4">
-                                    <img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover border" alt="" />
-                                    <span className="font-black text-slate-800 text-sm">{p.name}</span>
-                                </td>
-                                <td className="px-8 py-5 text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <button onClick={() => window.location.href = `add-product.php?id=${p.id}`} className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-indigo-600 hover:text-white transition">✎</button>
-                                    <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-600 hover:text-white transition">🗑</button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                    </div>
-                  )}
-
-                  {adminTab === 'categories' && (
-                    <div className="max-w-2xl space-y-8">
-                       <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex gap-4">
-                          <input 
-                            value={newCatName} 
-                            onChange={e => setNewCatName(e.target.value)} 
-                            placeholder="اسم القسم الجديد..." 
-                            className="flex-grow bg-slate-50 px-6 py-3 rounded-xl outline-none font-bold"
-                          />
-                          <button onClick={handleAddCategory} className="bg-indigo-600 text-white px-8 rounded-xl font-black">إضافة</button>
-                       </div>
-                       <div className="space-y-3">
-                          {categories.map(cat => (
-                            <div key={cat.id} className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center group">
-                               <span className="font-black text-slate-800">{cat.name}</span>
-                               <button onClick={() => handleDeleteCategory(cat.id)} className="text-slate-300 hover:text-rose-500 transition">🗑</button>
-                            </div>
-                          ))}
-                       </div>
-                    </div>
-                  )}
+                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10">
+                    {filteredProducts.map(p => (
+                      <div key={p.id} onClick={() => navigateToProduct(p)} className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm cursor-pointer group">
+                        <div className="aspect-square bg-slate-50 overflow-hidden relative">
+                          <img src={p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={p.name} />
+                        </div>
+                        <div className="p-6 flex flex-col flex-grow">
+                          <h3 className="font-black text-slate-800 text-base mb-4 line-clamp-1">{p.name}</h3>
+                          <div className="mt-auto flex justify-between items-center">
+                            <span className="text-xl font-black text-slate-900">{p.price} <small className="text-xs font-bold">ر.س</small></span>
+                            <div className="bg-slate-900 text-white w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-indigo-600 transition shadow-lg">🛒</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : view === 'category-page' && (
+                <div className="text-center py-20">
+                  <p className="text-slate-400 font-bold">لا يوجد قسم بهذا الاسم حالياً.</p>
+                  <button onClick={navigateToStore} className="mt-4 bg-indigo-600 text-white px-8 py-2 rounded-xl">الرجوع للرئيسية</button>
                 </div>
               )}
             </main>

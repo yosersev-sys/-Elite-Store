@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Product, CartItem, Category, Order } from './types';
 import Header from './components/Header';
 import StoreView from './components/StoreView';
@@ -58,7 +58,6 @@ const App: React.FC = () => {
       }
     }
 
-    // إذا وُجد اسم قسم في الرابط، نفتح صفحة القسم حصرياً
     if (categoryName) {
       const category = allCategories.find(cat => cat.name === categoryName);
       if (category) {
@@ -74,7 +73,6 @@ const App: React.FC = () => {
     else if (viewParam === 'checkout') setView('checkout');
     else if (viewParam === 'order-success') setView('order-success');
     else {
-      // الوضع الافتراضي: الصفحة الرئيسية (StoreView)
       setView('store');
       setSelectedCategoryId('all');
       setSelectedProduct(null);
@@ -112,6 +110,10 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, [syncWithUrl, products.length, categories.length]);
 
+  const currentCategory = useMemo(() => {
+    return categories.find(c => c.id === selectedCategoryId);
+  }, [categories, selectedCategoryId]);
+
   const navigateToStore = () => updateUrl({ category: null, p: null, v: null });
 
   const navigateToCategory = (id: string | 'all') => {
@@ -120,7 +122,6 @@ const App: React.FC = () => {
     } else {
       const cat = categories.find(c => c.id === id);
       if (cat) {
-        // تحديث الرابط سيقوم بـ syncWithUrl وبالتالي تغيير الـ view لـ category-page
         updateUrl({ category: cat.name, p: null, v: null });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -177,7 +178,6 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow container mx-auto px-4 py-8">
-        {/* الواجهة الرئيسية: تعرض السلايدر وكل شيء - تظهر فقط في وضع store */}
         {view === 'store' && (
           <StoreView 
             products={products}
@@ -192,10 +192,9 @@ const App: React.FC = () => {
           />
         )}
         
-        {/* صفحة القسم المستقلة: لا تحتوي على سلايدر أو براندات - تظهر عند الضغط على أي قسم */}
-        {view === 'category-page' && (
+        {view === 'category-page' && currentCategory ? (
           <CategoryPageView 
-            category={categories.find(c => c.id === selectedCategoryId)!}
+            category={currentCategory}
             products={products}
             onAddToCart={(p) => addToCart(p)}
             onViewProduct={navigateToProduct}
@@ -203,6 +202,10 @@ const App: React.FC = () => {
             onToggleFavorite={toggleFavorite}
             onBack={navigateToStore}
           />
+        ) : view === 'category-page' && (
+          <div className="h-64 flex items-center justify-center">
+             <p className="text-slate-400 font-bold">جاري البحث عن القسم...</p>
+          </div>
         )}
 
         {view === 'product-details' && selectedProduct && (
