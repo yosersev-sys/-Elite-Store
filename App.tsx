@@ -26,7 +26,6 @@ const App: React.FC = () => {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // تحديث URL المتصفح ليعمل كروابط حقيقية
   const updateUrl = (params: Record<string, string | null>) => {
     const url = new URL(window.location.href);
     Object.entries(params).forEach(([key, value]) => {
@@ -34,7 +33,6 @@ const App: React.FC = () => {
       else url.searchParams.delete(key);
     });
     
-    // إذا عدنا للرئيسية، نحذف جميع المعاملات
     if (params.category === null && params.v === null && params.p === null) {
       url.searchParams.delete('category');
       url.searchParams.delete('v');
@@ -45,14 +43,12 @@ const App: React.FC = () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  // مزامنة حالة التطبيق مع الرابط
   const syncWithUrl = useCallback((allProducts: Product[], allCategories: Category[]) => {
     const params = new URLSearchParams(window.location.search);
     const categoryName = params.get('category');
     const productSlug = params.get('p');
     const viewParam = params.get('v');
 
-    // أولوية صفحة المنتج
     if (productSlug) {
       const product = allProducts.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
       if (product) {
@@ -62,24 +58,24 @@ const App: React.FC = () => {
       }
     }
 
-    // أولوية صفحة القسم المنفصلة
+    // إذا وُجد اسم قسم في الرابط، نفتح صفحة القسم حصرياً
     if (categoryName) {
       const category = allCategories.find(cat => cat.name === categoryName);
       if (category) {
         setSelectedCategoryId(category.id);
-        setView('category-page'); // الانتقال حصراً لصفحة القسم المنفصلة
+        setView('category-page'); 
         return;
       }
     }
 
-    // التنقلات الأخرى
     if (viewParam === 'admin') setView('admin');
     else if (viewParam === 'cart') setView('cart');
     else if (viewParam === 'wishlist') setView('wishlist');
     else if (viewParam === 'checkout') setView('checkout');
     else if (viewParam === 'order-success') setView('order-success');
     else {
-      setView('store'); // العودة للواجهة الرئيسية (بدون تصفية)
+      // الوضع الافتراضي: الصفحة الرئيسية (StoreView)
+      setView('store');
       setSelectedCategoryId('all');
       setSelectedProduct(null);
     }
@@ -124,6 +120,7 @@ const App: React.FC = () => {
     } else {
       const cat = categories.find(c => c.id === id);
       if (cat) {
+        // تحديث الرابط سيقوم بـ syncWithUrl وبالتالي تغيير الـ view لـ category-page
         updateUrl({ category: cat.name, p: null, v: null });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -158,7 +155,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-slate-800 tracking-tighter">تحميل متجر النخبة...</p>
+        <p className="font-black text-slate-800 tracking-tighter">تحميل عالم النخبة...</p>
       </div>
     );
   }
@@ -180,13 +177,13 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow container mx-auto px-4 py-8">
-        {/* الواجهة الرئيسية: تظهر فقط في وضع store وبدون معامل قسم في الرابط */}
+        {/* الواجهة الرئيسية: تعرض السلايدر وكل شيء - تظهر فقط في وضع store */}
         {view === 'store' && (
           <StoreView 
             products={products}
             categories={categories}
             searchQuery={searchQuery}
-            selectedCategoryId="all" // منع الفلترة في الواجهة الرئيسية
+            selectedCategoryId="all"
             onCategorySelect={navigateToCategory}
             onAddToCart={(p) => addToCart(p)} 
             onViewProduct={navigateToProduct}
@@ -195,7 +192,7 @@ const App: React.FC = () => {
           />
         )}
         
-        {/* صفحة القسم المنفصلة تماماً: تظهر حصراً عند اختيار قسم */}
+        {/* صفحة القسم المستقلة: لا تحتوي على سلايدر أو براندات - تظهر عند الضغط على أي قسم */}
         {view === 'category-page' && (
           <CategoryPageView 
             category={categories.find(c => c.id === selectedCategoryId)!}
@@ -283,7 +280,7 @@ const App: React.FC = () => {
               </div>
             ) : (
               <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                <p className="text-slate-400 font-bold mb-6">قائمة المفضلة فارغة</p>
+                <p className="text-slate-400 font-bold mb-6">المفضلة فارغة</p>
                 <button onClick={navigateToStore} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">ابدأ التسوق</button>
               </div>
             )}
@@ -303,10 +300,8 @@ const App: React.FC = () => {
       </main>
 
       <footer className="bg-slate-900 text-white py-20 text-center mt-20">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-black mb-4">ELITE<span className="text-indigo-500">STORE</span></h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} متجر النخبة - جميع الحقوق محفوظة</p>
-        </div>
+        <h2 className="text-2xl font-black mb-4 tracking-tighter">ELITE<span className="text-indigo-500">STORE</span></h2>
+        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
       </footer>
     </div>
   );

@@ -22,28 +22,27 @@ const StoreView: React.FC<StoreViewProps> = ({
   products, 
   categories, 
   searchQuery, 
-  selectedCategoryId,
-  onCategorySelect,
   onAddToCart, 
   onViewProduct,
   wishlist,
   onToggleFavorite
 }) => {
+  // الصفحة الرئيسية تعرض كل المنتجات دائماً أو ما يطابق البحث فقط
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            p.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategoryId === 'all' || p.categoryId === selectedCategoryId;
-      return matchesSearch && matchesCategory;
+      return matchesSearch;
     });
-  }, [products, searchQuery, selectedCategoryId]);
+  }, [products, searchQuery]);
 
   return (
-    <div className="space-y-12 animate-fadeIn">
+    <div className="space-y-20 animate-fadeIn">
+      {/* عناصر الواجهة الرئيسية الثابتة */}
       <Slider />
       <BrandsSection />
 
-      {selectedCategoryId === 'all' && searchQuery === '' && (
+      {searchQuery === '' && (
         <BestSellers 
           products={products} 
           onAddToCart={onAddToCart} 
@@ -53,40 +52,30 @@ const StoreView: React.FC<StoreViewProps> = ({
         />
       )}
 
-      <div className="space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-t border-gray-100 pt-12">
-          <div className="space-y-1">
-             <h2 className="text-3xl font-black text-gray-900">
-               {selectedCategoryId === 'all' ? 'كل المنتجات' : `قسم ${categories.find(c => c.id === selectedCategoryId)?.name}`}
+      {/* قسم المنتجات في الرئيسية - تم إزالة أزرار الفلترة منه لفك الارتباط بالهيدر */}
+      <div className="space-y-12">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-t border-gray-100 pt-16">
+          <div className="space-y-2">
+             <h2 className="text-4xl font-black text-gray-900 tracking-tighter">
+               {searchQuery ? `نتائج البحث عن: ${searchQuery}` : 'كل المعروضات'}
              </h2>
-             <p className="text-gray-400 text-sm font-bold">تصفح مجموعتنا الحصرية في جميع الأقسام</p>
+             <p className="text-gray-400 text-lg font-bold">استكشف تشكيلتنا الكاملة من المنتجات المختارة</p>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button 
-              onClick={() => onCategorySelect('all')}
-              className={`px-5 py-2 rounded-full text-xs transition font-black border-2 ${selectedCategoryId === 'all' ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500 hover:border-indigo-200'}`}
-            >
-              الكل
-            </button>
-            {categories.map(cat => (
-              <button 
-                key={cat.id}
-                onClick={() => onCategorySelect(cat.id)}
-                className={`px-5 py-2 rounded-full text-xs transition font-black border-2 ${selectedCategoryId === cat.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500 hover:border-indigo-200'}`}
-              >
-                {cat.name}
-              </button>
-            ))}
+          
+          {/* تم إزالة أزرار التصنيفات من هنا لأنها موجودة في الهيدر وتفتح صفحات مستقلة */}
+          <div className="hidden md:block">
+             <span className="bg-indigo-50 text-indigo-600 px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
+                Elite Collection 2024
+             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
           {filteredProducts.map(product => (
             <ProductCard 
               key={product.id} 
               product={product} 
-              category={categories.find(c => c.id === product.categoryId)?.name || 'غير مصنف'}
+              category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
               onAddToCart={() => onAddToCart(product)} 
               onView={() => onViewProduct(product)}
               isFavorite={wishlist.includes(product.id)}
@@ -96,8 +85,9 @@ const StoreView: React.FC<StoreViewProps> = ({
         </div>
 
         {filteredProducts.length === 0 && (
-          <div className="text-center py-20 bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-200">
-             <p className="text-gray-400 font-bold">لا توجد منتجات تطابق بحثك حالياً.</p>
+          <div className="text-center py-32 bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-200">
+             <div className="text-6xl mb-4">🔍</div>
+             <p className="text-gray-400 font-black text-xl">عذراً، لم نجد منتجات تطابق بحثك.</p>
           </div>
         )}
       </div>
