@@ -20,11 +20,19 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   onToggleFavorite
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [selectedSize, setSelectedSize] = useState<string>(product.sizes?.[0] || '');
-  const [selectedColor, setSelectedColor] = useState<string>(product.colors?.[0] || '');
+  
+  // Safe Access for properties
+  const images = Array.isArray(product?.images) ? product.images : [];
+  const sizes = Array.isArray(product?.sizes) ? product.sizes : [];
+  const colors = Array.isArray(product?.colors) ? product.colors : [];
 
-  const isOutOfStock = product.stockQuantity <= 0;
-  const isLowStock = product.stockQuantity > 0 && product.stockQuantity < 5;
+  const [selectedSize, setSelectedSize] = useState<string>(sizes[0] || '');
+  const [selectedColor, setSelectedColor] = useState<string>(colors[0] || '');
+
+  if (!product) return <div className="p-20 text-center font-bold">عذراً، لم يتم العثور على المنتج</div>;
+
+  const isOutOfStock = (product.stockQuantity || 0) <= 0;
+  const isLowStock = (product.stockQuantity || 0) > 0 && (product.stockQuantity || 0) < 5;
 
   return (
     <div className="animate-fadeIn max-w-6xl mx-auto py-8 px-4">
@@ -43,14 +51,17 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           
           <div className="p-6 md:p-10 bg-gray-50/30 flex flex-col gap-6">
             <div className="relative aspect-square overflow-hidden rounded-[2.5rem] shadow-lg bg-white">
-              <img 
-                key={activeImageIndex}
-                src={product.images[activeImageIndex]} 
-                alt={product.name} 
-                className={`w-full h-full object-cover animate-fadeIn ${isOutOfStock ? 'grayscale opacity-60' : ''}`}
-              />
+              {images.length > 0 ? (
+                <img 
+                  key={activeImageIndex}
+                  src={images[activeImageIndex]} 
+                  alt={product.name} 
+                  className={`w-full h-full object-cover animate-fadeIn ${isOutOfStock ? 'grayscale opacity-60' : ''}`}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">لا توجد صورة</div>
+              )}
               
-              {/* شارة نفاذ الكمية */}
               {isOutOfStock && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[2px]">
                    <span className="bg-red-600 text-white px-8 py-3 rounded-2xl font-black text-xl shadow-2xl transform -rotate-12 border-4 border-white">
@@ -69,13 +80,13 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
               </button>
             </div>
             
-            {product.images.length > 1 && (
-              <div className="flex gap-4 overflow-x-auto pb-2">
-                {product.images.map((img, idx) => (
+            {images.length > 1 && (
+              <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+                {images.map((img, idx) => (
                   <button 
                     key={idx}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition ${activeImageIndex === idx ? 'border-indigo-600 scale-105' : 'border-transparent opacity-60'}`}
+                    className={`w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition ${activeImageIndex === idx ? 'border-indigo-600 scale-105' : 'border-transparent opacity-60'}`}
                   >
                     <img src={img} className="w-full h-full object-cover" alt="" />
                   </button>
@@ -94,7 +105,6 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                   {product.name}
                 </h1>
                 
-                {/* تحذير المخزون */}
                 {isLowStock && (
                   <div className="mt-4 flex items-center gap-2 text-orange-600 bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100 animate-pulse">
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -111,23 +121,35 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                 </span>
               </div>
 
-              {product.sizes && product.sizes.length > 0 && (
+              {sizes.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">المقاس</h3>
                   <div className="flex flex-wrap gap-3">
-                    {product.sizes.map(size => (
-                      <button key={size} onClick={() => setSelectedSize(size)} className={`min-w-[50px] h-12 px-4 rounded-xl font-bold transition-all border-2 ${selectedSize === size ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-300'}`}>{size}</button>
+                    {sizes.map(size => (
+                      <button 
+                        key={size} 
+                        onClick={() => setSelectedSize(size)} 
+                        className={`min-w-[50px] h-12 px-4 rounded-xl font-bold transition-all border-2 ${selectedSize === size ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-300'}`}
+                      >
+                        {size}
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {product.colors && product.colors.length > 0 && (
+              {colors.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">اللون</h3>
                   <div className="flex flex-wrap gap-4">
-                    {product.colors.map(color => (
-                      <button key={color} onClick={() => setSelectedColor(color)} className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all border-2 ${selectedColor === color ? 'bg-gray-900 border-gray-900 text-white shadow-lg' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'}`}><span className="text-sm">{color}</span></button>
+                    {colors.map(color => (
+                      <button 
+                        key={color} 
+                        onClick={() => setSelectedColor(color)} 
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all border-2 ${selectedColor === color ? 'bg-gray-900 border-gray-900 text-white shadow-lg' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'}`}
+                      >
+                        <span className="text-sm">{color}</span>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -135,7 +157,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">الوصف</h3>
-                <p className="text-gray-500 leading-relaxed text-lg">{product.description}</p>
+                <p className="text-gray-500 leading-relaxed text-lg">{product.description || 'لا يوجد وصف متوفر لهذا المنتج.'}</p>
               </div>
 
               <div className="pt-8 flex gap-4">
@@ -150,15 +172,6 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                   </svg>
                   {isOutOfStock ? 'غير متوفر' : 'أضف للسلة'}
-                </button>
-                
-                <button 
-                  onClick={() => onToggleFavorite(product.id)}
-                  className={`p-5 rounded-2xl border-2 transition-all active:scale-95 shadow-lg flex items-center justify-center ${isFavorite ? 'bg-red-50 border-red-200 text-red-500' : 'bg-white border-gray-100 text-gray-400 hover:border-red-200 hover:text-red-500'}`}
-                >
-                  <svg className="w-8 h-8" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
                 </button>
               </div>
             </div>

@@ -44,6 +44,8 @@ const App: React.FC = () => {
   };
 
   const syncWithUrl = useCallback((allProducts: Product[], allCategories: Category[]) => {
+    if (!allProducts || allProducts.length === 0) return;
+
     const params = new URLSearchParams(window.location.search);
     const categoryName = params.get('category');
     const productSlug = params.get('p');
@@ -54,6 +56,7 @@ const App: React.FC = () => {
       if (product) {
         setSelectedProduct(product);
         setView('product-details');
+        window.scrollTo(0, 0);
         return;
       }
     }
@@ -63,6 +66,7 @@ const App: React.FC = () => {
       if (category) {
         setSelectedCategoryId(category.id);
         setView('category-page'); 
+        window.scrollTo(0, 0);
         return;
       }
     }
@@ -79,6 +83,7 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // جلب البيانات مرة واحدة عند التحميل
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -91,6 +96,8 @@ const App: React.FC = () => {
         setProducts(fetchedProducts);
         setCategories(fetchedCats);
         setOrders(fetchedOrders);
+        
+        // المزامنة فور جلب البيانات
         syncWithUrl(fetchedProducts, fetchedCats);
 
         const savedCart = localStorage.getItem('elite_cart');
@@ -104,11 +111,14 @@ const App: React.FC = () => {
       }
     };
     loadData();
+  }, [syncWithUrl]);
 
+  // مستمع تغيير الرابط يحتاج الوصول لأحدث المنتجات
+  useEffect(() => {
     const handleLocationChange = () => syncWithUrl(products, categories);
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
-  }, [syncWithUrl, products.length, categories.length]);
+  }, [syncWithUrl, products, categories]);
 
   const currentCategory = useMemo(() => {
     return categories.find(c => c.id === selectedCategoryId);
@@ -123,7 +133,6 @@ const App: React.FC = () => {
       const cat = categories.find(c => c.id === id);
       if (cat) {
         updateUrl({ category: cat.name, p: null, v: null });
-        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
   };
@@ -142,6 +151,7 @@ const App: React.FC = () => {
       localStorage.setItem('elite_cart', JSON.stringify(newList));
       return newList;
     });
+    alert('تمت الإضافة للسلة بنجاح');
   };
 
   const toggleFavorite = (productId: string) => {
@@ -192,7 +202,7 @@ const App: React.FC = () => {
           />
         )}
         
-        {view === 'category-page' && currentCategory ? (
+        {view === 'category-page' && currentCategory && (
           <CategoryPageView 
             category={currentCategory}
             products={products}
@@ -202,10 +212,6 @@ const App: React.FC = () => {
             onToggleFavorite={toggleFavorite}
             onBack={navigateToStore}
           />
-        ) : view === 'category-page' && (
-          <div className="h-64 flex items-center justify-center">
-             <p className="text-slate-400 font-bold">جاري البحث عن القسم...</p>
-          </div>
         )}
 
         {view === 'product-details' && selectedProduct && (

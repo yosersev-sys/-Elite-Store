@@ -150,6 +150,8 @@ header('Content-Type: text/html; charset=utf-8');
         };
 
         const syncStateWithUrl = useCallback((allProducts, allCategories) => {
+          if (!allProducts || allProducts.length === 0) return;
+          
           const params = new URLSearchParams(window.location.search);
           const slug = params.get('p');
           const viewParam = params.get('v');
@@ -160,6 +162,7 @@ header('Content-Type: text/html; charset=utf-8');
             if (product) {
               setSelectedProduct(product);
               setView('product-details');
+              window.scrollTo(0,0);
               return;
             }
           }
@@ -169,6 +172,7 @@ header('Content-Type: text/html; charset=utf-8');
             if (cat) {
               setSelectedCatId(cat.id);
               setView('category-page');
+              window.scrollTo(0,0);
               return;
             }
           }
@@ -211,13 +215,15 @@ header('Content-Type: text/html; charset=utf-8');
           loadData();
           const savedCart = localStorage.getItem('elite_cart');
           if (savedCart) setCart(JSON.parse(savedCart));
+        }, [syncStateWithUrl]);
 
+        useEffect(() => {
           const handlePopState = () => {
              syncStateWithUrl(products, categories);
           };
           window.addEventListener('popstate', handlePopState);
           return () => window.removeEventListener('popstate', handlePopState);
-        }, [products.length, categories.length, syncStateWithUrl]);
+        }, [products, categories, syncStateWithUrl]);
 
         const filteredProducts = useMemo(() => {
           return products.filter(p => {
@@ -253,6 +259,38 @@ header('Content-Type: text/html; charset=utf-8');
 
         const navigateToStore = () => {
           updateUrl({ p: null, v: null, category: null });
+        };
+
+        const handleDeleteProduct = async (id) => {
+          if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
+          try {
+            const res = await fetch(`api.php?action=delete_product&id=${id}`, { method: 'DELETE' }).then(r => r.json());
+            if (res.status === 'success') {
+              setProducts(products.filter(p => p.id !== id));
+            }
+          } catch (e) {}
+        };
+
+        const handleAddCategory = async () => {
+          if (!newCatName.trim()) return;
+          const newCat = { id: 'cat_' + Date.now(), name: newCatName };
+          const res = await fetch('api.php?action=add_category', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newCat)
+          }).then(r => r.json());
+          if (res.status === 'success') {
+            setCategories([...categories, newCat]);
+            setNewCatName('');
+          }
+        };
+
+        const handleDeleteCategory = async (id) => {
+          if (!confirm('هل أنت متأكد من حذف هذا القسم؟ سيتم حذف جميع منتجاته!')) return;
+          const res = await fetch(`api.php?action=delete_category&id=${id}`, { method: 'DELETE' }).then(r => r.json());
+          if (res.status === 'success') {
+            setCategories(categories.filter(c => c.id !== id));
+          }
         };
 
         if (isLoading) return (
@@ -302,7 +340,7 @@ header('Content-Type: text/html; charset=utf-8');
                     {filteredProducts.map(p => (
                       <div key={p.id} onClick={() => navigateToProduct(p)} className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm cursor-pointer group">
                         <div className="aspect-square bg-slate-50 overflow-hidden relative">
-                          <img src={p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={p.name} />
+                          <img src={p.images && p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={p.name} />
                         </div>
                         <div className="p-6 flex flex-col flex-grow">
                           <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">{categories.find(c => c.id === p.categoryId)?.name || 'عام'}</span>
@@ -330,7 +368,7 @@ header('Content-Type: text/html; charset=utf-8');
                     {filteredProducts.map(p => (
                       <div key={p.id} onClick={() => navigateToProduct(p)} className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm cursor-pointer group">
                         <div className="aspect-square bg-slate-50 overflow-hidden relative">
-                          <img src={p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={p.name} />
+                          <img src={p.images && p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={p.name} />
                         </div>
                         <div className="p-6 flex flex-col flex-grow">
                           <h3 className="font-black text-slate-800 text-base mb-4 line-clamp-1">{p.name}</h3>
@@ -347,6 +385,97 @@ header('Content-Type: text/html; charset=utf-8');
                 <div className="text-center py-20">
                   <p className="text-slate-400 font-bold">لا يوجد قسم بهذا الاسم حالياً.</p>
                   <button onClick={navigateToStore} className="mt-4 bg-indigo-600 text-white px-8 py-2 rounded-xl">الرجوع للرئيسية</button>
+                </div>
+              )}
+
+              {view === 'product-details' && selectedProduct && (
+                <div className="max-w-5xl mx-auto animate-fadeIn">
+                  <button onClick={navigateToStore} className="mb-8 font-black text-indigo-600 flex items-center gap-2 hover:translate-x-2 transition-transform">➜ العودة للتسوق</button>
+                  <div className="bg-white p-6 md:p-12 rounded-[3.5rem] shadow-2xl border flex flex-col md:flex-row gap-12">
+                     <div className="w-full md:w-1/2 aspect-square rounded-[2.5rem] overflow-hidden border border-slate-50 shadow-inner">
+                        {selectedProduct.images && selectedProduct.images[0] && (
+                          <img src={selectedProduct.images[0]} className="w-full h-full object-cover" alt={selectedProduct.name} />
+                        )}
+                     </div>
+                     <div className="w-full md:w-1/2 flex flex-col justify-center space-y-8">
+                        <div>
+                           <span className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4 inline-block">{categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}</span>
+                           <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight">{selectedProduct.name}</h1>
+                        </div>
+                        <p className="text-slate-500 leading-relaxed text-lg font-medium">{selectedProduct.description}</p>
+                        <div className="flex items-center justify-between pt-8 border-t border-slate-50">
+                           <span className="text-4xl font-black text-indigo-600">{selectedProduct.price} <small className="text-lg">ر.س</small></span>
+                           <button onClick={() => addToCart(selectedProduct)} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black shadow-xl hover:bg-indigo-600 transition-all active:scale-95">أضف للسلة 🛒</button>
+                        </div>
+                     </div>
+                  </div>
+                </div>
+              )}
+
+              {view === 'admin' && (
+                <div className="space-y-8 animate-fadeIn">
+                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                      <h2 className="text-4xl font-black text-slate-900 tracking-tighter">لوحة التحكم</h2>
+                      <button onClick={() => window.location.href = 'add-product.php'} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100">+ منتج جديد</button>
+                   </div>
+                   <div className="flex border-b border-slate-100 gap-8 mb-8">
+                      <button onClick={() => setAdminTab('stats')} className={`pb-4 text-sm font-black transition ${adminTab === 'stats' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>الإحصائيات</button>
+                      <button onClick={() => setAdminTab('products')} className={`pb-4 text-sm font-black transition ${adminTab === 'products' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>المخزون</button>
+                      <button onClick={() => setAdminTab('categories')} className={`pb-4 text-sm font-black transition ${adminTab === 'categories' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>الأقسام</button>
+                   </div>
+
+                  {adminTab === 'stats' && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <StatCard title="إجمالي الدخل" value={`${orders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0).toLocaleString()} ر.س`} icon="💰" color="bg-emerald-500" />
+                      <StatCard title="الطلبات" value={orders.length} icon="📦" color="bg-indigo-500" />
+                      <StatCard title="المنتجات" value={products.length} icon="✨" color="bg-slate-900" />
+                    </div>
+                  )}
+
+                  {adminTab === 'products' && (
+                    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+                        <table className="w-full text-right">
+                          <tbody className="divide-y divide-slate-50">
+                            {products.map(p => (
+                              <tr key={p.id} className="hover:bg-slate-50 transition group">
+                                <td className="px-8 py-5 flex items-center gap-4">
+                                    <img src={p.images && p.images[0]} className="w-12 h-12 rounded-xl object-cover border" alt="" />
+                                    <span className="font-black text-slate-800 text-sm">{p.name}</span>
+                                </td>
+                                <td className="px-8 py-5 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button onClick={() => window.location.href = `add-product.php?id=${p.id}`} className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-indigo-600 hover:text-white transition">✎</button>
+                                    <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-600 hover:text-white transition">🗑</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                    </div>
+                  )}
+
+                  {adminTab === 'categories' && (
+                    <div className="max-w-2xl space-y-8">
+                       <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex gap-4">
+                          <input 
+                            value={newCatName} 
+                            onChange={e => setNewCatName(e.target.value)} 
+                            placeholder="اسم القسم الجديد..." 
+                            className="flex-grow bg-slate-50 px-6 py-3 rounded-xl outline-none font-bold"
+                          />
+                          <button onClick={handleAddCategory} className="bg-indigo-600 text-white px-8 rounded-xl font-black">إضافة</button>
+                       </div>
+                       <div className="space-y-3">
+                          {categories.map(cat => (
+                            <div key={cat.id} className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center group">
+                               <span className="font-black text-slate-800">{cat.name}</span>
+                               <button onClick={() => handleDeleteCategory(cat.id)} className="text-slate-300 hover:text-rose-500 transition">🗑</button>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                  )}
                 </div>
               )}
             </main>
