@@ -33,19 +33,21 @@ const App: React.FC = () => {
       if (value) url.searchParams.set(key, value);
       else url.searchParams.delete(key);
     });
+    // إذا كان التوجيه للرئيسية، نحذف معامل القسم
+    if (params.category === null) url.searchParams.delete('category');
+    
     window.history.pushState({}, '', url.toString());
-    // إطلاق حدث يدوي لتنبيه التطبيق بتغيير الرابط
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  // مزامنة حالة التطبيق مع الرابط الحالي (Routing Logic)
+  // مزامنة الحالة مع الرابط (هذا هو المحرك الرئيسي للتوجيه)
   const syncWithUrl = useCallback((allProducts: Product[], allCategories: Category[]) => {
     const params = new URLSearchParams(window.location.search);
     const categoryName = params.get('category');
     const productSlug = params.get('p');
     const viewParam = params.get('v');
 
-    // 1. التوجه لصفحة المنتج
+    // 1. صفحة المنتج (لها الأولوية)
     if (productSlug) {
       const product = allProducts.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
       if (product) {
@@ -55,7 +57,7 @@ const App: React.FC = () => {
       }
     }
 
-    // 2. التوجه لصفحة القسم المنفصلة
+    // 2. صفحة القسم المنفصلة (إذا وُجد اسم القسم في الرابط)
     if (categoryName) {
       const category = allCategories.find(cat => cat.name === categoryName);
       if (category) {
@@ -65,14 +67,14 @@ const App: React.FC = () => {
       }
     }
 
-    // 3. التوجه لواجهات أخرى (سلة، إدارة، إلخ)
+    // 3. الواجهات الأخرى
     if (viewParam === 'admin') setView('admin');
     else if (viewParam === 'cart') setView('cart');
     else if (viewParam === 'wishlist') setView('wishlist');
     else if (viewParam === 'checkout') setView('checkout');
     else if (viewParam === 'order-success') setView('order-success');
     else {
-      // الصفحة الرئيسية (المتجر)
+      // الواجهة الرئيسية (المتجر)
       setView('store');
       setSelectedCategoryId('all');
       setSelectedProduct(null);
@@ -101,7 +103,7 @@ const App: React.FC = () => {
         const savedWishlist = localStorage.getItem('elite_wishlist');
         if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
       } catch (err) {
-        console.error("Initialization error:", err);
+        console.error("Failed to load data:", err);
       } finally {
         setIsLoading(false);
       }
@@ -126,7 +128,9 @@ const App: React.FC = () => {
     } else {
       const cat = categories.find(c => c.id === id);
       if (cat) {
+        // تحديث الرابط فوراً ليصبح مخصصاً للقسم
         updateUrl({ category: cat.name, p: null, v: null });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
   };
@@ -160,15 +164,15 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center gap-4">
+      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-slate-500 text-lg">تحميل عالم النخبة...</p>
+        <p className="font-black text-slate-800 tracking-tighter">تحميل عالم النخبة...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-[#fcfdfe]">
+    <div className="min-h-screen flex flex-col font-sans text-slate-900">
       <Header 
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
         wishlistCount={wishlist.length}
@@ -184,12 +188,13 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow container mx-auto px-4 py-8">
+        {/* الواجهة الرئيسية */}
         {view === 'store' && (
           <StoreView 
             products={products}
             categories={categories}
             searchQuery={searchQuery}
-            selectedCategoryId="all" // الصفحة الرئيسية تعرض الكل دائماً
+            selectedCategoryId="all" // الرئيسية تعرض الكل
             onCategorySelect={navigateToCategory}
             onAddToCart={(p) => addToCart(p)} 
             onViewProduct={navigateToProduct}
@@ -198,6 +203,7 @@ const App: React.FC = () => {
           />
         )}
         
+        {/* صفحة القسم المنفصلة تماماً */}
         {view === 'category-page' && selectedCategoryId !== 'all' && (
           <CategoryPageView 
             category={categories.find(c => c.id === selectedCategoryId)!}
@@ -267,9 +273,9 @@ const App: React.FC = () => {
         )}
 
         {view === 'wishlist' && (
-           <div className="animate-fadeIn">
+          <div className="animate-fadeIn">
             <h2 className="text-4xl font-black mb-10 flex items-center gap-4">
-              <span className="p-3 bg-red-50 rounded-2xl text-red-500">❤️</span>
+              <span className="p-4 bg-red-50 rounded-3xl text-red-500">❤️</span>
               المفضلة الخاصة بك
             </h2>
             {wishlist.length > 0 ? (
@@ -284,9 +290,9 @@ const App: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-slate-200">
-                <p className="text-slate-400 font-bold text-lg mb-4">قائمة المفضلة فارغة حالياً</p>
-                <button onClick={navigateToStore} className="text-indigo-600 font-black hover:underline">ابدأ باكتشاف المنتجات</button>
+              <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+                <p className="text-slate-400 font-bold text-lg mb-6">قائمة المفضلة فارغة حالياً</p>
+                <button onClick={navigateToStore} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-indigo-100 hover:scale-105 transition">ابدأ باكتشاف المنتجات</button>
               </div>
             )}
           </div>
@@ -304,14 +310,14 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="bg-slate-900 text-white py-20 text-center mt-20">
+      <footer className="bg-slate-900 text-white py-16 text-center mt-20">
         <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-black mb-4">ELITE<span className="text-indigo-500">STORE</span></h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-8">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة لمتجر النخبة</p>
-          <div className="flex justify-center gap-6">
-             <a href="#" className="text-slate-400 hover:text-white transition font-bold text-xs uppercase">Privacy Policy</a>
-             <a href="#" className="text-slate-400 hover:text-white transition font-bold text-xs uppercase">Terms of Service</a>
-             <a href="#" className="text-slate-400 hover:text-white transition font-bold text-xs uppercase">Contact Support</a>
+          <h2 className="text-2xl font-black mb-4 tracking-tighter">ELITE<span className="text-indigo-500">STORE</span></h2>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-10">&copy; {new Date().getFullYear()} متجر النخبة - فخر الصناعة العربية</p>
+          <div className="flex flex-wrap justify-center gap-8">
+             <a href="#" className="text-slate-400 hover:text-white transition font-bold text-xs uppercase tracking-widest">Privacy Policy</a>
+             <a href="#" className="text-slate-400 hover:text-white transition font-bold text-xs uppercase tracking-widest">Terms & Conditions</a>
+             <a href="#" className="text-slate-400 hover:text-white transition font-bold text-xs uppercase tracking-widest">Support Center</a>
           </div>
         </div>
       </footer>
