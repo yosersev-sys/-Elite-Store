@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Product, CartItem, Category, Order } from './types';
 import Header from './components/Header';
 import StoreView from './components/StoreView';
@@ -26,7 +26,7 @@ const App: React.FC = () => {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // تحديث الرابط في المتصفح
+  // دالة تحديث الرابط في المتصفح
   const updateUrl = (params: Record<string, string | null>) => {
     const url = new URL(window.location.href);
     Object.entries(params).forEach(([key, value]) => {
@@ -34,10 +34,12 @@ const App: React.FC = () => {
       else url.searchParams.delete(key);
     });
     window.history.pushState({}, '', url.toString());
+    // إرسال حدث يدوي لتنبيه التطبيق بتغير الرابط
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  // معالجة التوجيه بناءً على الرابط الحالي
-  const handleRouting = (allProducts: Product[], allCategories: Category[]) => {
+  // معالجة التوجيه بناءً على الرابط الحالي (URL)
+  const syncStateWithUrl = useCallback((allProducts: Product[], allCategories: Category[]) => {
     const params = new URLSearchParams(window.location.search);
     const categoryName = params.get('category');
     const productSlug = params.get('p');
@@ -68,8 +70,9 @@ const App: React.FC = () => {
     else {
       setView('store');
       setSelectedCategoryId('all');
+      setSelectedProduct(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -85,7 +88,7 @@ const App: React.FC = () => {
         setCategories(fetchedCats);
         setOrders(fetchedOrders);
 
-        handleRouting(fetchedProducts, fetchedCats);
+        syncStateWithUrl(fetchedProducts, fetchedCats);
 
         const savedCart = localStorage.getItem('elite_cart');
         if (savedCart) setCart(JSON.parse(savedCart));
@@ -100,32 +103,17 @@ const App: React.FC = () => {
     };
     loadData();
 
-    // الاستماع لزر الرجوع في المتصفح
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const categoryName = params.get('category');
-      
-      if (categoryName) {
-        const cat = categories.find(c => c.name === categoryName);
-        if (cat) {
-          setSelectedCategoryId(cat.id);
-          setView('category-page');
-        }
-      } else if (!params.get('v') && !params.get('p')) {
-        setView('store');
-        setSelectedCategoryId('all');
-      }
+    // الاستماع لتغيرات الرابط
+    const handleLocationChange = () => {
+      syncStateWithUrl(products, categories);
     };
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [categories.length]);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, [syncStateWithUrl, products.length, categories.length]);
 
   const navigateToStore = () => {
     updateUrl({ category: null, p: null, v: null });
-    setSelectedCategoryId('all');
-    setView('store');
-    setSelectedProduct(null);
   };
 
   const navigateToCategory = (id: string | 'all') => {
@@ -135,8 +123,6 @@ const App: React.FC = () => {
       const cat = categories.find(c => c.id === id);
       if (cat) {
         updateUrl({ category: cat.name, p: null, v: null });
-        setSelectedCategoryId(id);
-        setView('category-page');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
@@ -145,8 +131,6 @@ const App: React.FC = () => {
   const navigateToProduct = (product: Product) => {
     const slug = product.seoSettings?.slug || product.id;
     updateUrl({ p: slug, v: null, category: null });
-    setSelectedProduct(product);
-    setView('product-details');
     window.scrollTo(0, 0);
   };
 
@@ -176,7 +160,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-bold text-slate-500">تحميل عالم النخبة...</p>
+        <p className="font-bold text-slate-500 text-lg">تحميل عالم النخبة...</p>
       </div>
     );
   }
@@ -191,10 +175,7 @@ const App: React.FC = () => {
         selectedCategoryId={selectedCategoryId}
         onNavigate={(v) => { 
           if (v === 'store') navigateToStore();
-          else {
-            setView(v);
-            updateUrl({ v, p: null, category: null });
-          }
+          else updateUrl({ v, p: null, category: null });
         }}
         onSearch={setSearchQuery}
         onCategorySelect={navigateToCategory}
@@ -255,7 +236,7 @@ const App: React.FC = () => {
                 return newList;
               });
             }}
-            onCheckout={() => setView('checkout')}
+            onCheckout={() => updateUrl({ v: 'checkout' })}
             onContinueShopping={navigateToStore}
           />
         )}
@@ -273,9 +254,9 @@ const App: React.FC = () => {
                setLastPlacedOrder(newOrder);
                setCart([]);
                localStorage.removeItem('elite_cart');
-               setView('order-success');
+               updateUrl({ v: 'order-success' });
              }}
-             onBack={() => setView('cart')}
+             onBack={() => updateUrl({ v: 'cart' })}
            />
         )}
 
@@ -285,7 +266,10 @@ const App: React.FC = () => {
 
         {view === 'wishlist' && (
            <div className="animate-fadeIn">
-            <h2 className="text-3xl font-black mb-8">المفضلة ({wishlist.length})</h2>
+            <h2 className="text-3xl font-black mb-8 flex items-center gap-3">
+              <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+              المفضلة ({wishlist.length})
+            </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {products.filter(p => wishlist.includes(p.id)).map(product => (
                 <ProductCard 
@@ -296,6 +280,12 @@ const App: React.FC = () => {
                 />
               ))}
             </div>
+            {wishlist.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-3xl border border-dashed">
+                <p className="text-gray-400 font-bold">المفضلة فارغة حالياً.</p>
+                <button onClick={navigateToStore} className="mt-4 text-indigo-600 font-bold">ابدأ التسوق</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -313,7 +303,7 @@ const App: React.FC = () => {
 
       <footer className="bg-slate-900 text-white py-12 text-center mt-12">
         <h2 className="text-xl font-black mb-2">متجر النخبة | Elite Store</h2>
-        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
       </footer>
     </div>
   );

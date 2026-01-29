@@ -1,3 +1,4 @@
+
 <?php
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -149,7 +150,41 @@ header('Content-Type: text/html; charset=utf-8');
             else url.searchParams.delete(key);
           });
           window.history.pushState({}, '', url.toString());
+          window.dispatchEvent(new PopStateEvent('popstate'));
         };
+
+        const syncStateWithUrl = useCallback((allProducts, allCategories) => {
+          const params = new URLSearchParams(window.location.search);
+          const slug = params.get('p');
+          const viewParam = params.get('v');
+          const catName = params.get('category');
+
+          if (slug) {
+            const product = allProducts.find(p => p.seoSettings?.slug === slug || p.id === slug);
+            if (product) {
+              setSelectedProduct(product);
+              setView('product-details');
+              return;
+            }
+          }
+          
+          if (catName) {
+            const cat = allCategories.find(c => c.name === catName);
+            if (cat) {
+              setSelectedCatId(cat.id);
+              setView('store');
+              return;
+            }
+          }
+
+          if (viewParam === 'admin') setView('admin');
+          else if (viewParam === 'cart') setView('cart');
+          else {
+            setView('store');
+            setSelectedProduct(null);
+            setSelectedCatId('all');
+          }
+        }, []);
 
         const loadData = async () => {
           setIsLoading(true);
@@ -163,23 +198,12 @@ header('Content-Type: text/html; charset=utf-8');
             ]);
 
             const allProducts = Array.isArray(pRes) ? pRes : [];
+            const allCats = Array.isArray(cRes) ? cRes : [];
             setProducts(allProducts);
-            setCategories(Array.isArray(cRes) ? cRes : []);
+            setCategories(allCats);
             setOrders(Array.isArray(oRes) ? oRes : []);
 
-            const params = new URLSearchParams(window.location.search);
-            const slug = params.get('p');
-            const viewParam = params.get('v');
-
-            if (slug) {
-              const product = allProducts.find(p => p.seoSettings?.slug === slug);
-              if (product) {
-                setSelectedProduct(product);
-                setView('product-details');
-              }
-            } else if (viewParam === 'admin') {
-              setView('admin');
-            }
+            syncStateWithUrl(allProducts, allCats);
           } catch (e) {
             console.error("Data fetch error:", e);
           } finally {
@@ -193,15 +217,11 @@ header('Content-Type: text/html; charset=utf-8');
           if (savedCart) setCart(JSON.parse(savedCart));
 
           const handlePopState = () => {
-             const params = new URLSearchParams(window.location.search);
-             if (!params.get('p')) {
-               setView('store');
-               setSelectedProduct(null);
-             }
+             syncStateWithUrl(products, categories);
           };
           window.addEventListener('popstate', handlePopState);
           return () => window.removeEventListener('popstate', handlePopState);
-        }, []);
+        }, [products.length, categories.length]);
 
         const filteredProducts = useMemo(() => {
           return products.filter(p => {
@@ -217,18 +237,22 @@ header('Content-Type: text/html; charset=utf-8');
           alert('تمت الإضافة للسلة');
         };
 
+        const navigateToCategory = (id) => {
+          if (id === 'all') {
+            updateUrl({ category: null, p: null, v: null });
+          } else {
+            const cat = categories.find(c => c.id === id);
+            if (cat) updateUrl({ category: cat.name, p: null, v: null });
+          }
+        };
+
         const navigateToProduct = (product) => {
           const slug = product.seoSettings?.slug || product.id;
-          updateUrl({ p: slug, v: null });
-          setSelectedProduct(product);
-          setView('product-details');
-          window.scrollTo(0, 0);
+          updateUrl({ p: slug, v: null, category: null });
         };
 
         const navigateToStore = () => {
-          updateUrl({ p: null, v: null });
-          setView('store');
-          setSelectedProduct(null);
+          updateUrl({ p: null, v: null, category: null });
         };
 
         const handleDeleteProduct = async (id) => {
@@ -265,18 +289,16 @@ header('Content-Type: text/html; charset=utf-8');
                     <button onClick={() => setView('cart')} className="relative p-2.5 bg-slate-900 text-white rounded-xl hover:bg-indigo-600 transition">
                       🛒 <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-white">{cart.length}</span>
                     </button>
-                    <button onClick={() => { setView('admin'); updateUrl({ v: 'admin', p: null }); }} className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition">⚙️ الإدارة</button>
+                    <button onClick={() => updateUrl({ v: 'admin', p: null, category: null })} className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition">⚙️ الإدارة</button>
                   </div>
                 </div>
 
-                {view === 'store' && (
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                    <button onClick={() => setSelectedCatId('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>الكل</button>
-                    {categories.map(cat => (
-                      <button key={cat.id} onClick={() => setSelectedCatId(cat.id)} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === cat.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>{cat.name}</button>
-                    ))}
-                  </div>
-                )}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                  <button onClick={() => navigateToCategory('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>الكل</button>
+                  {categories.map(cat => (
+                    <button key={cat.id} onClick={() => navigateToCategory(cat.id)} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === cat.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>{cat.name}</button>
+                  ))}
+                </div>
               </div>
             </header>
 
@@ -287,7 +309,9 @@ header('Content-Type: text/html; charset=utf-8');
                   <BrandsMarquee />
                   
                   <div className="flex items-center justify-between mb-8">
-                     <h2 className="text-3xl font-black text-slate-800">منتجاتنا الحصرية</h2>
+                     <h2 className="text-3xl font-black text-slate-800">
+                        {selectedCatId === 'all' ? 'منتجاتنا الحصرية' : `قسم ${categories.find(c => c.id === selectedCatId)?.name}`}
+                     </h2>
                      <div className="h-1 bg-slate-100 flex-grow mx-8 rounded-full hidden md:block"></div>
                   </div>
 
@@ -386,7 +410,7 @@ header('Content-Type: text/html; charset=utf-8');
 
             <footer className="py-20 text-center bg-slate-900 text-white mt-20">
               <h2 className="text-2xl font-black mb-4">ELITE<span className="text-indigo-500">STORE</span></h2>
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} متجر النخبة | فخر الاستضافة على Hostinger</p>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} متجر النخبة | فخر الاستضافة</p>
             </footer>
           </div>
         );
