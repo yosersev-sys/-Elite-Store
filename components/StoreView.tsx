@@ -52,17 +52,16 @@ const StoreView: React.FC<StoreViewProps> = ({
         />
       )}
 
-      {/* قسم المنتجات في الرئيسية - تم إزالة أزرار الفلترة منه لفك الارتباط بالهيدر */}
+      {/* قسم المنتجات في الرئيسية - عنوان ثابت لفك الارتباط بالهيدر */}
       <div className="space-y-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-t border-gray-100 pt-16">
           <div className="space-y-2">
              <h2 className="text-4xl font-black text-gray-900 tracking-tighter">
-               {searchQuery ? `نتائج البحث عن: ${searchQuery}` : 'كل المعروضات'}
+               {searchQuery ? `نتائج البحث عن: ${searchQuery}` : 'منتجاتنا الحصرية'}
              </h2>
              <p className="text-gray-400 text-lg font-bold">استكشف تشكيلتنا الكاملة من المنتجات المختارة</p>
           </div>
           
-          {/* تم إزالة أزرار التصنيفات من هنا لأنها موجودة في الهيدر وتفتح صفحات مستقلة */}
           <div className="hidden md:block">
              <span className="bg-indigo-50 text-indigo-600 px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
                 Elite Collection 2024

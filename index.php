@@ -50,7 +50,6 @@ header('Content-Type: text/html; charset=utf-8');
 
       // --- Slider Component ---
       const Slider = () => {
-        const [current, setCurrent] = useState(0);
         const slides = [
           {
             image: "https://images.unsplash.com/photo-1491933382434-500287f9b54b?q=80&w=1600&auto=format&fit=crop",
@@ -68,6 +67,7 @@ header('Content-Type: text/html; charset=utf-8');
             desc: "عروض حصرية على مستلزمات المنزل الذكي"
           }
         ];
+        const [current, setCurrent] = useState(0);
 
         useEffect(() => {
           const timer = setInterval(() => {
@@ -172,7 +172,7 @@ header('Content-Type: text/html; charset=utf-8');
             const cat = allCategories.find(c => c.name === catName);
             if (cat) {
               setSelectedCatId(cat.id);
-              setView('store');
+              setView('category-page'); // تحويل لصفحة القسم المنفصلة
               return;
             }
           }
@@ -221,7 +221,7 @@ header('Content-Type: text/html; charset=utf-8');
           };
           window.addEventListener('popstate', handlePopState);
           return () => window.removeEventListener('popstate', handlePopState);
-        }, [products.length, categories.length]);
+        }, [products.length, categories.length, syncStateWithUrl]);
 
         const filteredProducts = useMemo(() => {
           return products.filter(p => {
@@ -294,9 +294,9 @@ header('Content-Type: text/html; charset=utf-8');
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                  <button onClick={() => navigateToCategory('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>الكل</button>
+                  <button onClick={() => navigateToCategory('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === 'all' && view === 'store' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>الكل</button>
                   {categories.map(cat => (
-                    <button key={cat.id} onClick={() => navigateToCategory(cat.id)} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === cat.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>{cat.name}</button>
+                    <button key={cat.id} onClick={() => navigateToCategory(cat.id)} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === cat.id && view === 'category-page' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>{cat.name}</button>
                   ))}
                 </div>
               </div>
@@ -310,7 +310,7 @@ header('Content-Type: text/html; charset=utf-8');
                   
                   <div className="flex items-center justify-between mb-8">
                      <h2 className="text-3xl font-black text-slate-800">
-                        {selectedCatId === 'all' ? 'منتجاتنا الحصرية' : `قسم ${categories.find(c => c.id === selectedCatId)?.name}`}
+                        {searchQuery ? `نتائج البحث عن: ${searchQuery}` : 'منتجاتنا الحصرية'}
                      </h2>
                      <div className="h-1 bg-slate-100 flex-grow mx-8 rounded-full hidden md:block"></div>
                   </div>
@@ -324,6 +324,35 @@ header('Content-Type: text/html; charset=utf-8');
                         </div>
                         <div className="p-6 flex flex-col flex-grow">
                           <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">{categories.find(c => c.id === p.categoryId)?.name || 'عام'}</span>
+                          <h3 className="font-black text-slate-800 text-base mb-4 line-clamp-1">{p.name}</h3>
+                          <div className="mt-auto flex justify-between items-center">
+                            <span className="text-xl font-black text-slate-900">{p.price} <small className="text-xs font-bold">ر.س</small></span>
+                            <div className="bg-slate-900 text-white w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-indigo-600 transition shadow-lg">🛒</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {view === 'category-page' && (
+                <div className="animate-fadeIn">
+                   <div className="bg-slate-900 rounded-[3rem] p-12 text-white mb-16 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+                      <h2 className="text-5xl md:text-7xl font-black mb-4 tracking-tighter italic">
+                         قسم {categories.find(c => c.id === selectedCatId)?.name}
+                      </h2>
+                      <p className="text-slate-400 font-bold text-xl">اكتشف أفضل المختارات في هذا القسم بعناية النخبة.</p>
+                   </div>
+
+                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10">
+                    {filteredProducts.map(p => (
+                      <div key={p.id} onClick={() => navigateToProduct(p)} className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm cursor-pointer group">
+                        <div className="aspect-square bg-slate-50 overflow-hidden relative">
+                          <img src={p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={p.name} />
+                        </div>
+                        <div className="p-6 flex flex-col flex-grow">
                           <h3 className="font-black text-slate-800 text-base mb-4 line-clamp-1">{p.name}</h3>
                           <div className="mt-auto flex justify-between items-center">
                             <span className="text-xl font-black text-slate-900">{p.price} <small className="text-xs font-bold">ر.س</small></span>
