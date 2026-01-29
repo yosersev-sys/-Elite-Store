@@ -105,7 +105,11 @@ const App: React.FC = () => {
       const viewParam = params.get('v');
 
       if (productSlug) {
-        setView('product-details');
+        const prod = products.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
+        if (prod) {
+          setSelectedProduct(prod);
+          setView('product-details');
+        }
       } else if (categoryName) {
         const cat = categories.find(c => c.name === categoryName || c.id === categoryName);
         if (cat) {
@@ -123,7 +127,7 @@ const App: React.FC = () => {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [categories]);
+  }, [categories, products]);
 
   const navigateToStore = () => {
     updateUrl({ p: null, v: null, category: null });
@@ -137,6 +141,7 @@ const App: React.FC = () => {
     updateUrl({ p: slug, v: null, category: null });
     setSelectedProduct(product);
     setView('product-details');
+    window.scrollTo(0, 0);
   };
 
   const navigateToCategory = (id: string | 'all') => {
@@ -148,23 +153,30 @@ const App: React.FC = () => {
       updateUrl({ category: catUrlName, p: null, v: null });
       setSelectedCategoryId(id);
       setView('category-page');
+      window.scrollTo(0, 0);
     }
   };
 
   const toggleFavorite = (productId: string) => {
-    setWishlist(prev => 
-      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
-    );
+    setWishlist(prev => {
+      const newList = prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId];
+      localStorage.setItem('elite_wishlist', JSON.stringify(newList));
+      return newList;
+    });
   };
 
   const addToCart = (product: Product, size?: string, color?: string) => {
     if (product.stockQuantity <= 0) return alert('عذراً، هذا المنتج غير متوفر حالياً');
     setCart(prev => {
+      let newList;
       const existing = prev.find(item => item.id === product.id && item.selectedSize === size && item.selectedColor === color);
       if (existing) {
-        return prev.map(item => (item.id === product.id && item.selectedSize === size && item.selectedColor === color) ? { ...item, quantity: item.quantity + 1 } : item);
+        newList = prev.map(item => (item.id === product.id && item.selectedSize === size && item.selectedColor === color) ? { ...item, quantity: item.quantity + 1 } : item);
+      } else {
+        newList = [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
       }
-      return [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
+      localStorage.setItem('elite_cart', JSON.stringify(newList));
+      return newList;
     });
   };
 
@@ -242,8 +254,20 @@ const App: React.FC = () => {
         {view === 'cart' && (
           <CartView 
             cart={cart} 
-            onUpdateQuantity={(id, d) => setCart(prev => prev.map(item => (item.id === id) ? { ...item, quantity: Math.max(1, item.quantity + d) } : item))}
-            onRemove={(id) => setCart(prev => prev.filter(item => item.id !== id))}
+            onUpdateQuantity={(id, d) => {
+              setCart(prev => {
+                const newList = prev.map(item => (item.id === id) ? { ...item, quantity: Math.max(1, item.quantity + d) } : item);
+                localStorage.setItem('elite_cart', JSON.stringify(newList));
+                return newList;
+              });
+            }}
+            onRemove={(id) => {
+              setCart(prev => {
+                const newList = prev.filter(item => item.id !== id);
+                localStorage.setItem('elite_cart', JSON.stringify(newList));
+                return newList;
+              });
+            }}
             onCheckout={() => { setView('checkout'); updateUrl({ v: 'checkout', p: null, category: null }); }}
             onContinueShopping={navigateToStore}
           />
@@ -271,6 +295,7 @@ const App: React.FC = () => {
             await ApiService.saveOrder(newOrder);
             setOrders(prev => [newOrder, ...prev]);
             setCart([]);
+            localStorage.removeItem('elite_cart');
             setLastPlacedOrder(newOrder);
             setView('order-success');
             updateUrl({ v: 'order-success' });
