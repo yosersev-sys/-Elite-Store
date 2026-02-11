@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, Category, Order } from '../types';
-import { ApiService } from '../services/api';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -11,13 +10,14 @@ interface AdminDashboardProps {
   onOpenEditForm: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   onAddCategory: (category: Category) => void;
+  onUpdateCategory: (category: Category) => void;
   onDeleteCategory: (id: string) => void;
 }
 
 type AdminTab = 'stats' | 'products' | 'categories' | 'orders';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  products, categories, orders, onOpenAddForm, onOpenEditForm, onDeleteProduct, onAddCategory, onDeleteCategory
+  products, categories, orders, onOpenAddForm, onOpenEditForm, onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [newCatName, setNewCatName] = useState('');
@@ -28,8 +28,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const stats = useMemo(() => {
     const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
     const pendingOrders = orders.filter(o => o.status === 'pending').length;
-    const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length;
-    const outOfStockCount = products.filter(p => p.stockQuantity <= 0).length;
+    const lowStockCount = products.filter(p => (p.stockQuantity || 0) > 0 && (p.stockQuantity || 0) < 10).length;
+    const outOfStockCount = products.filter(p => (p.stockQuantity || 0) <= 0).length;
     
     return {
       revenue: totalRevenue.toLocaleString(),
@@ -54,14 +54,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-lg text-[10px] font-black">متوفر</span>;
   };
 
-  const handleUpdateCategory = async (id: string) => {
+  const handleUpdateCategory = (id: string) => {
     if (!editingCatName.trim()) return;
-    const success = await ApiService.updateCategory({ id, name: editingCatName });
-    if (success) {
-      alert('تم تحديث القسم بنجاح');
-      window.location.reload();
-    }
+    onUpdateCategory({ id, name: editingCatName });
     setEditingCatId(null);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending': return <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-lg text-[10px] font-black">قيد الانتظار</span>;
+      case 'completed': return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-black">مكتمل</span>;
+      case 'cancelled': return <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg text-[10px] font-black">ملغي</span>;
+      default: return <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-lg text-[10px] font-black">{status}</span>;
+    }
   };
 
   return (
@@ -156,8 +161,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </td>
                     <td className="px-8 py-4">
                       <div className="flex gap-2">
-                        <button onClick={() => onOpenEditForm(p)} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition">✎</button>
-                        <button onClick={() => onDeleteProduct(p.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition">🗑</button>
+                        <button onClick={() => onOpenEditForm(p)} title="تعديل" className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition">✎</button>
+                        <button onClick={() => onDeleteProduct(p.id)} title="حذف" className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition">🗑</button>
                       </div>
                     </td>
                   </tr>
@@ -195,6 +200,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onChange={e => setEditingCatName(e.target.value)}
                         className="flex-grow bg-slate-50 px-4 py-2 rounded-xl outline-none font-bold border-2 border-green-200"
                         autoFocus
+                        onKeyDown={(e) => e.key === 'Enter' && handleUpdateCategory(cat.id)}
                       />
                       <button onClick={() => handleUpdateCategory(cat.id)} className="p-2 bg-green-600 text-white rounded-xl">✓</button>
                       <button onClick={() => setEditingCatId(null)} className="p-2 bg-slate-200 text-slate-500 rounded-xl">✕</button>
@@ -206,8 +212,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <p className="text-[10px] text-slate-400 font-bold">المنتجات: {products.filter(p => p.categoryId === cat.id).length}</p>
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                        <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} className="p-2 text-slate-400 hover:text-green-600">✎</button>
-                        <button onClick={() => onDeleteCategory(cat.id)} className="p-2 text-slate-400 hover:text-red-600">🗑</button>
+                        <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} title="تعديل" className="p-2 text-slate-400 hover:text-green-600">✎</button>
+                        <button onClick={() => onDeleteCategory(cat.id)} title="حذف" className="p-2 text-slate-400 hover:text-red-600">🗑</button>
                       </div>
                     </>
                   )}
@@ -219,10 +225,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {activeTab === 'orders' && (
           <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden animate-fadeIn">
-            <div className="p-20 text-center">
-              <span className="text-6xl block mb-6">📝</span>
-              <p className="text-slate-400 font-black text-xl">نظام إدارة الطلبات قيد التحديث...</p>
-            </div>
+            {orders.length > 0 ? (
+              <table className="w-full text-right">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
+                    <th className="px-8 py-6">كود الطلب</th>
+                    <th className="px-8 py-6">العميل</th>
+                    <th className="px-8 py-6">المدينة</th>
+                    <th className="px-8 py-6">الإجمالي</th>
+                    <th className="px-8 py-6">الحالة</th>
+                    <th className="px-8 py-6">التاريخ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {orders.map(o => (
+                    <tr key={o.id} className="hover:bg-slate-50/50 transition">
+                      <td className="px-8 py-4 font-bold text-slate-700">{o.id}</td>
+                      <td className="px-8 py-4">
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{o.customerName}</p>
+                          <p className="text-[10px] text-slate-400">{o.phone}</p>
+                        </div>
+                      </td>
+                      <td className="px-8 py-4 text-xs font-bold text-slate-500">{o.city}</td>
+                      <td className="px-8 py-4 font-black text-green-600 text-sm">{o.total} ر.س</td>
+                      <td className="px-8 py-4">{getStatusBadge(o.status)}</td>
+                      <td className="px-8 py-4 text-[10px] text-slate-400 font-bold">
+                        {new Date(o.createdAt).toLocaleDateString('ar-SA')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="p-20 text-center">
+                <span className="text-6xl block mb-6">📝</span>
+                <p className="text-slate-400 font-black text-xl">لا توجد طلبات مسجلة حالياً</p>
+              </div>
+            )}
           </div>
         )}
       </main>

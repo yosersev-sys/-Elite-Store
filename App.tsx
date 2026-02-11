@@ -124,6 +124,13 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCategoryUpdate = async (c: Category) => {
+    const success = await ApiService.updateCategory(c);
+    if (success) {
+      setCategories(prev => prev.map(cat => cat.id === c.id ? c : cat));
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600">
@@ -158,6 +165,7 @@ const App: React.FC = () => {
             onOpenEditForm={(p) => { setSelectedProduct(p); setView('admin-form'); }}
             onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); setProducts(prev => prev.filter(p => p.id !== id)); }}
             onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
+            onUpdateCategory={handleCategoryUpdate}
             onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); setCategories(prev => prev.filter(c => c.id !== id)); }}
           />
         )}
@@ -170,8 +178,8 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* ... بقية الـ Views ... */}
         {view === 'cart' && <CartView cart={cart} onUpdateQuantity={()=>{}} onRemove={()=>{}} onCheckout={()=>{}} onContinueShopping={()=>onNavigateAction('store')} />}
+        
         {view === 'category-page' && categories.find(c => c.id === selectedCategoryId) && (
           <CategoryPageView 
             category={categories.find(c => c.id === selectedCategoryId)!} products={products}

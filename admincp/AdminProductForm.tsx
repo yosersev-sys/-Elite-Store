@@ -51,6 +51,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         name: '', description: '', price: '', categoryId: categories[0]?.id || '', 
         stockQuantity: '10', sizes: '', colors: '', images: []
       });
+      setSeoData({ metaTitle: '', metaDescription: '', metaKeywords: '', slug: '' });
     }
   }, [product, categories]);
 
@@ -75,6 +76,14 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     const desc = await generateProductDescription(formData.name, catName);
     setFormData(prev => ({ ...prev, description: desc }));
     setIsLoadingAi(false);
+  };
+
+  const handleAiSeo = async () => {
+    if (!formData.name || !formData.description) return alert('يرجى إدخال الاسم والوصف أولاً');
+    setIsLoadingSeo(true);
+    const data = await generateSeoData(formData.name, formData.description);
+    if (data) setSeoData(data);
+    setIsLoadingSeo(false);
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -106,9 +115,11 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       <div className="flex items-center justify-between mb-10">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-            {product ? 'تعديل محصول' : 'إضافة محصول لفاقوس'}
+            {product ? 'تعديل بيانات المحصول' : 'إضافة محصول جديد لفاقوس'}
           </h2>
-          <p className="text-green-600 mt-2 font-bold uppercase tracking-widest text-xs">نظام إدارة المحتوى - admincp</p>
+          <p className="text-green-600 mt-2 font-bold uppercase tracking-widest text-xs">
+            {product ? `تعديل المنتج: ${product.name}` : 'نظام إدارة المحتوى - admincp'}
+          </p>
         </div>
         <button onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition">إلغاء</button>
       </div>
@@ -152,17 +163,42 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <input required type="number" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition" placeholder="مثال: 50" />
             </div>
             <div className="space-y-2 relative md:col-span-2">
-              <label className="text-sm font-bold text-slate-500 mr-2">وصف المحصول</label>
+              <label className="text-sm font-bold text-slate-500 mr-2 flex justify-between">
+                الوصف
+                <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="text-[10px] font-black text-green-600 hover:text-green-700 disabled:opacity-50">
+                  {isLoadingAi ? 'جاري التوليد...' : '✨ توليد وصف ذكي'}
+                </button>
+              </label>
               <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition min-h-[150px] resize-none" placeholder="وصف المنتج..." />
-              <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="absolute left-4 bottom-4 text-[10px] font-black bg-green-600 text-white px-3 py-1.5 rounded-xl hover:bg-slate-900 transition disabled:opacity-50">
-                {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي بواسطة Gemini'}
-              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">تحسين محركات البحث (SEO)</h3>
+            <button type="button" onClick={handleAiSeo} disabled={isLoadingSeo} className="text-xs font-black bg-emerald-50 text-emerald-600 px-5 py-2.5 rounded-2xl hover:bg-emerald-600 hover:text-white transition">
+              {isLoadingSeo ? 'جاري التحليل...' : 'توليد SEO ذكي ✨'}
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">Meta Title</label>
+              <input value={seoData.metaTitle} onChange={e => setSeoData({...seoData, metaTitle: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">Slug (الرابط)</label>
+              <input value={seoData.slug} onChange={e => setSeoData({...seoData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" dir="ltr" />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">Meta Description</label>
+              <textarea value={seoData.metaDescription} onChange={e => setSeoData({...seoData, metaDescription: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition min-h-[100px] resize-none" />
             </div>
           </div>
         </section>
 
         <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:bg-green-600 transition transform hover:-translate-y-1 active:scale-95">
-          {product ? 'تحديث البيانات 💾' : 'نشر المحصول في المتجر 🚀'}
+          {product ? 'حفظ التعديلات 💾' : 'نشر المحصول في المتجر 🚀'}
         </button>
       </form>
     </div>
