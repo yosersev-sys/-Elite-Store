@@ -7,7 +7,7 @@ header('Content-Type: text/html; charset=utf-8');
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>متجر النخبة | منصة التسوق الذكية</title>
+    <title>سوق الطازج | خضروات وفواكه طازجة</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@ header('Content-Type: text/html; charset=utf-8');
 
     <style>
       * { font-family: 'Cairo', sans-serif; }
-      body { background-color: #fcfdfe; scroll-behavior: smooth; overflow-x: hidden; }
+      body { background-color: #f8faf7; scroll-behavior: smooth; overflow-x: hidden; }
       
       /* Animations */
       .animate-fadeIn { animation: fadeIn 0.6s ease-out forwards; }
@@ -28,9 +28,9 @@ header('Content-Type: text/html; charset=utf-8');
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
       
-      .header-glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+      .header-glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
       .no-scrollbar::-webkit-scrollbar { display: none; }
-      .product-card:hover { transform: translateY(-8px); box-shadow: 0 30px 60px -12px rgba(0,0,0,0.12); }
+      .product-card:hover { transform: translateY(-8px); box-shadow: 0 30px 60px -12px rgba(34, 197, 94, 0.15); }
       
       /* Marquee Animation */
       @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(50%); } }
@@ -48,19 +48,19 @@ header('Content-Type: text/html; charset=utf-8');
       const Slider = () => {
         const slides = [
           {
-            image: "https://images.unsplash.com/photo-1491933382434-500287f9b54b?q=80&w=1600&auto=format&fit=crop",
-            title: "عالم من الأناقة الذكية",
-            desc: "اكتشف أحدث صيحات التكنولوجيا بأسعار تنافسية"
+            image: "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1600&auto=format&fit=crop",
+            title: "خضروات طازجة يومياً",
+            desc: "من المزارع مباشرة إلى مائدتكم بجودة نضمنها"
           },
           {
-            image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1600&auto=format&fit=crop",
-            title: "تشكيلة الصيف الجديدة",
-            desc: "أزياء عصرية تناسب جميع الأذواق والمناسبات"
+            image: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=1600&auto=format&fit=crop",
+            title: "فواكه موسمية ممتازة",
+            desc: "أفضل أنواع الفاكهة الغنية بالفيتامينات والطاقة"
           },
           {
-            image: "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?q=80&w=1600&auto=format&fit=crop",
-            title: "منزلك.. بلمسة عصرية",
-            desc: "عروض حصرية على مستلزمات المنزل الذكي"
+            image: "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=1600&auto=format&fit=crop",
+            title: "توفير السوبر ماركت",
+            desc: "عروض حصرية على كافة المستلزمات اليومية"
           }
         ];
         const [current, setCurrent] = useState(0);
@@ -73,15 +73,15 @@ header('Content-Type: text/html; charset=utf-8');
         }, [slides.length]);
 
         return (
-          <div className="relative w-full h-[400px] md:h-[550px] rounded-[3rem] overflow-hidden mb-12 shadow-2xl group animate-fadeIn">
+          <div className="relative w-full h-[400px] md:h-[550px] rounded-[3.5rem] overflow-hidden mb-12 shadow-2xl group animate-fadeIn">
             {slides.map((slide, index) => (
               <div key={index} className={`absolute inset-0 transition-opacity duration-1000 ${index === current ? 'opacity-100' : 'opacity-0'}`}>
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent z-10"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-green-950/70 via-green-900/10 to-transparent z-10"></div>
                 <img src={slide.image} className="w-full h-full object-cover" alt={slide.title} />
                 <div className="absolute inset-0 z-20 flex flex-col justify-end p-10 md:p-20 text-white">
-                  <h2 className="text-4xl md:text-7xl font-black mb-4 animate-slideUp">{slide.title}</h2>
-                  <p className="text-lg md:text-xl text-slate-200 max-w-lg mb-8 font-bold opacity-90">{slide.desc}</p>
-                  <button className="bg-indigo-600 hover:bg-white hover:text-indigo-600 text-white px-10 py-4 rounded-2xl font-black w-fit transition-all shadow-xl">تسوق الآن</button>
+                  <h2 className="text-4xl md:text-7xl font-black mb-4 animate-slideUp tracking-tighter">{slide.title}</h2>
+                  <p className="text-lg md:text-xl text-green-50 max-w-lg mb-8 font-bold opacity-90">{slide.desc}</p>
+                  <button className="bg-green-600 hover:bg-white hover:text-green-600 text-white px-10 py-4 rounded-2xl font-black w-fit transition-all shadow-xl">ابدأ التسوق</button>
                 </div>
               </div>
             ))}
@@ -98,46 +98,32 @@ header('Content-Type: text/html; charset=utf-8');
       // --- Brands Marquee ---
       const BrandsMarquee = () => {
         const brands = [
-          "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg",
-          "https://upload.wikimedia.org/wikipedia/commons/2/24/Samsung_Logo.svg",
-          "https://upload.wikimedia.org/wikipedia/commons/c/ca/Sony_logo.svg",
-          "https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg",
-          "https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg",
-          "https://upload.wikimedia.org/wikipedia/commons/a/ad/HP_logo_2012.svg"
+          "https://upload.wikimedia.org/wikipedia/en/thumb/5/52/Almarai_logo.svg/1200px-Almarai_logo.svg.png",
+          "https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/Nestle_text_logo.svg/1200px-Nestle_text_logo.svg.png",
+          "https://logos-world.net/wp-content/uploads/2021/08/Danone-Logo.png",
+          "https://www.arla.com/siteassets/arla-global/brands/puck/puck-logo.png?width=250&height=250&mode=crop",
+          "https://upload.wikimedia.org/wikipedia/commons/e/e0/KDD_logo.png",
+          "https://www.sadia.com.sa/wp-content/themes/sadia/images/logo.png"
         ];
         return (
-          <div className="py-10 overflow-hidden bg-white/50 border-y border-slate-100 mb-16 relative">
+          <div className="py-10 overflow-hidden bg-white/80 border-y border-green-50 mb-16 relative">
             <div className="animate-marquee pause-on-hover flex items-center gap-20">
               {[...brands, ...brands].map((logo, i) => (
-                <img key={i} src={logo} className="h-8 md:h-12 w-32 object-contain grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition cursor-pointer" />
+                <img key={i} src={logo} className="h-8 md:h-12 w-32 object-contain opacity-60 hover:opacity-100 transition cursor-pointer" />
               ))}
             </div>
           </div>
         );
       };
 
-      const StatCard = ({ title, value, icon, color }) => (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 transition hover:shadow-md">
-          <div className={`${color} w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg`}>{icon}</div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
-            <p className="text-xl font-black text-slate-900">{value}</p>
-          </div>
-        </div>
-      );
-
       const App = () => {
         const [view, setView] = useState('store');
         const [products, setProducts] = useState([]);
         const [categories, setCategories] = useState([]);
-        const [orders, setOrders] = useState([]);
         const [cart, setCart] = useState([]);
-        const [selectedProduct, setSelectedProduct] = useState(null);
         const [searchQuery, setSearchQuery] = useState('');
         const [selectedCatId, setSelectedCatId] = useState('all');
         const [isLoading, setIsLoading] = useState(true);
-        const [adminTab, setAdminTab] = useState('stats');
-        const [newCatName, setNewCatName] = useState('');
 
         const updateUrl = (params) => {
           const url = new URL(window.location.href);
@@ -149,61 +135,18 @@ header('Content-Type: text/html; charset=utf-8');
           window.dispatchEvent(new PopStateEvent('popstate'));
         };
 
-        const syncStateWithUrl = useCallback((allProducts, allCategories) => {
-          if (!allProducts || allProducts.length === 0) return;
-          
-          const params = new URLSearchParams(window.location.search);
-          const slug = params.get('p');
-          const viewParam = params.get('v');
-          const catName = params.get('category');
-
-          if (slug) {
-            const product = allProducts.find(p => p.seoSettings?.slug === slug || p.id === slug);
-            if (product) {
-              setSelectedProduct(product);
-              setView('product-details');
-              window.scrollTo(0,0);
-              return;
-            }
-          }
-          
-          if (catName) {
-            const cat = allCategories.find(c => c.name === catName);
-            if (cat) {
-              setSelectedCatId(cat.id);
-              setView('category-page');
-              window.scrollTo(0,0);
-              return;
-            }
-          }
-
-          if (viewParam === 'admin') setView('admin');
-          else if (viewParam === 'cart') setView('cart');
-          else {
-            setView('store');
-            setSelectedProduct(null);
-            setSelectedCatId('all');
-          }
-        }, []);
-
         const loadData = async () => {
           setIsLoading(true);
           try {
             const apiBase = 'api.php'; 
             const ts = Date.now();
-            const [pRes, cRes, oRes] = await Promise.all([
+            const [pRes, cRes] = await Promise.all([
               fetch(`${apiBase}?action=get_products&t=${ts}`).then(r => r.json()),
-              fetch(`${apiBase}?action=get_categories&t=${ts}`).then(r => r.json()),
-              fetch(`${apiBase}?action=get_orders&t=${ts}`).then(r => r.json())
+              fetch(`${apiBase}?action=get_categories&t=${ts}`).then(r => r.json())
             ]);
 
-            const allProducts = Array.isArray(pRes) ? pRes : [];
-            const allCats = Array.isArray(cRes) ? cRes : [];
-            setProducts(allProducts);
-            setCategories(allCats);
-            setOrders(Array.isArray(oRes) ? oRes : []);
-
-            syncStateWithUrl(allProducts, allCats);
+            setProducts(Array.isArray(pRes) ? pRes : []);
+            setCategories(Array.isArray(cRes) ? cRes : []);
           } catch (e) {
             console.error("Data fetch error:", e);
           } finally {
@@ -213,24 +156,9 @@ header('Content-Type: text/html; charset=utf-8');
 
         useEffect(() => {
           loadData();
-          const savedCart = localStorage.getItem('elite_cart');
-          if (savedCart) {
-             try {
-               const parsed = JSON.parse(savedCart);
-               setCart(Array.isArray(parsed) ? parsed : []);
-             } catch(e) {
-               setCart([]);
-             }
-          }
-        }, [syncStateWithUrl]);
-
-        useEffect(() => {
-          const handlePopState = () => {
-             syncStateWithUrl(products, categories);
-          };
-          window.addEventListener('popstate', handlePopState);
-          return () => window.removeEventListener('popstate', handlePopState);
-        }, [products, categories, syncStateWithUrl]);
+          const savedCart = localStorage.getItem('fresh_cart');
+          if (savedCart) setCart(JSON.parse(savedCart));
+        }, []);
 
         const filteredProducts = useMemo(() => {
           return products.filter(p => {
@@ -240,116 +168,46 @@ header('Content-Type: text/html; charset=utf-8');
           });
         }, [products, searchQuery, selectedCatId]);
 
-        const activeCategory = useMemo(() => {
-          return categories.find(c => c.id === selectedCatId);
-        }, [categories, selectedCatId]);
-
         const addToCart = (product) => {
-          if (product.stockQuantity <= 0) return alert('عذراً، المنتج نفذ من المخزون');
           const newCart = [...cart, { ...product, quantity: 1 }];
           setCart(newCart);
-          localStorage.setItem('elite_cart', JSON.stringify(newCart));
-          alert('تمت الإضافة للسلة');
-        };
-
-        const updateCartQuantity = (id, delta) => {
-          const newCart = cart.map(item => 
-            item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-          );
-          setCart(newCart);
-          localStorage.setItem('elite_cart', JSON.stringify(newCart));
-        };
-
-        const removeFromCart = (id) => {
-          const newCart = cart.filter(item => item.id !== id);
-          setCart(newCart);
-          localStorage.setItem('elite_cart', JSON.stringify(newCart));
-        };
-
-        const navigateToCategory = (id) => {
-          if (id === 'all') {
-            updateUrl({ category: null, p: null, v: null });
-          } else {
-            const cat = categories.find(c => c.id === id);
-            if (cat) updateUrl({ category: cat.name, p: null, v: null });
-          }
-        };
-
-        const navigateToProduct = (product) => {
-          const slug = product.seoSettings?.slug || product.id;
-          updateUrl({ p: slug, v: null, category: null });
-        };
-
-        const navigateToStore = () => {
-          updateUrl({ p: null, v: null, category: null });
-        };
-
-        const handleDeleteProduct = async (id) => {
-          if (!confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
-          try {
-            const res = await fetch(`api.php?action=delete_product&id=${id}`, { method: 'DELETE' }).then(r => r.json());
-            if (res.status === 'success') {
-              setProducts(products.filter(p => p.id !== id));
-            }
-          } catch (e) {}
-        };
-
-        const handleAddCategory = async () => {
-          if (!newCatName.trim()) return;
-          const newCat = { id: 'cat_' + Date.now(), name: newCatName };
-          const res = await fetch('api.php?action=add_category', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newCat)
-          }).then(r => r.json());
-          if (res.status === 'success') {
-            setCategories([...categories, newCat]);
-            setNewCatName('');
-          }
-        };
-
-        const handleDeleteCategory = async (id) => {
-          if (!confirm('هل أنت متأكد من حذف هذا القسم؟ سيتم حذف جميع منتجاته!')) return;
-          const res = await fetch(`api.php?action=delete_category&id=${id}`, { method: 'DELETE' }).then(r => r.json());
-          if (res.status === 'success') {
-            setCategories(categories.filter(c => c.id !== id));
-          }
+          localStorage.setItem('fresh_cart', JSON.stringify(newCart));
+          alert('تمت إضافة ' + product.name + ' بنجاح');
         };
 
         if (isLoading) return (
-          <div className="h-screen flex flex-col items-center justify-center gap-4">
-            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="font-bold text-slate-500">تحميل عالم النخبة...</p>
+          <div className="h-screen flex flex-col items-center justify-center gap-4 text-green-600">
+            <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="font-black">جاري تحضير الطلبات الطازجة...</p>
           </div>
         );
 
-        const cartTotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-
         return (
           <div className="min-h-screen flex flex-col">
-            <header className="header-glass shadow-sm sticky top-0 z-50 border-b border-gray-100">
+            <header className="header-glass shadow-sm sticky top-0 z-50 border-b border-green-100">
               <div className="container mx-auto px-4 pt-4 pb-3">
                 <div className="flex items-center justify-between gap-4 mb-3">
-                  <h1 onClick={navigateToStore} className="text-2xl font-black text-indigo-600 cursor-pointer select-none tracking-tighter">
-                    ELITE<span className="text-slate-900">STORE</span>
+                  <h1 onClick={() => setView('store')} className="text-2xl font-black text-green-600 cursor-pointer select-none tracking-tighter flex items-center gap-2">
+                    <span className="text-3xl">🧺</span>
+                    <span>سوق<span className="text-slate-900">الطازج</span></span>
                   </h1>
                   
                   <div className="flex-grow max-w-md hidden md:block">
-                    <input type="text" placeholder="ابحث عن الجودة..." onChange={e => setSearchQuery(e.target.value)} className="w-full px-5 py-2.5 bg-gray-100 border-none rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold" />
+                    <input type="text" placeholder="ماذا تريد أن تتسوق اليوم؟" onChange={e => setSearchQuery(e.target.value)} className="w-full px-5 py-2.5 bg-green-50/50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-green-500 text-sm font-bold" />
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <button onClick={() => updateUrl({v:'cart', p:null, category:null})} className="relative p-2.5 bg-slate-900 text-white rounded-xl hover:bg-indigo-600 transition">
-                      🛒 <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-white">{cart.length}</span>
+                    <button onClick={() => setView('cart')} className="relative p-2.5 bg-slate-900 text-white rounded-xl hover:bg-green-600 transition shadow-lg">
+                      🛒 <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-white">{cart.length}</span>
                     </button>
-                    <button onClick={() => updateUrl({ v: 'admin', p: null, category: null })} className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition">⚙️ الإدارة</button>
+                    <button onClick={() => updateUrl({ v: 'admin'})} className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition font-black text-xs">⚙️ الإدارة</button>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                  <button onClick={() => navigateToCategory('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === 'all' && view === 'store' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>الرئيسية</button>
+                  <button onClick={() => setSelectedCatId('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === 'all' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-green-50'}`}>الكل</button>
                   {categories.map(cat => (
-                    <button key={cat.id} onClick={() => navigateToCategory(cat.id)} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === cat.id && view === 'category-page' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-slate-100'}`}>{cat.name}</button>
+                    <button key={cat.id} onClick={() => setSelectedCatId(cat.id)} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === cat.id ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-green-50'}`}>{cat.name}</button>
                   ))}
                 </div>
               </div>
@@ -360,206 +218,71 @@ header('Content-Type: text/html; charset=utf-8');
                 <div className="animate-fadeIn">
                   <Slider />
                   <BrandsMarquee />
-                  <h2 className="text-3xl font-black text-slate-800 mb-8">منتجاتنا الحصرية</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10">
+                  <h2 className="text-3xl font-black text-slate-800 mb-8 tracking-tighter">محاصيل اليوم المختارة</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {filteredProducts.map(p => (
-                      <div key={p.id} onClick={() => navigateToProduct(p)} className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm cursor-pointer group">
-                        <div className="aspect-square bg-slate-50 overflow-hidden relative">
+                      <div key={p.id} className="bg-white rounded-[2.5rem] border border-green-50 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm group">
+                        <div className="aspect-square bg-[#fcfdfe] overflow-hidden relative">
                           <img src={p.images && p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={p.name} />
+                          <div className="absolute top-3 right-3 bg-green-600 text-white text-[9px] font-black px-2 py-1 rounded-lg">طازج</div>
                         </div>
                         <div className="p-6 flex flex-col flex-grow">
-                          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">{categories.find(c => c.id === p.categoryId)?.name || 'عام'}</span>
-                          <h3 className="font-black text-slate-800 text-base mb-4 line-clamp-1">{p.name}</h3>
-                          <div className="mt-auto flex justify-between items-center">
-                            <span className="text-xl font-black text-slate-900">{p.price} <small className="text-xs font-bold">ر.س</small></span>
-                            <div className="bg-slate-900 text-white w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-indigo-600 transition shadow-lg">🛒</div>
+                          <h3 className="font-black text-slate-800 text-lg mb-2 line-clamp-1 tracking-tighter">{p.name}</h3>
+                          <p className="text-gray-400 text-xs font-bold mb-4 line-clamp-2">{p.description}</p>
+                          <div className="mt-auto flex justify-between items-center border-t border-green-50 pt-4">
+                            <span className="text-xl font-black text-green-700">{p.price} <small className="text-[10px] font-bold">ر.س</small></span>
+                            <button onClick={() => addToCart(p)} className="bg-slate-900 text-white w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-green-600 transition shadow-lg">🛒</button>
                           </div>
                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {view === 'category-page' && activeCategory ? (
-                <div className="animate-fadeIn">
-                   <div className="bg-slate-900 rounded-[3rem] p-12 text-white mb-16 relative overflow-hidden">
-                      <h2 className="text-5xl md:text-7xl font-black mb-4 tracking-tighter italic">
-                         قسم {activeCategory.name}
-                      </h2>
-                      <p className="text-slate-400 font-bold text-xl">اكتشف أفضل المختارات في هذا القسم.</p>
-                   </div>
-                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10">
-                    {filteredProducts.map(p => (
-                      <div key={p.id} onClick={() => navigateToProduct(p)} className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm cursor-pointer group">
-                        <div className="aspect-square bg-slate-50 overflow-hidden relative">
-                          <img src={p.images && p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={p.name} />
-                        </div>
-                        <div className="p-6 flex flex-col flex-grow">
-                          <h3 className="font-black text-slate-800 text-base mb-4 line-clamp-1">{p.name}</h3>
-                          <div className="mt-auto flex justify-between items-center">
-                            <span className="text-xl font-black text-slate-900">{p.price} <small className="text-xs font-bold">ر.س</small></span>
-                            <div className="bg-slate-900 text-white w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-indigo-600 transition shadow-lg">🛒</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : view === 'category-page' && (
-                <div className="text-center py-20">
-                  <p className="text-slate-400 font-bold">لا يوجد قسم بهذا الاسم حالياً.</p>
-                  <button onClick={navigateToStore} className="mt-4 bg-indigo-600 text-white px-8 py-2 rounded-xl">الرجوع للرئيسية</button>
-                </div>
-              )}
-
-              {view === 'product-details' && selectedProduct && (
-                <div className="max-w-5xl mx-auto animate-fadeIn">
-                  <button onClick={navigateToStore} className="mb-8 font-black text-indigo-600 flex items-center gap-2 hover:translate-x-2 transition-transform">➜ العودة للتسوق</button>
-                  <div className="bg-white p-6 md:p-12 rounded-[3.5rem] shadow-2xl border flex flex-col md:flex-row gap-12">
-                     <div className="w-full md:w-1/2 aspect-square rounded-[2.5rem] overflow-hidden border border-slate-50 shadow-inner">
-                        {selectedProduct.images && selectedProduct.images[0] && (
-                          <img src={selectedProduct.images[0]} className="w-full h-full object-cover" alt={selectedProduct.name} />
-                        )}
-                     </div>
-                     <div className="w-full md:w-1/2 flex flex-col justify-center space-y-8">
-                        <div>
-                           <span className="bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4 inline-block">{categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}</span>
-                           <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight">{selectedProduct.name}</h1>
-                        </div>
-                        <p className="text-slate-500 leading-relaxed text-lg font-medium">{selectedProduct.description}</p>
-                        <div className="flex items-center justify-between pt-8 border-t border-slate-50">
-                           <span className="text-4xl font-black text-indigo-600">{selectedProduct.price} <small className="text-lg">ر.س</small></span>
-                           <button onClick={() => addToCart(selectedProduct)} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black shadow-xl hover:bg-indigo-600 transition-all active:scale-95">أضف للسلة 🛒</button>
-                        </div>
-                     </div>
                   </div>
                 </div>
               )}
 
               {view === 'cart' && (
-                <div className="animate-fadeIn max-w-6xl mx-auto">
-                   <h2 className="text-3xl font-black mb-10">سلة التسوق ({cart.length})</h2>
+                <div className="animate-fadeIn max-w-4xl mx-auto py-12">
+                   <h2 className="text-4xl font-black mb-10 tracking-tighter">سلة التسوق</h2>
                    {cart.length === 0 ? (
-                      <div className="text-center py-20 bg-white rounded-[3rem] border shadow-sm">
-                         <p className="text-slate-400 font-bold mb-6">سلتك فارغة حالياً</p>
-                         <button onClick={navigateToStore} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">ابدأ التسوق</button>
+                      <div className="bg-white p-20 rounded-[3rem] text-center border shadow-sm">
+                         <p className="text-gray-400 font-bold mb-6 text-xl">السلة فارغة، المحاصيل بانتظارك!</p>
+                         <button onClick={() => setView('store')} className="bg-green-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">تصفح السوق</button>
                       </div>
                    ) : (
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                         <div className="lg:col-span-2 space-y-4">
-                            {cart.map(item => (
-                               <div key={item.id} className="bg-white p-6 rounded-[2.5rem] border flex items-center gap-6 group hover:shadow-lg transition">
-                                  <div className="w-24 h-24 rounded-2xl overflow-hidden border shrink-0">
-                                     <img src={item.images && item.images[0]} className="w-full h-full object-cover" />
-                                  </div>
-                                  <div className="flex-grow">
-                                     <h3 className="font-black text-slate-800">{item.name}</h3>
-                                     <div className="flex items-center gap-4 mt-4">
-                                        <div className="flex items-center bg-slate-50 rounded-xl px-1">
-                                           <button onClick={() => updateCartQuantity(item.id, 1)} className="w-8 h-8 font-black text-indigo-600">+</button>
-                                           <span className="px-4 font-black">{item.quantity}</span>
-                                           <button onClick={() => updateCartQuantity(item.id, -1)} className="w-8 h-8 font-black text-indigo-600">-</button>
-                                        </div>
-                                        <button onClick={() => removeFromCart(item.id)} className="text-rose-500 text-xs font-black">إزالة</button>
-                                     </div>
-                                  </div>
-                                  <div className="text-xl font-black text-indigo-600">{(item.price * item.quantity).toLocaleString()} ر.س</div>
+                      <div className="space-y-4">
+                         {cart.map((item, idx) => (
+                            <div key={idx} className="bg-white p-6 rounded-[2rem] border flex items-center gap-6 group hover:shadow-lg transition">
+                               <img src={item.images[0]} className="w-20 h-20 rounded-2xl object-cover border" />
+                               <div className="flex-grow">
+                                  <h3 className="font-black text-slate-800 text-xl tracking-tighter">{item.name}</h3>
+                                  <p className="text-green-600 font-black">{item.price} ر.س</p>
                                </div>
-                            ))}
-                         </div>
-                         <div className="lg:col-span-1">
-                            <div className="bg-white p-10 rounded-[3rem] border shadow-sm sticky top-24">
-                               <h3 className="text-xl font-black mb-6">ملخص الطلب</h3>
-                               <div className="space-y-4 mb-8">
-                                  <div className="flex justify-between text-slate-500 font-bold">
-                                     <span>المجموع</span>
-                                     <span>{cartTotal.toLocaleString()} ر.س</span>
-                                  </div>
-                                  <div className="flex justify-between text-2xl font-black text-slate-900 border-t pt-4">
-                                     <span>الإجمالي</span>
-                                     <span className="text-indigo-600">{cartTotal.toLocaleString()} ر.س</span>
-                                  </div>
+                               <div className="flex items-center gap-4">
+                                  <span className="font-black text-gray-400">الكمية: {item.quantity}</span>
+                                  <button onClick={() => {
+                                      const newCart = cart.filter((_, i) => i !== idx);
+                                      setCart(newCart);
+                                      localStorage.setItem('fresh_cart', JSON.stringify(newCart));
+                                  }} className="text-rose-500 font-black">إزالة</button>
                                </div>
-                               <button onClick={() => updateUrl({v:'checkout', p:null, category:null})} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg hover:bg-indigo-600 shadow-xl transition active:scale-95">الدفع الآمن</button>
                             </div>
+                         ))}
+                         <div className="bg-white p-10 rounded-[3rem] border mt-10 shadow-sm flex justify-between items-center">
+                            <div>
+                               <p className="text-gray-400 font-bold uppercase text-xs">إجمالي الفاتورة</p>
+                               <p className="text-4xl font-black text-green-600">{cart.reduce((s, i) => s + (i.price * i.quantity), 0).toFixed(2)} ر.س</p>
+                            </div>
+                            <button onClick={() => alert('سيتم توجيهك لصفحة الدفع الآمن')} className="bg-slate-900 text-white px-12 py-5 rounded-[2rem] font-black text-xl shadow-xl hover:bg-green-600 transition">تأكيد الطلب</button>
                          </div>
                       </div>
                    )}
                 </div>
               )}
-
-              {view === 'admin' && (
-                <div className="space-y-8 animate-fadeIn">
-                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                      <h2 className="text-4xl font-black text-slate-900 tracking-tighter">لوحة التحكم</h2>
-                      <button onClick={() => window.location.href = 'add-product.php'} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100">+ منتج جديد</button>
-                   </div>
-                   <div className="flex border-b border-slate-100 gap-8 mb-8">
-                      <button onClick={() => setAdminTab('stats')} className={`pb-4 text-sm font-black transition ${adminTab === 'stats' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>الإحصائيات</button>
-                      <button onClick={() => setAdminTab('products')} className={`pb-4 text-sm font-black transition ${adminTab === 'products' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>المخزون</button>
-                      <button onClick={() => setAdminTab('categories')} className={`pb-4 text-sm font-black transition ${adminTab === 'categories' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>الأقسام</button>
-                   </div>
-
-                  {adminTab === 'stats' && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <StatCard title="إجمالي الدخل" value={`${orders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0).toLocaleString()} ر.س`} icon="💰" color="bg-emerald-500" />
-                      <StatCard title="الطلبات" value={orders.length} icon="📦" color="bg-indigo-500" />
-                      <StatCard title="المنتجات" value={products.length} icon="✨" color="bg-slate-900" />
-                    </div>
-                  )}
-
-                  {adminTab === 'products' && (
-                    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-                        <table className="w-full text-right">
-                          <tbody className="divide-y divide-slate-50">
-                            {products.map(p => (
-                              <tr key={p.id} className="hover:bg-slate-50 transition group">
-                                <td className="px-8 py-5 flex items-center gap-4">
-                                    <img src={p.images && p.images[0]} className="w-12 h-12 rounded-xl object-cover border" alt="" />
-                                    <span className="font-black text-slate-800 text-sm">{p.name}</span>
-                                </td>
-                                <td className="px-8 py-5 text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <button onClick={() => window.location.href = `add-product.php?id=${p.id}`} className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-indigo-600 hover:text-white transition">✎</button>
-                                    <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-600 hover:text-white transition">🗑</button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                    </div>
-                  )}
-
-                  {adminTab === 'categories' && (
-                    <div className="max-w-2xl space-y-8">
-                       <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex gap-4">
-                          <input 
-                            value={newCatName} 
-                            onChange={e => setNewCatName(e.target.value)} 
-                            placeholder="اسم القسم الجديد..." 
-                            className="flex-grow bg-slate-50 px-6 py-3 rounded-xl outline-none font-bold"
-                          />
-                          <button onClick={handleAddCategory} className="bg-indigo-600 text-white px-8 rounded-xl font-black">إضافة</button>
-                       </div>
-                       <div className="space-y-3">
-                          {categories.map(cat => (
-                            <div key={cat.id} className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center group">
-                               <span className="font-black text-slate-800">{cat.name}</span>
-                               <button onClick={() => handleDeleteCategory(cat.id)} className="text-slate-300 hover:text-rose-500 transition">🗑</button>
-                            </div>
-                          ))}
-                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </main>
 
-            <footer className="py-20 text-center bg-slate-900 text-white mt-20">
-              <h2 className="text-2xl font-black mb-4">ELITE<span className="text-indigo-500">STORE</span></h2>
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+            <footer className="py-20 text-center bg-green-900 text-white mt-20">
+              <h2 className="text-2xl font-black mb-4">سوق<span className="text-green-400">الطازج</span></h2>
+              <p className="text-green-300/50 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} مزارعنا تصل إليك أينما كنت</p>
             </footer>
           </div>
         );

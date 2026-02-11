@@ -12,24 +12,24 @@ interface Slide {
 const SLIDES: Slide[] = [
   {
     id: 1,
-    image: 'https://images.unsplash.com/photo-1491933382434-500287f9b54b?auto=format&fit=crop&q=80&w=1600',
-    title: 'عالم من الأناقة الذكية',
-    subtitle: 'اكتشف أحدث صيحات التكنولوجيا بأسعار تنافسية',
-    cta: 'تسوق الآن'
+    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=1600',
+    title: 'خضروات طازجة يومياً',
+    subtitle: 'من المزارع مباشرة إلى باب منزلك، جودة نضمنها لك',
+    cta: 'تسوق الخضروات'
   },
   {
     id: 2,
-    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=1600',
-    title: 'تشكيلة الصيف الجديدة',
-    subtitle: 'أزياء عصرية تناسب جميع الأذواق والمناسبات',
-    cta: 'عرض المجموعات'
+    image: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&q=80&w=1600',
+    title: 'فواكه موسمية لذيذة',
+    subtitle: 'تشكيلة واسعة من الفواكه الطازجة المليئة بالفيتامينات',
+    cta: 'تسوق الفواكه'
   },
   {
     id: 3,
-    image: 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&q=80&w=1600',
-    title: 'منزلك.. بلمسة عصرية',
-    subtitle: 'عروض حصرية على مستلزمات المنزل والمطبخ الذكي',
-    cta: 'تصفح العروض'
+    image: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=1600',
+    title: 'عروض السوبر ماركت',
+    subtitle: 'توفير حقيقي على كافة مستلزمات منزلك اليومية',
+    cta: 'مشاهدة العروض'
   }
 ];
 
@@ -50,7 +50,7 @@ const Slider: React.FC = () => {
   }, [nextSlide]);
 
   return (
-    <div className="relative w-full h-[400px] md:h-[500px] rounded-3xl overflow-hidden group shadow-2xl mb-8">
+    <div className="relative w-full h-[400px] md:h-[500px] rounded-[3rem] overflow-hidden group shadow-2xl mb-8">
       {/* Slides */}
       {SLIDES.map((slide, index) => (
         <div
@@ -60,7 +60,7 @@ const Slider: React.FC = () => {
           }`}
         >
           {/* Image with Overlay */}
-          <div className="absolute inset-0 bg-black/40 z-10"></div>
+          <div className="absolute inset-0 bg-black/30 z-10"></div>
           <img
             src={slide.image}
             alt={slide.title}
@@ -69,14 +69,14 @@ const Slider: React.FC = () => {
           
           {/* Content */}
           <div className="absolute inset-0 z-20 flex flex-col justify-center px-8 md:px-20 text-white">
-            <h2 className="text-4xl md:text-6xl font-bold mb-4 animate-slideDown">
+            <h2 className="text-4xl md:text-6xl font-black mb-4 animate-slideDown tracking-tighter">
               {slide.title}
             </h2>
-            <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-xl animate-fadeIn">
+            <p className="text-lg md:text-xl text-gray-100 mb-8 max-w-xl animate-fadeIn font-bold">
               {slide.subtitle}
             </p>
             <div>
-              <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-full font-bold transition transform hover:scale-105 shadow-lg">
+              <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-black transition transform hover:scale-105 shadow-lg">
                 {slide.cta}
               </button>
             </div>

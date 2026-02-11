@@ -2,46 +2,39 @@
 import React from 'react';
 
 const BRANDS = [
-  { name: 'Apple', logo: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' },
-  { name: 'Samsung', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/24/Samsung_Logo.svg' },
-  { name: 'Sony', logo: 'https://upload.wikimedia.org/wikipedia/commons/c/ca/Sony_logo.svg' },
-  { name: 'Adidas', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
-  { name: 'Nike', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg' },
-  { name: 'HP', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/ad/HP_logo_2012.svg' },
-  { name: 'LG', logo: 'https://upload.wikimedia.org/wikipedia/commons/b/bf/LG_logo_%282015%29.svg' },
-  { name: 'Dell', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/18/Dell_logo_2016.svg' },
+  { name: 'Almarai', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/5/52/Almarai_logo.svg/1200px-Almarai_logo.svg.png' },
+  { name: 'Nestle', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/Nestle_text_logo.svg/1200px-Nestle_text_logo.svg.png' },
+  { name: 'Nadine', logo: 'https://logos-world.net/wp-content/uploads/2021/08/Danone-Logo.png' },
+  { name: 'Puck', logo: 'https://www.arla.com/siteassets/arla-global/brands/puck/puck-logo.png?width=250&height=250&mode=crop' },
+  { name: 'KDD', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/KDD_logo.png' },
+  { name: 'Sadia', logo: 'https://www.sadia.com.sa/wp-content/themes/sadia/images/logo.png' },
 ];
 
 const BrandsSection: React.FC = () => {
-  // تكرار المصفوفة لضمان حركة مستمرة وسلسة في التمرير اللانهائي
   const duplicatedBrands = [...BRANDS, ...BRANDS, ...BRANDS];
 
   return (
-    <section className="relative py-16 bg-white rounded-3xl border border-gray-100 shadow-sm mb-12 overflow-hidden group">
-      {/* العنوان الجانبي */}
+    <section className="relative py-16 bg-white rounded-[3rem] border border-green-50 shadow-sm mb-12 overflow-hidden group">
       <div className="absolute top-4 right-8 z-10">
-        <h3 className="text-indigo-600 font-bold text-sm bg-indigo-50 px-4 py-1 rounded-full inline-block">
-          شركاء النجاح
+        <h3 className="text-green-600 font-black text-sm bg-green-50 px-4 py-1 rounded-full inline-block">
+          شركاء الجودة
         </h3>
       </div>
 
       <div className="text-center mb-10">
-        <h2 className="text-2xl font-bold text-gray-800">العلامات التجارية العالمية</h2>
-        <p className="text-gray-400 text-sm mt-1">نحن وكلاء معتمدون لأكبر الشركات حول العالم</p>
+        <h2 className="text-2xl font-black text-gray-800 tracking-tighter">العلامات التجارية الموثوقة</h2>
+        <p className="text-gray-400 text-sm mt-1 font-bold">نوفر لكم أفضل المنتجات من كبرى الشركات الغذائية</p>
       </div>
 
-      {/* حاوية الشريط المتحرك */}
       <div className="relative flex overflow-hidden select-none">
-        {/* تأثير التلاشي عند الحواف */}
         <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white to-transparent z-10"></div>
         <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-white to-transparent z-10"></div>
 
-        {/* الشريط المتحرك - استخدام Tailwind CSS Animation */}
         <div className="flex animate-scroll hover:pause whitespace-nowrap items-center py-4">
           {duplicatedBrands.map((brand, index) => (
             <div 
               key={`${brand.name}-${index}`} 
-              className="mx-12 flex-shrink-0 flex items-center justify-center w-32 h-16 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500 cursor-pointer transform hover:scale-110"
+              className="mx-12 flex-shrink-0 flex items-center justify-center w-32 h-16 opacity-60 hover:opacity-100 transition-all duration-500 cursor-pointer transform hover:scale-110"
             >
               <img 
                 src={brand.logo} 
@@ -54,7 +47,6 @@ const BrandsSection: React.FC = () => {
         </div>
       </div>
 
-      {/* إضافة الأنماط اللازمة للحركة */}
       <style>{`
         @keyframes scroll {
           0% { transform: translateX(0); }

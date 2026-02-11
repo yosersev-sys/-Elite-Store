@@ -98,7 +98,7 @@ const App: React.FC = () => {
         
         syncWithUrl(fetchedProducts, fetchedCats);
 
-        const savedCart = localStorage.getItem('elite_cart');
+        const savedCart = localStorage.getItem('fresh_cart');
         if (savedCart) {
            try {
               const parsed = JSON.parse(savedCart);
@@ -108,7 +108,7 @@ const App: React.FC = () => {
            }
         }
         
-        const savedWishlist = localStorage.getItem('elite_wishlist');
+        const savedWishlist = localStorage.getItem('fresh_wishlist');
         if (savedWishlist) {
            try {
               const parsed = JSON.parse(savedWishlist);
@@ -160,31 +160,31 @@ const App: React.FC = () => {
       let newList = existing 
         ? prev.map(item => (item.id === product.id && item.selectedSize === size && item.selectedColor === color) ? { ...item, quantity: item.quantity + 1 } : item)
         : [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
-      localStorage.setItem('elite_cart', JSON.stringify(newList));
+      localStorage.setItem('fresh_cart', JSON.stringify(newList));
       return newList;
     });
-    alert('تمت الإضافة للسلة بنجاح');
+    alert('تمت إضافة المنتج الطازج للسلة!');
   };
 
   const toggleFavorite = (productId: string) => {
     setWishlist(prev => {
       const newList = prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId];
-      localStorage.setItem('elite_wishlist', JSON.stringify(newList));
+      localStorage.setItem('fresh_wishlist', JSON.stringify(newList));
       return newList;
     });
   };
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-slate-800 tracking-tighter">تحميل عالم النخبة...</p>
+      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600">
+        <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-black tracking-tighter">جاري قطف الثمار...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#fcfdfe]">
+    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#f8faf7]">
       <Header 
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
         wishlistCount={wishlist.length}
@@ -243,14 +243,14 @@ const App: React.FC = () => {
             onUpdateQuantity={(id, d) => {
               setCart(prev => {
                 const newList = prev.map(item => item.id === id ? { ...item, quantity: Math.max(1, item.quantity + d) } : item);
-                localStorage.setItem('elite_cart', JSON.stringify(newList));
+                localStorage.setItem('fresh_cart', JSON.stringify(newList));
                 return newList;
               });
             }}
             onRemove={(id) => {
               setCart(prev => {
                 const newList = prev.filter(item => item.id !== id);
-                localStorage.setItem('elite_cart', JSON.stringify(newList));
+                localStorage.setItem('fresh_cart', JSON.stringify(newList));
                 return newList;
               });
             }}
@@ -265,13 +265,13 @@ const App: React.FC = () => {
              onPlaceOrder={async (details) => {
                const newOrder: Order = {
                  id: 'ORD-'+Date.now(), customerName: details.fullName, phone: details.phone, city: details.city, address: details.address,
-                 items: [...cart], subtotal: cart.reduce((s, i) => s + (i.price * i.quantity), 0), total: cart.reduce((s, i) => s + (i.price * i.quantity), 0) * 1.15,
+                 items: [...cart], subtotal: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0), total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
                  paymentMethod: details.paymentMethod, status: 'pending', createdAt: Date.now()
                };
                await ApiService.saveOrder(newOrder);
                setLastPlacedOrder(newOrder);
                setCart([]);
-               localStorage.removeItem('elite_cart');
+               localStorage.removeItem('fresh_cart');
                updateUrl({ v: 'order-success' });
              }}
              onBack={() => updateUrl({ v: 'cart' })}
@@ -285,8 +285,8 @@ const App: React.FC = () => {
         {view === 'wishlist' && (
           <div className="animate-fadeIn">
             <h2 className="text-4xl font-black mb-10 flex items-center gap-4">
-              <span className="p-4 bg-red-50 rounded-3xl text-red-500">❤️</span>
-              المفضلة
+              <span className="p-4 bg-green-50 rounded-3xl text-green-500">🥗</span>
+              مفضلاتي
             </h2>
             {wishlist.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -300,9 +300,9 @@ const App: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                <p className="text-slate-400 font-bold mb-6">المفضلة فارغة</p>
-                <button onClick={navigateToStore} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">ابدأ التسوق</button>
+              <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-green-100">
+                <p className="text-slate-400 font-bold mb-6">قائمة المحاصيل المفضلة فارغة</p>
+                <button onClick={navigateToStore} className="bg-green-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">ابدأ التسوق</button>
               </div>
             )}
           </div>
@@ -320,9 +320,9 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="bg-slate-900 text-white py-20 text-center mt-20">
-        <h2 className="text-2xl font-black mb-4 tracking-tighter">ELITE<span className="text-indigo-500">STORE</span></h2>
-        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+      <footer className="bg-green-900 text-white py-20 text-center mt-20">
+        <h2 className="text-2xl font-black mb-4 tracking-tighter">سوق<span className="text-green-400">الطازج</span></h2>
+        <p className="text-green-300/50 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} مزارعنا تصل إليك</p>
       </footer>
     </div>
   );
