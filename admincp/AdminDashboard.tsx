@@ -8,6 +8,7 @@ interface AdminDashboardProps {
   orders: Order[];
   onOpenAddForm: () => void;
   onOpenEditForm: (product: Product) => void;
+  onOpenInvoiceForm: () => void;
   onDeleteProduct: (id: string) => void;
   onAddCategory: (category: Category) => void;
   onUpdateCategory: (category: Category) => void;
@@ -17,7 +18,7 @@ interface AdminDashboardProps {
 type AdminTab = 'stats' | 'products' | 'categories' | 'orders';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  products, categories, orders, onOpenAddForm, onOpenEditForm, onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory
+  products, categories, orders, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('products');
   const [newCatName, setNewCatName] = useState('');
@@ -27,7 +28,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [categorySearch, setCategorySearch] = useState('');
   
   const stats = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+    const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
     const pendingOrders = orders.filter(o => o.status === 'pending').length;
     const lowStockCount = products.filter(p => (p.stockQuantity || 0) > 0 && (p.stockQuantity || 0) < 10).length;
     const outOfStockCount = products.filter(p => (p.stockQuantity || 0) <= 0).length;
@@ -140,12 +141,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
             <span className="absolute left-4 top-3 text-slate-300">🔍</span>
           </div>
-          <button 
-            onClick={onOpenAddForm}
-            className="bg-green-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl shadow-green-100 hover:scale-105 transition active:scale-95"
-          >
-            + إضافة محصول جديد
-          </button>
+          <div className="flex gap-3">
+            <button 
+                onClick={onOpenInvoiceForm}
+                className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black shadow-xl shadow-slate-100 hover:scale-105 transition active:scale-95 flex items-center gap-2"
+            >
+                <span>🧾</span> إنشاء فاتورة
+            </button>
+            <button 
+                onClick={onOpenAddForm}
+                className="bg-green-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl shadow-green-100 hover:scale-105 transition active:scale-95"
+            >
+                + إضافة محصول جديد
+            </button>
+          </div>
         </div>
 
         {activeTab === 'stats' && (
@@ -223,7 +232,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {activeTab === 'categories' && (
-          /* نظام الأقسام المحسن كما هو */
           <div className="space-y-12 animate-fadeIn">
             {/* Add Category Section */}
             <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm max-w-2xl">

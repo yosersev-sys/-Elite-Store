@@ -21,7 +21,7 @@ export interface Product {
   sizes?: string[]; 
   colors?: string[]; 
   stockQuantity: number;
-  barcode?: string; // الحقل الجديد للباركود
+  barcode?: string;
   createdAt: number;
   salesCount?: number;
   seoSettings?: SeoSettings;
@@ -47,4 +47,4 @@ export interface Order {
   createdAt: number;
 }
 
-export type View = 'store' | 'admin' | 'cart' | 'product-details' | 'admin-form' | 'auth' | 'checkout' | 'wishlist' | 'order-success' | 'category-page';
+export type View = 'store' | 'admin' | 'cart' | 'product-details' | 'admin-form' | 'admin-invoice' | 'auth' | 'checkout' | 'wishlist' | 'order-success' | 'category-page';
