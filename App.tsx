@@ -66,6 +66,9 @@ const App: React.FC = () => {
       const category = allCategories.find(cat => cat.name === categoryName);
       if (category) {
         setSelectedCategoryId(category.id);
+        // If we are coming from a deep link or search, we might want to stay on Store view if preferred,
+        // but currently we have a dedicated CategoryPageView. 
+        // We'll keep CategoryPageView for deep links, but allow filtering on Home.
         setView('category-page'); 
         window.scrollTo(0, 0);
         return;
@@ -142,11 +145,21 @@ const App: React.FC = () => {
 
   const navigateToCategory = (id: string | 'all') => {
     if (id === 'all') {
-      navigateToStore();
+      setSelectedCategoryId('all');
+      if (view !== 'store') navigateToStore();
     } else {
       const cat = categories.find(c => c.id === id);
       if (cat) {
-        updateUrl({ category: cat.name, p: null, v: null });
+        setSelectedCategoryId(cat.id);
+        // Only trigger URL change (and thus category-page view) if NOT currently on store view
+        // This allows filtering "on the main store page" as requested.
+        if (view !== 'store') {
+          updateUrl({ category: cat.name, p: null, v: null });
+        } else {
+           // On main page, just scroll to products or let the filter work
+           const el = document.getElementById('products-list');
+           if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       }
     }
   };
@@ -210,7 +223,7 @@ const App: React.FC = () => {
             products={products}
             categories={categories}
             searchQuery={searchQuery}
-            selectedCategoryId="all"
+            selectedCategoryId={selectedCategoryId}
             onCategorySelect={navigateToCategory}
             onAddToCart={(p) => addToCart(p)} 
             onViewProduct={navigateToProduct}
