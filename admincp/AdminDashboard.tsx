@@ -45,7 +45,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const filteredProducts = useMemo(() => {
     return products.filter(p => 
       p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
-      p.id.toLowerCase().includes(adminSearch.toLowerCase())
+      p.id.toLowerCase().includes(adminSearch.toLowerCase()) ||
+      (p.barcode && p.barcode.includes(adminSearch))
     );
   }, [products, adminSearch]);
 
@@ -121,7 +122,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {activeTab === 'products' ? (
               <input 
                 type="text" 
-                placeholder="ابحث عن منتج بالاسم أو الكود..." 
+                placeholder="ابحث بالاسم، الكود، أو الباركود..." 
                 value={adminSearch}
                 onChange={(e) => setAdminSearch(e.target.value)}
                 className="w-full px-6 py-3 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 font-bold text-sm shadow-sm"
@@ -161,7 +162,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <table className="w-full text-right">
               <thead>
                 <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
-                  <th className="px-8 py-6">المنتج</th>
+                  <th className="px-8 py-6">المنتج والباركود</th>
                   <th className="px-8 py-6">القسم</th>
                   <th className="px-8 py-6">السعر</th>
                   <th className="px-8 py-6">المخزون</th>
@@ -176,7 +177,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover border" alt="" />
                         <div>
                           <p className="font-black text-slate-800 text-sm">{p.name}</p>
-                          <p className="text-[10px] text-slate-400 font-bold">كود: {p.id}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">كود: {p.id}</span>
+                            {p.barcode && (
+                              <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-black">|| {p.barcode}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -217,6 +223,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {activeTab === 'categories' && (
+          /* نظام الأقسام المحسن كما هو */
           <div className="space-y-12 animate-fadeIn">
             {/* Add Category Section */}
             <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm max-w-2xl">

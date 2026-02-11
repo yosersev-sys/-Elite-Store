@@ -21,6 +21,7 @@ export interface Product {
   sizes?: string[]; 
   colors?: string[]; 
   stockQuantity: number;
+  barcode?: string; // الحقل الجديد للباركود
   createdAt: number;
   salesCount?: number;
   seoSettings?: SeoSettings;

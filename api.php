@@ -72,7 +72,7 @@ try {
 
         case 'add_product':
             if (!$input) sendError('لم يتم استلام بيانات المنتج');
-            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, seoSettings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, barcode, createdAt, seoSettings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $input['id'] ?? 'p_'.time(), 
                 $input['name'], 
@@ -83,6 +83,7 @@ try {
                 json_encode($input['sizes'] ?? []), 
                 json_encode($input['colors'] ?? []), 
                 (int)($input['stockQuantity'] ?? 0), 
+                $input['barcode'] ?? null,
                 $input['createdAt'] ?? (time()*1000),
                 json_encode($input['seoSettings'] ?? new stdClass())
             ]);
@@ -91,7 +92,7 @@ try {
 
         case 'update_product':
             if (!$input) sendError('بيانات التحديث مفقودة');
-            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=? WHERE id=?");
+            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, barcode=?, seoSettings=? WHERE id=?");
             $stmt->execute([
                 $input['name'], 
                 $input['description'], 
@@ -101,6 +102,7 @@ try {
                 json_encode($input['sizes'] ?? []), 
                 json_encode($input['colors'] ?? []), 
                 (int)($input['stockQuantity'] ?? 0), 
+                $input['barcode'] ?? null,
                 json_encode($input['seoSettings'] ?? new stdClass()),
                 $input['id']
             ]);
