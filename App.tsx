@@ -44,12 +44,10 @@ const App: React.FC = () => {
   };
 
   const syncWithUrl = useCallback((allProducts: Product[], allCategories: Category[]) => {
-    if (!allProducts || allProducts.length === 0) return;
-
     const params = new URLSearchParams(window.location.search);
     const categoryName = params.get('category');
     const productSlug = params.get('p');
-    const viewParam = params.get('v');
+    const viewParam = params.get('v') as View | null;
 
     if (productSlug) {
       const product = allProducts.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
@@ -71,12 +69,10 @@ const App: React.FC = () => {
       }
     }
 
-    if (viewParam === 'admin') setView('admin');
-    else if (viewParam === 'cart') setView('cart');
-    else if (viewParam === 'wishlist') setView('wishlist');
-    else if (viewParam === 'checkout') setView('checkout');
-    else if (viewParam === 'order-success') setView('order-success');
-    else {
+    if (viewParam) {
+      setView(viewParam);
+      if (viewParam !== 'product-details') setSelectedProduct(null);
+    } else {
       setView('store');
       setSelectedCategoryId('all');
       setSelectedProduct(null);
@@ -154,6 +150,12 @@ const App: React.FC = () => {
     updateUrl({ p: slug, v: null, category: null });
   };
 
+  const onNavigateAction = (v: View) => {
+    setView(v); // تحديث الحالة فوراً للاستجابة السريعة
+    if (v === 'store') navigateToStore();
+    else updateUrl({ v, p: null, category: null });
+  };
+
   const addToCart = (product: Product, size?: string, color?: string) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id && item.selectedSize === size && item.selectedColor === color);
@@ -191,10 +193,7 @@ const App: React.FC = () => {
         currentView={view}
         categories={categories}
         selectedCategoryId={selectedCategoryId}
-        onNavigate={(v) => { 
-          if (v === 'store') navigateToStore();
-          else updateUrl({ v, p: null, category: null });
-        }}
+        onNavigate={onNavigateAction}
         onSearch={setSearchQuery}
         onCategorySelect={navigateToCategory}
       />
@@ -272,9 +271,9 @@ const App: React.FC = () => {
                setLastPlacedOrder(newOrder);
                setCart([]);
                localStorage.removeItem('fresh_cart');
-               updateUrl({ v: 'order-success' });
+               onNavigateAction('order-success');
              }}
-             onBack={() => updateUrl({ v: 'cart' })}
+             onBack={() => onNavigateAction('cart')}
            />
         )}
 

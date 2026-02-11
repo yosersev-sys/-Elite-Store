@@ -135,6 +135,13 @@ header('Content-Type: text/html; charset=utf-8');
           window.dispatchEvent(new PopStateEvent('popstate'));
         };
 
+        const syncWithUrl = useCallback(() => {
+          const params = new URLSearchParams(window.location.search);
+          const viewParam = params.get('v');
+          if (viewParam) setView(viewParam);
+          else setView('store');
+        }, []);
+
         const loadData = async () => {
           setIsLoading(true);
           try {
@@ -147,6 +154,7 @@ header('Content-Type: text/html; charset=utf-8');
 
             setProducts(Array.isArray(pRes) ? pRes : []);
             setCategories(Array.isArray(cRes) ? cRes : []);
+            syncWithUrl();
           } catch (e) {
             console.error("Data fetch error:", e);
           } finally {
@@ -158,7 +166,11 @@ header('Content-Type: text/html; charset=utf-8');
           loadData();
           const savedCart = localStorage.getItem('fresh_cart');
           if (savedCart) setCart(JSON.parse(savedCart));
-        }, []);
+
+          const handlePop = () => syncWithUrl();
+          window.addEventListener('popstate', handlePop);
+          return () => window.removeEventListener('popstate', handlePop);
+        }, [syncWithUrl]);
 
         const filteredProducts = useMemo(() => {
           return products.filter(p => {
@@ -175,6 +187,11 @@ header('Content-Type: text/html; charset=utf-8');
           alert('تمت إضافة ' + product.name + ' بنجاح');
         };
 
+        const onNavigate = (v) => {
+          setView(v);
+          updateUrl({ v });
+        };
+
         if (isLoading) return (
           <div className="h-screen flex flex-col items-center justify-center gap-4 text-green-600">
             <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
@@ -187,7 +204,7 @@ header('Content-Type: text/html; charset=utf-8');
             <header className="header-glass shadow-sm sticky top-0 z-50 border-b border-green-100">
               <div className="container mx-auto px-4 pt-4 pb-3">
                 <div className="flex items-center justify-between gap-4 mb-3">
-                  <h1 onClick={() => setView('store')} className="text-2xl font-black text-green-600 cursor-pointer select-none tracking-tighter flex items-center gap-2">
+                  <h1 onClick={() => onNavigate('store')} className="text-2xl font-black text-green-600 cursor-pointer select-none tracking-tighter flex items-center gap-2">
                     <span className="text-3xl">🧺</span>
                     <span>اسواق <span className="text-slate-900">فاقوس</span></span>
                   </h1>
@@ -197,10 +214,10 @@ header('Content-Type: text/html; charset=utf-8');
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setView('cart')} className="relative p-2.5 bg-slate-900 text-white rounded-xl hover:bg-green-600 transition shadow-lg">
+                    <button onClick={() => onNavigate('cart')} className={`relative p-2.5 rounded-xl transition shadow-lg ${view === 'cart' ? 'bg-green-600 text-white' : 'bg-slate-900 text-white'}`}>
                       🛒 <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full border border-white">{cart.length}</span>
                     </button>
-                    <button onClick={() => updateUrl({ v: 'admin'})} className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition font-black text-xs">⚙️ الإدارة</button>
+                    <button onClick={() => onNavigate('admin')} className={`p-2.5 rounded-xl transition font-black text-xs ${view === 'admin' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-600'}`}>⚙️ الإدارة</button>
                   </div>
                 </div>
 
@@ -246,7 +263,7 @@ header('Content-Type: text/html; charset=utf-8');
                    {cart.length === 0 ? (
                       <div className="bg-white p-20 rounded-[3rem] text-center border shadow-sm">
                          <p className="text-gray-400 font-bold mb-6 text-xl">السلة فارغة، خيرات فاقوس بانتظارك!</p>
-                         <button onClick={() => setView('store')} className="bg-green-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">تصفح السوق</button>
+                         <button onClick={() => onNavigate('store')} className="bg-green-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">تصفح السوق</button>
                       </div>
                    ) : (
                       <div className="space-y-4">
@@ -276,6 +293,23 @@ header('Content-Type: text/html; charset=utf-8');
                          </div>
                       </div>
                    )}
+                </div>
+              )}
+
+              {view === 'admin' && (
+                <div className="bg-white p-12 rounded-[3rem] shadow-xl border text-center animate-fadeIn">
+                   <h2 className="text-3xl font-black mb-4">لوحة تحكم فاقوس</h2>
+                   <p className="text-gray-500 mb-8 font-bold">يمكنك إضافة وإدارة المنتجات من هنا</p>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <a href="add-product.php" className="p-8 bg-green-50 border border-green-100 rounded-[2rem] hover:bg-green-100 transition group">
+                         <div className="text-4xl mb-4 group-hover:scale-110 transition">➕</div>
+                         <h3 className="font-black text-green-700">إضافة منتج جديد</h3>
+                      </a>
+                      <div onClick={() => onNavigate('store')} className="p-8 bg-slate-50 border border-slate-100 rounded-[2rem] hover:bg-slate-100 transition cursor-pointer group">
+                         <div className="text-4xl mb-4 group-hover:scale-110 transition">🏪</div>
+                         <h3 className="font-black text-slate-700">العودة للمتجر</h3>
+                      </div>
+                   </div>
                 </div>
               )}
             </main>
