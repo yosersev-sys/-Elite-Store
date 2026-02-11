@@ -138,9 +138,25 @@ header('Content-Type: text/html; charset=utf-8');
         const syncWithUrl = useCallback(() => {
           const params = new URLSearchParams(window.location.search);
           const viewParam = params.get('v');
-          if (viewParam) setView(viewParam);
-          else setView('store');
+          const categoryName = params.get('category');
+          
+          if (categoryName) {
+            setView('category');
+            // سنجد الـ ID لاحقاً في useMemo
+          } else if (viewParam) {
+            setView(viewParam);
+          } else {
+            setView('store');
+            setSelectedCatId('all');
+          }
         }, []);
+
+        const currentCategory = useMemo(() => {
+           const params = new URLSearchParams(window.location.search);
+           const name = params.get('category');
+           if (!name) return null;
+           return categories.find(c => c.name === name);
+        }, [categories, window.location.search]);
 
         const loadData = async () => {
           setIsLoading(true);
@@ -175,10 +191,15 @@ header('Content-Type: text/html; charset=utf-8');
         const filteredProducts = useMemo(() => {
           return products.filter(p => {
             const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+            
+            if (view === 'category' && currentCategory) {
+               return matchesSearch && p.categoryId === currentCategory.id;
+            }
+            
             const matchesCat = selectedCatId === 'all' || p.categoryId === selectedCatId;
             return matchesSearch && matchesCat;
           });
-        }, [products, searchQuery, selectedCatId]);
+        }, [products, searchQuery, selectedCatId, view, currentCategory]);
 
         const addToCart = (product) => {
           const newCart = [...cart, { ...product, quantity: 1 }];
@@ -189,7 +210,16 @@ header('Content-Type: text/html; charset=utf-8');
 
         const onNavigate = (v) => {
           setView(v);
-          updateUrl({ v });
+          updateUrl({ v, category: null });
+        };
+
+        const onSelectCategory = (cat) => {
+           if (cat === 'all') {
+              onNavigate('store');
+           } else {
+              setView('category');
+              updateUrl({ category: cat.name, v: null });
+           }
         };
 
         if (isLoading) return (
@@ -222,9 +252,9 @@ header('Content-Type: text/html; charset=utf-8');
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                  <button onClick={() => setSelectedCatId('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === 'all' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-green-50'}`}>الكل</button>
+                  <button onClick={() => onSelectCategory('all')} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${view === 'store' ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-green-50'}`}>الكل</button>
                   {categories.map(cat => (
-                    <button key={cat.id} onClick={() => setSelectedCatId(cat.id)} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${selectedCatId === cat.id ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-green-50'}`}>{cat.name}</button>
+                    <button key={cat.id} onClick={() => onSelectCategory(cat)} className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${(view === 'category' && currentCategory && currentCategory.id === cat.id) ? 'bg-green-600 text-white shadow-lg' : 'bg-white text-gray-400 border border-green-50'}`}>{cat.name}</button>
                   ))}
                 </div>
               </div>
@@ -254,6 +284,48 @@ header('Content-Type: text/html; charset=utf-8');
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {view === 'category' && currentCategory && (
+                <div className="animate-fadeIn">
+                   <nav className="mb-8 flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      <button onClick={() => onNavigate('store')} className="hover:text-green-600 transition">الرئيسية</button>
+                      <span>/</span>
+                      <span className="text-green-600">{currentCategory.name}</span>
+                   </nav>
+
+                   <div className="bg-green-600 text-white p-12 md:p-20 rounded-[3rem] mb-12 shadow-xl relative overflow-hidden">
+                      <div className="relative z-10">
+                        <h2 className="text-4xl md:text-6xl font-black mb-4 tracking-tighter">{currentCategory.name}</h2>
+                        <p className="text-lg opacity-80 max-w-md font-bold">أفضل خيارات الـ {currentCategory.name} المختارة بعناية من اسواق فاقوس.</p>
+                      </div>
+                      <div className="absolute -bottom-10 -left-10 text-[15rem] opacity-10 pointer-events-none">🧺</div>
+                   </div>
+
+                   {filteredProducts.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                        {filteredProducts.map(p => (
+                          <div key={p.id} className="bg-white rounded-[2.5rem] border border-green-50 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm group">
+                            <div className="aspect-square bg-[#fcfdfe] overflow-hidden relative">
+                              <img src={p.images && p.images[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={p.name} />
+                            </div>
+                            <div className="p-6 flex flex-col flex-grow">
+                              <h3 className="font-black text-slate-800 text-lg mb-2 line-clamp-1 tracking-tighter">{p.name}</h3>
+                              <div className="mt-auto flex justify-between items-center border-t border-green-50 pt-4">
+                                <span className="text-xl font-black text-green-700">{p.price} <small className="text-[10px] font-bold">ر.س</small></span>
+                                <button onClick={() => addToCart(p)} className="bg-slate-900 text-white w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-green-600 transition shadow-lg">🛒</button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                   ) : (
+                      <div className="text-center py-32 bg-white rounded-[3rem] border border-dashed border-green-200">
+                         <p className="text-slate-400 font-black text-xl mb-4">عذراً، لا توجد منتجات حالياً في هذا القسم</p>
+                         <button onClick={() => onNavigate('store')} className="bg-green-600 text-white px-8 py-3 rounded-xl font-black">العودة للرئيسية</button>
+                      </div>
+                   )}
                 </div>
               )}
 

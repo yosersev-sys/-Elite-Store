@@ -33,6 +33,7 @@ const App: React.FC = () => {
       else url.searchParams.delete(key);
     });
     
+    // تنظيف الروابط إذا عدنا للرئيسية
     if (params.category === null && params.v === null && params.p === null) {
       url.searchParams.delete('category');
       url.searchParams.delete('v');
@@ -49,6 +50,7 @@ const App: React.FC = () => {
     const productSlug = params.get('p');
     const viewParam = params.get('v') as View | null;
 
+    // حالة عرض تفاصيل المنتج
     if (productSlug) {
       const product = allProducts.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
       if (product) {
@@ -59,6 +61,7 @@ const App: React.FC = () => {
       }
     }
 
+    // حالة عرض صفحة تصنيف معين
     if (categoryName) {
       const category = allCategories.find(cat => cat.name === categoryName);
       if (category) {
@@ -69,10 +72,13 @@ const App: React.FC = () => {
       }
     }
 
+    // حالات العروض الأخرى (سلة، إدارة، الخ)
     if (viewParam) {
       setView(viewParam);
       if (viewParam !== 'product-details') setSelectedProduct(null);
+      setSelectedCategoryId('all');
     } else {
+      // الحالة الافتراضية: المتجر الرئيسي
       setView('store');
       setSelectedCategoryId('all');
       setSelectedProduct(null);
@@ -151,7 +157,7 @@ const App: React.FC = () => {
   };
 
   const onNavigateAction = (v: View) => {
-    setView(v); // تحديث الحالة فوراً للاستجابة السريعة
+    setView(v);
     if (v === 'store') navigateToStore();
     else updateUrl({ v, p: null, category: null });
   };
@@ -180,7 +186,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600">
         <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black tracking-tighter">جاري جلب خيرات فاقوس...</p>
+        <p className="font-black tracking-tighter text-xl">جاري تحضير خيرات اسواق فاقوس...</p>
       </div>
     );
   }
