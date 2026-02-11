@@ -321,7 +321,7 @@ const App: React.FC = () => {
       </main>
 
       <footer className="bg-green-900 text-white py-20 text-center mt-20">
-        <h2 className="text-2xl font-black mb-4 tracking-tighter">اسواق<span className="text-green-400">فاقوس</span></h2>
+        <h2 className="text-2xl font-black mb-4 tracking-tighter">اسواق <span className="text-green-400">فاقوس</span></h2>
         <p className="text-green-300/50 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} من مزارعنا إليكم مباشرة</p>
       </footer>
     </div>

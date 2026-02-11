@@ -189,7 +189,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <div className="flex items-center justify-between gap-4 mb-3">
                   <h1 onClick={() => setView('store')} className="text-2xl font-black text-green-600 cursor-pointer select-none tracking-tighter flex items-center gap-2">
                     <span className="text-3xl">🧺</span>
-                    <span>اسواق<span className="text-slate-900">فاقوس</span></span>
+                    <span>اسواق <span className="text-slate-900">فاقوس</span></span>
                   </h1>
                   
                   <div className="flex-grow max-w-md hidden md:block">
@@ -281,7 +281,7 @@ header('Content-Type: text/html; charset=utf-8');
             </main>
 
             <footer className="py-20 text-center bg-green-900 text-white mt-20">
-              <h2 className="text-2xl font-black mb-4">اسواق<span className="text-green-400">فاقوس</span></h2>
+              <h2 className="text-2xl font-black mb-4">اسواق <span className="text-green-400">فاقوس</span></h2>
               <p className="text-green-300/50 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} من مزارعنا إليكم مباشرة</p>
             </footer>
           </div>
