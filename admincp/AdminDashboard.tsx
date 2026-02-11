@@ -19,7 +19,8 @@ type AdminTab = 'stats' | 'products' | 'categories' | 'orders';
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, categories, orders, onOpenAddForm, onOpenEditForm, onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory
 }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('stats');
+  // تم تغيير التبويب الافتراضي إلى 'products' لتسهيل الوصول لخيارات التعديل
+  const [activeTab, setActiveTab] = useState<AdminTab>('products');
   const [newCatName, setNewCatName] = useState('');
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
@@ -83,10 +84,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
         
         <nav className="space-y-2 flex-grow">
-          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label="الإحصائيات" icon="📊" />
-          <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="المخزون" icon="📦" badge={stats.outOfStockCount > 0 ? stats.outOfStockCount : undefined} />
-          <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام" icon="🏷️" />
-          <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" badge={stats.pendingOrders} />
+          <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="المخزون والمنتجات" icon="📦" badge={stats.outOfStockCount > 0 ? stats.outOfStockCount : undefined} />
+          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label="الإحصائيات العامة" icon="📊" />
+          <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام والتصنيفات" icon="🏷️" />
+          <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="طلبات العملاء" icon="🛍️" badge={stats.pendingOrders} />
         </nav>
 
         <div className="pt-8 border-t border-slate-800 mt-auto">
@@ -101,7 +102,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="relative flex-grow max-w-md">
             <input 
               type="text" 
-              placeholder="ابحث عن منتج في المخزن..." 
+              placeholder="ابحث عن منتج بالاسم أو الكود..." 
               value={adminSearch}
               onChange={(e) => setAdminSearch(e.target.value)}
               className="w-full px-6 py-3 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 font-bold text-sm shadow-sm"
@@ -134,7 +135,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <th className="px-8 py-6">القسم</th>
                   <th className="px-8 py-6">السعر</th>
                   <th className="px-8 py-6">المخزون</th>
-                  <th className="px-8 py-6">الإجراء</th>
+                  <th className="px-8 py-6 text-center">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -160,9 +161,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </td>
                     <td className="px-8 py-4">
-                      <div className="flex gap-2">
-                        <button onClick={() => onOpenEditForm(p)} title="تعديل" className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition">✎</button>
-                        <button onClick={() => onDeleteProduct(p.id)} title="حذف" className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition">🗑</button>
+                      <div className="flex gap-2 justify-center">
+                        <button 
+                          onClick={() => onOpenEditForm(p)} 
+                          title="تعديل بيانات المنتج" 
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition font-black text-xs shadow-sm"
+                        >
+                          <span>✎</span>
+                          <span>تعديل</span>
+                        </button>
+                        <button 
+                          onClick={() => onDeleteProduct(p.id)} 
+                          title="حذف المنتج نهائياً" 
+                          className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition font-black text-xs shadow-sm"
+                        >
+                          <span>🗑</span>
+                          <span>حذف</span>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -274,7 +289,7 @@ const AdminNavButton = ({ active, onClick, label, icon, badge }: any) => (
   <button 
     onClick={onClick} 
     className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all ${
-      active ? 'bg-green-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+      active ? 'bg-green-600 text-white shadow-xl shadow-green-900/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
     }`}
   >
     <span className="text-lg">{icon}</span>
