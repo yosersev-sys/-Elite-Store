@@ -11,7 +11,7 @@ import AuthView from './components/AuthView';
 import CheckoutView from './components/CheckoutView';
 import OrderSuccessView from './components/OrderSuccessView';
 import CategoryPageView from './components/CategoryPageView';
-import ProductCard from './components/ProductCard';
+import FloatingAdminButton from './components/FloatingAdminButton';
 import { ApiService } from './services/api';
 
 const App: React.FC = () => {
@@ -24,7 +24,6 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const updateUrl = (params: Record<string, string | null>) => {
@@ -187,6 +186,9 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* الزر العائم للإدارة */}
+      <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
 
       <footer className="bg-green-900 text-white py-20 text-center">
         <h2 className="text-2xl font-black mb-4">اسواق فاقوس</h2>
