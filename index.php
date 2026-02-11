@@ -7,7 +7,7 @@ header('Content-Type: text/html; charset=utf-8');
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>سوق الطازج | خضروات وفواكه طازجة</title>
+    <title>اسواق فاقوس | خضروات وفواكه طازجة</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -49,17 +49,17 @@ header('Content-Type: text/html; charset=utf-8');
         const slides = [
           {
             image: "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1600&auto=format&fit=crop",
-            title: "خضروات طازجة يومياً",
-            desc: "من المزارع مباشرة إلى مائدتكم بجودة نضمنها"
+            title: "خضروات فاقوس الطازجة",
+            desc: "من مزارعنا مباشرة إلى مائدتكم بجودة نضمنها"
           },
           {
             image: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=1600&auto=format&fit=crop",
-            title: "فواكه موسمية ممتازة",
+            title: "فواكه موسمية فاخرة",
             desc: "أفضل أنواع الفاكهة الغنية بالفيتامينات والطاقة"
           },
           {
             image: "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=1600&auto=format&fit=crop",
-            title: "توفير السوبر ماركت",
+            title: "توفير اسواق فاقوس",
             desc: "عروض حصرية على كافة المستلزمات اليومية"
           }
         ];
@@ -178,7 +178,7 @@ header('Content-Type: text/html; charset=utf-8');
         if (isLoading) return (
           <div className="h-screen flex flex-col items-center justify-center gap-4 text-green-600">
             <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="font-black">جاري تحضير الطلبات الطازجة...</p>
+            <p className="font-black">جاري تحضير طلبات اسواق فاقوس...</p>
           </div>
         );
 
@@ -189,11 +189,11 @@ header('Content-Type: text/html; charset=utf-8');
                 <div className="flex items-center justify-between gap-4 mb-3">
                   <h1 onClick={() => setView('store')} className="text-2xl font-black text-green-600 cursor-pointer select-none tracking-tighter flex items-center gap-2">
                     <span className="text-3xl">🧺</span>
-                    <span>سوق<span className="text-slate-900">الطازج</span></span>
+                    <span>اسواق<span className="text-slate-900">فاقوس</span></span>
                   </h1>
                   
                   <div className="flex-grow max-w-md hidden md:block">
-                    <input type="text" placeholder="ماذا تريد أن تتسوق اليوم؟" onChange={e => setSearchQuery(e.target.value)} className="w-full px-5 py-2.5 bg-green-50/50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-green-500 text-sm font-bold" />
+                    <input type="text" placeholder="ماذا تريد أن تتسوق من فاقوس اليوم؟" onChange={e => setSearchQuery(e.target.value)} className="w-full px-5 py-2.5 bg-green-50/50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-green-500 text-sm font-bold" />
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -218,7 +218,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <div className="animate-fadeIn">
                   <Slider />
                   <BrandsMarquee />
-                  <h2 className="text-3xl font-black text-slate-800 mb-8 tracking-tighter">محاصيل اليوم المختارة</h2>
+                  <h2 className="text-3xl font-black text-slate-800 mb-8 tracking-tighter">محاصيل اليوم من مزارع فاقوس</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {filteredProducts.map(p => (
                       <div key={p.id} className="bg-white rounded-[2.5rem] border border-green-50 overflow-hidden product-card transition-all flex flex-col h-full shadow-sm group">
@@ -242,10 +242,10 @@ header('Content-Type: text/html; charset=utf-8');
 
               {view === 'cart' && (
                 <div className="animate-fadeIn max-w-4xl mx-auto py-12">
-                   <h2 className="text-4xl font-black mb-10 tracking-tighter">سلة التسوق</h2>
+                   <h2 className="text-4xl font-black mb-10 tracking-tighter">سلة تسوق فاقوس</h2>
                    {cart.length === 0 ? (
                       <div className="bg-white p-20 rounded-[3rem] text-center border shadow-sm">
-                         <p className="text-gray-400 font-bold mb-6 text-xl">السلة فارغة، المحاصيل بانتظارك!</p>
+                         <p className="text-gray-400 font-bold mb-6 text-xl">السلة فارغة، خيرات فاقوس بانتظارك!</p>
                          <button onClick={() => setView('store')} className="bg-green-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">تصفح السوق</button>
                       </div>
                    ) : (
@@ -269,7 +269,7 @@ header('Content-Type: text/html; charset=utf-8');
                          ))}
                          <div className="bg-white p-10 rounded-[3rem] border mt-10 shadow-sm flex justify-between items-center">
                             <div>
-                               <p className="text-gray-400 font-bold uppercase text-xs">إجمالي الفاتورة</p>
+                               <p className="text-gray-400 font-bold uppercase text-xs">إجمالي فاتورة فاقوس</p>
                                <p className="text-4xl font-black text-green-600">{cart.reduce((s, i) => s + (i.price * i.quantity), 0).toFixed(2)} ر.س</p>
                             </div>
                             <button onClick={() => alert('سيتم توجيهك لصفحة الدفع الآمن')} className="bg-slate-900 text-white px-12 py-5 rounded-[2rem] font-black text-xl shadow-xl hover:bg-green-600 transition">تأكيد الطلب</button>
@@ -281,8 +281,8 @@ header('Content-Type: text/html; charset=utf-8');
             </main>
 
             <footer className="py-20 text-center bg-green-900 text-white mt-20">
-              <h2 className="text-2xl font-black mb-4">سوق<span className="text-green-400">الطازج</span></h2>
-              <p className="text-green-300/50 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} مزارعنا تصل إليك أينما كنت</p>
+              <h2 className="text-2xl font-black mb-4">اسواق<span className="text-green-400">فاقوس</span></h2>
+              <p className="text-green-300/50 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} من مزارعنا إليكم مباشرة</p>
             </footer>
           </div>
         );

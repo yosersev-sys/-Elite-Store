@@ -178,7 +178,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600">
         <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black tracking-tighter">جاري قطف الثمار...</p>
+        <p className="font-black tracking-tighter">جاري جلب خيرات فاقوس...</p>
       </div>
     );
   }
@@ -321,8 +321,8 @@ const App: React.FC = () => {
       </main>
 
       <footer className="bg-green-900 text-white py-20 text-center mt-20">
-        <h2 className="text-2xl font-black mb-4 tracking-tighter">سوق<span className="text-green-400">الطازج</span></h2>
-        <p className="text-green-300/50 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} مزارعنا تصل إليك</p>
+        <h2 className="text-2xl font-black mb-4 tracking-tighter">اسواق<span className="text-green-400">فاقوس</span></h2>
+        <p className="text-green-300/50 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} من مزارعنا إليكم مباشرة</p>
       </footer>
     </div>
   );

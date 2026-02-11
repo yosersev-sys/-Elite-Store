@@ -35,7 +35,7 @@ const Header: React.FC<HeaderProps> = ({
               className="text-2xl font-black text-green-600 cursor-pointer select-none tracking-tighter flex items-center gap-2"
             >
               <span className="text-3xl">🧺</span>
-              <span>سوق<span className="text-slate-900">الطازج</span></span>
+              <span>اسواق<span className="text-slate-900">فاقوس</span></span>
             </h1>
             
             <nav className="hidden lg:flex items-center gap-1">
