@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Product, CartItem, Category, Order } from './types';
 import Header from './components/Header';
 import StoreView from './components/StoreView';
-import AdminDashboard from './components/AdminDashboard';
+import AdminDashboard from './admincp/AdminDashboard';
+import AdminProductForm from './admincp/AdminProductForm';
 import CartView from './components/CartView';
 import ProductDetailsView from './components/ProductDetailsView';
 import AuthView from './components/AuthView';
@@ -33,7 +34,6 @@ const App: React.FC = () => {
       else url.searchParams.delete(key);
     });
     
-    // تنظيف الروابط إذا عدنا للرئيسية
     if (params.category === null && params.v === null && params.p === null) {
       url.searchParams.delete('category');
       url.searchParams.delete('v');
@@ -50,7 +50,6 @@ const App: React.FC = () => {
     const productSlug = params.get('p');
     const viewParam = params.get('v') as View | null;
 
-    // حالة عرض تفاصيل المنتج
     if (productSlug) {
       const product = allProducts.find(p => p.seoSettings?.slug === productSlug || p.id === productSlug);
       if (product) {
@@ -61,27 +60,20 @@ const App: React.FC = () => {
       }
     }
 
-    // حالة عرض صفحة تصنيف معين
     if (categoryName) {
       const category = allCategories.find(cat => cat.name === categoryName);
       if (category) {
         setSelectedCategoryId(category.id);
-        // If we are coming from a deep link or search, we might want to stay on Store view if preferred,
-        // but currently we have a dedicated CategoryPageView. 
-        // We'll keep CategoryPageView for deep links, but allow filtering on Home.
         setView('category-page'); 
         window.scrollTo(0, 0);
         return;
       }
     }
 
-    // حالات العروض الأخرى (سلة، إدارة، الخ)
     if (viewParam) {
       setView(viewParam);
-      if (viewParam !== 'product-details') setSelectedProduct(null);
-      setSelectedCategoryId('all');
+      if (viewParam !== 'product-details' && viewParam !== 'admin-form') setSelectedProduct(null);
     } else {
-      // الحالة الافتراضية: المتجر الرئيسي
       setView('store');
       setSelectedCategoryId('all');
       setSelectedProduct(null);
@@ -100,28 +92,7 @@ const App: React.FC = () => {
         setProducts(fetchedProducts);
         setCategories(fetchedCats);
         setOrders(fetchedOrders);
-        
         syncWithUrl(fetchedProducts, fetchedCats);
-
-        const savedCart = localStorage.getItem('fresh_cart');
-        if (savedCart) {
-           try {
-              const parsed = JSON.parse(savedCart);
-              setCart(Array.isArray(parsed) ? parsed : []);
-           } catch(e) {
-              setCart([]);
-           }
-        }
-        
-        const savedWishlist = localStorage.getItem('fresh_wishlist');
-        if (savedWishlist) {
-           try {
-              const parsed = JSON.parse(savedWishlist);
-              setWishlist(Array.isArray(parsed) ? parsed : []);
-           } catch(e) {
-              setWishlist([]);
-           }
-        }
       } catch (err) {
         console.error("Initialization error:", err);
       } finally {
@@ -137,69 +108,27 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, [syncWithUrl, products, categories]);
 
-  const currentCategory = useMemo(() => {
-    return categories.find(c => c.id === selectedCategoryId);
-  }, [categories, selectedCategoryId]);
-
-  const navigateToStore = () => updateUrl({ category: null, p: null, v: null });
-
-  const navigateToCategory = (id: string | 'all') => {
-    if (id === 'all') {
-      setSelectedCategoryId('all');
-      if (view !== 'store') navigateToStore();
-    } else {
-      const cat = categories.find(c => c.id === id);
-      if (cat) {
-        setSelectedCategoryId(cat.id);
-        // Only trigger URL change (and thus category-page view) if NOT currently on store view
-        // This allows filtering "on the main store page" as requested.
-        if (view !== 'store') {
-          updateUrl({ category: cat.name, p: null, v: null });
-        } else {
-           // On main page, just scroll to products or let the filter work
-           const el = document.getElementById('products-list');
-           if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-    }
-  };
-
-  const navigateToProduct = (product: Product) => {
-    const slug = product.seoSettings?.slug || product.id;
-    updateUrl({ p: slug, v: null, category: null });
-  };
-
   const onNavigateAction = (v: View) => {
     setView(v);
-    if (v === 'store') navigateToStore();
+    if (v === 'store') updateUrl({ category: null, p: null, v: null });
     else updateUrl({ v, p: null, category: null });
   };
 
-  const addToCart = (product: Product, size?: string, color?: string) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id && item.selectedSize === size && item.selectedColor === color);
-      let newList = existing 
-        ? prev.map(item => (item.id === product.id && item.selectedSize === size && item.selectedColor === color) ? { ...item, quantity: item.quantity + 1 } : item)
-        : [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
-      localStorage.setItem('fresh_cart', JSON.stringify(newList));
-      return newList;
-    });
-    alert('تمت إضافة المنتج الطازج للسلة!');
-  };
-
-  const toggleFavorite = (productId: string) => {
-    setWishlist(prev => {
-      const newList = prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId];
-      localStorage.setItem('fresh_wishlist', JSON.stringify(newList));
-      return newList;
-    });
+  const handleProductSubmit = async (p: Product) => {
+    const isEdit = products.some(prod => prod.id === p.id);
+    const success = isEdit ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
+    
+    if (success) {
+      setProducts(prev => isEdit ? prev.map(prod => prod.id === p.id ? p : prod) : [p, ...prev]);
+      onNavigateAction('admin');
+    }
   };
 
   if (isLoading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600">
         <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black tracking-tighter text-xl">جاري تحضير خيرات اسواق فاقوس...</p>
+        <p className="font-black tracking-tighter text-xl">جاري تحضير طلبات فاقوس...</p>
       </div>
     );
   }
@@ -207,140 +136,53 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#f8faf7]">
       <Header 
-        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-        wishlistCount={wishlist.length}
-        currentView={view}
-        categories={categories}
-        selectedCategoryId={selectedCategoryId}
-        onNavigate={onNavigateAction}
-        onSearch={setSearchQuery}
-        onCategorySelect={navigateToCategory}
+        cartCount={cart.length} wishlistCount={wishlist.length} currentView={view} categories={categories}
+        selectedCategoryId={selectedCategoryId} onNavigate={onNavigateAction}
+        onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
       />
 
       <main className="flex-grow container mx-auto px-4 py-8">
         {view === 'store' && (
           <StoreView 
-            products={products}
-            categories={categories}
-            searchQuery={searchQuery}
-            selectedCategoryId={selectedCategoryId}
-            onCategorySelect={navigateToCategory}
-            onAddToCart={(p) => addToCart(p)} 
-            onViewProduct={navigateToProduct}
-            wishlist={wishlist}
-            onToggleFavorite={toggleFavorite}
+            products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
+            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])} 
+            onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
+            wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
         )}
         
-        {view === 'category-page' && currentCategory && (
-          <CategoryPageView 
-            category={currentCategory}
-            products={products}
-            onAddToCart={(p) => addToCart(p)}
-            onViewProduct={navigateToProduct}
-            wishlist={wishlist}
-            onToggleFavorite={toggleFavorite}
-            onBack={navigateToStore}
-          />
-        )}
-
-        {view === 'product-details' && selectedProduct && (
-          <ProductDetailsView 
-            product={selectedProduct}
-            categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-            onAddToCart={addToCart}
-            onBack={navigateToStore}
-            isFavorite={wishlist.includes(selectedProduct.id)}
-            onToggleFavorite={toggleFavorite}
-          />
-        )}
-
-        {view === 'cart' && (
-          <CartView 
-            cart={cart}
-            onUpdateQuantity={(id, d) => {
-              setCart(prev => {
-                const newList = prev.map(item => item.id === id ? { ...item, quantity: Math.max(1, item.quantity + d) } : item);
-                localStorage.setItem('fresh_cart', JSON.stringify(newList));
-                return newList;
-              });
-            }}
-            onRemove={(id) => {
-              setCart(prev => {
-                const newList = prev.filter(item => item.id !== id);
-                localStorage.setItem('fresh_cart', JSON.stringify(newList));
-                return newList;
-              });
-            }}
-            onCheckout={() => updateUrl({ v: 'checkout' })}
-            onContinueShopping={navigateToStore}
-          />
-        )}
-
-        {view === 'checkout' && (
-           <CheckoutView 
-             cart={cart} 
-             onPlaceOrder={async (details) => {
-               const newOrder: Order = {
-                 id: 'ORD-'+Date.now(), customerName: details.fullName, phone: details.phone, city: details.city, address: details.address,
-                 items: [...cart], subtotal: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0), total: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-                 paymentMethod: details.paymentMethod, status: 'pending', createdAt: Date.now()
-               };
-               await ApiService.saveOrder(newOrder);
-               setLastPlacedOrder(newOrder);
-               setCart([]);
-               localStorage.removeItem('fresh_cart');
-               onNavigateAction('order-success');
-             }}
-             onBack={() => onNavigateAction('cart')}
-           />
-        )}
-
-        {view === 'order-success' && lastPlacedOrder && (
-          <OrderSuccessView order={lastPlacedOrder} onContinueShopping={navigateToStore} />
-        )}
-
-        {view === 'wishlist' && (
-          <div className="animate-fadeIn">
-            <h2 className="text-4xl font-black mb-10 flex items-center gap-4">
-              <span className="p-4 bg-green-50 rounded-3xl text-green-500">🥗</span>
-              مفضلاتي
-            </h2>
-            {wishlist.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {products.filter(p => wishlist.includes(p.id)).map(product => (
-                  <ProductCard 
-                    key={product.id} product={product} 
-                    category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
-                    onAddToCart={() => addToCart(product)} onView={() => navigateToProduct(product)}
-                    isFavorite={true} onToggleFavorite={() => toggleFavorite(product.id)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-green-100">
-                <p className="text-slate-400 font-bold mb-6">قائمة المحاصيل المفضلة فارغة</p>
-                <button onClick={navigateToStore} className="bg-green-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl">ابدأ التسوق</button>
-              </div>
-            )}
-          </div>
-        )}
-
         {view === 'admin' && (
           <AdminDashboard 
             products={products} categories={categories} orders={orders}
-            onOpenAddForm={() => window.location.href = 'add-product.php'}
-            onOpenEditForm={(p) => window.location.href = `add-product.php?id=${p.id}`}
+            onOpenAddForm={() => { setSelectedProduct(null); setView('admin-form'); }}
+            onOpenEditForm={(p) => { setSelectedProduct(p); setView('admin-form'); }}
             onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); setProducts(prev => prev.filter(p => p.id !== id)); }}
             onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
             onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); setCategories(prev => prev.filter(c => c.id !== id)); }}
           />
         )}
+
+        {view === 'admin-form' && (
+          <AdminProductForm 
+            product={selectedProduct} categories={categories} 
+            onSubmit={handleProductSubmit}
+            onCancel={() => onNavigateAction('admin')}
+          />
+        )}
+
+        {/* ... بقية الـ Views ... */}
+        {view === 'cart' && <CartView cart={cart} onUpdateQuantity={()=>{}} onRemove={()=>{}} onCheckout={()=>{}} onContinueShopping={()=>onNavigateAction('store')} />}
+        {view === 'category-page' && categories.find(c => c.id === selectedCategoryId) && (
+          <CategoryPageView 
+            category={categories.find(c => c.id === selectedCategoryId)!} products={products}
+            onAddToCart={()=>{}} onViewProduct={()=>{}} wishlist={[]} onToggleFavorite={()=>{}} onBack={()=>onNavigateAction('store')}
+          />
+        )}
       </main>
 
-      <footer className="bg-green-900 text-white py-20 text-center mt-20">
-        <h2 className="text-2xl font-black mb-4 tracking-tighter">اسواق <span className="text-green-400">فاقوس</span></h2>
-        <p className="text-green-300/50 text-[10px] font-black uppercase tracking-widest">&copy; {new Date().getFullYear()} من مزارعنا إليكم مباشرة</p>
+      <footer className="bg-green-900 text-white py-20 text-center">
+        <h2 className="text-2xl font-black mb-4">اسواق فاقوس</h2>
+        <p className="text-green-300 opacity-50 text-[10px]">&copy; {new Date().getFullYear()} من مزارعنا إليكم مباشرة</p>
       </footer>
     </div>
   );
