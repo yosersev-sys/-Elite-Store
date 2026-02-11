@@ -73,7 +73,7 @@ const App: React.FC = () => {
     await ApiService.saveOrder(order);
     setOrders(prev => [order, ...prev]);
     setLastCreatedOrder(order);
-    setView('order-success');
+    onNavigateAction('order-success');
   };
 
   if (isLoading) {
@@ -106,9 +106,9 @@ const App: React.FC = () => {
         {view === 'admin' && (
           <AdminDashboard 
             products={products} categories={categories} orders={orders}
-            onOpenAddForm={() => { setSelectedProduct(null); setView('admin-form'); }}
-            onOpenEditForm={(p) => { setSelectedProduct(p); setView('admin-form'); }}
-            onOpenInvoiceForm={() => setView('admin-invoice')}
+            onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
+            onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
+            onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
             onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); setProducts(prev => prev.filter(p => p.id !== id)); }}
             onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
             onUpdateCategory={async (c) => { await ApiService.updateCategory(c); setCategories(prev => prev.map(cat => cat.id === c.id ? c : cat)); }}
