@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, Product, CartItem, Category, Order, User } from './types.ts';
 import Header from './components/Header.tsx';
@@ -73,7 +72,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-emerald-600">جاري تهيئة سوق العصر...</p>
+        <p className="font-black text-emerald-600">جاري تحميل البيانات...</p>
       </div>
     );
   }
@@ -142,6 +141,36 @@ const App: React.FC = () => {
           />
         )}
 
+        {view === 'admin-form' && (
+          <AdminProductForm 
+            product={selectedProduct} categories={categories} 
+            onSubmit={async (p) => {
+               const isEdit = products.some(prod => prod.id === p.id);
+               const success = isEdit ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
+               if (success) {
+                 showNotify('تم حفظ البيانات بنجاح! ✨');
+                 await loadData();
+                 onNavigateAction('admin');
+               }
+            }}
+            onCancel={() => onNavigateAction('admin')}
+          />
+        )}
+
+        {view === 'admin-invoice' && (
+          <AdminInvoiceForm 
+            products={products}
+            onSubmit={async (order) => {
+              await ApiService.saveOrder(order);
+              setLastCreatedOrder(order);
+              showNotify('تم إصدار الفاتورة بنجاح');
+              await loadData();
+              onNavigateAction('order-success');
+            }}
+            onCancel={() => onNavigateAction('admin')}
+          />
+        )}
+
         {view === 'cart' && (
           <CartView 
             cart={cart} 
@@ -152,10 +181,20 @@ const App: React.FC = () => {
           />
         )}
 
+        {view === 'product-details' && selectedProduct && (
+          <ProductDetailsView 
+            product={selectedProduct}
+            categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
+            onAddToCart={(p) => { setCart([...cart, {...p, quantity: 1}]); showNotify('تمت الإضافة للسلة'); }}
+            onBack={() => onNavigateAction('store')}
+            isFavorite={wishlist.includes(selectedProduct.id)}
+            onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+          />
+        )}
+
         {view === 'checkout' && (
           <CheckoutView 
             cart={cart}
-            user={currentUser}
             onBack={() => onNavigateAction('cart')}
             onPlaceOrder={async (details) => {
               const newOrder: Order = {
@@ -178,22 +217,9 @@ const App: React.FC = () => {
           />
         )}
 
-        {view === 'product-details' && selectedProduct && (
-          <ProductDetailsView 
-            product={selectedProduct}
-            categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-            onAddToCart={(p) => { setCart([...cart, {...p, quantity: 1}]); showNotify('تمت الإضافة للسلة'); }}
-            onBack={() => onNavigateAction('store')}
-            isFavorite={wishlist.includes(selectedProduct.id)}
-            onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-          />
-        )}
-
         {view === 'order-success' && lastCreatedOrder && (
           <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('store')} />
         )}
-
-        {/* بقية العروض (admin-form, admin-invoice, etc) تبقى كما هي */}
       </main>
 
       {currentUser?.role === 'admin' && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
@@ -204,6 +230,8 @@ const App: React.FC = () => {
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
               <path d="M3 9l2.44-4.91A2 2 0 0 1 7.23 3h9.54a2 2 0 0 1 1.79 1.09L21 9" />
+              <path d="M9 21V12" />
+              <path d="M15 21V12" />
             </svg>
           </div>
           <h2 className="text-xl font-black">سوق العصر</h2>
