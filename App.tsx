@@ -1,19 +1,18 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Product, CartItem, Category, Order } from './types';
-import Header from './components/Header';
-import StoreView from './components/StoreView';
-import AdminDashboard from './admincp/AdminDashboard';
-import AdminProductForm from './admincp/AdminProductForm';
-import AdminInvoiceForm from './admincp/AdminInvoiceForm';
-import CartView from './components/CartView';
-import ProductDetailsView from './components/ProductDetailsView';
-import AuthView from './components/AuthView';
-import CheckoutView from './components/CheckoutView';
-import OrderSuccessView from './components/OrderSuccessView';
-import CategoryPageView from './components/CategoryPageView';
-import FloatingAdminButton from './components/FloatingAdminButton';
-import { ApiService } from './services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Product, CartItem, Category, Order } from './types.ts';
+import Header from './components/Header.tsx';
+import StoreView from './components/StoreView.tsx';
+import AdminDashboard from './admincp/AdminDashboard.tsx';
+import AdminProductForm from './admincp/AdminProductForm.tsx';
+import AdminInvoiceForm from './admincp/AdminInvoiceForm.tsx';
+import CartView from './components/CartView.tsx';
+import ProductDetailsView from './components/ProductDetailsView.tsx';
+import AuthView from './components/AuthView.tsx';
+import CheckoutView from './components/CheckoutView.tsx';
+import OrderSuccessView from './components/OrderSuccessView.tsx';
+import FloatingAdminButton from './components/FloatingAdminButton.tsx';
+import { ApiService } from './services/api.ts';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('store');
@@ -28,21 +27,6 @@ const App: React.FC = () => {
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const updateUrl = (params: Record<string, string | null>) => {
-    const url = new URL(window.location.href);
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) url.searchParams.set(key, value);
-      else url.searchParams.delete(key);
-    });
-    window.history.pushState({}, '', url.toString());
-  };
-
-  const syncWithUrl = useCallback((allProducts: Product[], allCategories: Category[]) => {
-    const params = new URLSearchParams(window.location.search);
-    const viewParam = params.get('v') as View | null;
-    if (viewParam) setView(viewParam);
-  }, []);
-
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -51,49 +35,41 @@ const App: React.FC = () => {
         ApiService.getCategories(),
         ApiService.getOrders()
       ]);
-      setProducts(fetchedProducts);
-      setCategories(fetchedCats);
-      setOrders(fetchedOrders);
-      syncWithUrl(fetchedProducts, fetchedCats);
+      setProducts(fetchedProducts || []);
+      setCategories(fetchedCats || []);
+      setOrders(fetchedOrders || []);
     } catch (err) {
-      console.error("Initialization error:", err);
+      console.error("Data loading error:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => { loadData(); }, [syncWithUrl]);
+  useEffect(() => { loadData(); }, []);
 
   const onNavigateAction = (v: View) => {
     setView(v);
-    updateUrl({ v });
-  };
-
-  const handleInvoiceSubmit = async (order: Order) => {
-    await ApiService.saveOrder(order);
-    setOrders(prev => [order, ...prev]);
-    setLastCreatedOrder(order);
-    onNavigateAction('order-success');
+    window.scrollTo(0, 0);
   };
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600">
-        <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black tracking-tighter text-xl">جاري تحضير مبيعات فاقوس ستور...</p>
+      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-black text-emerald-600">جاري تحميل البيانات...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#f8faf7]">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       <Header 
         cartCount={cart.length} wishlistCount={wishlist.length} currentView={view} categories={categories}
         selectedCategoryId={selectedCategoryId} onNavigate={onNavigateAction}
         onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
       />
 
-      <main className="flex-grow container mx-auto px-4 py-8">
+      <main className="flex-grow container mx-auto px-4 pt-40 pb-20">
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
@@ -109,10 +85,10 @@ const App: React.FC = () => {
             onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
             onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
             onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
-            onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); setProducts(prev => prev.filter(p => p.id !== id)); }}
-            onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
-            onUpdateCategory={async (c) => { await ApiService.updateCategory(c); setCategories(prev => prev.map(cat => cat.id === c.id ? c : cat)); }}
-            onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); setCategories(prev => prev.filter(c => c.id !== id)); }}
+            onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); loadData(); }}
+            onAddCategory={async (c) => { await ApiService.addCategory(c); loadData(); }}
+            onUpdateCategory={async (c) => { await ApiService.updateCategory(c); loadData(); }}
+            onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); loadData(); }}
           />
         )}
 
@@ -132,7 +108,12 @@ const App: React.FC = () => {
         {view === 'admin-invoice' && (
           <AdminInvoiceForm 
             products={products}
-            onSubmit={handleInvoiceSubmit}
+            onSubmit={async (order) => {
+              await ApiService.saveOrder(order);
+              setLastCreatedOrder(order);
+              await loadData();
+              onNavigateAction('order-success');
+            }}
             onCancel={() => onNavigateAction('admin')}
           />
         )}
@@ -141,14 +122,22 @@ const App: React.FC = () => {
           <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('admin')} />
         )}
 
-        {view === 'cart' && <CartView cart={cart} onUpdateQuantity={()=>{}} onRemove={()=>{}} onCheckout={()=>{}} onContinueShopping={()=>onNavigateAction('store')} />}
+        {view === 'cart' && (
+          <CartView 
+            cart={cart} 
+            onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
+            onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
+            onCheckout={() => onNavigateAction('checkout')}
+            onContinueShopping={() => onNavigateAction('store')}
+          />
+        )}
       </main>
 
       <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
 
-      <footer className="bg-green-900 text-white py-12 text-center mt-20">
+      <footer className="bg-slate-900 text-white py-12 text-center">
         <h2 className="text-xl font-black mb-2">فاقوس ستور</h2>
-        <p className="text-green-300 opacity-50 text-[10px] tracking-widest">&copy; {new Date().getFullYear()} نظام الإدارة الفعال</p>
+        <p className="text-slate-500 text-xs tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
       </footer>
     </div>
   );
