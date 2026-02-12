@@ -89,7 +89,7 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Categories Quick Bar - المدمج الجديد */}
+        {/* Categories Bar */}
         <div className={`mt-2 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 transition-all duration-500 ${scrolled ? 'opacity-0 h-0 pointer-events-none' : 'opacity-100 h-auto'}`}>
           <CategoryChip 
             active={selectedCategoryId === 'all'} 
@@ -103,7 +103,7 @@ const Header: React.FC<HeaderProps> = ({
               active={selectedCategoryId === cat.id} 
               onClick={() => onCategorySelect(cat.id)} 
               label={cat.name} 
-              icon={cat.name.includes('سوبر') ? '🛒' : cat.name.includes('خضر') ? '🥦' : '🌿'}
+              icon={cat.name.includes('سوبر') ? '🛒' : cat.name.includes('خضر') ? '🥦' : cat.name.includes('فواك') ? '🍎' : '🌿'}
             />
           ))}
         </div>
