@@ -80,7 +80,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600">
         <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black tracking-tighter text-xl">جاري تحضير مبيعات فاقوس...</p>
+        <p className="font-black tracking-tighter text-xl">جاري تحضير مبيعات فاقوس ستور...</p>
       </div>
     );
   }
@@ -147,7 +147,7 @@ const App: React.FC = () => {
       <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
 
       <footer className="bg-green-900 text-white py-12 text-center mt-20">
-        <h2 className="text-xl font-black mb-2">اسواق فاقوس المزارع</h2>
+        <h2 className="text-xl font-black mb-2">فاقوس ستور</h2>
         <p className="text-green-300 opacity-50 text-[10px] tracking-widest">&copy; {new Date().getFullYear()} نظام الإدارة الفعال</p>
       </footer>
     </div>

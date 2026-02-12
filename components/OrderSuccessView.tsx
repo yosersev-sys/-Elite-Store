@@ -29,17 +29,17 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
       });
       canvas.toBlob(async (blob: Blob | null) => {
         if (!blob) return;
-        const file = new File([blob], `Faqous-Invoice-${order.id}.png`, { type: 'image/png' });
+        const file = new File([blob], `Faqous-Store-Invoice-${order.id}.png`, { type: 'image/png' });
         if (navigator.share && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: 'فاتورة مبيعات فاقوس',
+            title: 'فاتورة مبيعات فاقوس ستور',
             text: `رقم الفاتورة ${order.id}`
           });
         } else {
           const link = document.createElement('a');
           link.href = URL.createObjectURL(blob);
-          link.download = `Faqous-Invoice-${order.id}.png`;
+          link.download = `Faqous-Store-Invoice-${order.id}.png`;
           link.click();
         }
       }, 'image/png');
@@ -56,11 +56,11 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
         ref={invoiceRef} 
         className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-gray-100 print:shadow-none print:border-none print:rounded-none"
       >
-        {/* Header Success Section - Hidden in print if admin prefers formal invoice */}
+        {/* Header Success Section */}
         <div className="bg-green-600 p-12 text-center text-white relative print:bg-white print:text-black print:p-6 print:border-b-2">
           <div className="relative z-10 flex flex-col items-center">
             <h1 className="text-4xl font-black mb-2 flex items-center gap-2">
-                <span className="print:text-green-600">🧺</span> اسواق فاقوس
+                <span className="print:text-green-600">🧺</span> فاقوس ستور
             </h1>
             <p className="font-bold opacity-80 print:opacity-100">فاتورة مبيعات معتمدة</p>
             <div className="mt-4 no-screenshot print:hidden">
@@ -151,10 +151,10 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
           </div>
 
           <div className="text-center pt-8 border-t border-dashed print:block hidden">
-             <p className="text-[10px] font-bold text-slate-400">شكراً لتعاملكم مع اسواق فاقوس - جميع الحقوق محفوظة</p>
+             <p className="text-[10px] font-bold text-slate-400">شكراً لتعاملكم مع فاقوس ستور - جميع الحقوق محفوظة</p>
           </div>
 
-          {/* Action Buttons - Hidden in print */}
+          {/* Action Buttons */}
           <div className="no-screenshot pt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 print:hidden">
             <button 
               onClick={handlePrint}
@@ -180,7 +180,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
       </div>
       
       <div className="mt-8 text-center no-screenshot print:hidden">
-         <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Faqous Markets - Digital Invoice System</p>
+         <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Faqous Store - Digital Invoice System</p>
       </div>
     </div>
   );

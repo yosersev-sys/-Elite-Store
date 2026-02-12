@@ -35,7 +35,7 @@ const Header: React.FC<HeaderProps> = ({
               className="text-2xl font-black text-green-600 cursor-pointer select-none tracking-tighter flex items-center gap-2"
             >
               <span className="text-3xl">🧺</span>
-              <span>اسواق <span className="text-slate-900">فاقوس</span></span>
+              <span>فاقوس <span className="text-slate-900">ستور</span></span>
             </h1>
             
             <nav className="hidden lg:flex items-center gap-1">
@@ -89,7 +89,7 @@ const Header: React.FC<HeaderProps> = ({
 
             <button 
               onClick={() => onNavigate('cart')}
-              className={`p-2.5 rounded-xl transition relative group ${currentView === 'cart' ? 'bg-green-50 text-green-600' : 'text-gray-600 hover:text-green-600 hover:bg-green-50'}`}
+              className={`p-2.5 rounded-xl transition relative group ${currentView === 'cart' ? 'bg-green-600 text-green-600' : 'text-gray-600 hover:text-green-600 hover:bg-green-50'}`}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
