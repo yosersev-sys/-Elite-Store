@@ -1,7 +1,8 @@
 
 <?php
 /**
- * متجر فاقوس الذكي - النسخة المستقرة للاستضافات المشتركة
+ * فاقوس ستور - المحرك الرئيسي المحدث
+ * تم حل مشكلة الـ SyntaxError والـ MIME Type
  */
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -14,13 +15,12 @@ header('Content-Type: text/html; charset=utf-8');
     
     <script>
         window.process = { env: { API_KEY: "" } };
-        // معالج الأخطاء الذكي
         window.onerror = function(msg, url, line, col, error) {
-            console.error(error);
-            const loader = document.getElementById('loader-text');
-            if (loader) {
-                loader.style.color = '#ef4444';
-                loader.innerHTML = `<b>خطأ في التشغيل:</b><br><small>${msg}</small>`;
+            console.error("Global Error:", msg, error);
+            const loaderText = document.getElementById('loader-text');
+            if (loaderText) {
+                loaderText.style.color = '#ef4444';
+                loaderText.innerHTML = `<b>عذراً، حدث خطأ في تشغيل المتجر:</b><br><small>${msg}</small>`;
             }
             return false;
         };
@@ -28,6 +28,8 @@ header('Content-Type: text/html; charset=utf-8');
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <!-- تحميل Babel المترجم -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="importmap">
@@ -54,36 +56,41 @@ header('Content-Type: text/html; charset=utf-8');
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p id="loader-text" style="margin-top: 20px; font-weight: 900; color: #10b981; text-align:center;">جاري تشغيل المتجر...</p>
+        <p id="loader-text" style="margin-top: 20px; font-weight: 900; color: #10b981; text-align:center; max-width: 80%;">جاري تهيئة المتجر الذكي...</p>
     </div>
 
     <div id="root"></div>
 
-    <!-- تحميل الكود وتحويله برمجياً لتجنب مشاكل الاستيراد المباشر -->
-    <script type="text/babel" data-presets="react,typescript">
-        import React, { useState, useEffect } from 'react';
+    <!-- 
+      الحل: إضافة data-type="module" ضروري جداً للسماح بـ import 
+      والاعتماد على Babel لترجمة الكود الخارجي بشكل صحيح
+    -->
+    <script type="text/babel" data-type="module" data-presets="react,typescript">
+        import React from 'react';
         import ReactDOM from 'react-dom/client';
         import { HashRouter } from 'react-router-dom';
 
-        // دالة لتحميل الملفات كنص ثم ترجمتها، وهذا يحل مشكلة الـ MIME Type و SyntaxError نهائياً
-        async function loadAndRun() {
+        async function initApp() {
             try {
+                // تحميل ملف App.tsx كـ Text أولاً لتجاوز مشاكل الـ MIME type على السيرفر
                 const response = await fetch('App.tsx');
-                if (!response.ok) throw new Error('فشل تحميل ملف App.tsx الرئيسي');
-                const tsxCode = await response.text();
-                
-                // ترجمة الكود من TypeScript إلى JavaScript في المتصفح
-                const jsCode = Babel.transform(tsxCode, {
+                if (!response.ok) throw new Error('فشل تحميل ملف التطبيق الرئيسي');
+                const code = await response.text();
+
+                // ترجمة الكود وتحويله إلى صيغة يفهمها المتصفح
+                const transformed = Babel.transform(code, {
                     presets: ['react', 'typescript'],
                     filename: 'App.tsx'
                 }).code;
 
-                // تنفيذ الكود المترجم
-                const module = { exports: {} };
-                const func = new Function('React', 'ReactDOM', 'HashRouter', 'exports', jsCode);
-                func(React, ReactDOM, HashRouter, module.exports);
+                // تحويل الكود المترجم إلى Blob لإنشاء مودول ديناميكي
+                const blob = new Blob([transformed], { type: 'application/javascript' });
+                const url = URL.createObjectURL(blob);
                 
-                const App = module.exports.default;
+                // استيراد التطبيق كمودول
+                const module = await import(url);
+                const App = module.default;
+
                 const root = ReactDOM.createRoot(document.getElementById('root'));
                 root.render(
                     <HashRouter>
@@ -91,19 +98,21 @@ header('Content-Type: text/html; charset=utf-8');
                     </HashRouter>
                 );
 
-                // إخفاء الشاشة بعد التحميل
+                // إخفاء شاشة التحميل
                 const loader = document.getElementById('initial-loader');
                 if (loader) {
                     loader.style.opacity = '0';
                     setTimeout(() => loader.remove(), 500);
                 }
+                
+                URL.revokeObjectURL(url);
             } catch (err) {
-                console.error("Critical Load Error:", err);
-                document.getElementById('loader-text').innerHTML = "فشل في تشغيل المحرك: " + err.message;
+                console.error("Initialization failed:", err);
+                document.getElementById('loader-text').innerHTML = "فشل التشغيل: " + err.message;
             }
         }
 
-        loadAndRun();
+        initApp();
     </script>
 </body>
 </html>
