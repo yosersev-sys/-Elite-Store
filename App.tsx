@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Product, CartItem, Category, Order } from './types.ts';
 import Header from './components/Header.tsx';
 import StoreView from './components/StoreView.tsx';
@@ -8,10 +8,10 @@ import AdminProductForm from './admincp/AdminProductForm.tsx';
 import AdminInvoiceForm from './admincp/AdminInvoiceForm.tsx';
 import CartView from './components/CartView.tsx';
 import ProductDetailsView from './components/ProductDetailsView.tsx';
-import AuthView from './components/AuthView.tsx';
 import CheckoutView from './components/CheckoutView.tsx';
 import OrderSuccessView from './components/OrderSuccessView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
+import Notification from './components/Notification.tsx';
 import { ApiService } from './services/api.ts';
 
 const App: React.FC = () => {
@@ -26,6 +26,13 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // نظام التنبيهات
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -38,7 +45,6 @@ const App: React.FC = () => {
 
       const fetchedOrders = await ApiService.getOrders();
       if (fetchedOrders) setOrders(fetchedOrders);
-      
     } catch (err) {
       console.error("Data loading error:", err);
     } finally {
@@ -64,6 +70,15 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc]">
+      {/* عرض التنبيه إذا وجد */}
+      {notification && (
+        <Notification 
+          message={notification.message} 
+          type={notification.type} 
+          onClose={() => setNotification(null)} 
+        />
+      )}
+
       <Header 
         cartCount={cart.length} wishlistCount={wishlist.length} currentView={view} categories={categories}
         selectedCategoryId={selectedCategoryId} onNavigate={onNavigateAction}
@@ -74,7 +89,7 @@ const App: React.FC = () => {
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
-            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])} 
+            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => { setCart([...cart, {...p, quantity: 1}]); showNotify('تمت الإضافة للسلة'); }} 
             onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
             wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
@@ -88,22 +103,22 @@ const App: React.FC = () => {
             onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
             onDeleteProduct={async (id) => { 
                 const success = await ApiService.deleteProduct(id); 
-                if (success) alert('تم حذف المنتج بنجاح! 🗑️');
+                if (success) showNotify('تم حذف المنتج بنجاح', 'success');
                 loadData(); 
             }}
             onAddCategory={async (c) => { 
                 const success = await ApiService.addCategory(c); 
-                if (success) alert('تم إضافة القسم بنجاح! ✅');
+                if (success) showNotify('تم إضافة القسم بنجاح');
                 loadData(); 
             }}
             onUpdateCategory={async (c) => { 
                 const success = await ApiService.updateCategory(c); 
-                if (success) alert('تم تحديث القسم بنجاح! ✏️');
+                if (success) showNotify('تم تحديث القسم بنجاح');
                 loadData(); 
             }}
             onDeleteCategory={async (id) => { 
                 const success = await ApiService.deleteCategory(id); 
-                if (success) alert('تم حذف القسم بنجاح! 🗑️');
+                if (success) showNotify('تم حذف القسم بنجاح');
                 loadData(); 
             }}
           />
@@ -114,19 +129,14 @@ const App: React.FC = () => {
             product={selectedProduct} categories={categories} 
             onSubmit={async (p) => {
                const isEdit = products.some(prod => prod.id === p.id);
-               let success = false;
-               if (isEdit) {
-                 success = await ApiService.updateProduct(p);
-               } else {
-                 success = await ApiService.addProduct(p);
-               }
+               const success = isEdit ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
                
                if (success) {
-                 alert('تم حفظ البيانات بنجاح! ✨');
+                 showNotify('تم حفظ البيانات بنجاح! ✨');
                  await loadData();
                  onNavigateAction('admin');
                } else {
-                 alert('عذراً، حدث خطأ أثناء الحفظ.');
+                 showNotify('حدث خطأ أثناء الحفظ', 'error');
                }
             }}
             onCancel={() => onNavigateAction('admin')}
@@ -139,7 +149,7 @@ const App: React.FC = () => {
             onSubmit={async (order) => {
               await ApiService.saveOrder(order);
               setLastCreatedOrder(order);
-              alert('تم إصدار الفاتورة بنجاح! 🧾');
+              showNotify('تم إصدار الفاتورة بنجاح');
               await loadData();
               onNavigateAction('order-success');
             }}
@@ -165,10 +175,33 @@ const App: React.FC = () => {
           <ProductDetailsView 
             product={selectedProduct}
             categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-            onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])}
+            onAddToCart={(p) => { setCart([...cart, {...p, quantity: 1}]); showNotify('تمت الإضافة للسلة'); }}
             onBack={() => onNavigateAction('store')}
             isFavorite={wishlist.includes(selectedProduct.id)}
             onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+          />
+        )}
+
+        {view === 'checkout' && (
+          <CheckoutView 
+            cart={cart}
+            onBack={() => onNavigateAction('cart')}
+            onPlaceOrder={async (details) => {
+              const newOrder: Order = {
+                id: 'ORD-' + Date.now().toString().slice(-6),
+                ...details,
+                items: cart,
+                total: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
+                subtotal: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
+                createdAt: Date.now(),
+                status: 'pending'
+              };
+              await ApiService.saveOrder(newOrder);
+              setLastCreatedOrder(newOrder);
+              setCart([]);
+              showNotify('تم إرسال طلبك بنجاح');
+              onNavigateAction('order-success');
+            }}
           />
         )}
       </main>
