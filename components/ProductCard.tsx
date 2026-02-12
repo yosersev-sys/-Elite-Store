@@ -12,66 +12,65 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ 
-  product, 
-  category, 
-  onAddToCart, 
-  onView,
-  isFavorite = false,
-  onToggleFavorite
+  product, category, onAddToCart, onView, isFavorite = false, onToggleFavorite
 }) => {
   return (
-    <div className="bg-white rounded-3xl border border-green-50 overflow-hidden hover:shadow-2xl transition-all group flex flex-col h-full relative">
-      <div 
-        className="relative aspect-square overflow-hidden cursor-pointer bg-[#fcfdfe]"
-        onClick={onView}
-      >
+    <div className="bg-white rounded-[2.5rem] border border-slate-50 overflow-hidden card-shadow hover-lift flex flex-col h-full group">
+      <div className="relative aspect-[4/5] overflow-hidden bg-slate-50 cursor-pointer" onClick={onView}>
         <img 
           src={product.images[0]} 
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
         
-        {/* Favorite Button */}
+        {/* Badge */}
+        <div className="absolute top-4 right-4 z-10">
+          <span className="glass px-4 py-1.5 rounded-full text-[10px] font-black text-slate-800 uppercase tracking-widest shadow-sm">
+            {category}
+          </span>
+        </div>
+
+        {/* Favorite */}
         <button 
           onClick={(e) => { e.stopPropagation(); onToggleFavorite?.(); }}
-          className={`absolute top-3 left-3 z-20 p-2.5 rounded-2xl transition-all shadow-md backdrop-blur-sm active:scale-90 ${isFavorite ? 'bg-green-500 text-white' : 'bg-white/80 text-gray-400 hover:text-green-500'}`}
+          className={`absolute top-4 left-4 z-10 p-3 rounded-2xl shadow-lg transition-all active:scale-90 ${isFavorite ? 'bg-rose-500 text-white' : 'glass text-slate-400 hover:text-rose-500'}`}
         >
           <svg className="w-5 h-5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
           </svg>
         </button>
 
-        <div className="absolute top-3 right-3 z-10">
-          <span className="bg-green-600 text-white text-[10px] font-black px-3 py-1.5 rounded-xl shadow-lg border border-white/20">
-            {category}
-          </span>
+        {/* Overlay Action */}
+        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+           <div className="bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl font-black text-xs text-slate-800 shadow-2xl translate-y-4 group-hover:translate-y-0 transition-transform">
+             عرض التفاصيل
+           </div>
         </div>
       </div>
       
       <div className="p-6 flex flex-col flex-grow">
-        <h3 
-          className="font-black text-xl text-gray-800 line-clamp-1 mb-2 cursor-pointer hover:text-green-600 transition-colors tracking-tighter"
-          onClick={onView}
-        >
+        <h3 className="font-black text-lg text-slate-800 line-clamp-1 mb-2 group-hover:text-emerald-600 transition-colors">
           {product.name}
         </h3>
-        <p className="text-gray-400 text-sm line-clamp-2 mb-4 flex-grow font-bold">
+        <p className="text-slate-400 text-xs font-medium line-clamp-2 mb-6 flex-grow">
           {product.description}
         </p>
         
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-green-50">
+        <div className="flex items-center justify-between mt-auto">
           <div className="flex flex-col">
-            <span className="text-2xl font-black text-green-700 leading-none">
-              {product.price} <small className="text-xs font-bold">ر.س</small>
-            </span>
-            <span className="text-[10px] text-gray-400 font-bold uppercase mt-1">متوفر بالمخزون</span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">السعر الآن</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-black text-slate-900 tracking-tighter">{product.price}</span>
+              <span className="text-[10px] font-black text-emerald-600">ر.س</span>
+            </div>
           </div>
+          
           <button 
             onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
-            className="bg-slate-900 text-white p-3.5 rounded-2xl hover:bg-green-600 transition shadow-lg active:scale-90"
+            className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center hover:bg-emerald-500 transition-all shadow-xl active:scale-90"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
             </svg>
           </button>
         </div>
