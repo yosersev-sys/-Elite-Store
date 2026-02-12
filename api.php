@@ -15,6 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once 'config.php';
 
+// دالة فحص وتحديث قاعدة البيانات تلقائياً
+function ensureSortOrderColumn($pdo) {
+    try {
+        $pdo->query("SELECT sortOrder FROM categories LIMIT 1");
+    } catch (Exception $e) {
+        // العمود غير موجود، نقوم بإضافته
+        $pdo->exec("ALTER TABLE categories ADD COLUMN sortOrder INT DEFAULT 0");
+    }
+}
+
 function sendRes($data) {
     echo json_encode($data);
     exit;
@@ -45,6 +55,7 @@ try {
             break;
 
         case 'get_categories':
+            ensureSortOrderColumn($pdo); // التأكد من وجود العمود قبل الاستعلام
             $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC, name ASC");
             $categories = $stmt->fetchAll() ?: [];
             foreach ($categories as &$c) {
@@ -53,36 +64,8 @@ try {
             sendRes($categories);
             break;
 
-        case 'add_product':
-            if (!$input) sendErr('Data missing');
-            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, seoSettings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                $input['id'], $input['name'], $input['description'], 
-                $input['price'], $input['categoryId'], json_encode($input['images']), 
-                json_encode($input['sizes']), json_encode($input['colors']), 
-                $input['stockQuantity'], time()*1000, json_encode($input['seoSettings'])
-            ]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'update_product':
-            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=? WHERE id=?");
-            $stmt->execute([
-                $input['name'], $input['description'], $input['price'], 
-                $input['categoryId'], json_encode($input['images']), 
-                json_encode($input['sizes']), json_encode($input['colors']), 
-                $input['stockQuantity'], json_encode($input['seoSettings']), $input['id']
-            ]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'delete_product':
-            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-            $stmt->execute([$_GET['id']]);
-            sendRes(['status' => 'success']);
-            break;
-
         case 'add_category':
+            ensureSortOrderColumn($pdo);
             $res = $pdo->query("SELECT MAX(sortOrder) as maxOrder FROM categories")->fetch();
             $nextOrder = ($res['maxOrder'] ?? 0) + 1;
             $stmt = $pdo->prepare("INSERT INTO categories (id, name, sortOrder) VALUES (?, ?, ?)");
@@ -91,6 +74,7 @@ try {
             break;
 
         case 'update_category':
+            ensureSortOrderColumn($pdo);
             if (!$input) sendErr('Data missing');
             if (isset($input['sortOrder'])) {
                 $stmt = $pdo->prepare("UPDATE categories SET name = ?, sortOrder = ? WHERE id = ?");
