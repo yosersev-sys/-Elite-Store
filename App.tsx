@@ -1,17 +1,72 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Routes, Route, useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { Product, CartItem, Category, Order } from './types';
+import { ApiService } from './services/api';
+
+// استيراد المكونات
 import Header from './components/Header';
 import StoreView from './components/StoreView';
 import AdminDashboard from './admincp/AdminDashboard';
 import AdminProductForm from './admincp/AdminProductForm';
 import AdminInvoiceForm from './admincp/AdminInvoiceForm';
 import CartView from './components/CartView';
-import ProductDetailsViewWrapper from './components/ProductDetailsViewWrapper';
 import OrderSuccessView from './components/OrderSuccessView';
 import FloatingAdminButton from './components/FloatingAdminButton';
-import { ApiService } from './services/api';
+import ProductDetailsView from './components/ProductDetailsView';
+
+// مكون فرعي لعرض تفاصيل المنتج بناءً على المعرف في الرابط
+const ProductPage: React.FC<{ 
+  products: Product[], 
+  categories: Category[], 
+  onAddToCart: (p: Product) => void, 
+  wishlist: string[], 
+  onToggleFavorite: (id: string) => void 
+}> = ({ products, categories, onAddToCart, wishlist, onToggleFavorite }) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const product = products.find(p => p.id === id);
+  const categoryName = categories.find(c => c.id === product?.categoryId)?.name || 'عام';
+
+  if (!product) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <h2 className="text-2xl font-black text-gray-800">عذراً، المنتج غير موجود</h2>
+        <button onClick={() => navigate('/')} className="mt-4 bg-green-600 text-white px-6 py-2 rounded-xl">العودة للمتجر</button>
+      </div>
+    );
+  }
+
+  return (
+    <ProductDetailsView 
+      product={product} 
+      categoryName={categoryName} 
+      onAddToCart={onAddToCart} 
+      onBack={() => navigate(-1)} 
+      isFavorite={wishlist.includes(product.id)} 
+      onToggleFavorite={onToggleFavorite} 
+    />
+  );
+};
+
+// مكون فرعي لتعديل المنتج
+const EditProductPage: React.FC<{
+  products: Product[],
+  categories: Category[],
+  onSave: (p: Product) => void,
+  onCancel: () => void
+}> = ({ products, categories, onSave, onCancel }) => {
+  const { id } = useParams();
+  const product = products.find(p => p.id === id);
+
+  if (!product) return <div className="p-10 text-center">جاري التحميل...</div>;
+
+  return (
+    <div className="h-full overflow-y-auto bg-slate-50">
+      <AdminProductForm product={product} categories={categories} onSubmit={onSave} onCancel={onCancel} />
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const location = useLocation();
@@ -28,7 +83,6 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
-    setIsLoading(true);
     try {
       const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
         ApiService.getProducts(),
@@ -47,13 +101,6 @@ const App: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleInvoiceSubmit = async (order: Order) => {
-    await ApiService.saveOrder(order);
-    setOrders(prev => [order, ...prev]);
-    setLastCreatedOrder(order);
-    navigate('/order-success');
-  };
-
   const onAddToCart = (p: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === p.id);
@@ -62,13 +109,18 @@ const App: React.FC = () => {
       }
       return [...prev, {...p, quantity: 1}];
     });
+    alert('تم إضافة المنتج للسلة ✅');
+  };
+
+  const onToggleFavorite = (id: string) => {
+    setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
   if (isLoading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600 font-black">
         <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-        جاري تحميل فاقوس ستور...
+        فاقوس ستور - جاري التحميل...
       </div>
     );
   }
@@ -76,7 +128,7 @@ const App: React.FC = () => {
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f0f4f0]">
+    <div className="min-h-screen flex flex-col bg-[#f8faf7]">
       
       {!isAdminRoute && (
         <Header 
@@ -85,7 +137,7 @@ const App: React.FC = () => {
           currentView="store" 
           categories={categories}
           selectedCategoryId={selectedCategoryId} 
-          onNavigate={(v) => navigate(`/${v === 'store' ? '' : v}`)}
+          onNavigate={(v) => navigate(v === 'store' ? '/' : `/${v}`)}
           onSearch={setSearchQuery} 
           onCategorySelect={(id) => { setSelectedCategoryId(id); navigate('/'); }}
         />
@@ -98,7 +150,7 @@ const App: React.FC = () => {
               products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
               onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={onAddToCart} 
               onViewProduct={(p) => navigate(`/product/${p.id}`)}
-              wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+              wishlist={wishlist} onToggleFavorite={onToggleFavorite}
             />
           } />
           
@@ -108,10 +160,10 @@ const App: React.FC = () => {
               onOpenAddForm={() => navigate('/admin/add')}
               onOpenEditForm={(p) => navigate(`/admin/edit/${p.id}`)}
               onOpenInvoiceForm={() => navigate('/admin/invoice')}
-              onDeleteProduct={async (id) => { if(confirm('متأكد من حذف المنتج؟')) { await ApiService.deleteProduct(id); setProducts(prev => prev.filter(p => p.id !== id)); } }}
-              onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
-              onUpdateCategory={async (c) => { await ApiService.updateCategory(c); setCategories(prev => prev.map(cat => cat.id === c.id ? c : cat)); }}
-              onDeleteCategory={async (id) => { if(confirm('حذف القسم؟')) { await ApiService.deleteCategory(id); setCategories(prev => prev.filter(c => c.id !== id)); } }}
+              onDeleteProduct={async (id) => { if(confirm('هل أنت متأكد؟')) { await ApiService.deleteProduct(id); loadData(); } }}
+              onAddCategory={async (c) => { await ApiService.addCategory(c); loadData(); }}
+              onUpdateCategory={async (c) => { await ApiService.updateCategory(c); loadData(); }}
+              onDeleteCategory={async (id) => { if(confirm('حذف القسم؟')) { await ApiService.deleteCategory(id); loadData(); } }}
             />
           } />
 
@@ -126,50 +178,64 @@ const App: React.FC = () => {
           } />
 
           <Route path="/admin/edit/:id" element={
-            <div className="h-full overflow-y-auto bg-slate-50">
-               <AdminProductFormWrapper 
-                  products={products} categories={categories} 
-                  onSubmit={async (p) => { await ApiService.updateProduct(p); await loadData(); navigate('/admin'); }}
-                  onCancel={() => navigate('/admin')}
-                />
-            </div>
+            <EditProductPage 
+              products={products} categories={categories} 
+              onSave={async (p) => { await ApiService.updateProduct(p); await loadData(); navigate('/admin'); }}
+              onCancel={() => navigate('/admin')}
+            />
           } />
 
           <Route path="/admin/invoice" element={
             <div className="h-full overflow-y-auto bg-slate-50">
-              <AdminInvoiceForm products={products} onSubmit={handleInvoiceSubmit} onCancel={() => navigate('/admin')} />
+              <AdminInvoiceForm 
+                products={products} 
+                onSubmit={async (order) => { await ApiService.saveOrder(order); setLastCreatedOrder(order); navigate('/order-success'); }} 
+                onCancel={() => navigate('/admin')} 
+              />
             </div>
           } />
 
           <Route path="/product/:id" element={
-            <ProductDetailsViewWrapper 
+            <ProductPage 
               products={products} categories={categories} onAddToCart={onAddToCart}
-              onBack={() => navigate(-1)} wishlist={wishlist}
-              onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+              wishlist={wishlist} onToggleFavorite={onToggleFavorite}
             />
           } />
 
-          <Route path="/cart" element={<CartView cart={cart} onUpdateQuantity={()=>{}} onRemove={()=>{}} onCheckout={()=>{}} onContinueShopping={()=>navigate('/')} />} />
+          <Route path="/cart" element={
+            <CartView 
+              cart={cart} 
+              onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))} 
+              onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} 
+              onCheckout={() => navigate('/admin/invoice')} // تبسيط للآن
+              onContinueShopping={() => navigate('/')} 
+            />
+          } />
+
           <Route path="/wishlist" element={
             <StoreView 
               products={products.filter(p => wishlist.includes(p.id))} categories={categories} searchQuery="" selectedCategoryId="all"
               onCategorySelect={() => {}} onAddToCart={onAddToCart} 
               onViewProduct={(p) => navigate(`/product/${p.id}`)}
-              wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.filter(i => i !== id))}
+              wishlist={wishlist} onToggleFavorite={onToggleFavorite}
             />
           } />
           
           <Route path="/order-success" element={
-            <div className="h-full overflow-y-auto">
-              <OrderSuccessView order={lastCreatedOrder!} onContinueShopping={() => navigate('/admin')} />
-            </div>
+            lastCreatedOrder ? (
+              <div className="h-full overflow-y-auto">
+                <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => navigate('/admin')} />
+              </div>
+            ) : (
+              <div className="p-10 text-center">لا يوجد طلب مسجل حالياً</div>
+            )
           } />
         </Routes>
       </main>
 
       {!isAdminRoute && (
         <>
-          <FloatingAdminButton currentView="store" onNavigate={(v) => navigate(`/${v === 'store' ? '' : v}`)} />
+          <FloatingAdminButton />
           <footer className="bg-green-900 text-white py-12 text-center mt-20">
             <h2 className="text-xl font-black mb-2">🛍️ فاقوس ستور</h2>
             <p className="text-green-300 opacity-50 text-[10px]">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
@@ -178,26 +244,6 @@ const App: React.FC = () => {
       )}
     </div>
   );
-};
-
-// Wrapper components to handle URL params
-const ProductDetailsViewWrapper = ({ products, categories, ...props }: any) => {
-  const { id } = React.useContext(React.createContext as any); // Mocking or using hook
-  const { id: paramId } = (window as any).ReactRouterDOM.useParams();
-  const product = products.find((p: any) => p.id === paramId);
-  const categoryName = categories.find((c: any) => c.id === product?.categoryId)?.name || 'عام';
-  
-  if (!product) return <div className="p-20 text-center">جاري التحميل...</div>;
-  
-  const ProductDetailsView = (window as any).ProductDetailsViewComponent; // Assuming global or exported
-  // Note: For simplicity in this environment, we rely on the component being accessible
-  return <props.Component product={product} categoryName={categoryName} {...props} />;
-};
-
-const AdminProductFormWrapper = ({ products, categories, onSubmit, onCancel }: any) => {
-  const { id } = (window as any).ReactRouterDOM.useParams();
-  const product = products.find((p: any) => p.id === id);
-  return <AdminProductForm product={product} categories={categories} onSubmit={onSubmit} onCancel={onCancel} />;
 };
 
 export default App;
