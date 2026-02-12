@@ -7,7 +7,7 @@
 header('Content-Type: text/html; charset=utf-8');
 ?>
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" style="scroll-behavior: smooth;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,7 +20,7 @@ header('Content-Type: text/html; charset=utf-8');
     <!-- Babel Standalone -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Import Map: توحيد النسخ وإصلاح تعارضات المكاتب -->
+    <!-- Import Map -->
     <script type="importmap">
     {
       "imports": {
@@ -40,12 +40,18 @@ header('Content-Type: text/html; charset=utf-8');
         #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 9999; transition: opacity 0.5s; }
         .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* تحسينات التمرير */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #059669; }
     </style>
 </head>
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تهيئة البيئة البرمجية...</p>
+        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تهيئة المتجر...</p>
     </div>
     <div id="root"></div>
 
@@ -57,9 +63,6 @@ header('Content-Type: text/html; charset=utf-8');
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
 
-        /**
-         * دالة جلب وترجمة الملفات بشكل متسلسل مع دعم الامتدادات
-         */
         async function fetchWithFallback(url) {
             const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
             for (let ext of extensions) {
@@ -84,7 +87,6 @@ header('Content-Type: text/html; charset=utf-8');
                 const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
                 let code = rawCode;
 
-                // معالجة الاستيرادات المحلية
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
                 const matches = [...code.matchAll(importRegex)];
                 
@@ -116,14 +118,13 @@ header('Content-Type: text/html; charset=utf-8');
         async function startApp() {
             try {
                 const loaderText = document.getElementById('loader-text');
-                loaderText.innerText = "جاري ترجمة المكونات...";
+                loaderText.innerText = "جاري تحميل المكونات...";
                 
                 const appBlobUrl = await getTranspiledUrl('App.tsx');
                 const module = await import(appBlobUrl);
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                // الحفاظ على مرجع واحد لـ React وتجنب التداخل
                 root.render(
                     React.createElement(HashRouter, null, 
                         React.createElement(App, null)
