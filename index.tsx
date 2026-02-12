@@ -6,9 +6,7 @@ import App from './App';
 
 const container = document.getElementById('root');
 
-if (!container) {
-  console.error("عنصر root غير موجود في DOM");
-} else {
+if (container) {
   const root = ReactDOM.createRoot(container);
   root.render(
     <React.StrictMode>
@@ -17,4 +15,6 @@ if (!container) {
       </HashRouter>
     </React.StrictMode>
   );
+} else {
+  console.error("CRITICAL ERROR: Root container not found in DOM");
 }

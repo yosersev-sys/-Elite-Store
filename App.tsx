@@ -81,9 +81,11 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
+      setIsLoading(true);
       const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
         ApiService.getProducts(),
         ApiService.getCategories(),
@@ -92,8 +94,10 @@ const App: React.FC = () => {
       setProducts(fetchedProducts || []);
       setCategories(fetchedCats || []);
       setOrders(fetchedOrders || []);
+      setError(null);
     } catch (err) {
       console.error("خطأ في تحميل البيانات:", err);
+      // في حالة الفشل، نعتمد على البيانات الوهمية (Mock) التي توفرها ApiService تلقائياً
     } finally {
       setIsLoading(false);
     }
@@ -109,8 +113,6 @@ const App: React.FC = () => {
       }
       return [...prev, {...p, quantity: 1}];
     });
-    // تنبيه بسيط بدلاً من alert لعدم تعطيل الـ UI
-    console.log('تمت الإضافة للسلة:', p.name);
   };
 
   const onToggleFavorite = (id: string) => {
@@ -119,7 +121,7 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600 font-black">
+      <div className="h-screen w-full flex flex-col items-center justify-center gap-4 bg-white text-green-600 font-black">
         <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
         <p className="animate-pulse">فاقوس ستور - جاري التحميل...</p>
       </div>
@@ -161,10 +163,10 @@ const App: React.FC = () => {
               onOpenAddForm={() => navigate('/admin/add')}
               onOpenEditForm={(p) => navigate(`/admin/edit/${p.id}`)}
               onOpenInvoiceForm={() => navigate('/admin/invoice')}
-              onDeleteProduct={async (id) => { if(confirm('هل أنت متأكد؟')) { await ApiService.deleteProduct(id); loadData(); } }}
+              onDeleteProduct={async (id) => { if(confirm('هل أنت متأكد من حذف المنتج؟')) { await ApiService.deleteProduct(id); loadData(); } }}
               onAddCategory={async (c) => { await ApiService.addCategory(c); loadData(); }}
               onUpdateCategory={async (c) => { await ApiService.updateCategory(c); loadData(); }}
-              onDeleteCategory={async (id) => { if(confirm('حذف القسم؟')) { await ApiService.deleteCategory(id); loadData(); } }}
+              onDeleteCategory={async (id) => { if(confirm('سيتم حذف القسم، هل أنت متأكد؟')) { await ApiService.deleteCategory(id); loadData(); } }}
             />
           } />
 
