@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Product } from '../types';
 
 interface ProductCardProps {
@@ -14,6 +14,21 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ 
   product, category, onAddToCart, onView, isFavorite = false, onToggleFavorite
 }) => {
+  const [isAdded, setIsAdded] = useState(false);
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isAdded) return;
+    
+    setIsAdded(true);
+    onAddToCart();
+    
+    // إعادة حالة الزر بعد 1.5 ثانية
+    setTimeout(() => {
+      setIsAdded(false);
+    }, 1500);
+  };
+
   return (
     <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-50 overflow-hidden card-shadow hover-lift flex flex-col h-full group">
       <div className="relative aspect-[4/5] overflow-hidden bg-slate-50 cursor-pointer" onClick={onView}>
@@ -66,13 +81,26 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </div>
           
           <button 
-            onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
-            className="flex-grow md:flex-grow-0 h-10 md:h-12 px-4 md:px-6 bg-slate-900 text-white rounded-xl md:rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-500 transition-all shadow-xl active:scale-95 whitespace-nowrap"
+            onClick={handleAddToCart}
+            className={`flex-grow md:flex-grow-0 h-10 md:h-12 px-4 md:px-6 rounded-xl md:rounded-2xl flex items-center justify-center gap-2 transition-all duration-300 shadow-xl active:scale-95 whitespace-nowrap overflow-hidden relative ${
+              isAdded ? 'bg-emerald-500 text-white shadow-emerald-200' : 'bg-slate-900 text-white hover:bg-emerald-600'
+            }`}
           >
-            <span className="text-[10px] md:text-sm font-black">شراء</span>
-            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-            </svg>
+            {isAdded ? (
+              <div className="flex items-center gap-2 animate-fadeIn">
+                <span className="text-[10px] md:text-sm font-black">تمت الإضافة</span>
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] md:text-sm font-black">شراء</span>
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+            )}
           </button>
         </div>
       </div>
