@@ -50,7 +50,7 @@ const Slider: React.FC = () => {
   }, [nextSlide]);
 
   return (
-    <div className="relative w-full h-[400px] md:h-[500px] rounded-[3rem] overflow-hidden group shadow-2xl mb-8">
+    <div className="relative w-full h-[400px] md:h-[550px] rounded-[3.5rem] overflow-hidden group shadow-2xl mb-8 border border-orange-50">
       {/* Slides */}
       {SLIDES.map((slide, index) => (
         <div
@@ -60,23 +60,23 @@ const Slider: React.FC = () => {
           }`}
         >
           {/* Image with Overlay */}
-          <div className="absolute inset-0 bg-black/30 z-10"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent z-10"></div>
           <img
             src={slide.image}
             alt={slide.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transform scale-105 group-hover:scale-100 transition-transform duration-[5s]"
           />
           
           {/* Content */}
           <div className="absolute inset-0 z-20 flex flex-col justify-center px-8 md:px-20 text-white">
-            <h2 className="text-4xl md:text-6xl font-black mb-4 animate-slideDown tracking-tighter">
+            <h2 className="text-4xl md:text-7xl font-black mb-4 animate-slideUp tracking-tighter">
               {slide.title}
             </h2>
-            <p className="text-lg md:text-xl text-gray-100 mb-8 max-w-xl animate-fadeIn font-bold">
+            <p className="text-lg md:text-2xl text-orange-50 mb-8 max-w-xl animate-fadeIn font-bold opacity-90">
               {slide.subtitle}
             </p>
-            <div>
-              <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-black transition transform hover:scale-105 shadow-lg">
+            <div className="animate-slideUp" style={{ animationDelay: '200ms' }}>
+              <button className="bg-orange-500 hover:bg-orange-600 text-white px-10 py-4 rounded-2xl font-black transition transform hover:scale-105 shadow-xl shadow-orange-900/20 text-lg">
                 {slide.cta}
               </button>
             </div>
@@ -87,29 +87,29 @@ const Slider: React.FC = () => {
       {/* Controls */}
       <button
         onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-white/20 hover:bg-white/40 text-white transition opacity-0 group-hover:opacity-100"
+        className="absolute left-6 top-1/2 -translate-y-1/2 z-30 p-3 rounded-2xl bg-white/10 hover:bg-white/30 backdrop-blur-md text-white transition opacity-0 group-hover:opacity-100"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
       <button
         onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-white/20 hover:bg-white/40 text-white transition opacity-0 group-hover:opacity-100"
+        className="absolute right-6 top-1/2 -translate-y-1/2 z-30 p-3 rounded-2xl bg-white/10 hover:bg-white/30 backdrop-blur-md text-white transition opacity-0 group-hover:opacity-100"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
         </svg>
       </button>
 
       {/* Indicators */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex gap-3">
         {SLIDES.map((_, index) => (
           <button
             key={index}
             onClick={() => setCurrent(index)}
-            className={`h-2 transition-all rounded-full ${
-              index === current ? 'w-8 bg-white' : 'w-2 bg-white/50'
+            className={`h-2.5 transition-all rounded-full ${
+              index === current ? 'w-12 bg-orange-500 shadow-lg' : 'w-2.5 bg-white/40'
             }`}
           />
         ))}

@@ -23,6 +23,7 @@ const CategoryPage = ({ products, categories, onAddToCart, wishlist, onToggleFav
       categories={categories} 
       searchQuery={searchQuery} 
       selectedCategoryId={id || 'all'}
+      showHero={false}
       onCategorySelect={(newId) => navigate(newId === 'all' ? '/' : `/category/${newId}`)} 
       onAddToCart={onAddToCart} 
       onViewProduct={(p) => navigate(`/product/${p.id}`)}
@@ -108,6 +109,7 @@ const App: React.FC = () => {
           <Route path="/" element={
             <StoreView 
               products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId="all"
+              showHero={true}
               onCategorySelect={(id) => navigate(id === 'all' ? '/' : `/category/${id}`)} 
               onAddToCart={onAddToCart} 
               onViewProduct={(p) => navigate(`/product/${p.id}`)}
@@ -123,7 +125,6 @@ const App: React.FC = () => {
             />
           } />
 
-          {/* مسارات لوحة التحكم */}
           <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
           <Route path="/admin/:tab" element={
             <AdminDashboard 
@@ -151,7 +152,7 @@ const App: React.FC = () => {
                 {(() => {
                   const { id } = useParams();
                   const p = products.find(prod => prod.id === id);
-                  if (!p) return <div className="p-20 text-center font-bold">المنتج غير موجود</div>;
+                  if (!p) return <div className="p-20 text-center font-bold text-gray-400">المنتج غير موجود</div>;
                   return (
                     <AdminProductForm 
                       product={p} categories={categories} 
@@ -204,6 +205,7 @@ const App: React.FC = () => {
           <Route path="/wishlist" element={
             <StoreView 
               products={products.filter(p => wishlist.includes(p.id))} categories={categories} searchQuery="" selectedCategoryId="all"
+              showHero={false}
               onCategorySelect={() => {}} onAddToCart={onAddToCart} 
               onViewProduct={(p) => navigate(`/product/${p.id}`)}
               wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
