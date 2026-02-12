@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Category } from '../types';
 
 interface HeaderProps {
@@ -18,15 +18,37 @@ const Header: React.FC<HeaderProps> = ({
   selectedCategoryId, onNavigate, onSearch, onCategorySelect 
 }) => {
   const [scrolled, setScrolled] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      // Determine if at the top for aesthetic changes
+      setScrolled(currentScrollY > 20);
+
+      // Hide/Show logic based on scroll direction
+      if (currentScrollY <= 0) {
+        // At the very top, always show
+        setIsVisible(true);
+      } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        // Scrolling Down - hide if past threshold
+        setIsVisible(false);
+      } else if (currentScrollY < lastScrollY.current) {
+        // Scrolling Up - show
+        setIsVisible(true);
+      }
+      
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'py-1 md:py-2' : 'py-3 md:py-4'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 transform ${isVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'py-1 md:py-2' : 'py-3 md:py-4'}`}>
       <div className="container mx-auto px-2 md:px-4">
         <div className={`glass rounded-[1.5rem] md:rounded-[2rem] px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2 md:gap-8 card-shadow transition-all duration-500 ${scrolled ? 'mx-1 md:mx-2' : 'mx-0'}`}>
           
