@@ -5,12 +5,12 @@ import ProductCard from './ProductCard';
 import Slider from './Slider';
 import BrandsSection from './BrandsSection';
 import CategorySection from './CategorySection';
-import BestSellers from './BestSellers.tsx';
 
 interface StoreViewProps {
   products: Product[];
   categories: Category[];
   searchQuery: string;
+  selectedCategoryId: string | 'all';
   onCategorySelect: (id: string | 'all') => void;
   onAddToCart: (product: Product) => void;
   onViewProduct: (product: Product) => void;
@@ -22,92 +22,91 @@ const StoreView: React.FC<StoreViewProps> = ({
   products, 
   categories, 
   searchQuery, 
+  selectedCategoryId,
   onCategorySelect,
   onAddToCart, 
   onViewProduct,
   wishlist,
   onToggleFavorite
 }) => {
-  // تصفية المنتجات للبحث فقط في الصفحة الرئيسية إذا كان هناك بحث
-  const searchedProducts = useMemo(() => {
-    if (!searchQuery) return [];
-    return products.filter(p => 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      p.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [products, searchQuery]);
+  // Filter products by both Search and Category
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           p.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategoryId === 'all' || p.categoryId === selectedCategoryId;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchQuery, selectedCategoryId]);
 
-  // أحدث المنتجات (New Arrivals)
-  const newArrivals = useMemo(() => {
-    return [...products].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8);
-  }, [products]);
+  const activeCategoryName = useMemo(() => {
+    if (selectedCategoryId === 'all') return 'منتجاتنا الحصرية';
+    return categories.find(c => c.id === selectedCategoryId)?.name || 'منتجات القسم';
+  }, [categories, selectedCategoryId]);
 
   return (
-    <div className="space-y-16 md:space-y-24 animate-fadeIn pb-20">
-      {/* 1. السلايدر الرئيسي */}
+    <div className="space-y-12 md:space-y-20 animate-fadeIn">
+      {/* Visual Elements */}
       <Slider />
       
-      {/* 2. إذا كان هناك بحث، اعرض النتائج أولاً */}
-      {searchQuery && (
-        <div className="space-y-8">
-          <div className="border-b border-slate-100 pb-6">
-            <h2 className="text-3xl font-black text-slate-800">نتائج البحث عن: <span className="text-emerald-600">{searchQuery}</span></h2>
-            <p className="text-slate-400 font-bold">{searchedProducts.length} منتج موجود</p>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {searchedProducts.map(p => (
-              <ProductCard 
-                key={p.id} product={p} 
-                category={categories.find(c => c.id === p.categoryId)?.name || 'عام'}
-                onAddToCart={() => onAddToCart(p)} onView={() => onViewProduct(p)}
-                isFavorite={wishlist.includes(p.id)} onToggleFavorite={() => onToggleFavorite(p.id)}
-              />
-            ))}
-          </div>
-          {searchedProducts.length === 0 && (
-            <div className="text-center py-20 bg-white rounded-[2rem] border-2 border-dashed">
-              <p className="text-slate-400 font-bold text-xl">لا توجد نتائج تطابق بحثك</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 3. شبكة الأقسام للانتقال السريع */}
+      {/* Category Selection Grid */}
       <CategorySection 
         categories={categories} 
-        selectedCategoryId="all" 
+        selectedCategoryId={selectedCategoryId} 
         onCategorySelect={onCategorySelect} 
       />
 
-      {/* 4. الأكثر مبيعاً (Best Sellers) */}
-      <BestSellers 
-        products={products}
-        onAddToCart={onAddToCart}
-        onViewProduct={onViewProduct}
-        wishlist={wishlist}
-        onToggleFavorite={onToggleFavorite}
-      />
-
-      {/* 5. وصل حديثاً (New Arrivals) */}
-      <div className="space-y-10">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-black text-slate-800 tracking-tighter">✨ وصل حديثاً</h2>
-          <span className="bg-emerald-50 text-emerald-600 px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">موسم {new Date().getFullYear()}</span>
+      {/* Products Grid */}
+      <div className="space-y-8 md:space-y-12" id="products-list">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-gray-100 pt-10 md:pt-16">
+          <div className="space-y-1 md:space-y-2">
+             <h2 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tighter">
+               {searchQuery ? `نتائج البحث عن: ${searchQuery}` : activeCategoryName}
+             </h2>
+             <p className="text-gray-400 text-sm md:text-lg font-bold">
+               {filteredProducts.length} منتج متاح
+             </p>
+          </div>
+          
+          <div className="hidden md:block">
+             <span className="bg-green-50 text-green-600 px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
+                موسم {new Date().getFullYear()}
+             </span>
+          </div>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {newArrivals.map(p => (
+
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-10">
+          {filteredProducts.map(product => (
             <ProductCard 
-              key={p.id} product={p} 
-              category={categories.find(c => c.id === p.categoryId)?.name || 'عام'}
-              onAddToCart={() => onAddToCart(p)} onView={() => onViewProduct(p)}
-              isFavorite={wishlist.includes(p.id)} onToggleFavorite={() => onToggleFavorite(p.id)}
+              key={product.id} 
+              product={product} 
+              category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
+              onAddToCart={() => onAddToCart(product)} 
+              onView={() => onViewProduct(product)}
+              isFavorite={wishlist.includes(product.id)}
+              onToggleFavorite={() => onToggleFavorite(product.id)}
             />
           ))}
         </div>
+
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-20 md:py-32 bg-gray-50 rounded-[2rem] md:rounded-[3rem] border-2 border-dashed border-gray-200">
+             <div className="text-4xl md:text-6xl mb-4">🔍</div>
+             <p className="text-gray-400 font-black text-base md:text-xl">عذراً، لم نجد منتجات تطابق اختيارك.</p>
+             <button 
+               onClick={() => onCategorySelect('all')}
+               className="mt-6 bg-green-600 text-white px-8 py-3 rounded-2xl font-black transition-transform active:scale-95"
+             >
+               عرض كل المنتجات
+             </button>
+          </div>
+        )}
       </div>
 
-      {/* 6. الماركات */}
-      <BrandsSection />
+      {/* Brands Section - Moved to bottom as requested */}
+      <div className="pt-10">
+        <BrandsSection />
+      </div>
     </div>
   );
 };
