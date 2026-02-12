@@ -80,12 +80,12 @@ const App: React.FC = () => {
       )}
 
       <Header 
-        cartCount={cart.length} wishlistCount={wishlist.length} currentView={view} categories={categories}
-        selectedCategoryId={selectedCategoryId} onNavigate={onNavigateAction}
+        cartCount={cart.length} wishlistCount={wishlist.length} categories={categories}
+        onNavigate={onNavigateAction}
         onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
       />
 
-      <main className="flex-grow container mx-auto px-4 pt-40 pb-20">
+      <main className="flex-grow container mx-auto px-4 pt-32 pb-20">
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
@@ -209,7 +209,11 @@ const App: React.FC = () => {
       <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
 
       <footer className="bg-slate-900 text-white py-12 text-center">
-        <h2 className="text-xl font-black mb-2">فاقوس ستور</h2>
+        <div className="flex flex-col items-center gap-2 mb-4">
+          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl shadow-lg">🏛️</div>
+          <h2 className="text-xl font-black">سوق العصر</h2>
+          <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">أكبر سوق إلكتروني في فاقوس</p>
+        </div>
         <p className="text-slate-500 text-xs tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
       </footer>
     </div>

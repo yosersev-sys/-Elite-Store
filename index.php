@@ -1,8 +1,7 @@
 
 <?php
 /**
- * فاقوس ستور - المحرك الذكي v3.4
- * إصلاح خطأ i.H is null وتوحيد نسخ React
+ * سوق العصر - المحرك الذكي v3.5
  */
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -11,7 +10,7 @@ header('Content-Type: text/html; charset=utf-8');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>فاقوس ستور - Faqous Store</title>
+    <title>سوق العصر - أكبر سوق إلكتروني في فاقوس</title>
     
     <script>window.process = { env: { API_KEY: "" } };</script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -46,6 +45,8 @@ header('Content-Type: text/html; charset=utf-8');
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #059669; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body>

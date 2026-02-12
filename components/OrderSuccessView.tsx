@@ -10,7 +10,6 @@ interface OrderSuccessViewProps {
 const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueShopping }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const handlePrint = () => {
     window.print();
@@ -29,17 +28,17 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
       });
       canvas.toBlob(async (blob: Blob | null) => {
         if (!blob) return;
-        const file = new File([blob], `Faqous-Store-Invoice-${order.id}.png`, { type: 'image/png' });
+        const file = new File([blob], `Souq-AlAsr-Invoice-${order.id}.png`, { type: 'image/png' });
         if (navigator.share && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: 'فاتورة مبيعات فاقوس ستور',
+            title: 'فاتورة مبيعات سوق العصر',
             text: `رقم الفاتورة ${order.id}`
           });
         } else {
           const link = document.createElement('a');
           link.href = URL.createObjectURL(blob);
-          link.download = `Faqous-Store-Invoice-${order.id}.png`;
+          link.download = `Souq-AlAsr-Invoice-${order.id}.png`;
           link.click();
         }
       }, 'image/png');
@@ -57,14 +56,14 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
         className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-gray-100 print:shadow-none print:border-none print:rounded-none"
       >
         {/* Header Success Section */}
-        <div className="bg-green-600 p-12 text-center text-white relative print:bg-white print:text-black print:p-6 print:border-b-2">
+        <div className="bg-emerald-600 p-12 text-center text-white relative print:bg-white print:text-black print:p-6 print:border-b-2">
           <div className="relative z-10 flex flex-col items-center">
             <h1 className="text-4xl font-black mb-2 flex items-center gap-2">
-                <span className="print:text-green-600">🛍️</span> فاقوس ستور
+                <span className="print:text-emerald-600">🏛️</span> سوق العصر
             </h1>
-            <p className="font-bold opacity-80 print:opacity-100">فاتورة مبيعات معتمدة</p>
+            <p className="font-bold opacity-80 print:opacity-100 tracking-widest text-xs">أكبر سوق إلكتروني في فاقوس</p>
             <div className="mt-4 no-screenshot print:hidden">
-                 <span className="bg-white/20 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">تم تسجيل العملية بنجاح ✅</span>
+                 <span className="bg-white/20 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">تم تسجيل الطلب بنجاح ✅</span>
             </div>
           </div>
         </div>
@@ -82,7 +81,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             </div>
             <div className="space-y-1">
               <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">طريقة الدفع</p>
-              <p className="text-lg font-bold text-green-700">
+              <p className="text-lg font-bold text-emerald-700">
                 {order.paymentMethod}
               </p>
             </div>
@@ -91,7 +90,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             {/* Customer Info */}
             <div className="space-y-4">
-              <h3 className="font-black text-gray-900 flex items-center gap-2 border-r-4 border-green-600 pr-3">
+              <h3 className="font-black text-gray-900 flex items-center gap-2 border-r-4 border-emerald-600 pr-3">
                 العميل المستلم
               </h3>
               <div className="bg-gray-50 p-6 rounded-2xl space-y-2 border border-gray-100 print:bg-white">
@@ -117,7 +116,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
                 </div>
                 <div className="flex justify-between text-2xl font-black text-gray-900 pt-5 border-t border-gray-100">
                   <span>الإجمالي</span>
-                  <span className="text-green-600">{(Number(order.total) || 0).toFixed(2)} ج.م</span>
+                  <span className="text-emerald-600">{(Number(order.total) || 0).toFixed(2)} ج.م</span>
                 </div>
               </div>
             </div>
@@ -142,7 +141,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
                             <td className="px-6 py-4 font-bold text-slate-800 text-sm">{item.name}</td>
                             <td className="px-6 py-4 font-bold text-slate-500 text-sm">{item.price} ج.م</td>
                             <td className="px-6 py-4 font-black text-slate-900 text-sm">{item.quantity}</td>
-                            <td className="px-6 py-4 font-black text-green-600 text-sm">{(item.price * item.quantity).toFixed(2)} ج.م</td>
+                            <td className="px-6 py-4 font-black text-emerald-600 text-sm">{(item.price * item.quantity).toFixed(2)} ج.م</td>
                         </tr>
                     ))}
                 </tbody>
@@ -151,7 +150,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
           </div>
 
           <div className="text-center pt-8 border-t border-dashed print:block hidden">
-             <p className="text-[10px] font-bold text-slate-400">شكراً لتعاملكم مع فاقوس ستور - جميع الحقوق محفوظة</p>
+             <p className="text-[10px] font-bold text-slate-400">شكراً لتعاملكم مع سوق العصر - فاقوس</p>
           </div>
 
           {/* Action Buttons */}
@@ -164,23 +163,18 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             </button>
             <button 
               onClick={handleShareScreenshot}
-              disabled={isCapturing}
               className="bg-blue-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-blue-700 transition shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
             >
-              {isCapturing ? 'جاري التحويل...' : '📸 مشاركة كصورة'}
+               📸 مشاركة كصورة
             </button>
             <button 
               onClick={onContinueShopping}
-              className="bg-green-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-green-700 transition shadow-xl sm:col-span-2 lg:col-span-1"
+              className="bg-emerald-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-emerald-700 transition shadow-xl sm:col-span-2 lg:col-span-1"
             >
-              العودة للوحة التحكم
+              العودة للمتجر
             </button>
           </div>
         </div>
-      </div>
-      
-      <div className="mt-8 text-center no-screenshot print:hidden">
-         <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Faqous Store - Digital Invoice System</p>
       </div>
     </div>
   );

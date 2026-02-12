@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Category } from '../types';
 
 interface HeaderProps {
@@ -17,7 +17,6 @@ const Header: React.FC<HeaderProps> = ({
   onNavigate, onSearch, onCategorySelect 
 }) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
@@ -37,25 +36,6 @@ const Header: React.FC<HeaderProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const currentPath = location.pathname;
-
-  const handleCategoryClick = (id: string | 'all') => {
-    const targetPath = id === 'all' ? '/' : `/category/${id}`;
-    
-    // إذا كان المستخدم بالفعل في نفس المسار، نقوم بالتمرير يدوياً
-    if (currentPath === targetPath) {
-      const grid = document.getElementById('category-products-grid') || document.getElementById('products-list');
-      if (grid) {
-        const headerOffset = 140;
-        const elementPosition = grid.getBoundingClientRect().top;
-        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-        window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-      }
-    } else {
-      navigate(targetPath);
-    }
-  };
-
   return (
     <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out transform ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'} ${scrolled ? 'py-1 md:py-2' : 'py-3 md:py-4'}`}
@@ -68,11 +48,11 @@ const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-2 md:gap-3 cursor-pointer group shrink-0"
           >
             <div className="w-9 h-9 md:w-12 md:h-12 bg-emerald-500 rounded-xl md:rounded-2xl flex items-center justify-center text-lg md:text-2xl shadow-lg shadow-emerald-200 group-hover:rotate-12 transition-transform">
-              🏪
+              🏛️
             </div>
             <div className="flex flex-col">
-              <h1 className="text-sm md:text-xl font-black text-slate-800 leading-none whitespace-nowrap">فاقوس ستور</h1>
-              <p className="text-[7px] md:text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-0.5 md:mt-1">Faqous Store</p>
+              <h1 className="text-sm md:text-xl font-black text-slate-800 leading-none whitespace-nowrap">سوق العصر</h1>
+              <p className="text-[7px] md:text-[9px] font-black text-emerald-600 uppercase tracking-tight mt-0.5 md:mt-1">أكبر سوق إلكتروني في فاقوس</p>
             </div>
           </div>
 
@@ -80,7 +60,7 @@ const Header: React.FC<HeaderProps> = ({
             <div className="relative group">
               <input 
                 type="text" 
-                placeholder="ابحث عن منتج..." 
+                placeholder="ابحث عن منتج أو محصول..." 
                 onChange={(e) => onSearch(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl py-1.5 md:py-3 px-3 md:px-6 pr-8 md:pr-12 outline-none focus:ring-4 focus:ring-emerald-50 focus:bg-white transition-all font-bold text-[10px] md:text-sm"
               />
@@ -105,24 +85,6 @@ const Header: React.FC<HeaderProps> = ({
             />
           </div>
         </div>
-
-        <div className={`mt-2 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 transition-all duration-500 ${scrolled ? 'opacity-0 h-0 pointer-events-none' : 'opacity-100 h-auto'}`}>
-          <CategoryChip 
-            active={currentPath === '/'} 
-            onClick={() => handleCategoryClick('all')} 
-            label="الكل" 
-            icon="✨"
-          />
-          {categories.map(cat => (
-            <CategoryChip 
-              key={cat.id}
-              active={currentPath === `/category/${cat.id}`} 
-              onClick={() => handleCategoryClick(cat.id)} 
-              label={cat.name} 
-              icon={cat.name.includes('سوبر') ? '🛒' : cat.name.includes('خضر') ? '🥦' : cat.name.includes('فواك') ? '🍎' : '🌿'}
-            />
-          ))}
-        </div>
       </div>
     </header>
   );
@@ -139,16 +101,6 @@ const ActionButton = ({ count, icon, onClick, variant = 'secondary', className =
         {count}
       </span>
     )}
-  </button>
-);
-
-const CategoryChip = ({ active, onClick, label, icon }: any) => (
-  <button 
-    onClick={onClick}
-    className={`whitespace-nowrap flex items-center gap-1.5 px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-xs font-black transition-all border shadow-sm ${active ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50'}`}
-  >
-    <span>{icon}</span>
-    {label}
   </button>
 );
 
