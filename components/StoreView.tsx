@@ -4,7 +4,6 @@ import { Product, Category } from '../types';
 import ProductCard from './ProductCard';
 import Slider from './Slider';
 import BrandsSection from './BrandsSection';
-import BestSellers from './BestSellers';
 import CategorySection from './CategorySection';
 
 interface StoreViewProps {
@@ -50,26 +49,12 @@ const StoreView: React.FC<StoreViewProps> = ({
       {/* Visual Elements */}
       <Slider />
       
-      {/* Brands Section */}
-      <BrandsSection />
-
       {/* Category Selection Grid */}
       <CategorySection 
         categories={categories} 
         selectedCategoryId={selectedCategoryId} 
         onCategorySelect={onCategorySelect} 
       />
-
-      {/* Only show Best Sellers if no specific category or search is active */}
-      {searchQuery === '' && selectedCategoryId === 'all' && (
-        <BestSellers 
-          products={products} 
-          onAddToCart={onAddToCart} 
-          onViewProduct={onViewProduct} 
-          wishlist={wishlist}
-          onToggleFavorite={onToggleFavorite}
-        />
-      )}
 
       {/* Products Grid */}
       <div className="space-y-8 md:space-y-12" id="products-list">
@@ -116,6 +101,11 @@ const StoreView: React.FC<StoreViewProps> = ({
              </button>
           </div>
         )}
+      </div>
+
+      {/* Brands Section - Moved to bottom as requested */}
+      <div className="pt-10">
+        <BrandsSection />
       </div>
     </div>
   );
