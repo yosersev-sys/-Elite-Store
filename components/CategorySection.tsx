@@ -16,6 +16,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   // Map icons/colors to categories based on their names/IDs
   const getCategoryMeta = (name: string) => {
     const n = name.toLowerCase();
+    if (n.includes('سوبر ماركت')) return { icon: '🛒', color: 'bg-indigo-50 text-indigo-600 border-indigo-100' };
     if (n.includes('خضروات')) return { icon: '🥦', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' };
     if (n.includes('فواكه')) return { icon: '🍎', color: 'bg-red-50 text-red-600 border-red-100' };
     if (n.includes('ألبان')) return { icon: '🥛', color: 'bg-blue-50 text-blue-600 border-blue-100' };

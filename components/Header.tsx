@@ -14,8 +14,8 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-  cartCount, wishlistCount, currentView, 
-  onNavigate, onSearch, onCategorySelect 
+  cartCount, wishlistCount, currentView, categories,
+  selectedCategoryId, onNavigate, onSearch, onCategorySelect 
 }) => {
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
@@ -25,22 +25,13 @@ const Header: React.FC<HeaderProps> = ({
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const delta = currentScrollY - lastScrollY.current;
-      
       setScrolled(currentScrollY > 20);
-
       if (Math.abs(delta) < 8) return;
-
-      if (currentScrollY <= 0) {
-        setIsVisible(true);
-      } else if (delta > 0 && currentScrollY > 120) {
-        setIsVisible(false);
-      } else if (delta < 0) {
-        setIsVisible(true);
-      }
-      
+      if (currentScrollY <= 0) setIsVisible(true);
+      else if (delta > 0 && currentScrollY > 120) setIsVisible(false);
+      else if (delta < 0) setIsVisible(true);
       lastScrollY.current = currentScrollY;
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -97,6 +88,25 @@ const Header: React.FC<HeaderProps> = ({
             />
           </div>
         </div>
+
+        {/* Categories Quick Bar - المدمج الجديد */}
+        <div className={`mt-2 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 transition-all duration-500 ${scrolled ? 'opacity-0 h-0 pointer-events-none' : 'opacity-100 h-auto'}`}>
+          <CategoryChip 
+            active={selectedCategoryId === 'all'} 
+            onClick={() => onCategorySelect('all')} 
+            label="الكل" 
+            icon="✨"
+          />
+          {categories.map(cat => (
+            <CategoryChip 
+              key={cat.id}
+              active={selectedCategoryId === cat.id} 
+              onClick={() => onCategorySelect(cat.id)} 
+              label={cat.name} 
+              icon={cat.name.includes('سوبر') ? '🛒' : cat.name.includes('خضر') ? '🥦' : '🌿'}
+            />
+          ))}
+        </div>
       </div>
     </header>
   );
@@ -113,6 +123,16 @@ const ActionButton = ({ count, icon, onClick, variant = 'secondary', className =
         {count}
       </span>
     )}
+  </button>
+);
+
+const CategoryChip = ({ active, onClick, label, icon }: any) => (
+  <button 
+    onClick={onClick}
+    className={`whitespace-nowrap flex items-center gap-1.5 px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-xs font-black transition-all border shadow-sm ${active ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white/80 border-slate-100 text-slate-500 hover:bg-white'}`}
+  >
+    <span>{icon}</span>
+    {label}
   </button>
 );
 
