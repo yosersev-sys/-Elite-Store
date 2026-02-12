@@ -1,8 +1,8 @@
 
 <?php
 /**
- * فاقوس ستور - المحرك الذكي v3.2 (النسخة النهائية)
- * حل مشكلة الترجمة المتسلسلة للمودولات والـ TypeScript interface
+ * فاقوس ستور - المحرك الذكي v3.3
+ * حل مشكلة الامتدادات والـ 404 Unexpected Token
  */
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -17,7 +17,6 @@ header('Content-Type: text/html; charset=utf-8');
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
-    <!-- Babel Standalone -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="importmap">
@@ -36,7 +35,7 @@ header('Content-Type: text/html; charset=utf-8');
         :root { --primary: #10b981; }
         * { font-family: 'Cairo', sans-serif; }
         body { background: #f8fafc; margin: 0; }
-        #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 9999; }
+        #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 9999; transition: opacity 0.5s; }
         .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -44,7 +43,7 @@ header('Content-Type: text/html; charset=utf-8');
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تهيئة البيئة البرمجية...</p>
+        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تشغيل محرك فاقوس الذكي...</p>
     </div>
     <div id="root"></div>
 
@@ -57,67 +56,81 @@ header('Content-Type: text/html; charset=utf-8');
         const blobCache = new Map();
 
         /**
-         * دالة جلب وترجمة الملفات بشكل متسلسل
+         * دالة ذكية لجلب الملف مع تجربة امتدادات مختلفة
+         */
+        async function fetchWithFallback(url) {
+            const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
+            for (let ext of extensions) {
+                try {
+                    const fullUrl = url + (url.match(/\.(tsx?|jsx?)$/) ? '' : ext);
+                    const response = await fetch(fullUrl);
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type');
+                        // التأكد أننا لا نحمل صفحة HTML (خطأ 404 من السيرفر)
+                        if (contentType && contentType.includes('text/html')) continue;
+                        return { code: await response.text(), finalUrl: fullUrl };
+                    }
+                } catch (e) {}
+            }
+            throw new Error(`تعذر العثور على الملف أو الملف غير صالح: ${url}`);
+        }
+
+        /**
+         * دالة الترجمة المتسلسلة
          */
         async function getTranspiledUrl(filePath) {
-            // إضافة الامتداد الافتراضي إذا لم يوجد
-            if (!filePath.match(/\.(tsx?|jsx?)$/)) {
-                filePath += '.tsx';
-            }
-            
             const absolutePath = new URL(filePath, BASE_URL).href;
             if (blobCache.has(absolutePath)) return blobCache.get(absolutePath);
 
-            console.log(`[Loader] Loading: ${filePath}`);
+            console.log(`[Loader] Processing: ${filePath}`);
             
             try {
-                const response = await fetch(absolutePath);
-                if (!response.ok) throw new Error(`فشل تحميل: ${filePath}`);
-                let code = await response.text();
+                const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
+                let code = rawCode;
 
-                // 1. استخراج كافة الاستيرادات المحلية وترجمتها أولاً
+                // 1. معالجة الاستيرادات
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
-                const imports = [...code.matchAll(importRegex)];
+                const matches = [...code.matchAll(importRegex)];
                 
-                for (const match of imports) {
+                for (const match of matches) {
                     const relativePath = match[1];
-                    const depBlobUrl = await getTranspiledUrl(new URL(relativePath, absolutePath).href);
-                    // استبدال المسار النسبي برابط الـ Blob المترجم
-                    code = code.replace(`"${relativePath}"`, `"${depBlobUrl}"`)
-                               .replace(`'${relativePath}'`, `'${depBlobUrl}'`);
+                    const fullImportPath = new URL(relativePath, finalUrl).href;
+                    const depBlobUrl = await getTranspiledUrl(fullImportPath);
+                    
+                    // استبدال دقيق للمسار
+                    code = code.split(`'${relativePath}'`).join(`'${depBlobUrl}'`);
+                    code = code.split(`"${relativePath}"`).join(`"${depBlobUrl}"`);
                 }
 
-                // 2. ترجمة الكود الحالي بعد إصلاح استيراداته
+                // 2. الترجمة عبر Babel
                 const transformed = Babel.transform(code, {
                     presets: [
                         'react',
                         ['typescript', { isTSX: true, allExtensions: true }]
                     ],
-                    filename: filePath,
+                    filename: finalUrl,
                     sourceMaps: 'inline'
                 }).code;
 
-                // 3. إنشاء Blob وتخزينه
+                // 3. إنشاء رابط Blob
                 const blob = new Blob([transformed], { type: 'application/javascript' });
                 const blobUrl = URL.createObjectURL(blob);
                 blobCache.set(absolutePath, blobUrl);
                 
                 return blobUrl;
             } catch (err) {
-                console.error(`[Loader Error] ${filePath}:`, err);
+                console.error(`[Loader Error] In ${filePath}:`, err);
                 throw err;
             }
         }
 
-        async function startApp() {
+        async function init() {
+            const loaderText = document.getElementById('loader-text');
             try {
-                const loaderText = document.getElementById('loader-text');
-                if (loaderText) loaderText.innerText = "جاري ترجمة المكونات...";
-
-                // ترجمة نقطة البداية App.tsx
+                loaderText.innerText = "جاري فحص المكونات...";
                 const appBlobUrl = await getTranspiledUrl('App.tsx');
                 
-                // استيراد الموديول النهائي
+                loaderText.innerText = "جاري تشغيل واجهة المتجر...";
                 const module = await import(appBlobUrl);
                 const App = module.default;
 
@@ -128,17 +141,18 @@ header('Content-Type: text/html; charset=utf-8');
                     )
                 );
 
-                document.getElementById('initial-loader').remove();
+                document.getElementById('initial-loader').style.opacity = '0';
+                setTimeout(() => document.getElementById('initial-loader').remove(), 500);
             } catch (err) {
-                const loaderText = document.getElementById('loader-text');
+                console.error("Init Error:", err);
                 if (loaderText) {
                     loaderText.style.color = 'red';
-                    loaderText.innerHTML = `خطأ في التشغيل:<br><small style="direction:ltr; display:block;">${err.message}</small>`;
+                    loaderText.innerHTML = `خطأ في تشغيل المحرك:<br><small style="direction:ltr; display:block; margin-top:10px; background:#fff1f1; padding:10px; border-radius:10px; font-family:monospace;">${err.message}</small>`;
                 }
             }
         }
 
-        startApp();
+        init();
     </script>
 </body>
 </html>
