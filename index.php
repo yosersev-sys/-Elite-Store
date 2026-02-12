@@ -1,8 +1,8 @@
 
 <?php
 /**
- * فاقوس ستور - المحرك الذكي v3.5
- * تفعيل الروابط النظيفة BrowserRouter
+ * فاقوس ستور - المحرك الذكي v3.6
+ * تحسين الروابط النظيفة BrowserRouter مع Basename
  */
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -38,16 +38,14 @@ header('Content-Type: text/html; charset=utf-8');
         #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 9999; transition: opacity 0.5s; }
         .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* Hide scrollbar for Chrome, Safari and Opera */
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        /* Hide scrollbar for IE, Edge and Firefox */
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تهيئة المتجر الروابط...</p>
+        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تهيئة المتجر والروابط...</p>
     </div>
     <div id="root"></div>
 
@@ -56,7 +54,8 @@ header('Content-Type: text/html; charset=utf-8');
         import ReactDOM from 'react-dom/client';
         import { BrowserRouter } from 'react-router-dom';
 
-        const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
+        const BASE_PATH = window.location.pathname.replace(/\/(index\.php)?$/, '') || '/';
+        const BASE_URL = window.location.origin + (BASE_PATH.endsWith('/') ? BASE_PATH : BASE_PATH + '/');
         const blobCache = new Map();
 
         async function fetchWithFallback(url) {
@@ -117,7 +116,7 @@ header('Content-Type: text/html; charset=utf-8');
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
                 root.render(
-                    React.createElement(BrowserRouter, null, 
+                    React.createElement(BrowserRouter, { basename: BASE_PATH }, 
                         React.createElement(App, null)
                     )
                 );
@@ -126,7 +125,7 @@ header('Content-Type: text/html; charset=utf-8');
                 setTimeout(() => document.getElementById('initial-loader').remove(), 500);
             } catch (err) {
                 console.error(err);
-                document.getElementById('loader-text').innerHTML = `خطأ: ${err.message}`;
+                document.getElementById('loader-text').innerHTML = `خطأ في التشغيل: ${err.message}`;
             }
         }
 

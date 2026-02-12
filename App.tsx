@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Product, CartItem, Category, Order } from './types.ts';
 import Header from './components/Header.tsx';
 import StoreView from './components/StoreView.tsx';
@@ -74,7 +74,6 @@ const App: React.FC = () => {
 
       <main className="flex-grow container mx-auto px-4 pt-40 pb-20">
         <Routes>
-          {/* المتجر الرئيسي */}
           <Route path="/" element={
             <StoreView 
               products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
@@ -85,14 +84,12 @@ const App: React.FC = () => {
             />
           } />
 
-          {/* تفاصيل المنتج */}
           <Route path="/product/:id" element={
             <ProductDetailsViewWrapper 
               products={products} categories={categories} cart={cart} setCart={setCart} wishlist={wishlist} setWishlist={setWishlist}
             />
           } />
 
-          {/* سلة التسوق */}
           <Route path="/cart" element={
             <CartView 
               cart={cart} 
@@ -103,7 +100,6 @@ const App: React.FC = () => {
             />
           } />
 
-          {/* إتمام الطلب */}
           <Route path="/checkout" element={
             <CheckoutView 
               cart={cart} 
@@ -131,14 +127,12 @@ const App: React.FC = () => {
             />
           } />
 
-          {/* نجاح الطلب */}
           <Route path="/order-success" element={
             lastCreatedOrder ? 
-            <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => navigate('/')} /> : 
+            <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => navigate('/admin')} /> : 
             <div className="text-center py-20 font-bold">لا يوجد طلب حالي</div>
           } />
 
-          {/* لوحة التحكم */}
           <Route path="/admin" element={
             <AdminDashboard 
               products={products} categories={categories} orders={orders}
@@ -152,7 +146,6 @@ const App: React.FC = () => {
             />
           } />
 
-          {/* نماذج الإدارة */}
           <Route path="/admin/add" element={
             <AdminProductForm 
               product={null} categories={categories} 
@@ -190,9 +183,8 @@ const App: React.FC = () => {
   );
 };
 
-// مكون وسيط لجلب بيانات المنتج من الرابط في صفحة التفاصيل
 const ProductDetailsViewWrapper = ({ products, categories, cart, setCart, wishlist, setWishlist }: any) => {
-  const { id } = React.useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const product = products.find((p: any) => p.id === id);
   if (!product) return <div className="text-center py-20 font-bold">المنتج غير موجود</div>;
@@ -209,9 +201,8 @@ const ProductDetailsViewWrapper = ({ products, categories, cart, setCart, wishli
   );
 };
 
-// مكون وسيط لجلب بيانات المنتج في صفحة التعديل
 const AdminProductEditWrapper = ({ products, categories, loadData }: any) => {
-  const { id } = React.useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const product = products.find((p: any) => p.id === id);
   if (!product) return <div className="text-center py-20 font-bold">المنتج غير موجود</div>;
