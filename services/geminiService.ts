@@ -1,32 +1,42 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Fix: Instantiate GoogleGenAI inside functions to ensure fresh client for each call and support potential dynamic API key changes.
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY || "";
+  } catch (e) {
+    return "";
+  }
+};
 
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
+  const apiKey = getApiKey();
+  if (!apiKey) return "وصف المنتج متاح عند تفعيل الذكاء الاصطناعي.";
+
   try {
-    // Fix: Always use new instance before making an API call
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `قم بكتابة وصف تسويقي جذاب ومختصر باللغة العربية لمنتج يسمى "${productName}" في قسم "${category}". ركز على الفوائد والجودة.`,
       config: { temperature: 0.7 }
     });
-    // Fix: Access response.text property directly
     return response.text || "فشل في إنشاء الوصف.";
   } catch (error) {
-    console.error("Error generating description:", error);
-    return "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي.";
+    console.error("Gemini Error:", error);
+    return "وصف افتراضي: منتج عالي الجودة من فاقوس ستور.";
   }
 };
 
 export const generateSeoData = async (productName: string, description: string) => {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+
   try {
-    // Fix: Always use new instance before making an API call
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `بناءً على المنتج "${productName}" والوصف "${description}"، قم بتوليد بيانات SEO باللغة العربية. 
-      أريد عنوان Meta (أقل من 60 حرف)، وصف Meta (أقل من 160 حرف)، وقائمة كلمات مفتاحية مفصولة بفواصل.`,
+      أريد عنوان Meta، وصف Meta، وقائمة كلمات مفتاحية مفصولة بفواصل، و slug إنجليزي.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -35,17 +45,14 @@ export const generateSeoData = async (productName: string, description: string) 
             metaTitle: { type: Type.STRING },
             metaDescription: { type: Type.STRING },
             metaKeywords: { type: Type.STRING },
-            slug: { type: Type.STRING, description: "URL friendly slug in English" }
+            slug: { type: Type.STRING }
           },
           required: ["metaTitle", "metaDescription", "metaKeywords", "slug"]
         }
       }
     });
     
-    // Fix: Access response.text property directly and handle potential undefined
-    const text = response.text;
-    if (!text) return null;
-    return JSON.parse(text);
+    return response.text ? JSON.parse(response.text) : null;
   } catch (error) {
     console.error("SEO AI Error:", error);
     return null;

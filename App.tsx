@@ -1,17 +1,17 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
-import { Product, CartItem, Category, Order } from './types';
-import Header from './components/Header';
-import StoreView from './components/StoreView';
-import AdminDashboard from './admincp/AdminDashboard';
-import AdminProductForm from './admincp/AdminProductForm';
-import AdminInvoiceForm from './admincp/AdminInvoiceForm';
-import CartView from './components/CartView';
-import ProductDetailsView from './components/ProductDetailsView';
-import OrderSuccessView from './components/OrderSuccessView';
-import FloatingAdminButton from './components/FloatingAdminButton';
-import { ApiService } from './services/api';
+import { Product, CartItem, Category, Order } from './types.ts';
+import Header from './components/Header.tsx';
+import StoreView from './components/StoreView.tsx';
+import AdminDashboard from './admincp/AdminDashboard.tsx';
+import AdminProductForm from './admincp/AdminProductForm.tsx';
+import AdminInvoiceForm from './admincp/AdminInvoiceForm.tsx';
+import CartView from './components/CartView.tsx';
+import ProductDetailsView from './components/ProductDetailsView.tsx';
+import OrderSuccessView from './components/OrderSuccessView.tsx';
+import FloatingAdminButton from './components/FloatingAdminButton.tsx';
+import { ApiService } from './services/api.ts';
 
 const App: React.FC = () => {
   const navigate = useNavigate();
@@ -25,18 +25,17 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
-    setIsLoading(true);
     try {
       const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
         ApiService.getProducts(),
         ApiService.getCategories(),
         ApiService.getOrders()
       ]);
-      setProducts(fetchedProducts);
-      setCategories(fetchedCats);
-      setOrders(fetchedOrders);
+      setProducts(fetchedProducts || []);
+      setCategories(fetchedCats || []);
+      setOrders(fetchedOrders || []);
     } catch (err) {
-      console.error("API Error:", err);
+      console.error("Critical Load Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -52,26 +51,12 @@ const App: React.FC = () => {
     });
   };
 
-  const handleInvoiceSubmit = async (order: Order) => {
-    await ApiService.saveOrder(order);
-    loadData();
-    navigate('/order-success');
-  };
-
-  if (isLoading) {
-    return (
-      <div className="h-screen flex flex-col items-center justify-center bg-white">
-        <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 font-black text-orange-600">جاري تحميل فاقوس ستور...</p>
-      </div>
-    );
-  }
+  if (isLoading) return null; // يتم التعامل معه عبر اللودر في index.html
 
   const isAdminView = location.pathname.startsWith('/admin');
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fcfdfb]">
-      {/* الهيدر ثابت في الأعلى دائماً */}
       <Header 
         cartCount={cart.length} 
         wishlistCount={wishlist.length} 
@@ -83,7 +68,6 @@ const App: React.FC = () => {
         onCategorySelect={(id) => navigate(id === 'all' ? '/' : `/category/${id}`)}
       />
 
-      {/* المحتوى مع هامش علوي لتعويض الهيدر الثابت */}
       <main className="flex-grow pt-32 md:pt-40">
         <Routes>
           <Route path="/" element={
@@ -98,21 +82,7 @@ const App: React.FC = () => {
           } />
 
           <Route path="/category/:id" element={
-            <div className="container mx-auto px-4">
-              {(() => {
-                 const { id } = useParams();
-                 return (
-                  <StoreView 
-                    products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={id || 'all'}
-                    showHero={false}
-                    onCategorySelect={(newId) => navigate(newId === 'all' ? '/' : `/category/${newId}`)} 
-                    onAddToCart={onAddToCart} 
-                    onViewProduct={(p) => navigate(`/product/${p.id}`)}
-                    wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-                  />
-                 )
-              })()}
-            </div>
+            <CategoryWrapper products={products} categories={categories} searchQuery={searchQuery} onAddToCart={onAddToCart} wishlist={wishlist} setWishlist={setWishlist} />
           } />
 
           <Route path="/admin/products" element={
@@ -131,21 +101,11 @@ const App: React.FC = () => {
           } />
           
           <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
-
           <Route path="/admin/add" element={<AdminProductForm product={null} categories={categories} onSubmit={async (p) => { await ApiService.addProduct(p); loadData(); navigate('/admin/products'); }} onCancel={() => navigate('/admin/products')} />} />
-          <Route path="/admin/invoice" element={<AdminInvoiceForm products={products} onSubmit={handleInvoiceSubmit} onCancel={() => navigate('/admin/products')} />} />
-          
           <Route path="/cart" element={<CartView cart={cart} onUpdateQuantity={() => {}} onRemove={() => {}} onCheckout={() => navigate('/admin/invoice')} onContinueShopping={() => navigate('/')} />} />
           
           <Route path="/product/:id" element={
-            <div className="container mx-auto px-4">
-              {(() => {
-                const { id } = useParams();
-                const p = products.find(prod => prod.id === id);
-                if (!p) return <div className="py-20 text-center">المنتج غير موجود</div>;
-                return <ProductDetailsView product={p} categoryName={categories.find(c => c.id === p.categoryId)?.name || 'عام'} onAddToCart={onAddToCart} onBack={() => navigate(-1)} isFavorite={wishlist.includes(p.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} />;
-              })()}
-            </div>
+             <ProductDetailsWrapper products={products} categories={categories} onAddToCart={onAddToCart} wishlist={wishlist} setWishlist={setWishlist} />
           } />
         </Routes>
       </main>
@@ -154,8 +114,45 @@ const App: React.FC = () => {
 
       <footer className="bg-slate-900 text-white py-12 text-center mt-20 no-print">
         <h2 className="text-xl font-black mb-4">🛍️ فاقوس ستور</h2>
-        <p className="text-slate-400 text-xs">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة لشركة فاقوس الرقمية</p>
+        <p className="text-slate-400 text-xs tracking-widest uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة لشركة فاقوس الرقمية</p>
       </footer>
+    </div>
+  );
+};
+
+// مكونات وسيطة لحل مشكلة useParams داخل Routes مباشرة
+const CategoryWrapper = ({ products, categories, searchQuery, onAddToCart, wishlist, setWishlist }: any) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  return (
+    <div className="container mx-auto px-4">
+      <StoreView 
+        products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={id || 'all'}
+        showHero={false}
+        onCategorySelect={(newId) => navigate(newId === 'all' ? '/' : `/category/${newId}`)} 
+        onAddToCart={onAddToCart} 
+        onViewProduct={(p) => navigate(`/product/${p.id}`)}
+        wishlist={wishlist} onToggleFavorite={(fid) => setWishlist((prev: any) => prev.includes(fid) ? prev.filter((i: any) => i !== fid) : [...prev, fid])}
+      />
+    </div>
+  );
+};
+
+const ProductDetailsWrapper = ({ products, categories, onAddToCart, wishlist, setWishlist }: any) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const p = products.find((prod: any) => prod.id === id);
+  if (!p) return <div className="py-20 text-center font-black">المنتج غير موجود 🔍</div>;
+  return (
+    <div className="container mx-auto px-4">
+      <ProductDetailsView 
+        product={p} 
+        categoryName={categories.find((c: any) => c.id === p.categoryId)?.name || 'عام'} 
+        onAddToCart={onAddToCart} 
+        onBack={() => navigate(-1)} 
+        isFavorite={wishlist.includes(p.id)} 
+        onToggleFavorite={(fid: any) => setWishlist((prev: any) => prev.includes(fid) ? prev.filter((i: any) => i !== fid) : [...prev, fid])} 
+      />
     </div>
   );
 };

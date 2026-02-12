@@ -1,29 +1,19 @@
 
-# منع تصفح المجلدات
+# متجر فاقوس - إعدادات السيرفر
 Options -Indexes
-
-# تحديد ملف الدخول الرئيسي
-DirectoryIndex index.php index.html
+DirectoryIndex index.html index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
-
-    # تحويل كافة الطلبات إلى index.php إذا لم يكن الملف أو المجلد موجوداً فعلياً
+    
+    # توجيه الطلبات لـ index.html إذا لم يكن الملف موجوداً
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule . index.php [L]
+    RewriteRule ^ index.html [L]
 </IfModule>
 
-# إعدادات ضغط الملفات لتسريع الموقع
+# تحسين أداء الضغط
 <IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/plain
-    AddOutputFilterByType DEFLATE text/html
-    AddOutputFilterByType DEFLATE text/xml
-    AddOutputFilterByType DEFLATE text/css
-    AddOutputFilterByType DEFLATE application/xml
-    AddOutputFilterByType DEFLATE application/xhtml+xml
-    AddOutputFilterByType DEFLATE application/rss+xml
-    AddOutputFilterByType DEFLATE application/javascript
-    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/x-javascript application/json
 </IfModule>
