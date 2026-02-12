@@ -1,14 +1,12 @@
 
 DirectoryIndex index.php
 
-# تأمين إرسال ملفات التايب سكريبت كملفات جافا سكريبت للمتصفح
-<IfModule mod_mime.c>
-    AddType application/javascript .ts
-    AddType application/javascript .tsx
-</IfModule>
-
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    
+    # توجيه طلبات ملفات TS/TSX إلى المحمل الخاص بنا لضبط النوع
+    RewriteCond %{REQUEST_FILENAME} \.(ts|tsx)$
+    RewriteRule ^(.*)$ load.php?file=$1 [L,QSA]
     
     # منع الدخول للمجلدات الحساسة
     RewriteRule ^(laravel|admincp|services|components)/.*$ - [F,L]
@@ -19,9 +17,8 @@ DirectoryIndex index.php
     RewriteRule ^ index.php [L]
 </IfModule>
 
-# تفعيل التخزين المؤقت لتحسين السرعة
-<IfModule mod_expires.c>
-    ExpiresActive On
-    ExpiresDefault "access plus 1 month"
-    ExpiresByType text/html "access plus 0 seconds"
+<IfModule mod_headers.c>
+    <FilesMatch "\.(ts|tsx|js|jsx)$">
+        Header set Access-Control-Allow-Origin "*"
+    </FilesMatch>
 </IfModule>
