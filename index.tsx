@@ -7,15 +7,14 @@ import App from './App';
 const container = document.getElementById('root');
 
 if (!container) {
-  throw new Error("لم يتم العثور على عنصر root في الصفحة");
+  console.error("عنصر root غير موجود في DOM");
+} else {
+  const root = ReactDOM.createRoot(container);
+  root.render(
+    <React.StrictMode>
+      <HashRouter>
+        <App />
+      </HashRouter>
+    </React.StrictMode>
+  );
 }
-
-const root = ReactDOM.createRoot(container);
-
-root.render(
-  <React.StrictMode>
-    <HashRouter>
-      <App />
-    </HashRouter>
-  </React.StrictMode>
-);

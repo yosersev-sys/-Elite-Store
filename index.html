@@ -23,8 +23,12 @@
 </script>
     
     <script>
-      // شيم (Shim) لضمان عدم انهيار المكتبات التي تتطلب بيئة Node
-      window.process = { env: { API_KEY: "" } };
+      // تعريف متغيرات البيئة الأساسية لمنع انهيار المكتبات
+      window.process = { 
+        env: { 
+          API_KEY: "" 
+        } 
+      };
       window.global = window;
     </script>
 
