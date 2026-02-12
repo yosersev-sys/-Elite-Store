@@ -52,6 +52,11 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   };
 
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (view !== 'store') setView('store');
+  };
+
   if (isLoading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
@@ -66,7 +71,7 @@ const App: React.FC = () => {
       <Header 
         cartCount={cart.length} wishlistCount={wishlist.length} currentView={view} categories={categories}
         selectedCategoryId={selectedCategoryId} onNavigate={onNavigateAction}
-        onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
+        onSearch={handleSearch} onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
       />
 
       <main className="flex-grow container mx-auto px-4 pt-40 pb-20">
@@ -76,6 +81,7 @@ const App: React.FC = () => {
             onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])} 
             onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
             wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+            onSearch={handleSearch}
           />
         )}
         
@@ -129,6 +135,17 @@ const App: React.FC = () => {
             onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
             onCheckout={() => onNavigateAction('checkout')}
             onContinueShopping={() => onNavigateAction('store')}
+          />
+        )}
+
+        {view === 'product-details' && selectedProduct && (
+          <ProductDetailsView 
+            product={selectedProduct}
+            categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
+            onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])}
+            onBack={() => onNavigateAction('store')}
+            isFavorite={wishlist.includes(selectedProduct.id)}
+            onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
         )}
       </main>
