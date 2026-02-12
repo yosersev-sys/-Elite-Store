@@ -1,8 +1,8 @@
 
 <?php
 /**
- * فاقوس ستور - المحرك الذكي v3.0
- * حل نهائي لمشاكل المسارات والـ SyntaxError في الاستضافات المشتركة
+ * فاقوس ستور - المحرك الذكي المطور v3.1
+ * حل مشكلة SyntaxError والمسارات في الاستضافات المشتركة
  */
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -13,8 +13,11 @@ header('Content-Type: text/html; charset=utf-8');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>فاقوس ستور - Faqous Store</title>
     
+    <script>window.process = { env: { API_KEY: "" } };</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <!-- تحميل Babel المترجم -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="importmap">
@@ -45,7 +48,8 @@ header('Content-Type: text/html; charset=utf-8');
     </div>
     <div id="root"></div>
 
-    <script type="text/babel" data-presets="react,typescript">
+    <!-- استخدام type="module" ضروري جداً هنا -->
+    <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
         import { HashRouter } from 'react-router-dom';
@@ -53,30 +57,37 @@ header('Content-Type: text/html; charset=utf-8');
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const modulesCache = new Map();
 
-        // دالة ذكية لتحميل وترجمة الملفات مع إصلاح المسارات
+        /**
+         * دالة ذكية تقوم بجلب ملف TSX، ترجمته، وإصلاح مسارات الاستيراد بداخله
+         */
         async function smartImport(filePath) {
             const absolutePath = new URL(filePath, BASE_URL).href;
             if (modulesCache.has(absolutePath)) return modulesCache.get(absolutePath);
 
             try {
                 const response = await fetch(absolutePath);
-                if (!response.ok) throw new Error(`Failed to load ${filePath}`);
+                if (!response.ok) throw new Error(`فشل تحميل الملف: ${filePath}`);
                 let code = await response.text();
 
-                // 1. إصلاح المسارات داخل الكود: تحويل ./ و ../ إلى روابط كاملة
-                // هذا يمنع خطأ "Error resolving module specifier"
+                // 1. إصلاح مسارات الاستيراد (مثلاً من './Header' إلى 'https://site.com/components/Header.tsx')
                 code = code.replace(/from\s+['"](\.\.?\/[^'"]+)['"]/g, (match, path) => {
-                    const resolved = new URL(path, absolutePath).href;
+                    // إضافة الامتداد إذا لم يكن موجوداً
+                    let finalPath = path;
+                    if (!finalPath.endsWith('.tsx') && !finalPath.endsWith('.ts') && !finalPath.endsWith('.js')) {
+                        finalPath += '.tsx';
+                    }
+                    const resolved = new URL(finalPath, absolutePath).href;
                     return `from "${resolved}"`;
                 });
 
                 // 2. ترجمة الكود باستخدام Babel
                 const transformed = Babel.transform(code, {
-                    presets: ['react', 'typescript'],
-                    filename: filePath
+                    presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
+                    filename: filePath,
+                    sourceMaps: 'inline'
                 }).code;
 
-                // 3. تحويل الكود المترجم إلى Blob URL ليتمكن المتصفح من استيراده كمودول
+                // 3. إنشاء رابط Blob لتنفيذ الكود كموديول
                 const blob = new Blob([transformed], { type: 'application/javascript' });
                 const blobUrl = URL.createObjectURL(blob);
                 
@@ -84,33 +95,38 @@ header('Content-Type: text/html; charset=utf-8');
                 modulesCache.set(absolutePath, module);
                 return module;
             } catch (err) {
-                console.error("Loader Error:", err);
+                console.error("SmartImport Error:", err);
                 throw err;
             }
         }
 
-        async function start() {
+        async function init() {
             try {
-                // تحميل App.tsx باستخدام المحمل الذكي
+                // نقطة البداية
                 const module = await smartImport('App.tsx');
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
                 root.render(
-                    <HashRouter>
-                        <App />
-                    </HashRouter>
+                    React.createElement(HashRouter, null, 
+                        React.createElement(App, null)
+                    )
                 );
 
-                document.getElementById('initial-loader').remove();
+                const loader = document.getElementById('initial-loader');
+                if (loader) loader.remove();
             } catch (err) {
-                document.getElementById('loader-text').innerHTML = 
-                    `<span style="color:red">خطأ في التحميل: ${err.message}</span>`;
+                console.error("Initialization Error:", err);
+                const loaderText = document.getElementById('loader-text');
+                if (loaderText) {
+                    loaderText.style.color = 'red';
+                    loaderText.innerHTML = `خطأ في تشغيل المحرك:<br><small>${err.message}</small>`;
+                }
             }
         }
 
-        // انتظر قليلاً لضمان تحميل Babel بالكامل
-        setTimeout(start, 100);
+        // بدء التشغيل
+        init();
     </script>
 </body>
 </html>
