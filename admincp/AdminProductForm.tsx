@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings } from '../types';
 import { generateProductDescription, generateSeoData } from '../services/geminiService';
@@ -84,7 +83,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   };
 
   const handleAiDescription = async () => {
-    if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً');
+    if (!formData.name) return alert('يرجى إدخل اسم المنتج أولاً');
     setIsLoadingAi(true);
     const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
     const desc = await generateProductDescription(formData.name, catName);
@@ -132,7 +131,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">
             {product ? 'تعديل بيانات المحصول' : 'إضافة محصول جديد'}
           </h2>
-          <p className="text-green-600 mt-2 font-bold uppercase tracking-widest text-xs">
+          <p className="text-emerald-600 mt-2 font-bold uppercase tracking-widest text-xs">
             {product ? `تعديل المنتج: ${product.name}` : 'نظام إدارة المنتجات والباركود'}
           </p>
         </div>
@@ -142,7 +141,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       <form onSubmit={handleFormSubmit} className="space-y-10">
         <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
           <div className="space-y-6">
-            <h3 className="text-xl font-black text-green-600 flex items-center gap-3">معرض الصور</h3>
+            <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">معرض الصور</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
               {formData.images.map((img, index) => (
                 <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group border-2 border-slate-50 shadow-sm">
@@ -150,7 +149,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                   <button type="button" onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, i) => i !== index)}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-lg">✕</button>
                 </div>
               ))}
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-green-400 hover:text-green-400 hover:bg-green-50 transition">
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-emerald-400 hover:text-emerald-400 hover:bg-emerald-50 transition">
                 <span className="text-2xl">+</span>
                 <span className="text-[10px] font-bold">إضافة صورة</span>
               </button>
@@ -161,17 +160,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">اسم المنتج</label>
-              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition" placeholder="مثال: طماطم بلدي" />
+              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" placeholder="مثال: طماطم بلدي" />
             </div>
             
-            {/* حقل الباركود */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">رقم الباركود (Barcode)</label>
               <div className="relative">
                 <input 
                   value={formData.barcode} 
                   onChange={e => setFormData({...formData, barcode: e.target.value})} 
-                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition" 
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" 
                   placeholder="مثال: 62810000001" 
                 />
                 <button 
@@ -184,26 +182,26 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">التصنيف</label>
-              <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition">
+              <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition">
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">السعر (ج.م)</label>
-              <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition" placeholder="0.00" />
+              <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" placeholder="0.00" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">الكمية بالمخزن</label>
-              <input required type="number" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition" placeholder="مثال: 50" />
+              <input required type="number" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" placeholder="مثال: 50" />
             </div>
             <div className="space-y-2 relative md:col-span-2">
               <label className="text-sm font-bold text-slate-500 mr-2 flex justify-between">
                 الوصف
-                <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="text-[10px] font-black text-green-600 hover:text-green-700 disabled:opacity-50">
+                <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="text-[10px] font-black text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
                   {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي (Gemini)'}
                 </button>
               </label>
-              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition min-h-[150px] resize-none" placeholder="وصف المنتج..." />
+              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition min-h-[150px] resize-none" placeholder="وصف المنتج..." />
             </div>
           </div>
         </section>
@@ -231,7 +229,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:bg-green-600 transition transform hover:-translate-y-1 active:scale-95">
+        <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:bg-emerald-600 transition transform hover:-translate-y-1 active:scale-95">
           {product ? 'حفظ التعديلات 💾' : 'نشر المحصول في المتجر 🚀'}
         </button>
       </form>

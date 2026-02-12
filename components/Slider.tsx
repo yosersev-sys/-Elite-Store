@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 
 interface Slide {
@@ -76,7 +75,7 @@ const Slider: React.FC = () => {
               {slide.subtitle}
             </p>
             <div>
-              <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-black transition transform hover:scale-105 shadow-lg">
+              <button className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-full font-black transition transform hover:scale-105 shadow-lg">
                 {slide.cta}
               </button>
             </div>

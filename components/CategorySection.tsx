@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Category } from '../types';
 
@@ -16,9 +15,9 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   // Map icons/colors to categories based on their names/IDs
   const getCategoryMeta = (name: string) => {
     const n = name.toLowerCase();
-    if (n.includes('سوبر ماركت')) return { icon: '🛒', color: 'bg-indigo-50 text-indigo-600 border-indigo-100' };
+    if (n.includes('سوبر ماركت')) return { icon: '🛒', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' };
     if (n.includes('خضروات')) return { icon: '🥦', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' };
-    if (n.includes('فواكه')) return { icon: '🍎', color: 'bg-red-50 text-red-600 border-red-100' };
+    if (n.includes('فواكه')) return { icon: '🍎', color: 'bg-rose-50 text-rose-600 border-rose-100' };
     if (n.includes('ألبان')) return { icon: '🥛', color: 'bg-blue-50 text-blue-600 border-blue-100' };
     if (n.includes('مخبوزات')) return { icon: '🥖', color: 'bg-orange-50 text-orange-600 border-orange-100' };
     return { icon: '📦', color: 'bg-slate-50 text-slate-600 border-slate-100' };
@@ -33,7 +32,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
         <button 
           onClick={() => onCategorySelect('all')}
-          className="text-green-600 font-black text-sm hover:underline"
+          className="text-emerald-600 font-black text-sm hover:underline"
         >
           عرض الكل
         </button>
@@ -45,8 +44,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
           onClick={() => onCategorySelect('all')}
           className={`cursor-pointer group p-6 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-3 text-center ${
             selectedCategoryId === 'all' 
-            ? 'bg-green-600 border-green-600 text-white shadow-xl scale-105' 
-            : 'bg-white border-green-50 text-slate-500 hover:border-green-200'
+            ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl scale-105' 
+            : 'bg-white border-emerald-50 text-slate-500 hover:border-emerald-200'
           }`}
         >
           <span className={`text-3xl transition-transform group-hover:scale-110 ${selectedCategoryId === 'all' ? '' : 'grayscale opacity-50'}`}>🛍️</span>
@@ -63,8 +62,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
               onClick={() => onCategorySelect(cat.id)}
               className={`cursor-pointer group p-6 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-3 text-center ${
                 isSelected 
-                ? 'bg-green-600 border-green-600 text-white shadow-xl scale-105' 
-                : 'bg-white border-green-50 text-slate-500 hover:border-green-200'
+                ? 'bg-emerald-600 border-emerald-600 text-white shadow-xl scale-105' 
+                : 'bg-white border-slate-50 text-slate-500 hover:border-emerald-200'
               }`}
             >
               <span className={`text-3xl transition-transform group-hover:scale-110 ${isSelected ? '' : 'grayscale-0'}`}>

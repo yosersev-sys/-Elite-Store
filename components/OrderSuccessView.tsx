@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { Order } from '../types';
 
@@ -56,10 +55,10 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
         className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-gray-100 print:shadow-none print:border-none print:rounded-none"
       >
         {/* Header Success Section */}
-        <div className="bg-indigo-600 p-12 text-center text-white relative print:bg-white print:text-black print:p-6 print:border-b-2">
+        <div className="bg-emerald-600 p-12 text-center text-white relative print:bg-white print:text-black print:p-6 print:border-b-2">
           <div className="relative z-10 flex flex-col items-center">
             <h1 className="text-4xl font-black mb-2 flex items-center gap-4">
-                <span className="print:text-indigo-600">
+                <span className="print:text-emerald-600">
                   <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                     <polyline points="9 22 9 12 15 12 15 22"></polyline>
@@ -86,7 +85,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             </div>
             <div className="space-y-1">
               <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest">طريقة الدفع</p>
-              <p className="text-lg font-bold text-indigo-700">
+              <p className="text-lg font-bold text-emerald-700">
                 {order.paymentMethod}
               </p>
             </div>
@@ -95,7 +94,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             {/* Customer Info */}
             <div className="space-y-4">
-              <h3 className="font-black text-gray-900 flex items-center gap-2 border-r-4 border-indigo-600 pr-3">
+              <h3 className="font-black text-gray-900 flex items-center gap-2 border-r-4 border-emerald-600 pr-3">
                 العميل المستلم
               </h3>
               <div className="bg-gray-50 p-6 rounded-2xl space-y-2 border border-gray-100 print:bg-white">
@@ -121,7 +120,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
                 </div>
                 <div className="flex justify-between text-2xl font-black text-gray-900 pt-5 border-t border-gray-100">
                   <span>الإجمالي</span>
-                  <span className="text-indigo-600">{(Number(order.total) || 0).toFixed(2)} ج.م</span>
+                  <span className="text-emerald-600">{(Number(order.total) || 0).toFixed(2)} ج.م</span>
                 </div>
               </div>
             </div>
@@ -146,7 +145,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
                             <td className="px-6 py-4 font-bold text-slate-800 text-sm">{item.name}</td>
                             <td className="px-6 py-4 font-bold text-slate-500 text-sm">{item.price} ج.م</td>
                             <td className="px-6 py-4 font-black text-slate-900 text-sm">{item.quantity}</td>
-                            <td className="px-6 py-4 font-black text-indigo-600 text-sm">{(item.price * item.quantity).toFixed(2)} ج.م</td>
+                            <td className="px-6 py-4 font-black text-emerald-600 text-sm">{(item.price * item.quantity).toFixed(2)} ج.م</td>
                         </tr>
                     ))}
                 </tbody>
@@ -174,7 +173,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             </button>
             <button 
               onClick={onContinueShopping}
-              className="bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-indigo-700 transition shadow-xl sm:col-span-2 lg:col-span-1"
+              className="bg-emerald-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-emerald-700 transition shadow-xl sm:col-span-2 lg:col-span-1"
             >
               العودة للمتجر
             </button>

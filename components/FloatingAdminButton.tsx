@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View } from '../types';
 
@@ -22,7 +21,7 @@ const FloatingAdminButton: React.FC<FloatingAdminButtonProps> = ({ currentView, 
       {/* Main Button */}
       <button
         onClick={() => onNavigate('admin')}
-        className="w-16 h-16 bg-green-600 text-white rounded-full shadow-[0_20px_50px_rgba(22,163,74,0.3)] flex items-center justify-center hover:bg-slate-900 transition-all duration-500 transform hover:scale-110 active:scale-90 group-hover:rotate-90 border-4 border-white"
+        className="w-16 h-16 bg-emerald-600 text-white rounded-full shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex items-center justify-center hover:bg-slate-900 transition-all duration-500 transform hover:scale-110 active:scale-90 group-hover:rotate-90 border-4 border-white"
         aria-label="Admin Dashboard"
       >
         <svg 
@@ -47,7 +46,7 @@ const FloatingAdminButton: React.FC<FloatingAdminButtonProps> = ({ currentView, 
       </button>
 
       {/* Decorative Pulse Effect */}
-      <span className="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-20 pointer-events-none"></span>
+      <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-20 pointer-events-none"></span>
     </div>
   );
 };

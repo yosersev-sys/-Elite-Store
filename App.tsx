@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, Product, CartItem, Category, Order } from './types.ts';
 import Header from './components/Header.tsx';
@@ -62,8 +61,8 @@ const App: React.FC = () => {
   if (isLoading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-indigo-600">جاري تحميل البيانات...</p>
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-black text-emerald-600">جاري تحميل البيانات...</p>
       </div>
     );
   }
@@ -210,14 +209,14 @@ const App: React.FC = () => {
 
       <footer className="bg-slate-900 text-white py-12 text-center">
         <div className="flex flex-col items-center gap-2 mb-4">
-          <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg text-white">
+          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg text-white">
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
               <polyline points="9 22 9 12 15 12 15 22"></polyline>
             </svg>
           </div>
           <h2 className="text-xl font-black">سوق العصر</h2>
-          <p className="text-indigo-500 text-[10px] font-black uppercase tracking-widest">أكبر سوق إلكتروني في فاقوس</p>
+          <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">أكبر سوق إلكتروني في فاقوس</p>
         </div>
         <p className="text-slate-500 text-xs tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
       </footer>
