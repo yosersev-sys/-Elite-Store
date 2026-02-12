@@ -4,21 +4,17 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
-    # توجيه طلبات ملفات TS/TSX إلى المحمل الخاص بنا لضبط النوع
-    RewriteCond %{REQUEST_FILENAME} \.(ts|tsx)$
-    RewriteRule ^(.*)$ load.php?file=$1 [L,QSA]
+    # السماح بالوصول المباشر للملفات الموجودة فعلياً
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
     
-    # منع الدخول للمجلدات الحساسة
-    RewriteRule ^(laravel|admincp|services|components)/.*$ - [F,L]
-    
-    # توجيه الطلبات إلى index.php إذا لم يكن الملف موجوداً
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
+    # توجيه أي طلب آخر إلى index.php
     RewriteRule ^ index.php [L]
 </IfModule>
 
 <IfModule mod_headers.c>
     <FilesMatch "\.(ts|tsx|js|jsx)$">
         Header set Access-Control-Allow-Origin "*"
+        Header set Content-Type "application/javascript"
     </FilesMatch>
 </IfModule>
