@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { Order } from '../types';
 
@@ -60,8 +61,10 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             <h1 className="text-4xl font-black mb-2 flex items-center gap-4">
                 <span className="print:text-emerald-600">
                   <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
+                    <path d="M3 9l2.44-4.91A2 2 0 0 1 7.23 3h9.54a2 2 0 0 1 1.79 1.09L21 9" />
+                    <path d="M9 21V12" />
+                    <path d="M15 21V12" />
                   </svg>
                 </span> سوق العصر
             </h1>
