@@ -29,7 +29,6 @@
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* Global Animations */
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
@@ -38,5 +37,7 @@
 </head>
 <body>
     <div id="root"></div>
+    <!-- السطر التالي هو الأهم لربط الملفات ببعضها -->
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>
