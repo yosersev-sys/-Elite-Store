@@ -9,7 +9,6 @@ export interface SeoSettings {
 export interface Category {
   id: string;
   name: string;
-  sortOrder?: number; // الترتيب التسلسلي للقسم
 }
 
 export interface Product {

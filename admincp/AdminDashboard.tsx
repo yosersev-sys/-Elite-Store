@@ -56,31 +56,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return products.filter(p => p.name.toLowerCase().includes(adminSearch.toLowerCase()));
   }, [products, adminSearch]);
 
-  const sortedCategories = useMemo(() => {
-    return [...categories].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-  }, [categories]);
-
   const handleUpdateCat = (id: string) => {
     if (!editingCatName.trim()) return;
-    const cat = categories.find(c => c.id === id);
-    onUpdateCategory({ id, name: editingCatName, sortOrder: cat?.sortOrder });
+    onUpdateCategory({ id, name: editingCatName });
     setEditingCatId(null);
-  };
-
-  const handleMoveCategory = async (id: string, direction: 'up' | 'down') => {
-    const index = sortedCategories.findIndex(c => c.id === id);
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === sortedCategories.length - 1) return;
-
-    const currentCat = sortedCategories[index];
-    const targetCat = direction === 'up' ? sortedCategories[index - 1] : sortedCategories[index + 1];
-
-    const currentOrder = currentCat.sortOrder || 0;
-    const targetOrder = targetCat.sortOrder || 0;
-
-    // تبديل الترتيب
-    await onUpdateCategory({ ...currentCat, sortOrder: targetOrder });
-    await onUpdateCategory({ ...targetCat, sortOrder: currentOrder });
   };
 
   const openDeleteConfirmation = (type: 'product' | 'category', id: string, name: string) => {
@@ -247,7 +226,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sortedCategories.map((cat, index) => (
+              {categories.map(cat => (
                 <div key={cat.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition">
                   {editingCatId === cat.id ? (
                     <div className="flex items-center gap-2 flex-grow">
@@ -262,25 +241,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center gap-4">
-                         <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition">
-                            <button 
-                              disabled={index === 0}
-                              onClick={() => handleMoveCategory(cat.id, 'up')}
-                              className="text-slate-300 hover:text-emerald-500 disabled:opacity-20"
-                            >▲</button>
-                            <button 
-                              disabled={index === sortedCategories.length - 1}
-                              onClick={() => handleMoveCategory(cat.id, 'down')}
-                              className="text-slate-300 hover:text-emerald-500 disabled:opacity-20"
-                            >▼</button>
-                         </div>
-                         <div>
-                            <p className="font-black text-slate-800">{cat.name}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                              {products.filter(p => p.categoryId === cat.id).length} منتج متاح
-                            </p>
-                         </div>
+                      <div>
+                        <p className="font-black text-slate-800">{cat.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                          {products.filter(p => p.categoryId === cat.id).length} منتج متاح
+                        </p>
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                         <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} className="p-2 text-slate-400 hover:text-blue-600 transition">✎</button>

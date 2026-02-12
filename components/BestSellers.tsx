@@ -92,10 +92,9 @@ const BestSellers: React.FC<BestSellersProps> = ({ products, onAddToCart, onView
                   
                   <button 
                     onClick={() => onAddToCart(product)}
-                    className="bg-indigo-600 hover:bg-gray-900 text-white px-4 md:px-6 h-10 md:h-12 flex items-center gap-2 rounded-xl md:rounded-2xl transition-all duration-300 shadow-lg shadow-indigo-100 active:scale-95 group/btn"
+                    className="bg-indigo-600 hover:bg-gray-900 text-white w-9 h-9 md:w-12 md:h-12 flex items-center justify-center rounded-xl md:rounded-2xl transition-all duration-300 shadow-lg shadow-indigo-100 group-hover:rotate-[360deg]"
                   >
-                    <span className="text-xs md:text-sm font-black">شراء</span>
-                    <svg className="w-4 h-4 md:w-5 md:h-5 transition-transform group-hover/btn:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                     </svg>
                   </button>

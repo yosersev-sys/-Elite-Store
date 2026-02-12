@@ -67,10 +67,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
           
           <button 
             onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
-            className="px-3 md:px-5 h-9 md:h-12 bg-slate-900 text-white rounded-xl md:rounded-2xl flex items-center gap-1.5 md:gap-2 hover:bg-emerald-500 transition-all shadow-xl active:scale-95 group/btn"
+            className="w-8 h-8 md:w-12 md:h-12 bg-slate-900 text-white rounded-xl md:rounded-2xl flex items-center justify-center hover:bg-emerald-500 transition-all shadow-xl active:scale-90"
           >
-            <span className="text-[10px] md:text-sm font-black">شراء</span>
-            <svg className="w-3 h-3 md:w-5 md:h-5 transition-transform group-hover/btn:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
             </svg>
           </button>
