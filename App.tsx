@@ -62,8 +62,8 @@ const App: React.FC = () => {
   if (isLoading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-indigo-600">جاري تحميل البيانات...</p>
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-black text-emerald-600">جاري تحميل البيانات...</p>
       </div>
     );
   }
@@ -210,9 +210,9 @@ const App: React.FC = () => {
 
       <footer className="bg-slate-900 text-white py-12 text-center">
         <div className="flex flex-col items-center gap-2 mb-4">
-          <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-xl shadow-lg">🏛️</div>
+          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl shadow-lg">🏛️</div>
           <h2 className="text-xl font-black">سوق العصر</h2>
-          <p className="text-indigo-500 text-[10px] font-black uppercase tracking-widest">أكبر سوق إلكتروني في فاقوس</p>
+          <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">أكبر سوق إلكتروني في فاقوس</p>
         </div>
         <p className="text-slate-500 text-xs tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
       </footer>
