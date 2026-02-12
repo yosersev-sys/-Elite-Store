@@ -40,7 +40,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </svg>
         </button>
 
-        {/* Overlay Action - Hidden on touch devices usually but keep for desktop hover */}
+        {/* Overlay Action */}
         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex items-center justify-center">
            <div className="bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl font-black text-xs text-slate-800 shadow-2xl translate-y-4 group-hover:translate-y-0 transition-transform">
              عرض التفاصيل
@@ -56,8 +56,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
           {product.description}
         </p>
         
-        <div className="flex items-center justify-between mt-auto">
-          <div className="flex flex-col">
+        <div className="flex items-center justify-between mt-auto gap-2">
+          <div className="flex flex-col shrink-0">
             <span className="text-[7px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">السعر</span>
             <div className="flex items-baseline gap-0.5 md:gap-1">
               <span className="text-base md:text-2xl font-black text-slate-900 tracking-tighter">{product.price}</span>
@@ -67,9 +67,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
           
           <button 
             onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
-            className="w-8 h-8 md:w-12 md:h-12 bg-slate-900 text-white rounded-xl md:rounded-2xl flex items-center justify-center hover:bg-emerald-500 transition-all shadow-xl active:scale-90"
+            className="flex-grow md:flex-grow-0 h-10 md:h-12 px-4 md:px-6 bg-slate-900 text-white rounded-xl md:rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-500 transition-all shadow-xl active:scale-95 whitespace-nowrap"
           >
-            <svg className="w-4 h-4 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span className="text-[10px] md:text-sm font-black">شراء</span>
+            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
             </svg>
           </button>
