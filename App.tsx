@@ -30,14 +30,16 @@ const App: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
-        ApiService.getProducts(),
-        ApiService.getCategories(),
-        ApiService.getOrders()
-      ]);
-      setProducts(fetchedProducts || []);
-      setCategories(fetchedCats || []);
-      setOrders(fetchedOrders || []);
+      // تحميل البيانات بشكل منفصل لضمان عمل التطبيق حتى لو فشل جزء واحد
+      const fetchedProducts = await ApiService.getProducts();
+      if (fetchedProducts) setProducts(fetchedProducts);
+
+      const fetchedCats = await ApiService.getCategories();
+      if (fetchedCats) setCategories(fetchedCats);
+
+      const fetchedOrders = await ApiService.getOrders();
+      if (fetchedOrders) setOrders(fetchedOrders);
+      
     } catch (err) {
       console.error("Data loading error:", err);
     } finally {
@@ -129,6 +131,17 @@ const App: React.FC = () => {
             onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
             onCheckout={() => onNavigateAction('checkout')}
             onContinueShopping={() => onNavigateAction('store')}
+          />
+        )}
+
+        {view === 'product-details' && selectedProduct && (
+          <ProductDetailsView 
+            product={selectedProduct}
+            categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
+            onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])}
+            onBack={() => onNavigateAction('store')}
+            isFavorite={wishlist.includes(selectedProduct.id)}
+            onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
         )}
       </main>
