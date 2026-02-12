@@ -30,7 +30,6 @@ const App: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // تحميل البيانات بشكل منفصل لضمان عمل التطبيق حتى لو فشل جزء واحد
       const fetchedProducts = await ApiService.getProducts();
       if (fetchedProducts) setProducts(fetchedProducts);
 
@@ -87,10 +86,26 @@ const App: React.FC = () => {
             onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
             onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
             onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
-            onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); loadData(); }}
-            onAddCategory={async (c) => { await ApiService.addCategory(c); loadData(); }}
-            onUpdateCategory={async (c) => { await ApiService.updateCategory(c); loadData(); }}
-            onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); loadData(); }}
+            onDeleteProduct={async (id) => { 
+                const success = await ApiService.deleteProduct(id); 
+                if (success) alert('تم حذف المنتج بنجاح! 🗑️');
+                loadData(); 
+            }}
+            onAddCategory={async (c) => { 
+                const success = await ApiService.addCategory(c); 
+                if (success) alert('تم إضافة القسم بنجاح! ✅');
+                loadData(); 
+            }}
+            onUpdateCategory={async (c) => { 
+                const success = await ApiService.updateCategory(c); 
+                if (success) alert('تم تحديث القسم بنجاح! ✏️');
+                loadData(); 
+            }}
+            onDeleteCategory={async (id) => { 
+                const success = await ApiService.deleteCategory(id); 
+                if (success) alert('تم حذف القسم بنجاح! 🗑️');
+                loadData(); 
+            }}
           />
         )}
 
@@ -99,9 +114,20 @@ const App: React.FC = () => {
             product={selectedProduct} categories={categories} 
             onSubmit={async (p) => {
                const isEdit = products.some(prod => prod.id === p.id);
-               if (isEdit) await ApiService.updateProduct(p); else await ApiService.addProduct(p);
-               await loadData();
-               onNavigateAction('admin');
+               let success = false;
+               if (isEdit) {
+                 success = await ApiService.updateProduct(p);
+               } else {
+                 success = await ApiService.addProduct(p);
+               }
+               
+               if (success) {
+                 alert('تم حفظ البيانات بنجاح! ✨');
+                 await loadData();
+                 onNavigateAction('admin');
+               } else {
+                 alert('عذراً، حدث خطأ أثناء الحفظ.');
+               }
             }}
             onCancel={() => onNavigateAction('admin')}
           />
@@ -113,6 +139,7 @@ const App: React.FC = () => {
             onSubmit={async (order) => {
               await ApiService.saveOrder(order);
               setLastCreatedOrder(order);
+              alert('تم إصدار الفاتورة بنجاح! 🧾');
               await loadData();
               onNavigateAction('order-success');
             }}
