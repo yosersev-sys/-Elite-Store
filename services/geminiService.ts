@@ -2,28 +2,26 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 const getApiKey = () => {
-  try {
-    return process.env.API_KEY || "";
-  } catch (e) {
-    return "";
+  // فحص آمن لوجود المفتاح في نافذة المتصفح
+  if (typeof window !== 'undefined' && (window as any).process?.env?.API_KEY) {
+    return (window as any).process.env.API_KEY;
   }
+  return "";
 };
 
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
   const apiKey = getApiKey();
-  if (!apiKey) return "وصف المنتج متاح عند تفعيل الذكاء الاصطناعي.";
+  if (!apiKey) return "وصف المنتج متاح عند ربط مفتاح AI.";
 
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `قم بكتابة وصف تسويقي جذاب ومختصر باللغة العربية لمنتج يسمى "${productName}" في قسم "${category}". ركز على الفوائد والجودة.`,
-      config: { temperature: 0.7 }
+      contents: `اكتب وصفاً تسويقياً باللغة العربية لمنتج "${productName}" في قسم "${category}".`,
     });
-    return response.text || "فشل في إنشاء الوصف.";
+    return response.text || "لم يتم توليد وصف.";
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return "وصف افتراضي: منتج عالي الجودة من فاقوس ستور.";
+    return "منتج طازج وعالي الجودة من فاقوس ستور.";
   }
 };
 
@@ -35,8 +33,7 @@ export const generateSeoData = async (productName: string, description: string) 
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `بناءً على المنتج "${productName}" والوصف "${description}"، قم بتوليد بيانات SEO باللغة العربية. 
-      أريد عنوان Meta، وصف Meta، وقائمة كلمات مفتاحية مفصولة بفواصل، و slug إنجليزي.`,
+      contents: `ولد بيانات SEO لمنتج "${productName}".`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -51,10 +48,8 @@ export const generateSeoData = async (productName: string, description: string) 
         }
       }
     });
-    
     return response.text ? JSON.parse(response.text) : null;
   } catch (error) {
-    console.error("SEO AI Error:", error);
     return null;
   }
 };

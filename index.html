@@ -5,8 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>فاقوس ستور - Faqous Store</title>
+    
+    <!-- تعريف بيئة العمل لمنع أخطاء المكتبات -->
+    <script>
+        window.process = { env: { API_KEY: "" } };
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- مترجم Babel للتعامل مع ملفات TSX مباشرة -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <script type="importmap">
 {
   "imports": {
@@ -20,56 +30,53 @@
   }
 }
 </script>
+    
     <style>
         * { font-family: 'Cairo', sans-serif; }
-        body { 
-            background-color: #fcfdfb; 
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            color: #1e293b;
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* Loading Spinner */
+        body { background-color: #fcfdfb; margin: 0; padding: 0; min-height: 100vh; }
         #initial-loader {
-            position: fixed;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: white;
-            z-index: 9999;
-            transition: opacity 0.5s ease;
+            position: fixed; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; background: white;
+            z-index: 9999; transition: opacity 0.5s ease;
         }
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #f97316;
-            border-radius: 50%;
+            width: 40px; height: 40px; border: 4px solid #f3f3f3;
+            border-top: 4px solid #f97316; border-radius: 50%;
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
     </style>
 </head>
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p style="margin-top: 20px; font-weight: 900; color: #f97316;">جاري تشغيل فاقوس ستور...</p>
+        <p style="margin-top: 15px; font-weight: 900; color: #f97316; font-size: 14px;">جاري تحميل المتجر...</p>
     </div>
+    
     <div id="root"></div>
-    <script type="module">
-        // كود لإخفاء اللودر عند تحميل التطبيق
+
+    <!-- تشغيل التطبيق عبر Babel لترجمة الكود -->
+    <script type="text/babel" data-type="module">
+        import React from 'react';
+        import ReactDOM from 'react-dom/client';
+        import { HashRouter } from 'react-router-dom';
+        import App from './App.tsx';
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(
+            <HashRouter>
+                <App />
+            </HashRouter>
+        );
+
+        // إخفاء اللودر بعد التحميل
         window.addEventListener('load', () => {
             const loader = document.getElementById('initial-loader');
-            if (loader) loader.style.opacity = '0';
-            setTimeout(() => loader?.remove(), 500);
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.remove(), 500);
+            }
         });
     </script>
-    <script type="module" src="index.tsx"></script>
 </body>
 </html>
