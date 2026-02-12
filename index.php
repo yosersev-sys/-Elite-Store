@@ -2,38 +2,35 @@
 <?php
 /**
  * المدخل الرئيسي لمتجر فاقوس - Faqous Store
- * تم دمج محرك تشغيل React مع PHP لضمان التوافق مع Hostinger
+ * تم تحسينه ليعمل على Hostinger و cPanel
  */
 header('Content-Type: text/html; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>فاقوس ستور - Faqous Store | التميز في التسوق</title>
+    <title>فاقوس ستور - Faqous Store</title>
     
     <script>
-        // تعريف بيئة العمل
+        // تهيئة البيئة الأساسية
         window.process = { env: { API_KEY: "" } };
         
-        // معالج أخطاء لعرضها على الشاشة في حال فشل التحميل
-        window.onerror = function(msg, url, line) {
-            const loader = document.getElementById('initial-loader');
+        // التقاط أخطاء التحميل (Critical for Debugging)
+        window.addEventListener('error', function(e) {
+            console.error('Global Error:', e);
+            const loader = document.getElementById('loader-text');
             if (loader) {
-                loader.innerHTML = `<div style="color:red; padding:20px; text-align:center;">
-                    <h2 style="margin-bottom:10px;">حدث خطأ في تحميل التطبيق</h2>
-                    <p style="font-size:14px;">${msg}</p>
-                    <p style="font-size:12px; color:#666;">السطر: ${line} - الرابط: ${url}</p>
-                    <button onclick="location.reload()" style="margin-top:20px; padding:10px 20px; background:#10b981; color:white; border:none; border-radius:8px; cursor:pointer;">إعادة تحميل الصفحة</button>
-                </div>`;
+                loader.style.color = '#ef4444';
+                loader.innerHTML = 'حدث خطأ في تحميل الملفات البرمجية.<br><small style="font-weight:normal; font-size:10px;">انظر إلى Console المتصفح (F12) للمزيد من التفاصيل</small>';
             }
-            return false;
-        };
+        }, true);
     </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="importmap">
@@ -49,10 +46,9 @@ header('Content-Type: text/html; charset=utf-8');
     </script>
     
     <style>
-        :root { --primary: #10b981; --bg-light: #f8fafc; }
+        :root { --primary: #10b981; }
         * { font-family: 'Cairo', sans-serif; }
-        body { background-color: var(--bg-light); margin: 0; }
-        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        body { background-color: #f8fafc; margin: 0; }
         #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 9999; }
         .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -61,36 +57,47 @@ header('Content-Type: text/html; charset=utf-8');
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p style="margin-top: 15px; font-weight: 800; color: #10b981;">جاري تشغيل محرك فاقوس...</p>
+        <p id="loader-text" style="margin-top: 15px; font-weight: 800; color: #10b981; text-align:center;">جاري تشغيل محرك فاقوس...</p>
     </div>
 
     <div id="root"></div>
 
+    <!-- استخدام Babel لترجمة التطبيق -->
     <script type="text/babel" data-type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
         import { HashRouter } from 'react-router-dom';
         import App from './App.tsx';
 
-        try {
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(
-                <HashRouter>
-                    <App />
-                </HashRouter>
-            );
-            
-            // إخفاء اللودر بمجرد بدء رندر React
-            const loader = document.getElementById('initial-loader');
-            if (loader) {
-                setTimeout(() => {
-                    loader.style.opacity = '0';
-                    setTimeout(() => loader.remove(), 500);
-                }, 1000);
+        const renderApp = () => {
+            try {
+                const rootElement = document.getElementById('root');
+                const root = ReactDOM.createRoot(rootElement);
+                root.render(
+                    <HashRouter>
+                        <App />
+                    </HashRouter>
+                );
+                
+                // إخفاء شاشة التحميل
+                const loader = document.getElementById('initial-loader');
+                if (loader) {
+                    setTimeout(() => {
+                        loader.style.opacity = '0';
+                        setTimeout(() => loader.remove(), 500);
+                    }, 800);
+                }
+            } catch (err) {
+                console.error("React Mounting Error:", err);
+                document.getElementById('loader-text').innerHTML = "فشل تشغيل الواجهة: " + err.message;
             }
-        } catch (err) {
-            console.error("Mounting error:", err);
-            throw err;
+        };
+
+        // التأكد من تحميل الصفحة بالكامل قبل البدء
+        if (document.readyState === 'complete') {
+            renderApp();
+        } else {
+            window.addEventListener('load', renderApp);
         }
     </script>
 </body>
