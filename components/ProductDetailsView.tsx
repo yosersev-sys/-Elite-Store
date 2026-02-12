@@ -20,8 +20,8 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   onToggleFavorite
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [copySuccess, setCopySuccess] = useState(false);
   
-  // Safe Access for properties
   const images = Array.isArray(product?.images) ? product.images : [];
   const sizes = Array.isArray(product?.sizes) ? product.sizes : [];
   const colors = Array.isArray(product?.colors) ? product.colors : [];
@@ -29,22 +29,40 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const [selectedSize, setSelectedSize] = useState<string>(sizes[0] || '');
   const [selectedColor, setSelectedColor] = useState<string>(colors[0] || '');
 
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
   if (!product) return <div className="p-20 text-center font-bold">عذراً، لم يتم العثور على المنتج</div>;
 
   const isOutOfStock = (product.stockQuantity || 0) <= 0;
-  const isLowStock = (product.stockQuantity || 0) > 0 && (product.stockQuantity || 0) < 5;
 
   return (
     <div className="animate-fadeIn max-w-6xl mx-auto py-8 px-4">
-      <button 
-        onClick={onBack}
-        className="flex items-center gap-2 text-gray-500 hover:text-indigo-600 transition mb-8 font-bold"
-      >
-        <svg className="w-5 h-5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-        </svg>
-        العودة للمتجر
-      </button>
+      <div className="flex items-center justify-between mb-8">
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-gray-500 hover:text-emerald-600 transition font-bold"
+        >
+          <svg className="w-5 h-5 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+          العودة للمتجر
+        </button>
+
+        <button 
+          onClick={handleCopyLink}
+          className={`flex items-center gap-2 px-6 py-2 rounded-xl font-bold transition-all border ${copySuccess ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+        >
+          {copySuccess ? (
+            <><span>تم النسخ!</span> ✅</>
+          ) : (
+            <><span>نسخ رابط المنتج</span> 🔗</>
+          )}
+        </button>
+      </div>
 
       <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-gray-50">
         <div className="grid grid-cols-1 lg:grid-cols-2">
@@ -86,7 +104,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                   <button 
                     key={idx}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition ${activeImageIndex === idx ? 'border-indigo-600 scale-105' : 'border-transparent opacity-60'}`}
+                    className={`w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 transition ${activeImageIndex === idx ? 'border-emerald-600 scale-105' : 'border-transparent opacity-60'}`}
                   >
                     <img src={img} className="w-full h-full object-cover" alt="" />
                   </button>
@@ -98,74 +116,32 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
           <div className="p-10 lg:p-16 flex flex-col justify-center">
             <div className="space-y-8">
               <div>
-                <span className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-full text-xs font-black uppercase mb-4 inline-block tracking-widest">
+                <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-full text-xs font-black uppercase mb-4 inline-block tracking-widest">
                   {categoryName}
                 </span>
                 <h1 className="text-4xl lg:text-5xl font-black text-gray-900 leading-tight">
                   {product.name}
                 </h1>
-                
-                {isLowStock && (
-                  <div className="mt-4 flex items-center gap-2 text-orange-600 bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100 animate-pulse">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm font-bold">عجل! تبقى فقط {product.stockQuantity} قطع في المخزون.</span>
-                  </div>
-                )}
+                <p className="text-slate-400 font-bold mt-2">كود المنتج: {product.barcode || product.id}</p>
               </div>
 
               <div className="flex items-baseline gap-4 py-4 border-y border-gray-100">
-                <span className="text-5xl font-black text-indigo-600">
+                <span className="text-5xl font-black text-emerald-600">
                   {product.price} <small className="text-lg font-bold">ر.س</small>
                 </span>
               </div>
 
-              {sizes.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">المقاس</h3>
-                  <div className="flex flex-wrap gap-3">
-                    {sizes.map(size => (
-                      <button 
-                        key={size} 
-                        onClick={() => setSelectedSize(size)} 
-                        className={`min-w-[50px] h-12 px-4 rounded-xl font-bold transition-all border-2 ${selectedSize === size ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-300'}`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {colors.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">اللون</h3>
-                  <div className="flex flex-wrap gap-4">
-                    {colors.map(color => (
-                      <button 
-                        key={color} 
-                        onClick={() => setSelectedColor(color)} 
-                        className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all border-2 ${selectedColor === color ? 'bg-gray-900 border-gray-900 text-white shadow-lg' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'}`}
-                      >
-                        <span className="text-sm">{color}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">الوصف</h3>
-                <p className="text-gray-500 leading-relaxed text-lg">{product.description || 'لا يوجد وصف متوفر لهذا المنتج.'}</p>
+                <p className="text-gray-500 leading-relaxed text-lg">{product.description || 'لا يوجد وصف متوفر.'}</p>
               </div>
 
-              <div className="pt-8 flex gap-4">
+              <div className="pt-8">
                 <button 
                   disabled={isOutOfStock}
                   onClick={() => onAddToCart(product, selectedSize, selectedColor)}
-                  className={`flex-grow py-5 px-8 rounded-2xl font-black text-xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-4 ${
-                    isOutOfStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' : 'bg-gray-900 text-white hover:bg-indigo-600'
+                  className={`w-full py-5 px-8 rounded-2xl font-black text-xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-4 ${
+                    isOutOfStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' : 'bg-slate-900 text-white hover:bg-emerald-600'
                   }`}
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
