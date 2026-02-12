@@ -1,158 +1,155 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
-import { Product, CartItem, Category, Order } from './types.ts';
-import Header from './components/Header.tsx';
-import StoreView from './components/StoreView.tsx';
-import AdminDashboard from './admincp/AdminDashboard.tsx';
-import AdminProductForm from './admincp/AdminProductForm.tsx';
-import AdminInvoiceForm from './admincp/AdminInvoiceForm.tsx';
-import CartView from './components/CartView.tsx';
-import ProductDetailsView from './components/ProductDetailsView.tsx';
-import OrderSuccessView from './components/OrderSuccessView.tsx';
-import FloatingAdminButton from './components/FloatingAdminButton.tsx';
-import { ApiService } from './services/api.ts';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Product, CartItem, Category, Order } from './types';
+import Header from './components/Header';
+import StoreView from './components/StoreView';
+import AdminDashboard from './admincp/AdminDashboard';
+import AdminProductForm from './admincp/AdminProductForm';
+import AdminInvoiceForm from './admincp/AdminInvoiceForm';
+import CartView from './components/CartView';
+import ProductDetailsView from './components/ProductDetailsView';
+import AuthView from './components/AuthView';
+import CheckoutView from './components/CheckoutView';
+import OrderSuccessView from './components/OrderSuccessView';
+import CategoryPageView from './components/CategoryPageView';
+import FloatingAdminButton from './components/FloatingAdminButton';
+import { ApiService } from './services/api';
 
 const App: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [view, setView] = useState<View>('store');
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadData = useCallback(async () => {
+  const updateUrl = (params: Record<string, string | null>) => {
+    const url = new URL(window.location.href);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    });
+    window.history.pushState({}, '', url.toString());
+  };
+
+  const syncWithUrl = useCallback((allProducts: Product[], allCategories: Category[]) => {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('v') as View | null;
+    if (viewParam) setView(viewParam);
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
     try {
       const [fetchedProducts, fetchedCats, fetchedOrders] = await Promise.all([
         ApiService.getProducts(),
         ApiService.getCategories(),
         ApiService.getOrders()
       ]);
-      setProducts(fetchedProducts || []);
-      setCategories(fetchedCats || []);
-      setOrders(fetchedOrders || []);
+      setProducts(fetchedProducts);
+      setCategories(fetchedCats);
+      setOrders(fetchedOrders);
+      syncWithUrl(fetchedProducts, fetchedCats);
     } catch (err) {
-      console.error("Critical Load Error:", err);
+      console.error("Initialization error:", err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  const onAddToCart = (p: Product) => {
-    setCart(prev => {
-      const exist = prev.find(item => item.id === p.id);
-      if (exist) return prev.map(item => item.id === p.id ? {...item, quantity: item.quantity + 1} : item);
-      return [...prev, {...p, quantity: 1}];
-    });
   };
 
-  if (isLoading) return null; // يتم التعامل معه عبر اللودر في index.html
+  useEffect(() => { loadData(); }, [syncWithUrl]);
 
-  const isAdminView = location.pathname.startsWith('/admin');
+  const onNavigateAction = (v: View) => {
+    setView(v);
+    updateUrl({ v });
+  };
+
+  const handleInvoiceSubmit = async (order: Order) => {
+    await ApiService.saveOrder(order);
+    setOrders(prev => [order, ...prev]);
+    setLastCreatedOrder(order);
+    onNavigateAction('order-success');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600">
+        <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-black tracking-tighter text-xl">جاري تحضير مبيعات فاقوس ستور...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfdfb]">
+    <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#f8faf7]">
       <Header 
-        cartCount={cart.length} 
-        wishlistCount={wishlist.length} 
-        currentView={isAdminView ? 'admin' : 'store'} 
-        categories={categories}
-        selectedCategoryId="all"
-        onNavigate={() => {}}
-        onSearch={setSearchQuery} 
-        onCategorySelect={(id) => navigate(id === 'all' ? '/' : `/category/${id}`)}
+        cartCount={cart.length} wishlistCount={wishlist.length} currentView={view} categories={categories}
+        selectedCategoryId={selectedCategoryId} onNavigate={onNavigateAction}
+        onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
       />
 
-      <main className="flex-grow pt-32 md:pt-40">
-        <Routes>
-          <Route path="/" element={
-            <StoreView 
-              products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId="all"
-              showHero={true} 
-              onCategorySelect={(id) => navigate(id === 'all' ? '/' : `/category/${id}`)} 
-              onAddToCart={onAddToCart} 
-              onViewProduct={(p) => navigate(`/product/${p.id}`)}
-              wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-            />
-          } />
+      <main className="flex-grow container mx-auto px-4 py-8">
+        {view === 'store' && (
+          <StoreView 
+            products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
+            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])} 
+            onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
+            wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+          />
+        )}
+        
+        {view === 'admin' && (
+          <AdminDashboard 
+            products={products} categories={categories} orders={orders}
+            onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
+            onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
+            onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
+            onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); setProducts(prev => prev.filter(p => p.id !== id)); }}
+            onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
+            onUpdateCategory={async (c) => { await ApiService.updateCategory(c); setCategories(prev => prev.map(cat => cat.id === c.id ? c : cat)); }}
+            onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); setCategories(prev => prev.filter(c => c.id !== id)); }}
+          />
+        )}
 
-          <Route path="/category/:id" element={
-            <CategoryWrapper products={products} categories={categories} searchQuery={searchQuery} onAddToCart={onAddToCart} wishlist={wishlist} setWishlist={setWishlist} />
-          } />
+        {view === 'admin-form' && (
+          <AdminProductForm 
+            product={selectedProduct} categories={categories} 
+            onSubmit={async (p) => {
+               const isEdit = products.some(prod => prod.id === p.id);
+               if (isEdit) await ApiService.updateProduct(p); else await ApiService.addProduct(p);
+               await loadData();
+               onNavigateAction('admin');
+            }}
+            onCancel={() => onNavigateAction('admin')}
+          />
+        )}
 
-          <Route path="/admin/products" element={
-            <div className="container mx-auto px-4">
-              <AdminDashboard 
-                products={products} categories={categories} orders={orders}
-                onOpenAddForm={() => navigate('/admin/add')}
-                onOpenEditForm={(p) => navigate(`/admin/edit/${p.id}`)}
-                onOpenInvoiceForm={() => navigate('/admin/invoice')}
-                onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); loadData(); }}
-                onAddCategory={async (c) => { await ApiService.addCategory(c); loadData(); }}
-                onUpdateCategory={async (c) => { await ApiService.updateCategory(c); loadData(); }}
-                onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); loadData(); }}
-              />
-            </div>
-          } />
-          
-          <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
-          <Route path="/admin/add" element={<AdminProductForm product={null} categories={categories} onSubmit={async (p) => { await ApiService.addProduct(p); loadData(); navigate('/admin/products'); }} onCancel={() => navigate('/admin/products')} />} />
-          <Route path="/cart" element={<CartView cart={cart} onUpdateQuantity={() => {}} onRemove={() => {}} onCheckout={() => navigate('/admin/invoice')} onContinueShopping={() => navigate('/')} />} />
-          
-          <Route path="/product/:id" element={
-             <ProductDetailsWrapper products={products} categories={categories} onAddToCart={onAddToCart} wishlist={wishlist} setWishlist={setWishlist} />
-          } />
-        </Routes>
+        {view === 'admin-invoice' && (
+          <AdminInvoiceForm 
+            products={products}
+            onSubmit={handleInvoiceSubmit}
+            onCancel={() => onNavigateAction('admin')}
+          />
+        )}
+
+        {view === 'order-success' && lastCreatedOrder && (
+          <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('admin')} />
+        )}
+
+        {view === 'cart' && <CartView cart={cart} onUpdateQuantity={()=>{}} onRemove={()=>{}} onCheckout={()=>{}} onContinueShopping={()=>onNavigateAction('store')} />}
       </main>
 
-      <FloatingAdminButton />
+      <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
 
-      <footer className="bg-slate-900 text-white py-12 text-center mt-20 no-print">
-        <h2 className="text-xl font-black mb-4">🛍️ فاقوس ستور</h2>
-        <p className="text-slate-400 text-xs tracking-widest uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة لشركة فاقوس الرقمية</p>
+      <footer className="bg-green-900 text-white py-12 text-center mt-20">
+        <h2 className="text-xl font-black mb-2">فاقوس ستور</h2>
+        <p className="text-green-300 opacity-50 text-[10px] tracking-widest">&copy; {new Date().getFullYear()} نظام الإدارة الفعال</p>
       </footer>
-    </div>
-  );
-};
-
-// مكونات وسيطة لحل مشكلة useParams داخل Routes مباشرة
-const CategoryWrapper = ({ products, categories, searchQuery, onAddToCart, wishlist, setWishlist }: any) => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  return (
-    <div className="container mx-auto px-4">
-      <StoreView 
-        products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={id || 'all'}
-        showHero={false}
-        onCategorySelect={(newId) => navigate(newId === 'all' ? '/' : `/category/${newId}`)} 
-        onAddToCart={onAddToCart} 
-        onViewProduct={(p) => navigate(`/product/${p.id}`)}
-        wishlist={wishlist} onToggleFavorite={(fid) => setWishlist((prev: any) => prev.includes(fid) ? prev.filter((i: any) => i !== fid) : [...prev, fid])}
-      />
-    </div>
-  );
-};
-
-const ProductDetailsWrapper = ({ products, categories, onAddToCart, wishlist, setWishlist }: any) => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const p = products.find((prod: any) => prod.id === id);
-  if (!p) return <div className="py-20 text-center font-black">المنتج غير موجود 🔍</div>;
-  return (
-    <div className="container mx-auto px-4">
-      <ProductDetailsView 
-        product={p} 
-        categoryName={categories.find((c: any) => c.id === p.categoryId)?.name || 'عام'} 
-        onAddToCart={onAddToCart} 
-        onBack={() => navigate(-1)} 
-        isFavorite={wishlist.includes(p.id)} 
-        onToggleFavorite={(fid: any) => setWishlist((prev: any) => prev.includes(fid) ? prev.filter((i: any) => i !== fid) : [...prev, fid])} 
-      />
     </div>
   );
 };

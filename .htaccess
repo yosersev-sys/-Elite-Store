@@ -1,19 +1,9 @@
 
-# متجر فاقوس - إعدادات السيرفر
-Options -Indexes
-DirectoryIndex index.html index.php
+DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
-    
-    # توجيه الطلبات لـ index.html إذا لم يكن الملف موجوداً
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^ index.html [L]
-</IfModule>
-
-# تحسين أداء الضغط
-<IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/x-javascript application/json
+    RewriteRule ^ index.php [L]
 </IfModule>
