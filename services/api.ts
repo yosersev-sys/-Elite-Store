@@ -1,5 +1,5 @@
 
-import { Product, Category, Order } from '../types.ts';
+import { Product, Category, Order, User } from '../types.ts';
 
 const API_URL = 'api.php';
 
@@ -10,8 +10,8 @@ const safeFetch = async (action: string, options?: RequestInit) => {
       ...options,
       headers: { 'Accept': 'application/json', ...options?.headers },
     });
-    if (!response.ok) return null;
-    return await response.json();
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error("API Fetch Error:", error);
     return null;
@@ -19,6 +19,28 @@ const safeFetch = async (action: string, options?: RequestInit) => {
 };
 
 export const ApiService = {
+  async getCurrentUser(): Promise<User | null> {
+    return await safeFetch('get_current_user');
+  },
+
+  async login(phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
+    return await safeFetch('login', {
+      method: 'POST',
+      body: JSON.stringify({ phone, password })
+    });
+  },
+
+  async register(name: string, phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
+    return await safeFetch('register', {
+      method: 'POST',
+      body: JSON.stringify({ name, phone, password })
+    });
+  },
+
+  async logout(): Promise<void> {
+    await safeFetch('logout');
+  },
+
   async getProducts(): Promise<Product[]> {
     return await safeFetch('get_products') || [];
   },
@@ -34,25 +56,26 @@ export const ApiService = {
   async addProduct(product: Product): Promise<boolean> {
     const result = await safeFetch('add_product', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(product)
     });
     return result?.status === 'success';
   },
 
-  async updateProduct(product: Product): Promise<boolean> {
-    const result = await safeFetch('update_product', {
+  async saveOrder(order: Order): Promise<void> {
+    await safeFetch('save_order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(product)
+      body: JSON.stringify(order)
     });
+  },
+
+  async deleteProduct(id: string): Promise<boolean> {
+    const result = await safeFetch(`delete_product&id=${id}`, { method: 'DELETE' });
     return result?.status === 'success';
   },
 
   async addCategory(category: Category): Promise<boolean> {
     const result = await safeFetch('add_category', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(category)
     });
     return result?.status === 'success';
@@ -61,7 +84,6 @@ export const ApiService = {
   async updateCategory(category: Category): Promise<boolean> {
     const result = await safeFetch('update_category', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(category)
     });
     return result?.status === 'success';
@@ -69,19 +91,6 @@ export const ApiService = {
 
   async deleteCategory(id: string): Promise<boolean> {
     const result = await safeFetch(`delete_category&id=${id}`, { method: 'DELETE' });
-    return result?.status === 'success';
-  },
-
-  async saveOrder(order: Order): Promise<void> {
-    await safeFetch('save_order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(order)
-    });
-  },
-
-  async deleteProduct(id: string): Promise<boolean> {
-    const result = await safeFetch(`delete_product&id=${id}`, { method: 'DELETE' });
     return result?.status === 'success';
   }
 };

@@ -1,4 +1,12 @@
 
+export interface User {
+  id: string;
+  name: string;
+  phone: string;
+  role: 'user' | 'admin';
+  createdAt: number;
+}
+
 export interface SeoSettings {
   metaTitle: string;
   metaDescription: string;
@@ -46,6 +54,7 @@ export interface Order {
   paymentMethod: string;
   status: 'pending' | 'completed' | 'cancelled';
   createdAt: number;
+  userId?: string;
 }
 
 export type View = 'store' | 'admin' | 'cart' | 'product-details' | 'admin-form' | 'admin-invoice' | 'auth' | 'checkout' | 'wishlist' | 'order-success' | 'category-page';
