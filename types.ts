@@ -9,6 +9,7 @@ export interface SeoSettings {
 export interface Category {
   id: string;
   name: string;
+  sortOrder?: number;
 }
 
 export interface Product {

@@ -24,12 +24,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<AdminTab>('products');
   const [adminSearch, setAdminSearch] = useState('');
   
-  // حالات إدارة الأقسام
   const [newCatName, setNewCatName] = useState('');
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
 
-  // حالات تأكيد الحذف
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     type: 'product' | 'category' | null;
@@ -56,10 +54,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return products.filter(p => p.name.toLowerCase().includes(adminSearch.toLowerCase()));
   }, [products, adminSearch]);
 
+  const sortedCategories = useMemo(() => {
+    return [...categories].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  }, [categories]);
+
   const handleUpdateCat = (id: string) => {
     if (!editingCatName.trim()) return;
-    onUpdateCategory({ id, name: editingCatName });
+    const existing = categories.find(c => c.id === id);
+    onUpdateCategory({ id, name: editingCatName, sortOrder: existing?.sortOrder });
     setEditingCatId(null);
+  };
+
+  const handleMoveCategory = async (id: string, direction: 'up' | 'down') => {
+    const currentIndex = sortedCategories.findIndex(c => c.id === id);
+    if (direction === 'up' && currentIndex === 0) return;
+    if (direction === 'down' && currentIndex === sortedCategories.length - 1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    const currentCat = sortedCategories[currentIndex];
+    const targetCat = sortedCategories[targetIndex];
+
+    const currentOrder = currentCat.sortOrder || 0;
+    const targetOrder = targetCat.sortOrder || 0;
+
+    // تبديل الترتيب بين الاثنين وحفظهما
+    await onUpdateCategory({ ...currentCat, sortOrder: targetOrder });
+    await onUpdateCategory({ ...targetCat, sortOrder: currentOrder });
   };
 
   const openDeleteConfirmation = (type: 'product' | 'category', id: string, name: string) => {
@@ -83,7 +103,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="flex flex-col lg:flex-row min-h-[80vh] bg-white rounded-[3rem] shadow-2xl border border-slate-50 overflow-hidden animate-fadeIn relative">
       
-      {/* Confirmation Modal */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-fadeIn" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}></div>
@@ -111,7 +130,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* Sidebar */}
       <aside className="w-full lg:w-72 bg-slate-900 text-white p-8 flex flex-col gap-8">
         <div>
           <h2 className="text-2xl font-black tracking-tighter flex items-center gap-3">
@@ -133,7 +151,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-grow p-10 bg-slate-50/50 overflow-y-auto no-scrollbar">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div>
@@ -226,7 +243,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {categories.map(cat => (
+              {sortedCategories.map((cat, index) => (
                 <div key={cat.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition">
                   {editingCatId === cat.id ? (
                     <div className="flex items-center gap-2 flex-grow">
@@ -241,11 +258,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   ) : (
                     <>
-                      <div>
-                        <p className="font-black text-slate-800">{cat.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                          {products.filter(p => p.categoryId === cat.id).length} منتج متاح
-                        </p>
+                      <div className="flex items-center gap-4">
+                        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <button 
+                             disabled={index === 0}
+                             onClick={() => handleMoveCategory(cat.id, 'up')}
+                             className="text-slate-300 hover:text-emerald-500 disabled:opacity-20 transition"
+                             title="تحريك للأعلى"
+                           >▲</button>
+                           <button 
+                             disabled={index === sortedCategories.length - 1}
+                             onClick={() => handleMoveCategory(cat.id, 'down')}
+                             className="text-slate-300 hover:text-emerald-500 disabled:opacity-20 transition"
+                             title="تحريك للأسفل"
+                           >▼</button>
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-800">{cat.name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                            {products.filter(p => p.categoryId === cat.id).length} منتج متاح
+                          </p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                         <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} className="p-2 text-slate-400 hover:text-blue-600 transition">✎</button>

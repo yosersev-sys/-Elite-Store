@@ -45,8 +45,12 @@ try {
             break;
 
         case 'get_categories':
-            $stmt = $pdo->query("SELECT * FROM categories ORDER BY name ASC");
-            sendRes($stmt->fetchAll() ?: []);
+            $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC, name ASC");
+            $categories = $stmt->fetchAll() ?: [];
+            foreach ($categories as &$c) {
+                $c['sortOrder'] = isset($c['sortOrder']) ? (int)$c['sortOrder'] : 0;
+            }
+            sendRes($categories);
             break;
 
         case 'add_product':
@@ -79,15 +83,22 @@ try {
             break;
 
         case 'add_category':
-            $stmt = $pdo->prepare("INSERT INTO categories (id, name) VALUES (?, ?)");
-            $stmt->execute([$input['id'], $input['name']]);
+            $res = $pdo->query("SELECT MAX(sortOrder) as maxOrder FROM categories")->fetch();
+            $nextOrder = ($res['maxOrder'] ?? 0) + 1;
+            $stmt = $pdo->prepare("INSERT INTO categories (id, name, sortOrder) VALUES (?, ?, ?)");
+            $stmt->execute([$input['id'], $input['name'], $nextOrder]);
             sendRes(['status' => 'success']);
             break;
 
         case 'update_category':
             if (!$input) sendErr('Data missing');
-            $stmt = $pdo->prepare("UPDATE categories SET name = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['id']]);
+            if (isset($input['sortOrder'])) {
+                $stmt = $pdo->prepare("UPDATE categories SET name = ?, sortOrder = ? WHERE id = ?");
+                $stmt->execute([$input['name'], $input['sortOrder'], $input['id']]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE categories SET name = ? WHERE id = ?");
+                $stmt->execute([$input['name'], $input['id']]);
+            }
             sendRes(['status' => 'success']);
             break;
 
