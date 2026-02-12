@@ -83,6 +83,20 @@ try {
             $stmt->execute([$input['id'], $input['name']]);
             sendRes(['status' => 'success']);
             break;
+
+        case 'update_category':
+            if (!$input) sendErr('Data missing');
+            $stmt = $pdo->prepare("UPDATE categories SET name = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_category':
+            if (!isset($_GET['id'])) sendErr('ID missing');
+            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+            $stmt->execute([$_GET['id']]);
+            sendRes(['status' => 'success']);
+            break;
             
         case 'get_orders':
             $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC");
