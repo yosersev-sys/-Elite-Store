@@ -1,13 +1,20 @@
 
 <?php
+// منع تخزين الصفحة مؤقتاً في السيرفر
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
 header('Content-Type: text/html; charset=utf-8');
+
+// نسخة برمجية للتخلص من الكاش
+$v = time(); 
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>فاقوس ستور - المتجر الإلكتروني الحديث</title>
+    <title>فاقوس ستور - الإصدار المحدث</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script type="importmap">
@@ -25,13 +32,14 @@ header('Content-Type: text/html; charset=utf-8');
         * { font-family: 'Cairo', sans-serif; }
         body { background-color: #f8faf7; margin: 0; padding: 0; min-height: 100vh; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .glass-header { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        .glass-header { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
     </style>
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="index.tsx"></script>
+    <!-- إضافة $v لضمان تحميل الملف الجديد دائماً -->
+    <script type="module" src="index.tsx?v=<?php echo $v; ?>"></script>
 </body>
 </html>
