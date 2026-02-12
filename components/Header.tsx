@@ -26,13 +26,13 @@ const Header: React.FC<HeaderProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-white shadow-sm z-40 border-b border-green-50 sticky top-0">
+    <header className="bg-white shadow-sm z-40 border-b border-orange-50 sticky top-0">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-6">
             <h1 
               onClick={() => { onNavigate('store'); onCategorySelect('all'); }}
-              className="text-2xl font-black text-green-600 cursor-pointer select-none tracking-tighter flex items-center gap-2"
+              className="text-2xl font-black text-orange-600 cursor-pointer select-none tracking-tighter flex items-center gap-2"
             >
               <span className="text-3xl">🛍️</span>
               <span>فاقوس <span className="text-slate-900">ستور</span></span>
@@ -41,19 +41,19 @@ const Header: React.FC<HeaderProps> = ({
             <nav className="hidden lg:flex items-center gap-1">
               <button 
                 onClick={() => onNavigate('store')}
-                className={`px-4 py-2 rounded-xl text-sm transition font-bold ${currentView === 'store' && selectedCategoryId === 'all' ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:text-green-600 hover:bg-green-50'}`}
+                className={`px-4 py-2 rounded-xl text-sm transition font-bold ${currentView === 'store' && selectedCategoryId === 'all' ? 'bg-orange-50 text-orange-700' : 'text-gray-600 hover:text-orange-600 hover:bg-orange-50'}`}
               >
                 الرئيسية
               </button>
               <button 
                 onClick={() => onNavigate('wishlist')}
-                className={`px-4 py-2 rounded-xl text-sm transition font-bold ${currentView === 'wishlist' ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:text-green-600 hover:bg-green-50'}`}
+                className={`px-4 py-2 rounded-xl text-sm transition font-bold ${currentView === 'wishlist' ? 'bg-orange-50 text-orange-700' : 'text-gray-600 hover:text-orange-600 hover:bg-orange-50'}`}
               >
                 مفضلاتي
               </button>
               <button 
                 onClick={() => onNavigate('admin')}
-                className={`px-4 py-2 rounded-xl text-sm transition font-bold ${currentView === 'admin' ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:text-green-600 hover:bg-green-50'}`}
+                className={`px-4 py-2 rounded-xl text-sm transition font-bold ${currentView === 'admin' ? 'bg-orange-50 text-orange-700' : 'text-gray-600 hover:text-orange-600 hover:bg-orange-50'}`}
               >
                 لوحة التحكم
               </button>
@@ -65,9 +65,9 @@ const Header: React.FC<HeaderProps> = ({
               type="text" 
               placeholder="ابحث عن خضروات، فواكه، أو معلبات..." 
               onChange={(e) => onSearch(e.target.value)}
-              className="w-full pl-4 pr-12 py-2.5 bg-gray-50 border border-green-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition text-sm font-medium"
+              className="w-full pl-4 pr-12 py-2.5 bg-gray-50 border border-orange-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition text-sm font-medium"
             />
-            <svg className="absolute right-4 top-2.5 h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute right-4 top-2.5 h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -75,13 +75,13 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2">
             <button 
               onClick={() => onNavigate('wishlist')}
-              className={`p-2.5 rounded-xl transition relative group ${currentView === 'wishlist' ? 'bg-green-50 text-green-600' : 'text-gray-600 hover:text-green-600 hover:bg-green-50'}`}
+              className={`p-2.5 rounded-xl transition relative group ${currentView === 'wishlist' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:text-orange-600 hover:bg-orange-50'}`}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
               {wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-green-600 text-white text-[10px] font-black rounded-lg h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-white">
+                <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-black rounded-lg h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-white">
                   {wishlistCount}
                 </span>
               )}
@@ -89,13 +89,13 @@ const Header: React.FC<HeaderProps> = ({
 
             <button 
               onClick={() => onNavigate('cart')}
-              className={`p-2.5 rounded-xl transition relative group ${currentView === 'cart' ? 'bg-green-600 text-green-600' : 'text-gray-600 hover:text-green-600 hover:bg-green-50'}`}
+              className={`p-2.5 rounded-xl transition relative group ${currentView === 'cart' ? 'bg-orange-600 text-white' : 'text-gray-600 hover:text-orange-600 hover:bg-orange-50'}`}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-green-600 text-white text-[10px] font-black rounded-lg h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-white">
+                <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-black rounded-lg h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-white">
                   {cartCount}
                 </span>
               )}
@@ -118,8 +118,8 @@ const Header: React.FC<HeaderProps> = ({
             onClick={() => { onNavigate('store'); onCategorySelect('all'); }}
             className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${
               currentView === 'store' && selectedCategoryId === 'all' 
-              ? 'bg-green-600 text-white shadow-lg' 
-              : 'bg-white text-gray-400 border border-green-50 hover:border-green-200'
+              ? 'bg-orange-600 text-white shadow-lg' 
+              : 'bg-white text-gray-400 border border-orange-50 hover:border-orange-200'
             }`}
           >
             جميع الأصناف
@@ -130,8 +130,8 @@ const Header: React.FC<HeaderProps> = ({
               onClick={() => onCategorySelect(cat.id)}
               className={`whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${
                 selectedCategoryId === cat.id && currentView === 'category-page'
-                ? 'bg-green-600 text-white shadow-lg' 
-                : 'bg-white text-gray-400 border border-green-50 hover:border-green-200'
+                ? 'bg-orange-600 text-white shadow-lg' 
+                : 'bg-white text-gray-400 border border-orange-50 hover:border-orange-200'
               }`}
             >
               {cat.name}
@@ -141,10 +141,10 @@ const Header: React.FC<HeaderProps> = ({
       </div>
 
       {isMenuOpen && (
-        <div className="lg:hidden border-t border-green-50 bg-white p-4 space-y-2 animate-fadeIn">
-          <button onClick={() => { onNavigate('store'); setIsMenuOpen(false); }} className="w-full text-right p-3 rounded-xl font-bold text-gray-700 hover:bg-green-50">الرئيسية</button>
-          <button onClick={() => { onNavigate('wishlist'); setIsMenuOpen(false); }} className="w-full text-right p-3 rounded-xl font-bold text-gray-700 hover:bg-green-50">مفضلاتي</button>
-          <button onClick={() => { onNavigate('admin'); setIsMenuOpen(false); }} className="w-full text-right p-3 rounded-xl font-bold text-gray-700 hover:bg-green-50">لوحة التحكم</button>
+        <div className="lg:hidden border-t border-orange-50 bg-white p-4 space-y-2 animate-fadeIn">
+          <button onClick={() => { onNavigate('store'); setIsMenuOpen(false); }} className="w-full text-right p-3 rounded-xl font-bold text-gray-700 hover:bg-orange-50">الرئيسية</button>
+          <button onClick={() => { onNavigate('wishlist'); setIsMenuOpen(false); }} className="w-full text-right p-3 rounded-xl font-bold text-gray-700 hover:bg-orange-50">مفضلاتي</button>
+          <button onClick={() => { onNavigate('admin'); setIsMenuOpen(false); }} className="w-full text-right p-3 rounded-xl font-bold text-gray-700 hover:bg-orange-50">لوحة التحكم</button>
         </div>
       )}
     </header>

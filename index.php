@@ -23,7 +23,7 @@ header('Content-Type: text/html; charset=utf-8');
       .animate-fadeIn { animation: fadeIn 0.6s ease-out forwards; }
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       .header-glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); }
-      .admin-card { background: white; border-radius: 2.5rem; border: 1px solid #f0fdf4; box-shadow: 0 4px 25px rgba(0,0,0,0.03); transition: all 0.3s ease; }
+      .admin-card { background: white; border-radius: 2.5rem; border: 1px solid #fdf4f0; box-shadow: 0 4px 25px rgba(0,0,0,0.03); transition: all 0.3s ease; }
       .admin-card:hover { transform: translateY(-5px); box-shadow: 0 10px 40px rgba(0,0,0,0.06); }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       @media print { .no-print { display: none !important; } .print-only { display: block !important; } }
@@ -66,19 +66,19 @@ header('Content-Type: text/html; charset=utf-8');
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
                 <div className="admin-card p-8 space-y-4">
-                  <h3 className="font-black text-green-600">اختيار المنتجات</h3>
+                  <h3 className="font-black text-orange-600">اختيار المنتجات</h3>
                   <div className="relative">
                     <input 
                       placeholder="ابحث بالاسم أو الباركود..." 
                       value={query} onChange={e => setQuery(e.target.value)}
-                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border focus:border-green-500 font-bold"
+                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border focus:border-orange-500 font-bold"
                     />
                     {query && filtered.length > 0 && (
                       <div className="absolute top-full left-0 right-0 bg-white border rounded-2xl shadow-2xl z-50 overflow-hidden mt-2">
                         {filtered.map(p => (
-                          <div key={p.id} onClick={() => addItem(p)} className="p-4 hover:bg-green-50 cursor-pointer flex justify-between items-center border-b">
+                          <div key={p.id} onClick={() => addItem(p)} className="p-4 hover:bg-orange-50 cursor-pointer flex justify-between items-center border-b">
                             <span className="font-bold">{p.name}</span>
-                            <span className="text-green-600 font-black">{p.price} ر.س</span>
+                            <span className="text-orange-600 font-black">{p.price} ر.س</span>
                           </div>
                         ))}
                       </div>
@@ -91,7 +91,7 @@ header('Content-Type: text/html; charset=utf-8');
                         <tr key={item.id} className="border-b">
                           <td className="py-4 font-bold">{item.name}</td>
                           <td className="py-4 font-bold">{item.quantity}</td>
-                          <td className="py-4 font-black text-green-600">{item.price * item.quantity} ر.س</td>
+                          <td className="py-4 font-black text-orange-600">{item.price * item.quantity} ر.س</td>
                         </tr>
                       ))}
                     </tbody>
@@ -112,11 +112,11 @@ header('Content-Type: text/html; charset=utf-8');
                   <h3 className="font-black border-b pb-4">ملخص الحساب</h3>
                   <div className="flex justify-between text-2xl font-black">
                     <span>الإجمالي (شامل الضريبة)</span>
-                    <span className="text-green-600">{total.toFixed(2)} ر.س</span>
+                    <span className="text-orange-600">{total.toFixed(2)} ر.س</span>
                   </div>
                   <button 
                     onClick={() => onSubmit({ ...customer, total, items, id: 'INV-'+Date.now() })}
-                    className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-green-600 transition"
+                    className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl hover:bg-orange-600 transition"
                   >حفظ وطباعة الفاتورة</button>
                 </div>
               </div>
@@ -180,18 +180,18 @@ header('Content-Type: text/html; charset=utf-8');
           cats: categories.length
         }), [products, categories]);
 
-        if (isLoading) return <div className="h-screen flex items-center justify-center text-green-600 font-black animate-pulse">جاري التحميل...</div>;
+        if (isLoading) return <div className="h-screen flex items-center justify-center text-orange-600 font-black animate-pulse">جاري التحميل...</div>;
 
         return (
           <div className="min-h-screen flex flex-col">
-            <header className="header-glass shadow-sm sticky top-0 z-50 border-b border-green-100 no-print">
+            <header className="header-glass shadow-sm sticky top-0 z-50 border-b border-orange-100 no-print">
               <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-                <h1 onClick={() => setView('store')} className="text-2xl font-black text-green-600 cursor-pointer flex items-center gap-2">
+                <h1 onClick={() => setView('store')} className="text-2xl font-black text-orange-600 cursor-pointer flex items-center gap-2">
                   <span className="text-3xl">🛍️</span> فاقوس ستور
                 </h1>
                 <div className="flex gap-3">
-                  <button onClick={() => setView('store')} className={`px-5 py-2 rounded-xl font-bold text-sm ${view === 'store' ? 'bg-green-600 text-white' : 'text-slate-500'}`}>المتجر</button>
-                  <button onClick={() => setView('admin')} className={`px-5 py-2 rounded-xl font-bold text-sm ${view === 'admin' ? 'bg-green-600 text-white' : 'text-slate-500'}`}>لوحة التحكم</button>
+                  <button onClick={() => setView('store')} className={`px-5 py-2 rounded-xl font-bold text-sm ${view === 'store' ? 'bg-orange-600 text-white' : 'text-slate-500'}`}>المتجر</button>
+                  <button onClick={() => setView('admin')} className={`px-5 py-2 rounded-xl font-bold text-sm ${view === 'admin' ? 'bg-orange-600 text-white' : 'text-slate-500'}`}>لوحة التحكم</button>
                 </div>
               </div>
             </header>
@@ -202,7 +202,7 @@ header('Content-Type: text/html; charset=utf-8');
                   {products.map(p => (
                     <div key={p.id} className="admin-card overflow-hidden">
                       <img src={p.images[0]} className="w-full aspect-square object-cover" />
-                      <div className="p-4"><h3 className="font-black text-sm">{p.name}</h3><p className="text-green-600 font-black">{p.price} ر.س</p></div>
+                      <div className="p-4"><h3 className="font-black text-sm">{p.name}</h3><p className="text-orange-600 font-black">{p.price} ر.س</p></div>
                     </div>
                   ))}
                 </div>
@@ -214,7 +214,7 @@ header('Content-Type: text/html; charset=utf-8');
                     <h2 className="text-4xl font-black text-slate-900">إدارة فاقوس ستور</h2>
                     <div className="flex gap-3">
                        <button onClick={() => setView('invoice')} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black shadow-lg">🧾 إنشاء فاتورة</button>
-                       <a href="add-product.php" className="bg-green-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg">+ إضافة منتج</a>
+                       <a href="add-product.php" className="bg-orange-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg">+ إضافة منتج</a>
                     </div>
                   </div>
 
@@ -226,8 +226,8 @@ header('Content-Type: text/html; charset=utf-8');
 
                   <div className="admin-card overflow-hidden">
                     <div className="p-4 bg-slate-50 flex gap-4 border-b">
-                      <button onClick={() => setAdminTab('products')} className={`px-4 py-2 rounded-lg font-black ${adminTab === 'products' ? 'bg-green-600 text-white' : ''}`}>المخزون</button>
-                      <button onClick={() => setAdminTab('orders')} className={`px-4 py-2 rounded-lg font-black ${adminTab === 'orders' ? 'bg-green-600 text-white' : ''}`}>الطلبات</button>
+                      <button onClick={() => setAdminTab('products')} className={`px-4 py-2 rounded-lg font-black ${adminTab === 'products' ? 'bg-orange-600 text-white' : ''}`}>المخزون</button>
+                      <button onClick={() => setAdminTab('orders')} className={`px-4 py-2 rounded-lg font-black ${adminTab === 'orders' ? 'bg-orange-600 text-white' : ''}`}>الطلبات</button>
                     </div>
                     {adminTab === 'products' ? (
                       <table className="w-full text-right">
@@ -243,7 +243,7 @@ header('Content-Type: text/html; charset=utf-8');
                         <thead className="bg-slate-50 border-b"><tr><th className="p-4">رقم الطلب</th><th className="p-4">العميل</th><th className="p-4">الإجمالي</th></tr></thead>
                         <tbody>
                           {orders.map(o => (
-                            <tr key={o.id} className="border-b hover:bg-slate-50"><td className="p-4 font-mono">{o.id}</td><td className="p-4 font-bold">{o.customerName}</td><td className="p-4 text-green-600 font-black">{o.total} ر.س</td></tr>
+                            <tr key={o.id} className="border-b hover:bg-slate-50"><td className="p-4 font-mono">{o.id}</td><td className="p-4 font-bold">{o.customerName}</td><td className="p-4 text-orange-600 font-black">{o.total} ر.س</td></tr>
                           ))}
                         </tbody>
                       </table>
@@ -261,7 +261,7 @@ header('Content-Type: text/html; charset=utf-8');
                    <div className="bg-slate-50 p-6 rounded-2xl text-right">
                       <p>رقم الفاتورة: <b>{lastOrder.id}</b></p>
                       <p>العميل: <b>{lastOrder.customerName}</b></p>
-                      <p>الإجمالي: <b className="text-green-600">{lastOrder.total} ر.س</b></p>
+                      <p>الإجمالي: <b className="text-orange-600">{lastOrder.total} ر.س</b></p>
                    </div>
                    <button onClick={() => window.print()} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black no-print">🖨️ طباعة الفاتورة</button>
                    <button onClick={() => setView('admin')} className="block w-full text-slate-400 font-bold no-print">العودة للوحة التحكم</button>
