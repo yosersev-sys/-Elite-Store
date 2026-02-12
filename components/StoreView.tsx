@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { Product, Category } from '../types';
 import ProductCard from './ProductCard';
 import Slider from './Slider';
@@ -29,7 +29,55 @@ const StoreView: React.FC<StoreViewProps> = ({
   wishlist,
   onToggleFavorite
 }) => {
-  // Filter products by both Search and Category
+  const productsListRef = useRef<HTMLDivElement>(null);
+
+  // دالة مخصصة للتمرير البطيء جداً (قابلة للتحكم في الوقت)
+  const slowScrollTo = (targetY: number, duration: number) => {
+    const startY = window.pageYOffset;
+    const diff = targetY - startY;
+    let start: number | null = null;
+
+    const step = (timestamp: number) => {
+      if (!start) start = timestamp;
+      const progress = timestamp - start;
+      const percent = Math.min(progress / duration, 1);
+      
+      // معادلة Ease-in-out للحصول على حركة انسيابية
+      const ease = percent < 0.5 
+        ? 2 * percent * percent 
+        : -1 + (4 - 2 * percent) * percent;
+
+      window.scrollTo(0, startY + diff * ease);
+
+      if (progress < duration) {
+        window.requestAnimationFrame(step);
+      }
+    };
+
+    window.requestAnimationFrame(step);
+  };
+
+  // مراقبة تغيير القسم لتشغيل التمرير
+  useEffect(() => {
+    // لا نريد التمرير عند التحميل الأول للصفحة إذا كان القسم "all"
+    // ولكن نريد التمرير إذا قام المستخدم بالنقر فعلياً على قسم معين
+    if (selectedCategoryId !== 'all' || searchQuery) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById('products-list');
+        if (element) {
+          const headerOffset = 160; // المسافة المطلوبة تحت الهيدر الثابت
+          const elementPosition = element.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+          // تمرير بطيء يستغرق 1.5 ثانية (1500ms)
+          slowScrollTo(offsetPosition, 1500);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedCategoryId, searchQuery]);
+
+  // تصفية المنتجات حسب البحث والقسم
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -46,18 +94,18 @@ const StoreView: React.FC<StoreViewProps> = ({
 
   return (
     <div className="space-y-12 md:space-y-20 animate-fadeIn">
-      {/* Visual Elements */}
+      {/* السلايدر الرئيسي */}
       <Slider />
       
-      {/* Category Selection Grid */}
+      {/* شبكة اختيار الأقسام */}
       <CategorySection 
         categories={categories} 
         selectedCategoryId={selectedCategoryId} 
         onCategorySelect={onCategorySelect} 
       />
 
-      {/* Products Grid */}
-      <div className="space-y-8 md:space-y-12" id="products-list">
+      {/* منطقة عرض المنتجات */}
+      <div className="space-y-8 md:space-y-12" id="products-list" ref={productsListRef}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-gray-100 pt-10 md:pt-16">
           <div className="space-y-1 md:space-y-2">
              <h2 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tighter">
@@ -103,7 +151,7 @@ const StoreView: React.FC<StoreViewProps> = ({
         )}
       </div>
 
-      {/* Brands Section - Moved to bottom as requested */}
+      {/* الماركات في الأسفل */}
       <div className="pt-10">
         <BrandsSection />
       </div>
