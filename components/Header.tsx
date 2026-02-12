@@ -71,13 +71,6 @@ const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1">
-            <HeaderLink active={currentView === 'store'} onClick={() => onNavigate('store')} label="المتجر" />
-            <HeaderLink active={currentView === 'wishlist'} onClick={() => onNavigate('wishlist')} label="المفضلة" />
-            <HeaderLink active={currentView === 'admin'} onClick={() => onNavigate('admin')} label="الإدارة" />
-          </nav>
-
           {/* Search Bar */}
           <div className="flex-grow max-w-xl">
             <div className="relative group">
@@ -132,15 +125,6 @@ const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
-const HeaderLink = ({ active, onClick, label }: any) => (
-  <button 
-    onClick={onClick}
-    className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-600'}`}
-  >
-    {label}
-  </button>
-);
 
 const ActionButton = ({ count, icon, onClick, variant = 'secondary', className = '' }: any) => (
   <button 
