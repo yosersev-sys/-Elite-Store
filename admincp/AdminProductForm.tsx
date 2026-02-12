@@ -136,7 +136,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             {product ? `تعديل المنتج: ${product.name}` : 'نظام إدارة المنتجات والباركود'}
           </p>
         </div>
-        <button onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition">إلغاء</button>
+        <button type="button" onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition">إلغاء</button>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-10">
@@ -164,7 +164,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition" placeholder="مثال: طماطم بلدي" />
             </div>
             
-            {/* حقل الباركود */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">رقم الباركود (Barcode)</label>
               <div className="relative">
@@ -197,12 +196,12 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <input required type="number" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition" placeholder="مثال: 50" />
             </div>
             <div className="space-y-2 relative md:col-span-2">
-              <label className="text-sm font-bold text-slate-500 mr-2 flex justify-between">
-                الوصف
+              <div className="flex justify-between">
+                <label className="text-sm font-bold text-slate-500 mr-2">الوصف</label>
                 <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="text-[10px] font-black text-green-600 hover:text-green-700 disabled:opacity-50">
                   {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي (Gemini)'}
                 </button>
-              </label>
+              </div>
               <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition min-h-[150px] resize-none" placeholder="وصف المنتج..." />
             </div>
           </div>
