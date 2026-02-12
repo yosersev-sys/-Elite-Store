@@ -189,7 +189,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500 mr-2">السعر (ر.س)</label>
+              <label className="text-sm font-bold text-slate-500 mr-2">السعر (ج.م)</label>
               <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-400 transition" placeholder="0.00" />
             </div>
             <div className="space-y-2">

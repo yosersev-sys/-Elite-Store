@@ -109,15 +109,15 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
               <div className="space-y-3 px-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 font-bold">المجموع قبل الضريبة</span>
-                  <span className="font-bold text-slate-800">{(order.subtotal || 0).toFixed(2)} ر.س</span>
+                  <span className="font-bold text-slate-800">{(order.subtotal || 0).toFixed(2)} ج.م</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 font-bold">ضريبة القيمة المضافة (15%)</span>
-                  <span className="font-bold text-slate-800">{(Number(order.total) - Number(order.subtotal)).toFixed(2)} ر.س</span>
+                  <span className="font-bold text-slate-800">{(Number(order.total) - Number(order.subtotal)).toFixed(2)} ج.م</span>
                 </div>
                 <div className="flex justify-between text-2xl font-black text-gray-900 pt-5 border-t border-gray-100">
                   <span>الإجمالي</span>
-                  <span className="text-green-600">{(Number(order.total) || 0).toFixed(2)} ر.س</span>
+                  <span className="text-green-600">{(Number(order.total) || 0).toFixed(2)} ج.م</span>
                 </div>
               </div>
             </div>
@@ -140,9 +140,9 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
                     {order.items.map((item, idx) => (
                         <tr key={idx} className="hover:bg-gray-50 transition">
                             <td className="px-6 py-4 font-bold text-slate-800 text-sm">{item.name}</td>
-                            <td className="px-6 py-4 font-bold text-slate-500 text-sm">{item.price} ر.س</td>
+                            <td className="px-6 py-4 font-bold text-slate-500 text-sm">{item.price} ج.م</td>
                             <td className="px-6 py-4 font-black text-slate-900 text-sm">{item.quantity}</td>
-                            <td className="px-6 py-4 font-black text-green-600 text-sm">{(item.price * item.quantity).toFixed(2)} ر.س</td>
+                            <td className="px-6 py-4 font-black text-green-600 text-sm">{(item.price * item.quantity).toFixed(2)} ج.م</td>
                         </tr>
                     ))}
                 </tbody>

@@ -13,7 +13,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     phone: '',
-    city: 'الرياض',
+    city: 'القاهرة',
     address: ''
   });
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,7 +122,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
                                     <img src={p.images[0]} className="w-10 h-10 rounded-lg object-cover" />
                                     <div>
                                         <p className="font-bold text-sm">{p.name}</p>
-                                        <p className="text-[10px] text-slate-400">السعر: {p.price} ر.س | المخزون: {p.stockQuantity}</p>
+                                        <p className="text-[10px] text-slate-400">السعر: {p.price} ج.م | المخزون: {p.stockQuantity}</p>
                                     </div>
                                 </div>
                                 <span className="text-green-600 font-black">+</span>
@@ -157,8 +157,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
                                         <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 bg-slate-100 rounded flex items-center justify-center">+</button>
                                     </div>
                                 </td>
-                                <td className="py-4 font-bold text-sm">{item.price} ر.س</td>
-                                <td className="py-4 font-black text-green-600 text-sm">{(item.price * item.quantity).toFixed(2)} ر.س</td>
+                                <td className="py-4 font-bold text-sm">{item.price} ج.م</td>
+                                <td className="py-4 font-black text-green-600 text-sm">{(item.price * item.quantity).toFixed(2)} ج.م</td>
                                 <td className="py-4 text-left">
                                     <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 transition">🗑</button>
                                 </td>
@@ -195,7 +195,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
                     <input 
                         value={customerInfo.phone}
                         onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
-                        placeholder="05xxxxxxx"
+                        placeholder="01xxxxxxxxx"
                         className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-left"
                     />
                 </div>
@@ -220,15 +220,15 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
             <div className="space-y-4 mb-10 text-sm">
                 <div className="flex justify-between text-slate-500 font-bold">
                     <span>المجموع الفرعي</span>
-                    <span>{subtotal.toFixed(2)} ر.س</span>
+                    <span>{subtotal.toFixed(2)} ج.م</span>
                 </div>
                 <div className="flex justify-between text-slate-500 font-bold">
                     <span>ضريبة القيمة المضافة (15%)</span>
-                    <span>{tax.toFixed(2)} ر.س</span>
+                    <span>{tax.toFixed(2)} ج.م</span>
                 </div>
                 <div className="flex justify-between text-xl font-black text-slate-900 pt-6 border-t">
                     <span>الإجمالي النهائي</span>
-                    <span className="text-green-600">{total.toFixed(2)} ر.س</span>
+                    <span className="text-green-600">{total.toFixed(2)} ج.م</span>
                 </div>
             </div>
 

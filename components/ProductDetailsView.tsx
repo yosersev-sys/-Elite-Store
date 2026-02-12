@@ -117,7 +117,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
               <div className="flex items-baseline gap-4 py-4 border-y border-gray-100">
                 <span className="text-5xl font-black text-indigo-600">
-                  {product.price} <small className="text-lg font-bold">ر.س</small>
+                  {product.price} <small className="text-lg font-bold">ج.م</small>
                 </span>
               </div>
 

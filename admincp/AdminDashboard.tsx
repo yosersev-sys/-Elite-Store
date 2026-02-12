@@ -165,7 +165,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {activeTab === 'stats' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-slideUp">
-            <StatBox title="إجمالي المبيعات" value={`${stats.revenue} ر.س`} icon="💰" color="text-emerald-500" />
+            <StatBox title="إجمالي المبيعات" value={`${stats.revenue} ج.م`} icon="💰" color="text-emerald-500" />
             <StatBox title="عدد الطلبات" value={stats.ordersCount} icon="🔥" color="text-orange-500" />
             <StatBox title="إجمالي المنتجات" value={stats.productCount} icon="🧺" color="text-blue-500" />
             <StatBox title="نفذ المخزون" value={stats.outOfStock} icon="⚠️" color="text-rose-500" />
@@ -205,7 +205,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-4 font-black text-emerald-600 text-sm">{p.price} ر.س</td>
+                    <td className="px-8 py-4 font-black text-emerald-600 text-sm">{p.price} ج.م</td>
                     <td className="px-8 py-4">
                       <span className={`px-3 py-1 rounded-lg text-[10px] font-black ${p.stockQuantity > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                         {p.stockQuantity} وحدة
@@ -301,7 +301,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <thead>
                   <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">
                     <th className="px-8 py-5">العميل</th>
-                    <th className="px-8 py-5">المدينة</th>
+                    <th className="px-8 py-5">المحافظة</th>
                     <th className="px-8 py-5">المبلغ</th>
                     <th className="px-8 py-5">الحالة</th>
                     <th className="px-8 py-5">التاريخ</th>
@@ -315,7 +315,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <p className="text-[10px] text-slate-400 font-bold">{o.phone}</p>
                       </td>
                       <td className="px-8 py-4 text-sm font-bold text-slate-500">{o.city}</td>
-                      <td className="px-8 py-4 font-black text-emerald-600 text-sm">{o.total} ر.س</td>
+                      <td className="px-8 py-4 font-black text-emerald-600 text-sm">{o.total} ج.م</td>
                       <td className="px-8 py-4">
                         <span className={`px-3 py-1 rounded-lg text-[10px] font-black ${o.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
                           {o.status === 'completed' ? 'مكتمل' : 'قيد الانتظار'}

@@ -86,7 +86,7 @@ const BestSellers: React.FC<BestSellersProps> = ({ products, onAddToCart, onView
                 <div className="flex items-center justify-between gap-2 pt-1 md:pt-2">
                   <div className="flex flex-col">
                     <span className="text-base md:text-2xl font-black text-gray-900 leading-none">
-                      {product.price} <small className="text-[10px] md:text-sm font-bold">ر.س</small>
+                      {product.price} <small className="text-[10px] md:text-sm font-bold">ج.م</small>
                     </span>
                   </div>
                   

@@ -85,7 +85,7 @@ const CartView: React.FC<CartViewProps> = ({ cart, onUpdateQuantity, onRemove, o
                 </div>
               </div>
               <div className="text-xl font-black text-indigo-600 min-w-[120px] text-left">
-                {(item.price * item.quantity).toLocaleString()} <small className="text-[10px] font-bold">ر.س</small>
+                {(item.price * item.quantity).toLocaleString()} <small className="text-[10px] font-bold">ج.م</small>
               </div>
             </div>
           );
@@ -98,7 +98,7 @@ const CartView: React.FC<CartViewProps> = ({ cart, onUpdateQuantity, onRemove, o
           <div className="space-y-4 mb-8">
             <div className="flex justify-between text-slate-500 font-bold text-sm">
               <span>المجموع الفرعي</span>
-              <span>{total.toLocaleString()} ر.س</span>
+              <span>{total.toLocaleString()} ج.م</span>
             </div>
             <div className="flex justify-between text-slate-500 font-bold text-sm">
               <span>التوصيل والشحن</span>
@@ -106,7 +106,7 @@ const CartView: React.FC<CartViewProps> = ({ cart, onUpdateQuantity, onRemove, o
             </div>
             <div className="flex justify-between text-2xl font-black text-slate-900 pt-5 border-t border-slate-50">
               <span>الإجمالي</span>
-              <span className="text-indigo-600">{total.toLocaleString()} ر.س</span>
+              <span className="text-indigo-600">{total.toLocaleString()} ج.م</span>
             </div>
           </div>
           <button 

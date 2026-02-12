@@ -39,8 +39,8 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
     
     if (!formData.phone.trim()) {
       newErrors.phone = 'يرجى إدخال رقم الجوال';
-    } else if (!/^(05|5)\d{8}$/.test(formData.phone.trim())) {
-      newErrors.phone = 'يرجى إدخال رقم جوال سعودي صحيح (مثال: 05xxxxxxx)';
+    } else if (!/^(01)\d{9}$/.test(formData.phone.trim())) {
+      newErrors.phone = 'يرجى إدخال رقم جوال مصري صحيح (مثال: 01xxxxxxxxx)';
     }
 
     if (!formData.city) {
@@ -124,7 +124,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
                   value={formData.phone}
                   onChange={(e) => handleChange('phone', e.target.value)}
                   className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition text-left ${errors.phone ? 'border-red-500 bg-red-50' : 'border-transparent bg-gray-50 focus:border-indigo-100 focus:bg-white'}`} 
-                  placeholder="05xxxxxxxx" 
+                  placeholder="01xxxxxxxxx" 
                   dir="ltr"
                 />
                 {errors.phone && <p className="text-xs text-red-500 font-bold mr-2">{errors.phone}</p>}
@@ -133,20 +133,20 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
               {/* المدينة */}
               <div className="space-y-2">
                 <label className="text-sm font-bold text-gray-500 mr-2 flex items-center gap-1">
-                  المدينة <span className="text-red-500">*</span>
+                  المحافظة <span className="text-red-500">*</span>
                 </label>
                 <select 
                   value={formData.city}
                   onChange={(e) => handleChange('city', e.target.value)}
                   className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition appearance-none ${errors.city ? 'border-red-500 bg-red-50' : 'border-transparent bg-gray-50 focus:border-indigo-100 focus:bg-white'}`}
                 >
-                  <option value="">اختر المدينة</option>
-                  <option value="الرياض">الرياض</option>
-                  <option value="جدة">جدة</option>
-                  <option value="الدمام">الدمام</option>
-                  <option value="مكة">مكة المكرمة</option>
-                  <option value="المدينة">المدينة المنورة</option>
-                  <option value="أبها">أبها</option>
+                  <option value="">اختر المحافظة</option>
+                  <option value="القاهرة">القاهرة</option>
+                  <option value="الجيزة">الجيزة</option>
+                  <option value="الإسكندرية">الإسكندرية</option>
+                  <option value="الشرقية">الشرقية</option>
+                  <option value="الدقهلية">الدقهلية</option>
+                  <option value="القليوبية">القليوبية</option>
                 </select>
                 {errors.city && <p className="text-xs text-red-500 font-bold mr-2">{errors.city}</p>}
               </div>
@@ -154,13 +154,13 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
               {/* العنوان التفصيلي */}
               <div className="space-y-2 md:col-span-2">
                 <label className="text-sm font-bold text-gray-500 mr-2 flex items-center gap-1">
-                  العنوان التفصيلي <span className="text-red-500">*</span>
+                  العنوان بالتفصيل <span className="text-red-500">*</span>
                 </label>
                 <textarea 
                   value={formData.address}
                   onChange={(e) => handleChange('address', e.target.value)}
                   className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition min-h-[100px] resize-none ${errors.address ? 'border-red-500 bg-red-50' : 'border-transparent bg-gray-50 focus:border-indigo-100 focus:bg-white'}`} 
-                  placeholder="الحي، الشارع، رقم المبنى..."
+                  placeholder="الحي، الشارع، رقم المنزل..."
                 />
                 {errors.address && <p className="text-xs text-red-500 font-bold mr-2">{errors.address}</p>}
               </div>
@@ -201,7 +201,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
                   {formData.paymentMethod === 'card' && <div className="w-3 h-3 bg-indigo-600 rounded-full"></div>}
                 </div>
                 <div>
-                  <p className="font-black text-gray-900">بطاقة مدى / ائتمان</p>
+                  <p className="font-black text-gray-900">بطاقة ميزة / ائتمان</p>
                   <p className="text-xs text-gray-500">دفع آمن وسريع أونلاين</p>
                 </div>
               </button>
@@ -220,7 +220,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
                   <img src={item.images[0]} className="w-14 h-14 rounded-xl object-cover border border-gray-50" alt="" />
                   <div className="flex-grow min-w-0">
                     <p className="text-sm font-bold text-gray-800 truncate">{item.name}</p>
-                    <p className="text-xs text-gray-400 font-bold">{item.quantity} × {item.price} ر.س</p>
+                    <p className="text-xs text-gray-400 font-bold">{item.quantity} × {item.price} ج.م</p>
                   </div>
                 </div>
               ))}
@@ -229,11 +229,11 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
             <div className="space-y-3 pt-4 border-t border-gray-100 text-sm">
               <div className="flex justify-between text-gray-500 font-bold">
                 <span>المجموع الفرعي</span>
-                <span>{subtotal.toFixed(2)} ر.س</span>
+                <span>{subtotal.toFixed(2)} ج.م</span>
               </div>
               <div className="flex justify-between text-gray-500 font-bold">
                 <span>ضريبة القيمة المضافة (15%)</span>
-                <span>{tax.toFixed(2)} ر.س</span>
+                <span>{tax.toFixed(2)} ج.م</span>
               </div>
               <div className="flex justify-between text-gray-500 font-bold">
                 <span>الشحن</span>
@@ -241,7 +241,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
               </div>
               <div className="flex justify-between text-2xl font-black text-gray-900 pt-4">
                 <span>الإجمالي</span>
-                <span className="text-indigo-600">{total.toFixed(2)} ر.س</span>
+                <span className="text-indigo-600">{total.toFixed(2)} ج.م</span>
               </div>
             </div>
 
