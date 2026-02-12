@@ -14,8 +14,8 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-  cartCount, wishlistCount, currentView, categories, 
-  selectedCategoryId, onNavigate, onSearch, onCategorySelect 
+  cartCount, wishlistCount, currentView, 
+  onNavigate, onSearch, onCategorySelect 
 }) => {
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
@@ -26,20 +26,15 @@ const Header: React.FC<HeaderProps> = ({
       const currentScrollY = window.scrollY;
       const delta = currentScrollY - lastScrollY.current;
       
-      // تغيير حجم الهيدر عند التمرير البسيط
       setScrolled(currentScrollY > 20);
 
-      // تجاهل الحركات الصغيرة جداً (الضجيج) لضمان سلاسة الأداء
       if (Math.abs(delta) < 8) return;
 
       if (currentScrollY <= 0) {
-        // دائماً أظهر الهيدر عند قمة الصفحة
         setIsVisible(true);
       } else if (delta > 0 && currentScrollY > 120) {
-        // تمرير للأسفل: إخفاء الهيدر بعد تجاوز عتبة معينة
         setIsVisible(false);
       } else if (delta < 0) {
-        // تمرير للأعلى: إظهار الهيدر فوراً
         setIsVisible(true);
       }
       
@@ -102,25 +97,6 @@ const Header: React.FC<HeaderProps> = ({
             />
           </div>
         </div>
-
-        {/* Categories Bar */}
-        <div className={`mt-2 md:mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 transition-opacity duration-300 ${scrolled ? 'opacity-80' : 'opacity-100'}`}>
-          <CategoryChip 
-            active={selectedCategoryId === 'all'} 
-            onClick={() => onCategorySelect('all')} 
-            label="الكل" 
-            icon="✨"
-          />
-          {categories.map(cat => (
-            <CategoryChip 
-              key={cat.id}
-              active={selectedCategoryId === cat.id} 
-              onClick={() => onCategorySelect(cat.id)} 
-              label={cat.name} 
-              icon="🌿"
-            />
-          ))}
-        </div>
       </div>
     </header>
   );
@@ -137,16 +113,6 @@ const ActionButton = ({ count, icon, onClick, variant = 'secondary', className =
         {count}
       </span>
     )}
-  </button>
-);
-
-const CategoryChip = ({ active, onClick, label, icon }: any) => (
-  <button 
-    onClick={onClick}
-    className={`whitespace-nowrap flex items-center gap-1.5 px-3 md:px-6 py-1.5 md:py-2.5 rounded-full text-[9px] md:text-xs font-black transition-all border ${active ? 'bg-slate-800 border-slate-800 text-white shadow-xl translate-y-[-1px]' : 'bg-white border-slate-100 text-slate-500 hover:border-emerald-200'}`}
-  >
-    <span className={active ? '' : 'grayscale'}>{icon}</span>
-    {label}
   </button>
 );
 
