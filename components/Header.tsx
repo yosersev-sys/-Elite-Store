@@ -24,19 +24,22 @@ const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY.current;
       
-      // Determine if at the top for aesthetic changes
+      // تغيير حجم الهيدر عند التمرير البسيط
       setScrolled(currentScrollY > 20);
 
-      // Hide/Show logic based on scroll direction
+      // تجاهل الحركات الصغيرة جداً (الضجيج) لضمان سلاسة الأداء
+      if (Math.abs(delta) < 8) return;
+
       if (currentScrollY <= 0) {
-        // At the very top, always show
+        // دائماً أظهر الهيدر عند قمة الصفحة
         setIsVisible(true);
-      } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-        // Scrolling Down - hide if past threshold
+      } else if (delta > 0 && currentScrollY > 120) {
+        // تمرير للأسفل: إخفاء الهيدر بعد تجاوز عتبة معينة
         setIsVisible(false);
-      } else if (currentScrollY < lastScrollY.current) {
-        // Scrolling Up - show
+      } else if (delta < 0) {
+        // تمرير للأعلى: إظهار الهيدر فوراً
         setIsVisible(true);
       }
       
@@ -48,11 +51,13 @@ const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 transform ${isVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'py-1 md:py-2' : 'py-3 md:py-4'}`}>
+    <header 
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out transform ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'} ${scrolled ? 'py-1 md:py-2' : 'py-3 md:py-4'}`}
+    >
       <div className="container mx-auto px-2 md:px-4">
-        <div className={`glass rounded-[1.5rem] md:rounded-[2rem] px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2 md:gap-8 card-shadow transition-all duration-500 ${scrolled ? 'mx-1 md:mx-2' : 'mx-0'}`}>
+        <div className={`glass rounded-[1.5rem] md:rounded-[2rem] px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2 md:gap-8 card-shadow transition-all duration-500 ${scrolled ? 'mx-1 md:mx-2 border-emerald-100/50' : 'mx-0 border-transparent'}`}>
           
-          {/* Logo Section - Always Visible */}
+          {/* Logo Section */}
           <div 
             onClick={() => { onNavigate('store'); onCategorySelect('all'); }}
             className="flex items-center gap-2 md:gap-3 cursor-pointer group shrink-0"
@@ -66,14 +71,14 @@ const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Desktop Navigation - Hidden on Mobile */}
+          {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-1">
             <HeaderLink active={currentView === 'store'} onClick={() => onNavigate('store')} label="المتجر" />
             <HeaderLink active={currentView === 'wishlist'} onClick={() => onNavigate('wishlist')} label="المفضلة" />
             <HeaderLink active={currentView === 'admin'} onClick={() => onNavigate('admin')} label="الإدارة" />
           </nav>
 
-          {/* Search Bar - Responsive */}
+          {/* Search Bar */}
           <div className="flex-grow max-w-xl">
             <div className="relative group">
               <input 
@@ -106,7 +111,7 @@ const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Categories Bar */}
-        <div className="mt-2 md:mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+        <div className={`mt-2 md:mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 transition-opacity duration-300 ${scrolled ? 'opacity-80' : 'opacity-100'}`}>
           <CategoryChip 
             active={selectedCategoryId === 'all'} 
             onClick={() => onCategorySelect('all')} 
