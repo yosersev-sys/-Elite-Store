@@ -85,7 +85,6 @@ const App: React.FC = () => {
     );
   }
 
-  // في صفحات الإدارة، نريد إخفاء الهيدر الرئيسي أحياناً أو تغييره
   const isAdminView = view === 'admin' || view === 'admin-form' || view === 'admin-invoice';
 
   return (
@@ -98,19 +97,8 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* إذا كان في الإدارة، نضع هيدر بسيط */}
-      {isAdminView && (
-        <header className="bg-white border-b border-green-50 sticky top-0 z-50 py-4 px-8 flex justify-between items-center shadow-sm">
-           <h1 onClick={() => onNavigateAction('store')} className="text-xl font-black text-green-600 cursor-pointer flex items-center gap-2">
-             <span className="text-2xl">🛍️</span> فاقوس ستور
-           </h1>
-           <button onClick={() => onNavigateAction('store')} className="text-xs font-bold text-slate-400 hover:text-green-600 transition">
-             العودة للمتجر 🏪
-           </button>
-        </header>
-      )}
-
-      <main className={`flex-grow container mx-auto px-4 py-8 ${isAdminView ? 'max-w-7xl' : ''}`}>
+      {/* منطقة المحتوى الأساسية */}
+      <main className={`flex-grow ${isAdminView ? 'w-full px-0 py-0' : 'container mx-auto px-4 py-8'}`}>
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
@@ -121,37 +109,43 @@ const App: React.FC = () => {
         )}
         
         {view === 'admin' && (
-          <AdminDashboard 
-            products={products} categories={categories} orders={orders}
-            onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
-            onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
-            onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
-            onDeleteProduct={async (id) => { if(confirm('هل أنت متأكد من الحذف؟')) { await ApiService.deleteProduct(id); setProducts(prev => prev.filter(p => p.id !== id)); } }}
-            onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
-            onUpdateCategory={async (c) => { await ApiService.updateCategory(c); setCategories(prev => prev.map(cat => cat.id === c.id ? c : cat)); }}
-            onDeleteCategory={async (id) => { if(confirm('حذف القسم سيؤدي لإلغاء تصنيف منتجاته، هل أنت متأكد؟')) { await ApiService.deleteCategory(id); setCategories(prev => prev.filter(c => c.id !== id)); } }}
-          />
+          <div className="p-4 md:p-8">
+            <AdminDashboard 
+              products={products} categories={categories} orders={orders}
+              onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
+              onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
+              onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
+              onDeleteProduct={async (id) => { if(confirm('هل أنت متأكد من الحذف؟')) { await ApiService.deleteProduct(id); setProducts(prev => prev.filter(p => p.id !== id)); } }}
+              onAddCategory={async (c) => { await ApiService.addCategory(c); setCategories(prev => [...prev, c]); }}
+              onUpdateCategory={async (c) => { await ApiService.updateCategory(c); setCategories(prev => prev.map(cat => cat.id === c.id ? c : cat)); }}
+              onDeleteCategory={async (id) => { if(confirm('حذف القسم سيؤدي لإلغاء تصنيف منتجاته، هل أنت متأكد؟')) { await ApiService.deleteCategory(id); setCategories(prev => prev.filter(c => c.id !== id)); } }}
+            />
+          </div>
         )}
 
         {view === 'admin-form' && (
-          <AdminProductForm 
-            product={selectedProduct} categories={categories} 
-            onSubmit={async (p) => {
-               const isEdit = products.some(prod => prod.id === p.id);
-               if (isEdit) await ApiService.updateProduct(p); else await ApiService.addProduct(p);
-               await loadData();
-               onNavigateAction('admin');
-            }}
-            onCancel={() => onNavigateAction('admin')}
-          />
+          <div className="p-4 md:p-8">
+            <AdminProductForm 
+              product={selectedProduct} categories={categories} 
+              onSubmit={async (p) => {
+                 const isEdit = products.some(prod => prod.id === p.id);
+                 if (isEdit) await ApiService.updateProduct(p); else await ApiService.addProduct(p);
+                 await loadData();
+                 onNavigateAction('admin');
+              }}
+              onCancel={() => onNavigateAction('admin')}
+            />
+          </div>
         )}
 
         {view === 'admin-invoice' && (
-          <AdminInvoiceForm 
-            products={products}
-            onSubmit={handleInvoiceSubmit}
-            onCancel={() => onNavigateAction('admin')}
-          />
+          <div className="p-4 md:p-8">
+            <AdminInvoiceForm 
+              products={products}
+              onSubmit={handleInvoiceSubmit}
+              onCancel={() => onNavigateAction('admin')}
+            />
+          </div>
         )}
 
         {view === 'order-success' && lastCreatedOrder && (
@@ -159,14 +153,27 @@ const App: React.FC = () => {
         )}
 
         {view === 'cart' && <CartView cart={cart} onUpdateQuantity={()=>{}} onRemove={()=>{}} onCheckout={()=>{}} onContinueShopping={()=>onNavigateAction('store')} />}
+        
+        {view === 'product-details' && selectedProduct && (
+          <ProductDetailsView 
+            product={selectedProduct} 
+            categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} 
+            onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])} 
+            onBack={() => onNavigateAction('store')}
+            isFavorite={wishlist.includes(selectedProduct.id)}
+            onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+          />
+        )}
       </main>
 
       <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
 
       {!isAdminView && (
         <footer className="bg-green-900 text-white py-12 text-center mt-20">
-          <h2 className="text-xl font-black mb-2">فاقوس ستور</h2>
-          <p className="text-green-300 opacity-50 text-[10px] tracking-widest">&copy; {new Date().getFullYear()} نظام الإدارة الفعال</p>
+          <h2 className="text-xl font-black mb-2 tracking-tighter flex items-center justify-center gap-2">
+            <span className="text-2xl">🛍️</span> فاقوس ستور
+          </h2>
+          <p className="text-green-300 opacity-50 text-[10px] tracking-widest uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة لمتجر فاقوس المتميز</p>
         </footer>
       )}
     </div>
