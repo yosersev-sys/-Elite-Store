@@ -42,28 +42,28 @@ const StoreView: React.FC<StoreViewProps> = ({
   }, [products, searchQuery, selectedCategoryId]);
 
   const activeCategoryName = useMemo(() => {
-    if (selectedCategoryId === 'all') return 'منتجاتنا الحصرية';
+    if (selectedCategoryId === 'all') return 'منتجاتنا المختارة بعناية';
     return categories.find(c => c.id === selectedCategoryId)?.name || 'منتجات القسم';
   }, [categories, selectedCategoryId]);
 
   return (
-    <div className="space-y-20 animate-fadeIn">
-      {/* Visual Elements - Navbar is already in App.tsx layout */}
+    <div className="space-y-12 animate-fadeIn">
+      {/* السلايدر وشركاء الجودة يظهرون في الصفحة الرئيسية فقط وعند عدم وجود بحث */}
       {showHero && searchQuery === '' && (
-        <>
+        <div className="space-y-12">
           <Slider />
           <BrandsSection />
-        </>
+        </div>
       )}
 
-      {/* Category Selection Grid */}
+      {/* أقسام التصفح السريع */}
       <CategorySection 
         categories={categories} 
         selectedCategoryId={selectedCategoryId} 
         onCategorySelect={onCategorySelect} 
       />
 
-      {/* Only show Best Sellers if on home page and no search */}
+      {/* الأكثر مبيعاً يظهر في الرئيسية فقط */}
       {showHero && searchQuery === '' && selectedCategoryId === 'all' && (
         <BestSellers 
           products={products} 
@@ -74,26 +74,26 @@ const StoreView: React.FC<StoreViewProps> = ({
         />
       )}
 
-      {/* Products Grid */}
-      <div className="space-y-12" id="products-list">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-t border-orange-50 pt-16">
-          <div className="space-y-2">
-             <h2 className="text-4xl font-black text-gray-900 tracking-tighter">
-               {searchQuery ? `نتائج البحث عن: ${searchQuery}` : activeCategoryName}
+      {/* شبكة المنتجات */}
+      <div className="space-y-8" id="products-list">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-orange-100 pt-12">
+          <div className="space-y-1">
+             <h2 className="text-3xl font-black text-gray-900 tracking-tighter">
+               {searchQuery ? `نتائج البحث: ${searchQuery}` : activeCategoryName}
              </h2>
-             <p className="text-gray-400 text-lg font-bold">
-               {filteredProducts.length} منتج متاح في هذا القسم
+             <p className="text-gray-400 text-sm font-bold">
+               اكتشف {filteredProducts.length} منتج طازج وعالي الجودة
              </p>
           </div>
           
           <div className="hidden md:block">
-             <span className="bg-orange-50 text-orange-600 px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
-                موسم {new Date().getFullYear()}
+             <span className="bg-orange-50 text-orange-600 px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest border border-orange-100">
+                تسوق ممتع في فاقوس ستور
              </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {filteredProducts.map(product => (
             <ProductCard 
               key={product.id} 
@@ -108,14 +108,14 @@ const StoreView: React.FC<StoreViewProps> = ({
         </div>
 
         {filteredProducts.length === 0 && (
-          <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-orange-100">
-             <div className="text-6xl mb-4">🔍</div>
-             <p className="text-gray-400 font-black text-xl">عذراً، لم نجد منتجات تطابق اختيارك.</p>
+          <div className="text-center py-24 bg-white rounded-[3rem] border-2 border-dashed border-orange-100">
+             <div className="text-5xl mb-4">🔍</div>
+             <p className="text-gray-400 font-black text-lg">لم نجد أي نتائج تطابق بحثك..</p>
              <button 
                onClick={() => onCategorySelect('all')}
-               className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-2xl font-black"
+               className="mt-6 bg-orange-500 text-white px-8 py-3 rounded-2xl font-black hover:bg-slate-900 transition"
              >
-               عرض كل المنتجات
+               العودة لجميع المنتجات
              </button>
           </div>
         )}

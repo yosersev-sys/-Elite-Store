@@ -24,9 +24,10 @@ const Header: React.FC<HeaderProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-white shadow-sm z-40 border-b border-orange-50 sticky top-0">
+    <header className="bg-white shadow-md z-50 border-b border-orange-50 sticky top-0 w-full">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between gap-4">
+          {/* Logo */}
           <div className="flex items-center gap-6">
             <Link 
               to="/"
@@ -36,6 +37,7 @@ const Header: React.FC<HeaderProps> = ({
               <span className="text-orange-500">فاقوس <span className="text-slate-900">ستور</span></span>
             </Link>
             
+            {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-1">
               <NavLink 
                 to="/"
@@ -48,21 +50,22 @@ const Header: React.FC<HeaderProps> = ({
                 to="/wishlist"
                 className={({isActive}) => `px-4 py-2 rounded-xl text-sm transition font-bold ${isActive ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'}`}
               >
-                مفضلاتي
+                المفضلة
               </NavLink>
               <NavLink 
                 to="/admin/products"
                 className={({isActive}) => `px-4 py-2 rounded-xl text-sm transition font-bold ${isActive ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'}`}
               >
-                لوحة التحكم
+                لوحة الإدارة
               </NavLink>
             </nav>
           </div>
 
+          {/* Search Bar */}
           <div className="relative hidden md:block flex-grow max-w-md mx-4">
             <input 
               type="text" 
-              placeholder="ابحث عن محاصيل، فواكه، أو مواد غذائية..." 
+              placeholder="ابحث عن خضروات، فواكه، أو مواد غذائية..." 
               onChange={(e) => onSearch(e.target.value)}
               className="w-full pl-4 pr-12 py-2.5 bg-gray-50 border border-orange-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition text-sm font-medium"
             />
@@ -71,6 +74,7 @@ const Header: React.FC<HeaderProps> = ({
             </svg>
           </div>
 
+          {/* Icons & Mobile Toggle */}
           <div className="flex items-center gap-2">
             <NavLink 
               to="/wishlist"
@@ -111,18 +115,18 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Categories Navigation Chips */}
+        {/* Categories Navigation Bar */}
         <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
           <NavLink
             to="/"
             end
             className={({isActive}) => `whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${
-              isActive 
+              isActive && selectedCategoryId === 'all'
               ? 'bg-orange-500 text-white shadow-lg' 
               : 'bg-white text-gray-400 border border-orange-50 hover:border-orange-200'
             }`}
           >
-            جميع الأصناف
+            جميع المحاصيل
           </NavLink>
           {categories.map(cat => (
             <NavLink
@@ -140,11 +144,12 @@ const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
+      {/* Mobile Menu Overlay */}
       {isMenuOpen && (
         <div className="lg:hidden border-t border-orange-50 bg-white p-4 space-y-2 animate-fadeIn">
-          <Link to="/" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-3 rounded-xl font-bold text-gray-700 hover:bg-orange-50">الرئيسية</Link>
-          <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-3 rounded-xl font-bold text-gray-700 hover:bg-orange-50">مفضلاتي</Link>
-          <Link to="/admin/products" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-3 rounded-xl font-bold text-gray-700 hover:bg-orange-50">لوحة التحكم</Link>
+          <Link to="/" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-4 rounded-xl font-bold text-gray-700 hover:bg-orange-50 transition">الرئيسية</Link>
+          <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-4 rounded-xl font-bold text-gray-700 hover:bg-orange-50 transition">مفضلاتي</Link>
+          <Link to="/admin/products" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-4 rounded-xl font-bold text-gray-700 hover:bg-orange-50 transition">لوحة التحكم</Link>
         </div>
       )}
     </header>

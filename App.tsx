@@ -13,7 +13,7 @@ import OrderSuccessView from './components/OrderSuccessView';
 import FloatingAdminButton from './components/FloatingAdminButton';
 import { ApiService } from './services/api';
 
-// مكون وسيط للتعامل مع رابط القسم
+// مكون وسيط للتعامل مع رابط القسم لضمان التحديث عند تغيير الرابط
 const CategoryPage = ({ products, categories, onAddToCart, wishlist, onToggleFavorite, searchQuery }: any) => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ const CategoryPage = ({ products, categories, onAddToCart, wishlist, onToggleFav
       categories={categories} 
       searchQuery={searchQuery} 
       selectedCategoryId={id || 'all'}
-      showHero={false}
+      showHero={false} // لا يظهر السلايدر في صفحات الأقسام لتركيز النظر على المنتجات
       onCategorySelect={(newId) => navigate(newId === 'all' ? '/' : `/category/${newId}`)} 
       onAddToCart={onAddToCart} 
       onViewProduct={(p) => navigate(`/product/${p.id}`)}
@@ -93,6 +93,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col font-sans text-slate-900 bg-[#f8faf7]">
+      {/* Navbar - يظهر دائماً في الأعلى */}
       <Header 
         cartCount={cart.length} 
         wishlistCount={wishlist.length} 
@@ -106,10 +107,11 @@ const App: React.FC = () => {
 
       <main className="flex-grow container mx-auto px-4 py-8">
         <Routes>
+          {/* الصفحة الرئيسية - يظهر فيها السلايدر */}
           <Route path="/" element={
             <StoreView 
               products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId="all"
-              showHero={true}
+              showHero={true} 
               onCategorySelect={(id) => navigate(id === 'all' ? '/' : `/category/${id}`)} 
               onAddToCart={onAddToCart} 
               onViewProduct={(p) => navigate(`/product/${p.id}`)}
@@ -125,6 +127,7 @@ const App: React.FC = () => {
             />
           } />
 
+          {/* لوحة التحكم */}
           <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
           <Route path="/admin/:tab" element={
             <AdminDashboard 
@@ -172,6 +175,7 @@ const App: React.FC = () => {
             />
           } />
 
+          {/* صفحات المتجر الأخرى */}
           <Route path="/product/:id" element={
              <div className="animate-fadeIn">
                 {(() => {
