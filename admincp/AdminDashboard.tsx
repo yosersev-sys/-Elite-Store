@@ -29,6 +29,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
 
+  // حالات تأكيد الحذف
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    type: 'product' | 'category' | null;
+    id: string | null;
+    title: string;
+  }>({
+    isOpen: false,
+    type: null,
+    id: null,
+    title: ''
+  });
+
   const stats = useMemo(() => {
     const revenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
     return {
@@ -49,9 +62,55 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setEditingCatId(null);
   };
 
+  const openDeleteConfirmation = (type: 'product' | 'category', id: string, name: string) => {
+    setConfirmModal({
+      isOpen: true,
+      type,
+      id,
+      title: name
+    });
+  };
+
+  const handleConfirmDelete = () => {
+    if (confirmModal.type === 'product' && confirmModal.id) {
+      onDeleteProduct(confirmModal.id);
+    } else if (confirmModal.type === 'category' && confirmModal.id) {
+      onDeleteCategory(confirmModal.id);
+    }
+    setConfirmModal({ isOpen: false, type: null, id: null, title: '' });
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row min-h-[80vh] bg-white rounded-[3rem] shadow-2xl border border-slate-50 overflow-hidden animate-fadeIn">
+    <div className="flex flex-col lg:flex-row min-h-[80vh] bg-white rounded-[3rem] shadow-2xl border border-slate-50 overflow-hidden animate-fadeIn relative">
       
+      {/* Confirmation Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-fadeIn" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}></div>
+          <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative z-10 animate-slideUp border border-slate-100">
+            <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 text-4xl mb-6 mx-auto">⚠️</div>
+            <h4 className="text-2xl font-black text-slate-800 text-center mb-3">هل أنت متأكد؟</h4>
+            <p className="text-slate-500 text-center font-bold mb-8">
+              سيتم حذف <span className="text-rose-600">"{confirmModal.title}"</span> بشكل نهائي من النظام. لا يمكن التراجع عن هذا الإجراء.
+            </p>
+            <div className="flex gap-4">
+              <button 
+                onClick={handleConfirmDelete}
+                className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black hover:bg-rose-600 transition shadow-lg shadow-rose-100"
+              >
+                تأكيد الحذف
+              </button>
+              <button 
+                onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                className="flex-grow bg-slate-100 text-slate-500 py-4 rounded-2xl font-black hover:bg-slate-200 transition"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="w-full lg:w-72 bg-slate-900 text-white p-8 flex flex-col gap-8">
         <div>
@@ -59,7 +118,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl">⚙️</span>
             الإدارة
           </h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2">Control Center v3.5</p>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2">Control Center v3.6</p>
         </div>
 
         <nav className="flex flex-col gap-2 flex-grow">
@@ -137,8 +196,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </td>
                     <td className="px-8 py-4 text-center">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg">✎</button>
-                        <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg">🗑</button>
+                        <button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition">✎</button>
+                        <button onClick={() => openDeleteConfirmation('product', p.id, p.name)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition">🗑</button>
                       </div>
                     </td>
                   </tr>
@@ -190,7 +249,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                         <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} className="p-2 text-slate-400 hover:text-blue-600 transition">✎</button>
-                        <button onClick={() => onDeleteCategory(cat.id)} className="p-2 text-slate-400 hover:text-rose-600 transition">🗑</button>
+                        <button onClick={() => openDeleteConfirmation('category', cat.id, cat.name)} className="p-2 text-slate-400 hover:text-rose-600 transition">🗑</button>
                       </div>
                     </>
                   )}
