@@ -1,8 +1,8 @@
 
 <?php
 /**
- * فاقوس ستور - المحرك الذكي v3.6
- * تحسين الروابط النظيفة BrowserRouter مع Basename
+ * فاقوس ستور - المحرك الذكي v3.4
+ * إصلاح خطأ i.H is null وتوحيد نسخ React
  */
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -17,8 +17,10 @@ header('Content-Type: text/html; charset=utf-8');
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
+    <!-- Babel Standalone -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Import Map: توحيد النسخ وإصلاح تعارضات المكاتب -->
     <script type="importmap">
     {
       "imports": {
@@ -38,26 +40,26 @@ header('Content-Type: text/html; charset=utf-8');
         #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 9999; transition: opacity 0.5s; }
         .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تهيئة المتجر والروابط...</p>
+        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تهيئة البيئة البرمجية...</p>
     </div>
     <div id="root"></div>
 
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
-        import { BrowserRouter } from 'react-router-dom';
+        import { HashRouter } from 'react-router-dom';
 
-        const BASE_PATH = window.location.pathname.replace(/\/(index\.php)?$/, '') || '/';
-        const BASE_URL = window.location.origin + (BASE_PATH.endsWith('/') ? BASE_PATH : BASE_PATH + '/');
+        const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
 
+        /**
+         * دالة جلب وترجمة الملفات بشكل متسلسل مع دعم الامتدادات
+         */
         async function fetchWithFallback(url) {
             const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
             for (let ext of extensions) {
@@ -71,7 +73,7 @@ header('Content-Type: text/html; charset=utf-8');
                     }
                 } catch (e) {}
             }
-            throw new Error(`الملف غير موجود: ${url}`);
+            throw new Error(`تعذر العثور على الملف: ${url}`);
         }
 
         async function getTranspiledUrl(filePath) {
@@ -82,6 +84,7 @@ header('Content-Type: text/html; charset=utf-8');
                 const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
                 let code = rawCode;
 
+                // معالجة الاستيرادات المحلية
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
                 const matches = [...code.matchAll(importRegex)];
                 
@@ -105,18 +108,24 @@ header('Content-Type: text/html; charset=utf-8');
                 const blobUrl = URL.createObjectURL(blob);
                 blobCache.set(absolutePath, blobUrl);
                 return blobUrl;
-            } catch (err) { throw err; }
+            } catch (err) {
+                throw err;
+            }
         }
 
         async function startApp() {
             try {
+                const loaderText = document.getElementById('loader-text');
+                loaderText.innerText = "جاري ترجمة المكونات...";
+                
                 const appBlobUrl = await getTranspiledUrl('App.tsx');
                 const module = await import(appBlobUrl);
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
+                // الحفاظ على مرجع واحد لـ React وتجنب التداخل
                 root.render(
-                    React.createElement(BrowserRouter, { basename: BASE_PATH }, 
+                    React.createElement(HashRouter, null, 
                         React.createElement(App, null)
                     )
                 );
@@ -124,8 +133,12 @@ header('Content-Type: text/html; charset=utf-8');
                 document.getElementById('initial-loader').style.opacity = '0';
                 setTimeout(() => document.getElementById('initial-loader').remove(), 500);
             } catch (err) {
-                console.error(err);
-                document.getElementById('loader-text').innerHTML = `خطأ في التشغيل: ${err.message}`;
+                console.error("Critical Start Error:", err);
+                const loaderText = document.getElementById('loader-text');
+                if (loaderText) {
+                    loaderText.style.color = 'red';
+                    loaderText.innerHTML = `خطأ في التشغيل:<br><small style="direction:ltr; display:block; margin-top:10px; background:#fff1f1; padding:10px; border-radius:10px;">${err.message}</small>`;
+                }
             }
         }
 

@@ -17,7 +17,6 @@ interface StoreViewProps {
   onViewProduct: (product: Product) => void;
   wishlist: string[];
   onToggleFavorite: (id: string) => void;
-  onSearch: (query: string) => void; // إضافة دالة البحث
 }
 
 const StoreView: React.FC<StoreViewProps> = ({ 
@@ -29,16 +28,13 @@ const StoreView: React.FC<StoreViewProps> = ({
   onAddToCart, 
   onViewProduct,
   wishlist,
-  onToggleFavorite,
-  onSearch
+  onToggleFavorite
 }) => {
   // Filter products by both Search and Category
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = p.name.toLowerCase().includes(searchLower) || 
-                           p.description.toLowerCase().includes(searchLower) ||
-                           (p.barcode && p.barcode.includes(searchLower));
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           p.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategoryId === 'all' || p.categoryId === selectedCategoryId;
       return matchesSearch && matchesCategory;
     });
@@ -51,13 +47,13 @@ const StoreView: React.FC<StoreViewProps> = ({
 
   return (
     <div className="space-y-20 animate-fadeIn">
-      {/* السلايدر الآن مرتبط بالفلترة */}
-      <Slider onCategorySelect={onCategorySelect} />
+      {/* Visual Elements */}
+      <Slider />
       
-      {/* قسم الماركات الآن مرتبط بالبحث */}
-      <BrandsSection onSearch={onSearch} />
+      {/* Brands Section */}
+      <BrandsSection />
 
-      {/* Category Selection Grid */}
+      {/* Category Selection Grid - NEW */}
       <CategorySection 
         categories={categories} 
         selectedCategoryId={selectedCategoryId} 
@@ -113,8 +109,8 @@ const StoreView: React.FC<StoreViewProps> = ({
              <div className="text-6xl mb-4">🔍</div>
              <p className="text-gray-400 font-black text-xl">عذراً، لم نجد منتجات تطابق اختيارك.</p>
              <button 
-               onClick={() => { onCategorySelect('all'); onSearch(''); }}
-               className="mt-6 bg-green-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg active:scale-95 transition"
+               onClick={() => onCategorySelect('all')}
+               className="mt-6 bg-green-600 text-white px-8 py-3 rounded-2xl font-black"
              >
                عرض كل المنتجات
              </button>

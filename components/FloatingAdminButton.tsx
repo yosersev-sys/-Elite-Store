@@ -1,12 +1,15 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { View } from '../types';
 
-const FloatingAdminButton: React.FC = () => {
-  const location = useLocation();
+interface FloatingAdminButtonProps {
+  currentView: View;
+  onNavigate: (view: View) => void;
+}
 
+const FloatingAdminButton: React.FC<FloatingAdminButtonProps> = ({ currentView, onNavigate }) => {
   // لا يظهر الزر إذا كنا بالفعل في صفحات الإدارة
-  if (location.pathname.startsWith('/admin')) return null;
+  if (currentView === 'admin' || currentView === 'admin-form') return null;
 
   return (
     <div className="fixed bottom-8 left-8 z-50 group">
@@ -17,8 +20,8 @@ const FloatingAdminButton: React.FC = () => {
       </div>
 
       {/* Main Button */}
-      <Link
-        to="/admin"
+      <button
+        onClick={() => onNavigate('admin')}
         className="w-16 h-16 bg-green-600 text-white rounded-full shadow-[0_20px_50px_rgba(22,163,74,0.3)] flex items-center justify-center hover:bg-slate-900 transition-all duration-500 transform hover:scale-110 active:scale-90 group-hover:rotate-90 border-4 border-white"
         aria-label="Admin Dashboard"
       >
@@ -41,7 +44,7 @@ const FloatingAdminButton: React.FC = () => {
             d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" 
           />
         </svg>
-      </Link>
+      </button>
 
       {/* Decorative Pulse Effect */}
       <span className="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-20 pointer-events-none"></span>

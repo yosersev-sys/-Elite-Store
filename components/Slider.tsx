@@ -7,7 +7,6 @@ interface Slide {
   title: string;
   subtitle: string;
   cta: string;
-  categoryId: string | 'all'; // إضافة معرف القسم المرتبط
 }
 
 const SLIDES: Slide[] = [
@@ -16,32 +15,25 @@ const SLIDES: Slide[] = [
     image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=1600',
     title: 'خضروات طازجة يومياً',
     subtitle: 'من المزارع مباشرة إلى باب منزلك، جودة نضمنها لك',
-    cta: 'تسوق الخضروات',
-    categoryId: 'cat_vegetables' // سيوجه للقسم إذا كان موجوداً
+    cta: 'تسوق الخضروات'
   },
   {
     id: 2,
     image: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&q=80&w=1600',
     title: 'فواكه موسمية لذيذة',
     subtitle: 'تشكيلة واسعة من الفواكه الطازجة المليئة بالفيتامينات',
-    cta: 'تسوق الفواكه',
-    categoryId: 'cat_fruits'
+    cta: 'تسوق الفواكه'
   },
   {
     id: 3,
     image: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=1600',
     title: 'عروض السوبر ماركت',
     subtitle: 'توفير حقيقي على كافة مستلزمات منزلك اليومية',
-    cta: 'مشاهدة العروض',
-    categoryId: 'all'
+    cta: 'مشاهدة العروض'
   }
 ];
 
-interface SliderProps {
-  onCategorySelect: (id: string | 'all') => void;
-}
-
-const Slider: React.FC<SliderProps> = ({ onCategorySelect }) => {
+const Slider: React.FC = () => {
   const [current, setCurrent] = useState(0);
 
   const nextSlide = useCallback(() => {
@@ -84,10 +76,7 @@ const Slider: React.FC<SliderProps> = ({ onCategorySelect }) => {
               {slide.subtitle}
             </p>
             <div>
-              <button 
-                onClick={() => onCategorySelect(slide.categoryId)}
-                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-black transition transform hover:scale-105 shadow-lg active:scale-95"
-              >
+              <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-full font-black transition transform hover:scale-105 shadow-lg">
                 {slide.cta}
               </button>
             </div>

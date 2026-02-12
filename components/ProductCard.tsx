@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Product } from '../types';
 
 interface ProductCardProps {
@@ -17,8 +16,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   return (
     <div className="bg-white rounded-[2.5rem] border border-slate-50 overflow-hidden card-shadow hover-lift flex flex-col h-full group">
-      {/* رابط الصفحة التفصيلية للمنتج */}
-      <Link to={`/product/${product.id}`} className="relative aspect-[4/5] overflow-hidden bg-slate-50 cursor-pointer">
+      <div className="relative aspect-[4/5] overflow-hidden bg-slate-50 cursor-pointer" onClick={onView}>
         <img 
           src={product.images[0]} 
           alt={product.name}
@@ -34,7 +32,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Favorite */}
         <button 
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite?.(); }}
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite?.(); }}
           className={`absolute top-4 left-4 z-10 p-3 rounded-2xl shadow-lg transition-all active:scale-90 ${isFavorite ? 'bg-rose-500 text-white' : 'glass text-slate-400 hover:text-rose-500'}`}
         >
           <svg className="w-5 h-5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
@@ -48,14 +46,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
              عرض التفاصيل
            </div>
         </div>
-      </Link>
+      </div>
       
       <div className="p-6 flex flex-col flex-grow">
-        <Link to={`/product/${product.id}`}>
-          <h3 className="font-black text-lg text-slate-800 line-clamp-1 mb-2 group-hover:text-emerald-600 transition-colors">
-            {product.name}
-          </h3>
-        </Link>
+        <h3 className="font-black text-lg text-slate-800 line-clamp-1 mb-2 group-hover:text-emerald-600 transition-colors">
+          {product.name}
+        </h3>
         <p className="text-slate-400 text-xs font-medium line-clamp-2 mb-6 flex-grow">
           {product.description}
         </p>
@@ -70,7 +66,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </div>
           
           <button 
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToCart(); }}
+            onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
             className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center hover:bg-emerald-500 transition-all shadow-xl active:scale-90"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
