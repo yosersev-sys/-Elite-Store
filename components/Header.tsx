@@ -24,81 +24,71 @@ const Header: React.FC<HeaderProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-white shadow-md z-50 border-b border-orange-50 sticky top-0 w-full">
-      <div className="container mx-auto px-4 py-4">
+    <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md shadow-lg z-[100] border-b border-orange-100">
+      <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between gap-4">
-          {/* Logo */}
-          <div className="flex items-center gap-6">
+          {/* Logo Section */}
+          <div className="flex items-center gap-8">
             <Link 
               to="/"
-              className="text-2xl font-black cursor-pointer select-none tracking-tighter flex items-center gap-2"
+              className="text-2xl md:text-3xl font-black cursor-pointer select-none tracking-tighter flex items-center gap-2 group"
             >
-              <span className="text-3xl">🛍️</span>
+              <div className="bg-orange-500 p-2 rounded-2xl group-hover:rotate-12 transition-transform shadow-lg shadow-orange-200">
+                <span className="text-2xl text-white">🛍️</span>
+              </div>
               <span className="text-orange-500">فاقوس <span className="text-slate-900">ستور</span></span>
             </Link>
             
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-1">
+            {/* Desktop Navigation Links */}
+            <nav className="hidden xl:flex items-center gap-2">
               <NavLink 
                 to="/"
                 end
-                className={({isActive}) => `px-4 py-2 rounded-xl text-sm transition font-bold ${isActive && selectedCategoryId === 'all' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'}`}
+                className={({isActive}) => `px-5 py-2.5 rounded-2xl text-sm transition-all font-black ${isActive && selectedCategoryId === 'all' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-600 hover:text-orange-500 hover:bg-orange-50'}`}
               >
                 الرئيسية
               </NavLink>
               <NavLink 
                 to="/wishlist"
-                className={({isActive}) => `px-4 py-2 rounded-xl text-sm transition font-bold ${isActive ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'}`}
+                className={({isActive}) => `px-5 py-2.5 rounded-2xl text-sm transition-all font-black ${isActive ? 'bg-orange-500 text-white shadow-md' : 'text-slate-600 hover:text-orange-500 hover:bg-orange-50'}`}
               >
                 المفضلة
               </NavLink>
               <NavLink 
                 to="/admin/products"
-                className={({isActive}) => `px-4 py-2 rounded-xl text-sm transition font-bold ${isActive ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'}`}
+                className={({isActive}) => `px-5 py-2.5 rounded-2xl text-sm transition-all font-black ${isActive ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:text-orange-500 hover:bg-orange-50'}`}
               >
                 لوحة الإدارة
               </NavLink>
             </nav>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative hidden md:block flex-grow max-w-md mx-4">
+          {/* Center Search Bar (Desktop) */}
+          <div className="relative hidden lg:block flex-grow max-w-lg mx-8">
             <input 
               type="text" 
-              placeholder="ابحث عن خضروات، فواكه، أو مواد غذائية..." 
+              placeholder="ابحث عن منتج، قسم، أو باركود..." 
               onChange={(e) => onSearch(e.target.value)}
-              className="w-full pl-4 pr-12 py-2.5 bg-gray-50 border border-orange-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition text-sm font-medium"
+              className="w-full pl-6 pr-14 py-3.5 bg-slate-50 border border-slate-100 rounded-[2rem] focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all text-sm font-bold shadow-inner"
             />
-            <svg className="absolute right-4 top-2.5 h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <div className="absolute right-5 top-1/2 -translate-y-1/2 text-orange-500">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
           </div>
 
-          {/* Icons & Mobile Toggle */}
-          <div className="flex items-center gap-2">
-            <NavLink 
-              to="/wishlist"
-              className={({isActive}) => `p-2.5 rounded-xl transition relative group ${isActive ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'}`}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-              {wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-black rounded-lg h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-white">
-                  {wishlistCount}
-                </span>
-              )}
-            </NavLink>
-
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3">
             <NavLink 
               to="/cart"
-              className={({isActive}) => `p-2.5 rounded-xl transition relative group ${isActive ? 'bg-orange-500 text-white shadow-lg' : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'}`}
+              className={({isActive}) => `p-3.5 rounded-2xl transition-all relative group shadow-sm ${isActive ? 'bg-orange-500 text-white' : 'bg-slate-50 text-slate-600 hover:bg-orange-50 hover:text-orange-500'}`}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] font-black rounded-lg h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-white">
+                <span className="absolute -top-1 -right-1 bg-slate-900 text-white text-[10px] font-black rounded-lg h-5 min-w-[20px] px-1 flex items-center justify-center border-2 border-white animate-bounce">
                   {cartCount}
                 </span>
               )}
@@ -106,36 +96,36 @@ const Header: React.FC<HeaderProps> = ({
             
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="lg:hidden p-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition"
+              className="xl:hidden p-3.5 bg-slate-50 text-slate-600 rounded-2xl hover:bg-orange-50 transition-all"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16m-7 6h7"} />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={isMenuOpen ? "M6 18L18 6" : "M4 6h16M4 12h16M4 18h16"} />
               </svg>
             </button>
           </div>
         </div>
 
-        {/* Categories Navigation Bar */}
-        <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+        {/* Categories Quick Nav Bar */}
+        <div className="mt-4 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 border-t border-orange-50 pt-3">
           <NavLink
             to="/"
             end
-            className={({isActive}) => `whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${
+            className={({isActive}) => `whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition-all ${
               isActive && selectedCategoryId === 'all'
-              ? 'bg-orange-500 text-white shadow-lg' 
-              : 'bg-white text-gray-400 border border-orange-50 hover:border-orange-200'
+              ? 'bg-orange-500 text-white shadow-lg scale-105' 
+              : 'bg-white text-slate-400 border border-slate-100 hover:border-orange-200'
             }`}
           >
-            جميع المحاصيل
+            جميع الأقسام
           </NavLink>
           {categories.map(cat => (
             <NavLink
               key={cat.id}
               to={`/category/${cat.id}`}
-              className={({isActive}) => `whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition ${
+              className={({isActive}) => `whitespace-nowrap px-6 py-2 rounded-full text-xs font-black transition-all ${
                 isActive
-                ? 'bg-orange-500 text-white shadow-lg' 
-                : 'bg-white text-gray-400 border border-orange-50 hover:border-orange-200'
+                ? 'bg-orange-500 text-white shadow-lg scale-105' 
+                : 'bg-white text-slate-400 border border-slate-100 hover:border-orange-200'
               }`}
             >
               {cat.name}
@@ -146,10 +136,19 @@ const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
-        <div className="lg:hidden border-t border-orange-50 bg-white p-4 space-y-2 animate-fadeIn">
-          <Link to="/" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-4 rounded-xl font-bold text-gray-700 hover:bg-orange-50 transition">الرئيسية</Link>
-          <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-4 rounded-xl font-bold text-gray-700 hover:bg-orange-50 transition">مفضلاتي</Link>
-          <Link to="/admin/products" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-4 rounded-xl font-bold text-gray-700 hover:bg-orange-50 transition">لوحة التحكم</Link>
+        <div className="xl:hidden border-t border-orange-50 bg-white p-6 space-y-3 animate-fadeIn shadow-2xl">
+          <Link to="/" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-4 rounded-2xl font-black text-slate-700 bg-slate-50 hover:bg-orange-50 transition-all">🏠 الصفحة الرئيسية</Link>
+          <Link to="/wishlist" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-4 rounded-2xl font-black text-slate-700 bg-slate-50 hover:bg-orange-50 transition-all">❤️ قائمتي المفضلة</Link>
+          <Link to="/admin/products" onClick={() => setIsMenuOpen(false)} className="block w-full text-right p-4 rounded-2xl font-black text-white bg-slate-900 hover:bg-orange-600 transition-all">⚙️ لوحة الإدارة</Link>
+          
+          <div className="pt-4">
+             <input 
+              type="text" 
+              placeholder="ابحث عن منتجات..." 
+              onChange={(e) => onSearch(e.target.value)}
+              className="w-full px-6 py-4 bg-slate-50 border rounded-2xl outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
         </div>
       )}
     </header>
