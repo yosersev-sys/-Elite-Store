@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Product, CartItem, Category, Order, User } from './types.ts';
 import Header from './components/Header.tsx';
@@ -17,6 +18,7 @@ import { ApiService } from './services/api.ts';
 const App: React.FC = () => {
   const [view, setView] = useState<View>('store');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -87,12 +89,26 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* نافذة تسجيل الدخول المنبثقة */}
+      {showAuthModal && (
+        <AuthView 
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={(user) => { 
+            setCurrentUser(user); 
+            showNotify(`أهلاً بك يا ${user.name}`); 
+            setShowAuthModal(false);
+            loadData();
+          }} 
+        />
+      )}
+
       <Header 
         cartCount={cart.length} 
         wishlistCount={wishlist.length} 
         categories={categories}
         currentUser={currentUser}
         onNavigate={onNavigateAction}
+        onLoginClick={() => setShowAuthModal(true)}
         onLogout={handleLogout}
         onSearch={setSearchQuery} 
         onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
@@ -108,10 +124,6 @@ const App: React.FC = () => {
           />
         )}
         
-        {view === 'auth' && (
-          <AuthView onSuccess={(user) => { setCurrentUser(user); showNotify(`أهلاً بك يا ${user.name}`); onNavigateAction('store'); }} />
-        )}
-
         {view === 'admin' && (
           <AdminDashboard 
             products={products} categories={categories} orders={orders}
@@ -176,7 +188,7 @@ const App: React.FC = () => {
             cart={cart} 
             onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
             onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
-            onCheckout={() => currentUser ? onNavigateAction('checkout') : onNavigateAction('auth')}
+            onCheckout={() => currentUser ? onNavigateAction('checkout') : setShowAuthModal(true)}
             onContinueShopping={() => onNavigateAction('store')}
           />
         )}

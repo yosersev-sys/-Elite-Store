@@ -1,12 +1,14 @@
+
 import React, { useState } from 'react';
 import { ApiService } from '../services/api.ts';
 import { User } from '../types.ts';
 
 interface AuthViewProps {
   onSuccess: (user: User) => void;
+  onClose: () => void;
 }
 
-const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
+const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -45,14 +47,31 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center py-12 px-4 animate-fadeIn">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border border-slate-50 relative overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-fadeIn"
+        onClick={onClose}
+      ></div>
+
+      {/* Modal Card */}
+      <div className="max-w-md w-full space-y-8 bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border border-slate-50 relative overflow-hidden animate-slideUp">
         
+        {/* Close Button */}
+        <button 
+          onClick={onClose}
+          className="absolute top-6 left-6 text-slate-300 hover:text-rose-500 transition-colors active:scale-90"
+        >
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-50 rounded-full blur-3xl"></div>
 
-        <div className="relative text-center">
+        <div className="relative text-center pt-4">
           <div className="w-16 h-16 bg-emerald-500 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white shadow-xl rotate-3">
-             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 0 1-2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/></svg>
+             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/></svg>
           </div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">
             {isLogin ? 'أهلاً بك في فاقوس' : 'انضم لسوق العصر'}
@@ -112,7 +131,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
           </button>
         </form>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center pb-4">
           <button
             onClick={() => setIsLogin(!isLogin)}
             className="text-sm font-black text-emerald-600 hover:text-slate-900 transition"

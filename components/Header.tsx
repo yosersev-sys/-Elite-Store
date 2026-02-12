@@ -9,6 +9,7 @@ interface HeaderProps {
   categories: Category[];
   currentUser: User | null;
   onNavigate: (view: any) => void;
+  onLoginClick: () => void;
   onLogout: () => void;
   onSearch: (query: string) => void;
   onCategorySelect: (id: string | 'all') => void;
@@ -16,7 +17,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ 
   cartCount, wishlistCount, categories, currentUser,
-  onNavigate, onLogout, onSearch, onCategorySelect 
+  onNavigate, onLoginClick, onLogout, onSearch, onCategorySelect 
 }) => {
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
@@ -89,7 +90,7 @@ const Header: React.FC<HeaderProps> = ({
                 </button>
               ) : (
                 <button 
-                  onClick={() => onNavigate('auth')}
+                  onClick={onLoginClick}
                   className="bg-slate-900 text-white px-4 py-2.5 md:px-6 md:py-3.5 rounded-2xl font-black text-xs md:text-sm hover:bg-emerald-600 transition-all shadow-xl active:scale-95"
                 >
                   دخول
