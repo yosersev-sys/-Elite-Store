@@ -115,10 +115,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <aside className="w-full lg:w-72 bg-slate-900 text-white p-8 flex flex-col gap-8">
         <div>
           <h2 className="text-2xl font-black tracking-tighter flex items-center gap-3">
-            <span className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl">⚙️</span>
-            الإدارة
+            <span className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl">🏪</span>
+            فاقوس ستور
           </h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2">Control Center v3.6</p>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2 border-t border-slate-800 pt-2">لوحة التحكم الإدارية</p>
         </div>
 
         <nav className="flex flex-col gap-2 flex-grow">
@@ -137,8 +137,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <main className="flex-grow p-10 bg-slate-50/50 overflow-y-auto no-scrollbar">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div>
-            <h3 className="text-3xl font-black text-slate-800 tracking-tight">لوحة التحكم</h3>
-            <p className="text-slate-400 font-bold mt-1 text-sm">أهلاً بك في فاقوس ستور، يمكنك إدارة كل شيء من هنا.</p>
+            <h3 className="text-3xl font-black text-slate-800 tracking-tight">إدارة فاقوس ستور</h3>
+            <p className="text-slate-400 font-bold mt-1 text-sm">أهلاً بك، يمكنك إدارة كل شيء بلمسات بسيطة من هنا.</p>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={onOpenInvoiceForm} className="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-black text-sm shadow-sm hover:bg-slate-50 transition">🧾 فاتورة سريعة</button>
@@ -262,7 +262,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'orders' && (
           <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm animate-slideUp">
              <div className="p-6 border-b border-slate-50 bg-slate-50/50">
-               <h3 className="font-black text-slate-800">قائمة الطلبات الأخيرة</h3>
+               <h3 className="font-black text-slate-800">قائمة الطلبات الأخيرة - فاقوس ستور</h3>
              </div>
              <table className="w-full text-right">
                 <thead>
