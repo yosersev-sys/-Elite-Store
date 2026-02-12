@@ -5,11 +5,17 @@ import { HashRouter } from 'react-router-dom';
 import App from './App';
 
 const container = document.getElementById('root');
-if (container) {
-  const root = ReactDOM.createRoot(container);
-  root.render(
+
+if (!container) {
+  throw new Error("لم يتم العثور على عنصر root في الصفحة");
+}
+
+const root = ReactDOM.createRoot(container);
+
+root.render(
+  <React.StrictMode>
     <HashRouter>
       <App />
     </HashRouter>
-  );
-}
+  </React.StrictMode>
+);

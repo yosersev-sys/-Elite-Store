@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Routes, Route, useLocation, useNavigate, useParams, Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Product, CartItem, Category, Order } from './types';
 import { ApiService } from './services/api';
 
@@ -15,7 +15,7 @@ import OrderSuccessView from './components/OrderSuccessView';
 import FloatingAdminButton from './components/FloatingAdminButton';
 import ProductDetailsView from './components/ProductDetailsView';
 
-// مكون فرعي لعرض تفاصيل المنتج بناءً على المعرف في الرابط
+// مكون عرض تفاصيل المنتج
 const ProductPage: React.FC<{ 
   products: Product[], 
   categories: Category[], 
@@ -30,9 +30,9 @@ const ProductPage: React.FC<{
 
   if (!product) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center py-20 animate-fadeIn">
         <h2 className="text-2xl font-black text-gray-800">عذراً، المنتج غير موجود</h2>
-        <button onClick={() => navigate('/')} className="mt-4 bg-green-600 text-white px-6 py-2 rounded-xl">العودة للمتجر</button>
+        <button onClick={() => navigate('/')} className="mt-4 bg-green-600 text-white px-6 py-2 rounded-xl font-bold">العودة للمتجر</button>
       </div>
     );
   }
@@ -49,7 +49,7 @@ const ProductPage: React.FC<{
   );
 };
 
-// مكون فرعي لتعديل المنتج
+// مكون تعديل المنتج
 const EditProductPage: React.FC<{
   products: Product[],
   categories: Category[],
@@ -59,7 +59,7 @@ const EditProductPage: React.FC<{
   const { id } = useParams();
   const product = products.find(p => p.id === id);
 
-  if (!product) return <div className="p-10 text-center">جاري التحميل...</div>;
+  if (!product) return <div className="p-20 text-center font-bold text-gray-400">جاري البحث عن المنتج...</div>;
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
@@ -89,11 +89,11 @@ const App: React.FC = () => {
         ApiService.getCategories(),
         ApiService.getOrders()
       ]);
-      setProducts(fetchedProducts);
-      setCategories(fetchedCats);
-      setOrders(fetchedOrders);
+      setProducts(fetchedProducts || []);
+      setCategories(fetchedCats || []);
+      setOrders(fetchedOrders || []);
     } catch (err) {
-      console.error("Initialization error:", err);
+      console.error("خطأ في تحميل البيانات:", err);
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +109,8 @@ const App: React.FC = () => {
       }
       return [...prev, {...p, quantity: 1}];
     });
-    alert('تم إضافة المنتج للسلة ✅');
+    // تنبيه بسيط بدلاً من alert لعدم تعطيل الـ UI
+    console.log('تمت الإضافة للسلة:', p.name);
   };
 
   const onToggleFavorite = (id: string) => {
@@ -120,7 +121,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-green-600 font-black">
         <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-        فاقوس ستور - جاري التحميل...
+        <p className="animate-pulse">فاقوس ستور - جاري التحميل...</p>
       </div>
     );
   }
@@ -189,7 +190,11 @@ const App: React.FC = () => {
             <div className="h-full overflow-y-auto bg-slate-50">
               <AdminInvoiceForm 
                 products={products} 
-                onSubmit={async (order) => { await ApiService.saveOrder(order); setLastCreatedOrder(order); navigate('/order-success'); }} 
+                onSubmit={async (order) => { 
+                  await ApiService.saveOrder(order); 
+                  setLastCreatedOrder(order); 
+                  navigate('/order-success'); 
+                }} 
                 onCancel={() => navigate('/admin')} 
               />
             </div>
@@ -207,7 +212,7 @@ const App: React.FC = () => {
               cart={cart} 
               onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))} 
               onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} 
-              onCheckout={() => navigate('/admin/invoice')} // تبسيط للآن
+              onCheckout={() => navigate('/admin/invoice')}
               onContinueShopping={() => navigate('/')} 
             />
           } />
@@ -227,7 +232,7 @@ const App: React.FC = () => {
                 <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => navigate('/admin')} />
               </div>
             ) : (
-              <div className="p-10 text-center">لا يوجد طلب مسجل حالياً</div>
+              <div className="p-20 text-center font-bold text-gray-500">لا يوجد طلب مسجل حالياً</div>
             )
           } />
         </Routes>
@@ -238,7 +243,7 @@ const App: React.FC = () => {
           <FloatingAdminButton />
           <footer className="bg-green-900 text-white py-12 text-center mt-20">
             <h2 className="text-xl font-black mb-2">🛍️ فاقوس ستور</h2>
-            <p className="text-green-300 opacity-50 text-[10px]">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+            <p className="text-green-300 opacity-50 text-[10px] tracking-widest uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
           </footer>
         </>
       )}

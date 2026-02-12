@@ -7,7 +7,6 @@
     <title>فاقوس ستور - Faqous Store</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <!-- مكتبة التقاط الصور للفواتير -->
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     
     <script type="importmap">
@@ -24,17 +23,19 @@
 </script>
     
     <script>
-      // تعريف كائن process لمنع أخطاء المكتبات التي تبحث عنه في المتصفح
+      // شيم (Shim) لضمان عدم انهيار المكتبات التي تتطلب بيئة Node
       window.process = { env: { API_KEY: "" } };
+      window.global = window;
     </script>
 
     <style>
-        * { font-family: 'Cairo', sans-serif; }
+        * { font-family: 'Cairo', sans-serif; box-sizing: border-box; }
         body { 
             background-color: #f8faf7; 
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            overflow-x: hidden;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
