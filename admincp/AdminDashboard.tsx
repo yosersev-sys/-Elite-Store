@@ -15,263 +15,395 @@ interface AdminDashboardProps {
   onDeleteCategory: (id: string) => void;
 }
 
-type AdminTab = 'inventory' | 'sales' | 'categories' | 'stats';
+type AdminTab = 'stats' | 'products' | 'categories' | 'orders';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  products, categories, orders, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, onDeleteProduct, onAddCategory, onDeleteCategory
+  products, categories, orders, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory
 }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('inventory');
-  const [searchTerm, setSearchTerm] = useState('');
-
+  const [activeTab, setActiveTab] = useState<AdminTab>('products');
+  const [newCatName, setNewCatName] = useState('');
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatName, setEditingCatName] = useState('');
+  const [adminSearch, setAdminSearch] = useState('');
+  const [categorySearch, setCategorySearch] = useState('');
+  
   const stats = useMemo(() => {
-    const revenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-    const lowStock = products.filter(p => p.stockQuantity < 10 && p.stockQuantity > 0).length;
-    const outOfStock = products.filter(p => p.stockQuantity <= 0).length;
-    return { revenue, lowStock, outOfStock, totalProducts: products.length, totalOrders: orders.length };
+    const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const pendingOrders = orders.filter(o => o.status === 'pending').length;
+    const lowStockCount = products.filter(p => (p.stockQuantity || 0) > 0 && (p.stockQuantity || 0) < 10).length;
+    const outOfStockCount = products.filter(p => (p.stockQuantity || 0) <= 0).length;
+    
+    return {
+      revenue: totalRevenue.toLocaleString(),
+      sales: orders.length,
+      productCount: products.length,
+      pendingOrders,
+      lowStockCount,
+      outOfStockCount
+    };
   }, [products, orders]);
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (p.barcode && p.barcode.includes(searchTerm))
+      p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
+      p.id.toLowerCase().includes(adminSearch.toLowerCase()) ||
+      (p.barcode && p.barcode.includes(adminSearch))
     );
-  }, [products, searchTerm]);
+  }, [products, adminSearch]);
+
+  const filteredCategories = useMemo(() => {
+    return categories.filter(c => 
+      c.name.toLowerCase().includes(categorySearch.toLowerCase())
+    );
+  }, [categories, categorySearch]);
+
+  const getStockBadge = (qty: number) => {
+    if (qty <= 0) return <span className="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-[10px] font-black">نفذت الكمية</span>;
+    if (qty < 10) return <span className="px-3 py-1 bg-amber-100 text-amber-600 rounded-lg text-[10px] font-black">مخزون منخفض</span>;
+    return <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-lg text-[10px] font-black">متوفر</span>;
+  };
+
+  const handleUpdateCategory = (id: string) => {
+    if (!editingCatName.trim()) return;
+    onUpdateCategory({ id, name: editingCatName });
+    setEditingCatId(null);
+  };
+
+  const getCategoryIcon = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('خضروات')) return '🥦';
+    if (n.includes('فواكه')) return '🍎';
+    if (n.includes('ألبان')) return '🥛';
+    if (n.includes('مخبوزات')) return '🥖';
+    if (n.includes('لحوم')) return '🥩';
+    if (n.includes('بقوليات')) return '🫘';
+    return '📦';
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending': return <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-lg text-[10px] font-black">قيد الانتظار</span>;
+      case 'completed': return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-black">مكتمل</span>;
+      case 'cancelled': return <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg text-[10px] font-black">ملغي</span>;
+      default: return <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-lg text-[10px] font-black">{status}</span>;
+    }
+  };
 
   return (
-    <div className="flex h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
+    <div className="flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-green-50 animate-fadeIn">
       
-      {/* 🚀 القائمة الجانبية الإدارية (Sidebar) */}
-      <aside className="w-72 bg-slate-900 text-white flex flex-col shrink-0">
-        <div className="p-8">
-          <div className="flex items-center gap-3 mb-10">
-            <span className="text-3xl">⚙️</span>
-            <div>
-              <h2 className="text-xl font-black tracking-tighter">إدارة <span className="text-green-500">فاقوس</span></h2>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">لوحة التحكم الذكية</p>
-            </div>
-          </div>
-
-          <nav className="space-y-2">
-            <NavButton active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} label="المخزون والمنتجات" icon="📦" badge={stats.outOfStock > 0 ? stats.outOfStock : undefined} />
-            <NavButton active={activeTab === 'sales'} onClick={() => setActiveTab('sales')} label="سجل المبيعات" icon="🛒" />
-            <NavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="إدارة الأقسام" icon="🏷️" />
-            <NavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label="تقارير الأداء" icon="📊" />
-          </nav>
+      {/* Sidebar Navigation */}
+      <aside className="w-full lg:w-72 bg-slate-900 text-white p-8 flex flex-col shrink-0">
+        <div className="mb-12">
+          <h2 className="text-xl font-black tracking-tighter flex items-center gap-2">
+            <span className="p-2 bg-green-600 rounded-xl">⚙️</span>
+            إدارة فاقوس
+          </h2>
+          <p className="text-slate-400 text-[10px] font-bold uppercase mt-1 tracking-widest">admincp v2.5</p>
         </div>
+        
+        <nav className="space-y-2 flex-grow">
+          <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="المخزون والمنتجات" icon="📦" badge={stats.outOfStockCount > 0 ? stats.outOfStockCount : undefined} />
+          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label="الإحصائيات العامة" icon="📊" />
+          <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام والتصنيفات" icon="🏷️" />
+          <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="طلبات العملاء" icon="🛍️" badge={stats.pendingOrders} />
+        </nav>
 
-        {/* أزرار العمليات السريعة */}
-        <div className="mt-auto p-8 border-t border-slate-800 space-y-4">
-          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest px-2 mb-2">إجراءات سريعة</p>
-          <button 
-            onClick={onOpenAddForm}
-            className="w-full bg-green-600 hover:bg-green-500 text-white py-4 rounded-2xl font-black text-sm transition shadow-lg shadow-green-900/20 flex items-center justify-center gap-3"
-          >
-            <span>+</span> إضافة منتج جديد
-          </button>
-          <button 
-            onClick={onOpenInvoiceForm}
-            className="w-full bg-white text-slate-900 py-4 rounded-2xl font-black text-sm transition shadow-lg flex items-center justify-center gap-3"
-          >
-            <span>🧾</span> إنشاء فاتورة
-          </button>
-          
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="w-full text-slate-500 py-2 text-xs font-bold hover:text-white transition mt-4"
-          >
-            العودة لواجهة المتجر 🏪
-          </button>
+        <div className="pt-8 border-t border-slate-800 mt-auto">
+          <p className="text-[10px] text-slate-500 font-bold mb-4 px-2 tracking-widest uppercase">نظام أسواق فاقوس</p>
         </div>
       </aside>
 
-      {/* 🖥️ منطقة المحتوى الرئيسي */}
-      <main className="flex-grow flex flex-col overflow-hidden">
+      {/* Content Area */}
+      <main className="flex-grow p-6 lg:p-12 bg-slate-50/50 overflow-y-auto no-scrollbar">
         
-        {/* هيدر المحتوى العلوي */}
-        <header className="bg-white px-10 py-6 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <h1 className="text-2xl font-black text-slate-800">
-            {activeTab === 'inventory' && 'إدارة المخزون'}
-            {activeTab === 'sales' && 'سجل المبيعات'}
-            {activeTab === 'categories' && 'الأقسام والتصنيفات'}
-            {activeTab === 'stats' && 'الإحصائيات العامة'}
-          </h1>
-          
-          {activeTab === 'inventory' && (
-            <div className="relative w-96">
+        {/* Header Actions */}
+        <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="relative flex-grow max-w-md">
+            {activeTab === 'products' ? (
               <input 
                 type="text" 
-                placeholder="ابحث بالاسم أو الباركود..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-6 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 font-bold text-sm transition-all shadow-sm"
+                placeholder="ابحث بالاسم، الكود، أو الباركود..." 
+                value={adminSearch}
+                onChange={(e) => setAdminSearch(e.target.value)}
+                className="w-full px-6 py-3 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 font-bold text-sm shadow-sm"
               />
-              <span className="absolute left-4 top-3 text-slate-300 font-bold">🔍</span>
-            </div>
-          )}
-        </header>
+            ) : activeTab === 'categories' ? (
+              <input 
+                type="text" 
+                placeholder="ابحث عن قسم..." 
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+                className="w-full px-6 py-3 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 font-bold text-sm shadow-sm"
+              />
+            ) : (
+              <div className="h-10"></div>
+            )}
+            <span className="absolute left-4 top-3 text-slate-300">🔍</span>
+          </div>
+          <div className="flex gap-3">
+            <button 
+                onClick={onOpenInvoiceForm}
+                className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black shadow-xl shadow-slate-100 hover:scale-105 transition active:scale-95 flex items-center gap-2"
+            >
+                <span>🧾</span> إنشاء فاتورة
+            </button>
+            <button 
+                onClick={onOpenAddForm}
+                className="bg-green-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl shadow-green-100 hover:scale-105 transition active:scale-95"
+            >
+                + إضافة محصول جديد
+            </button>
+          </div>
+        </div>
 
-        {/* جسم المحتوى المتغير */}
-        <div className="flex-grow p-10 overflow-y-auto no-scrollbar animate-fadeIn">
-          
-          {activeTab === 'stats' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard title="إجمالي المبيعات" value={`${stats.revenue.toLocaleString()} ر.س`} icon="💰" color="text-green-600" bg="bg-green-50" />
-              <StatCard title="الطلبات الناجحة" value={stats.totalOrders} icon="📈" color="text-blue-600" bg="bg-blue-50" />
-              <StatCard title="نقص في المخزون" value={stats.lowStock} icon="⚠️" color="text-amber-600" bg="bg-amber-50" />
-              <StatCard title="منتجات نفذت" value={stats.outOfStock} icon="🚫" color="text-red-600" bg="bg-red-50" />
-            </div>
-          )}
+        {activeTab === 'stats' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fadeIn">
+            <StatCard title="إجمالي المبيعات" value={`${stats.revenue} ر.س`} icon="💰" color="text-green-600" />
+            <StatCard title="الطلبات الجديدة" value={stats.pendingOrders} icon="🔥" color="text-orange-500" />
+            <StatCard title="مخزون حرج" value={stats.lowStockCount} icon="⚠️" color="text-amber-500" />
+            <StatCard title="إجمالي الأقسام" value={categories.length} icon="🏷️" color="text-blue-500" />
+          </div>
+        )}
 
-          {activeTab === 'inventory' && (
-            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
-              <table className="w-full text-right">
-                <thead className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
-                  <tr>
-                    <th className="px-8 py-6">المنتج والبيانات</th>
-                    <th className="px-8 py-6">القسم</th>
-                    <th className="px-8 py-6">السعر</th>
-                    <th className="px-8 py-6">الكمية</th>
-                    <th className="px-8 py-6 text-center">الإجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredProducts.map(p => (
-                    <tr key={p.id} className="hover:bg-slate-50 transition group">
-                      <td className="px-8 py-4">
-                        <div className="flex items-center gap-4">
-                          <img src={p.images[0]} className="w-14 h-14 rounded-2xl object-cover border shadow-sm" alt="" />
-                          <div>
-                            <p className="font-black text-slate-800 text-sm mb-0.5">{p.name}</p>
-                            <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-black tracking-tighter uppercase">BARCODE: {p.barcode || 'N/A'}</span>
+        {activeTab === 'products' && (
+          <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden animate-fadeIn">
+            <table className="w-full text-right">
+              <thead>
+                <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
+                  <th className="px-8 py-6">المنتج والباركود</th>
+                  <th className="px-8 py-6">القسم</th>
+                  <th className="px-8 py-6">السعر</th>
+                  <th className="px-8 py-6">المخزون</th>
+                  <th className="px-8 py-6 text-center">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredProducts.map(p => (
+                  <tr key={p.id} className="hover:bg-slate-50/50 transition">
+                    <td className="px-8 py-4">
+                      <div className="flex items-center gap-4">
+                        <img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover border" alt="" />
+                        <div>
+                          <p className="font-black text-slate-800 text-sm">{p.name}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">كود: {p.id}</span>
+                            {p.barcode && (
+                              <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-black">|| {p.barcode}</span>
+                            )}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-8 py-4 text-xs font-bold text-slate-500">
-                        {categories.find(c => c.id === p.categoryId)?.name || 'عام'}
-                      </td>
-                      <td className="px-8 py-4 font-black text-green-600 text-sm">{p.price} ر.س</td>
+                      </div>
+                    </td>
+                    <td className="px-8 py-4">
+                      <span className="text-xs font-bold text-slate-500">{categories.find(c => c.id === p.categoryId)?.name || 'عام'}</span>
+                    </td>
+                    <td className="px-8 py-4 font-black text-green-600 text-sm">{p.price} ر.س</td>
+                    <td className="px-8 py-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-bold text-xs">{p.stockQuantity} وحدة</span>
+                        {getStockBadge(p.stockQuantity)}
+                      </div>
+                    </td>
+                    <td className="px-8 py-4">
+                      <div className="flex gap-2 justify-center">
+                        <button 
+                          onClick={() => onOpenEditForm(p)} 
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition font-black text-xs"
+                        >
+                          ✎ تعديل
+                        </button>
+                        <button 
+                          onClick={() => onDeleteProduct(p.id)} 
+                          className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition font-black text-xs"
+                        >
+                          🗑 حذف
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredProducts.length === 0 && (
+              <div className="p-20 text-center text-slate-400 font-bold">لم يتم العثور على منتجات تطابق بحثك</div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'categories' && (
+          <div className="space-y-12 animate-fadeIn">
+            {/* Add Category Section */}
+            <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm max-w-2xl">
+              <div className="flex items-center gap-4 mb-6">
+                <span className="p-3 bg-green-50 text-green-600 rounded-2xl text-xl">✨</span>
+                <div>
+                  <h3 className="font-black text-slate-800">إضافة قسم جديد لفاقوس</h3>
+                  <p className="text-xs text-slate-400 font-bold">أضف تصنيفاً جديداً لتنظيم منتجات المتجر</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <input 
+                  value={newCatName} 
+                  onChange={e => setNewCatName(e.target.value)} 
+                  placeholder="مثال: فواكه نادرة، خضروات ورقية..." 
+                  onKeyDown={(e) => e.key === 'Enter' && newCatName && (onAddCategory({id: 'cat_'+Date.now(), name: newCatName}), setNewCatName(''))}
+                  className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 font-bold transition shadow-inner"
+                />
+                <button 
+                  onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName}); setNewCatName(''); } }}
+                  className="bg-slate-900 text-white px-10 rounded-2xl font-black hover:bg-green-600 transition shadow-lg active:scale-95"
+                >
+                  إضافة القسم
+                </button>
+              </div>
+            </div>
+
+            {/* Categories Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredCategories.map(cat => {
+                const productCount = products.filter(p => p.categoryId === cat.id).length;
+                return (
+                  <div key={cat.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-6 group hover:border-green-200 hover:shadow-xl transition-all relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-green-50 rounded-bl-[5rem] -mr-8 -mt-8 opacity-40 group-hover:bg-green-100 transition-colors"></div>
+                    
+                    <div className="flex justify-between items-start relative z-10">
+                      <div className="flex items-center gap-4">
+                        <span className="text-4xl bg-white w-16 h-16 flex items-center justify-center rounded-2xl shadow-sm border border-slate-50 group-hover:scale-110 transition-transform">
+                          {getCategoryIcon(cat.name)}
+                        </span>
+                        {editingCatId === cat.id ? (
+                          <div className="flex items-center gap-2">
+                            <input 
+                              value={editingCatName}
+                              onChange={e => setEditingCatName(e.target.value)}
+                              className="bg-white border-2 border-green-200 px-4 py-2 rounded-xl outline-none font-bold text-sm w-40"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleUpdateCategory(cat.id);
+                                if (e.key === 'Escape') setEditingCatId(null);
+                              }}
+                            />
+                            <button onClick={() => handleUpdateCategory(cat.id)} className="p-2 bg-green-600 text-white rounded-xl shadow-md">✓</button>
+                            <button onClick={() => setEditingCatId(null)} className="p-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200">✕</button>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="font-black text-slate-800 text-lg leading-none mb-1">{cat.name}</p>
+                            <p className="text-[10px] text-slate-400 font-black tracking-widest uppercase">ID: {cat.id}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-50 relative z-10">
+                      <div className="flex flex-col">
+                        <span className="text-2xl font-black text-slate-800 leading-none">{productCount}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">منتج مرتبط</span>
+                      </div>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+                        <button 
+                          onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} 
+                          className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-600 hover:text-white transition shadow-sm"
+                          title="تعديل اسم القسم"
+                        >
+                          ✎
+                        </button>
+                        <button 
+                          onClick={() => { if(productCount > 0) { alert('لا يمكن حذف القسم لوجود منتجات تابعة له'); } else if(confirm('هل أنت متأكد من حذف القسم؟')) { onDeleteCategory(cat.id); } }} 
+                          className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-600 hover:text-white transition shadow-sm"
+                          title="حذف القسم"
+                        >
+                          🗑
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {filteredCategories.length === 0 && (
+                <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+                   <span className="text-5xl block mb-4 grayscale opacity-30">🔍</span>
+                   <p className="text-slate-400 font-black text-xl">لا توجد أقسام مطابقة للبحث</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'orders' && (
+          <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden animate-fadeIn">
+            {orders.length > 0 ? (
+              <table className="w-full text-right">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
+                    <th className="px-8 py-6">كود الطلب</th>
+                    <th className="px-8 py-6">العميل</th>
+                    <th className="px-8 py-6">المدينة</th>
+                    <th className="px-8 py-6">الإجمالي</th>
+                    <th className="px-8 py-6">الحالة</th>
+                    <th className="px-8 py-6">التاريخ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {orders.map(o => (
+                    <tr key={o.id} className="hover:bg-slate-50/50 transition">
+                      <td className="px-8 py-4 font-bold text-slate-700">{o.id}</td>
                       <td className="px-8 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-xs text-slate-700">{p.stockQuantity} وحدة</span>
-                          <StockBadge qty={p.stockQuantity} />
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{o.customerName}</p>
+                          <p className="text-[10px] text-slate-400">{o.phone}</p>
                         </div>
                       </td>
-                      <td className="px-8 py-4">
-                        <div className="flex gap-2 justify-center">
-                          <button onClick={() => onOpenEditForm(p)} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition">✎</button>
-                          <button onClick={() => onDeleteProduct(p.id)} className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition">🗑</button>
-                        </div>
+                      <td className="px-8 py-4 text-xs font-bold text-slate-500">{o.city}</td>
+                      <td className="px-8 py-4 font-black text-green-600 text-sm">{o.total} ر.س</td>
+                      <td className="px-8 py-4">{getStatusBadge(o.status)}</td>
+                      <td className="px-8 py-4 text-[10px] text-slate-400 font-bold">
+                        {new Date(o.createdAt).toLocaleDateString('ar-SA')}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {filteredProducts.length === 0 && (
-                <div className="p-20 text-center text-slate-400 font-bold italic">لم يتم العثور على أي منتجات مطابقة للبحث</div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'sales' && (
-            <div className="space-y-4">
-              {orders.length > 0 ? (
-                orders.map(o => (
-                  <div key={o.id} className="p-6 bg-white rounded-[2rem] border border-slate-200 flex items-center justify-between shadow-sm hover:shadow-md transition group">
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-green-600 group-hover:text-white transition">🧾</div>
-                      <div>
-                        <p className="font-black text-slate-800 text-lg">{o.customerName}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">الفاتورة: {o.id}</p>
-                      </div>
-                    </div>
-                    <div className="text-left">
-                      <p className="font-black text-green-600 text-xl">{o.total} ر.س</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(o.createdAt).toLocaleDateString('ar-SA')}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="bg-white p-32 rounded-[3rem] text-center text-slate-300 font-black border-2 border-dashed border-slate-200">لا توجد عمليات بيع مسجلة حالياً</div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'categories' && (
-            <div className="space-y-10">
-              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 flex gap-4 max-w-xl shadow-sm">
-                <input 
-                  id="new-cat-input-admin"
-                  placeholder="اسم القسم الجديد..." 
-                  className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 font-bold"
-                  onKeyDown={(e) => {
-                    if(e.key === 'Enter') {
-                      const val = (e.target as HTMLInputElement).value;
-                      if(val) { onAddCategory({id: 'cat_'+Date.now(), name: val}); (e.target as HTMLInputElement).value = ''; }
-                    }
-                  }}
-                />
-                <button 
-                  onClick={() => {
-                    const input = document.getElementById('new-cat-input-admin') as HTMLInputElement;
-                    if(input.value) { onAddCategory({id: 'cat_'+Date.now(), name: input.value}); input.value = ''; }
-                  }}
-                  className="bg-slate-900 text-white px-10 rounded-2xl font-black text-sm shadow-xl"
-                >إضافة</button>
+            ) : (
+              <div className="p-20 text-center">
+                <span className="text-6xl block mb-6">📝</span>
+                <p className="text-slate-400 font-black text-xl">لا توجد طلبات مسجلة حالياً</p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {categories.map(cat => (
-                  <div key={cat.id} className="p-8 bg-white border border-slate-200 rounded-[2.5rem] shadow-sm flex items-center justify-between group hover:border-green-300 transition-all">
-                    <div>
-                      <p className="font-black text-slate-800 text-lg">{cat.name}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">معرف القسم: {cat.id}</p>
-                    </div>
-                    <button onClick={() => onDeleteCategory(cat.id)} className="text-slate-200 hover:text-red-500 transition opacity-0 group-hover:opacity-100">🗑</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-        </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
 };
 
-// 🔹 مكونات مساعدة
-const NavButton = ({ active, onClick, label, icon, badge }: any) => (
+const AdminNavButton = ({ active, onClick, label, icon, badge }: any) => (
   <button 
     onClick={onClick} 
-    className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-black text-sm transition-all duration-300 ${
-      active ? 'bg-green-600 text-white shadow-xl shadow-green-900/40 translate-x-2' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+    className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all ${
+      active ? 'bg-green-600 text-white shadow-xl shadow-green-900/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
     }`}
   >
-    <span className="text-xl">{icon}</span>
+    <span className="text-lg">{icon}</span>
     <span className="flex-grow text-right">{label}</span>
     {badge !== undefined && (
-      <span className="bg-red-500 text-white text-[9px] font-black h-5 min-w-[22px] px-1.5 flex items-center justify-center rounded-lg border-2 border-slate-900 animate-pulse">
+      <span className="bg-red-500 text-white text-[9px] font-black h-5 min-w-[20px] px-1 flex items-center justify-center rounded-lg border-2 border-slate-900">
         {badge}
       </span>
     )}
   </button>
 );
 
-const StatCard = ({ title, value, icon, color, bg }: any) => (
-  <div className="p-10 bg-white rounded-[3rem] border border-slate-100 shadow-sm flex items-center gap-8 group hover:shadow-xl transition-all">
-    <div className={`w-20 h-20 ${bg} ${color} rounded-[2rem] flex items-center justify-center text-4xl group-hover:scale-110 transition-transform`}>
-      {icon}
+const StatCard = ({ title, value, icon, color }: any) => (
+  <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 group hover:shadow-xl transition-all">
+    <div className="flex justify-between items-center mb-4">
+      <div className={`${color} text-3xl opacity-80 group-hover:scale-125 transition-transform`}>{icon}</div>
+      <div className="w-1 h-8 bg-slate-50 rounded-full"></div>
     </div>
-    <div>
-      <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mb-1">{title}</p>
-      <p className="text-3xl font-black text-slate-800 tracking-tighter">{value}</p>
-    </div>
+    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p>
+    <p className="text-2xl font-black text-slate-800 tracking-tighter">{value}</p>
   </div>
 );
-
-const StockBadge = ({ qty }: { qty: number }) => {
-  if (qty <= 0) return <span className="text-[8px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-md w-fit mt-1 uppercase tracking-tighter">نفذ المخزون 🚫</span>;
-  if (qty < 10) return <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md w-fit mt-1 uppercase tracking-tighter">كمية حرجة ⚠️</span>;
-  return <span className="text-[8px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-md w-fit mt-1 uppercase tracking-tighter">متوفر بكثرة ✅</span>;
-};
 
 export default AdminDashboard;
