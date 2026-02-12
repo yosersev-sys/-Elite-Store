@@ -1,8 +1,8 @@
 
 <?php
 /**
- * فاقوس ستور - المحرك الذكي المطور v3.1
- * حل مشكلة SyntaxError والمسارات في الاستضافات المشتركة
+ * فاقوس ستور - المحرك الذكي v3.2 (النسخة النهائية)
+ * حل مشكلة الترجمة المتسلسلة للمودولات والـ TypeScript interface
  */
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -17,7 +17,7 @@ header('Content-Type: text/html; charset=utf-8');
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
-    <!-- تحميل Babel المترجم -->
+    <!-- Babel Standalone -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="importmap">
@@ -44,66 +44,81 @@ header('Content-Type: text/html; charset=utf-8');
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تشغيل المتجر...</p>
+        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تهيئة البيئة البرمجية...</p>
     </div>
     <div id="root"></div>
 
-    <!-- استخدام type="module" ضروري جداً هنا -->
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
         import { HashRouter } from 'react-router-dom';
 
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
-        const modulesCache = new Map();
+        const blobCache = new Map();
 
         /**
-         * دالة ذكية تقوم بجلب ملف TSX، ترجمته، وإصلاح مسارات الاستيراد بداخله
+         * دالة جلب وترجمة الملفات بشكل متسلسل
          */
-        async function smartImport(filePath) {
+        async function getTranspiledUrl(filePath) {
+            // إضافة الامتداد الافتراضي إذا لم يوجد
+            if (!filePath.match(/\.(tsx?|jsx?)$/)) {
+                filePath += '.tsx';
+            }
+            
             const absolutePath = new URL(filePath, BASE_URL).href;
-            if (modulesCache.has(absolutePath)) return modulesCache.get(absolutePath);
+            if (blobCache.has(absolutePath)) return blobCache.get(absolutePath);
 
+            console.log(`[Loader] Loading: ${filePath}`);
+            
             try {
                 const response = await fetch(absolutePath);
-                if (!response.ok) throw new Error(`فشل تحميل الملف: ${filePath}`);
+                if (!response.ok) throw new Error(`فشل تحميل: ${filePath}`);
                 let code = await response.text();
 
-                // 1. إصلاح مسارات الاستيراد (مثلاً من './Header' إلى 'https://site.com/components/Header.tsx')
-                code = code.replace(/from\s+['"](\.\.?\/[^'"]+)['"]/g, (match, path) => {
-                    // إضافة الامتداد إذا لم يكن موجوداً
-                    let finalPath = path;
-                    if (!finalPath.endsWith('.tsx') && !finalPath.endsWith('.ts') && !finalPath.endsWith('.js')) {
-                        finalPath += '.tsx';
-                    }
-                    const resolved = new URL(finalPath, absolutePath).href;
-                    return `from "${resolved}"`;
-                });
+                // 1. استخراج كافة الاستيرادات المحلية وترجمتها أولاً
+                const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
+                const imports = [...code.matchAll(importRegex)];
+                
+                for (const match of imports) {
+                    const relativePath = match[1];
+                    const depBlobUrl = await getTranspiledUrl(new URL(relativePath, absolutePath).href);
+                    // استبدال المسار النسبي برابط الـ Blob المترجم
+                    code = code.replace(`"${relativePath}"`, `"${depBlobUrl}"`)
+                               .replace(`'${relativePath}'`, `'${depBlobUrl}'`);
+                }
 
-                // 2. ترجمة الكود باستخدام Babel
+                // 2. ترجمة الكود الحالي بعد إصلاح استيراداته
                 const transformed = Babel.transform(code, {
-                    presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
+                    presets: [
+                        'react',
+                        ['typescript', { isTSX: true, allExtensions: true }]
+                    ],
                     filename: filePath,
                     sourceMaps: 'inline'
                 }).code;
 
-                // 3. إنشاء رابط Blob لتنفيذ الكود كموديول
+                // 3. إنشاء Blob وتخزينه
                 const blob = new Blob([transformed], { type: 'application/javascript' });
                 const blobUrl = URL.createObjectURL(blob);
+                blobCache.set(absolutePath, blobUrl);
                 
-                const module = await import(blobUrl);
-                modulesCache.set(absolutePath, module);
-                return module;
+                return blobUrl;
             } catch (err) {
-                console.error("SmartImport Error:", err);
+                console.error(`[Loader Error] ${filePath}:`, err);
                 throw err;
             }
         }
 
-        async function init() {
+        async function startApp() {
             try {
-                // نقطة البداية
-                const module = await smartImport('App.tsx');
+                const loaderText = document.getElementById('loader-text');
+                if (loaderText) loaderText.innerText = "جاري ترجمة المكونات...";
+
+                // ترجمة نقطة البداية App.tsx
+                const appBlobUrl = await getTranspiledUrl('App.tsx');
+                
+                // استيراد الموديول النهائي
+                const module = await import(appBlobUrl);
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -113,20 +128,17 @@ header('Content-Type: text/html; charset=utf-8');
                     )
                 );
 
-                const loader = document.getElementById('initial-loader');
-                if (loader) loader.remove();
+                document.getElementById('initial-loader').remove();
             } catch (err) {
-                console.error("Initialization Error:", err);
                 const loaderText = document.getElementById('loader-text');
                 if (loaderText) {
                     loaderText.style.color = 'red';
-                    loaderText.innerHTML = `خطأ في تشغيل المحرك:<br><small>${err.message}</small>`;
+                    loaderText.innerHTML = `خطأ في التشغيل:<br><small style="direction:ltr; display:block;">${err.message}</small>`;
                 }
             }
         }
 
-        // بدء التشغيل
-        init();
+        startApp();
     </script>
 </body>
 </html>
