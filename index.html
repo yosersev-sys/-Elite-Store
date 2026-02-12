@@ -7,6 +7,9 @@
     <title>فاقوس ستور - Faqous Store</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- مكتبة التقاط الصور للفواتير -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    
     <script type="importmap">
 {
   "imports": {
@@ -19,6 +22,12 @@
   }
 }
 </script>
+    
+    <script>
+      // تعريف كائن process لمنع أخطاء المكتبات التي تبحث عنه في المتصفح
+      window.process = { env: { API_KEY: "" } };
+    </script>
+
     <style>
         * { font-family: 'Cairo', sans-serif; }
         body { 
