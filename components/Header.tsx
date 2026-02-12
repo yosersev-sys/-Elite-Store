@@ -34,7 +34,7 @@ const Header: React.FC<HeaderProps> = ({
               onClick={() => { onNavigate('store'); onCategorySelect('all'); }}
               className="text-2xl font-black text-green-600 cursor-pointer select-none tracking-tighter flex items-center gap-2"
             >
-              <span className="text-3xl">🧺</span>
+              <span className="text-3xl">🛍️</span>
               <span>فاقوس <span className="text-slate-900">ستور</span></span>
             </h1>
             

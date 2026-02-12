@@ -187,7 +187,7 @@ header('Content-Type: text/html; charset=utf-8');
             <header className="header-glass shadow-sm sticky top-0 z-50 border-b border-green-100 no-print">
               <div className="container mx-auto px-4 py-4 flex items-center justify-between">
                 <h1 onClick={() => setView('store')} className="text-2xl font-black text-green-600 cursor-pointer flex items-center gap-2">
-                  <span>🧺</span> فاقوس ستور
+                  <span className="text-3xl">🛍️</span> فاقوس ستور
                 </h1>
                 <div className="flex gap-3">
                   <button onClick={() => setView('store')} className={`px-5 py-2 rounded-xl font-bold text-sm ${view === 'store' ? 'bg-green-600 text-white' : 'text-slate-500'}`}>المتجر</button>

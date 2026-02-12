@@ -48,7 +48,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
             : 'bg-white border-green-50 text-slate-500 hover:border-green-200'
           }`}
         >
-          <span className={`text-3xl transition-transform group-hover:scale-110 ${selectedCategoryId === 'all' ? '' : 'grayscale opacity-50'}`}>🧺</span>
+          <span className={`text-3xl transition-transform group-hover:scale-110 ${selectedCategoryId === 'all' ? '' : 'grayscale opacity-50'}`}>🛍️</span>
           <span className="font-black text-sm">كل الأقسام</span>
         </div>
 
