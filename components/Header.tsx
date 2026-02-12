@@ -41,7 +41,8 @@ const Header: React.FC<HeaderProps> = ({
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out transform ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'} ${scrolled ? 'py-1 md:py-2' : 'py-3 md:py-4'}`}
     >
       <div className="container mx-auto px-2 md:px-4">
-        <div className={`glass rounded-[1.5rem] md:rounded-[2rem] px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2 md:gap-8 card-shadow transition-all duration-500 ${scrolled ? 'mx-1 md:mx-2 border-emerald-100/50' : 'mx-0 border-transparent'}`}>
+        {/* تم تغيير الكلاس من glass إلى bg-white وإضافة حدود صريحة */}
+        <div className={`bg-white border border-slate-100 rounded-[1.5rem] md:rounded-[2rem] px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2 md:gap-8 card-shadow transition-all duration-500 ${scrolled ? 'mx-1 md:mx-2 shadow-emerald-100/20' : 'mx-0 shadow-slate-200/50'}`}>
           
           {/* Logo Section */}
           <div 
@@ -129,7 +130,7 @@ const ActionButton = ({ count, icon, onClick, variant = 'secondary', className =
 const CategoryChip = ({ active, onClick, label, icon }: any) => (
   <button 
     onClick={onClick}
-    className={`whitespace-nowrap flex items-center gap-1.5 px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-xs font-black transition-all border shadow-sm ${active ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white/80 border-slate-100 text-slate-500 hover:bg-white'}`}
+    className={`whitespace-nowrap flex items-center gap-1.5 px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-xs font-black transition-all border shadow-sm ${active ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50'}`}
   >
     <span>{icon}</span>
     {label}
