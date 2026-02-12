@@ -101,7 +101,7 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
             <span className="text-4xl md:text-6xl animate-bounce">{theme.icon}</span>
             <h1 className="text-4xl md:text-7xl font-black tracking-tighter">{category.name}</h1>
           </div>
-          <p className="text-white/80 text-sm md:text-xl font-bold max-w-xl">اكتشف أجود أنواع {category.name} في فاقوس ستور، نضمن لك الطزاجة والجودة العالية يومياً.</p>
+          <p className="text-white/80 text-sm md:text-xl font-bold max-w-xl">اكتشف أجود أنواع {category.name} في سوق العصر، نضمن لك الطزاجة والجودة العالية يومياً.</p>
         </div>
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
       </section>

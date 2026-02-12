@@ -51,7 +51,7 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="hidden sm:flex flex-col">
               <h1 className="text-lg md:text-xl font-black text-slate-800 leading-none">سوق العصر</h1>
-              <p className="text-[8px] md:text-[9px] font-black text-emerald-600 tracking-tight uppercase">فاقوس أونلاين</p>
+              <p className="text-[8px] md:text-[9px] font-black text-emerald-600 tracking-tight uppercase">اكبر سوق الكتروني في فاقوس</p>
             </div>
           </div>
 
@@ -61,7 +61,7 @@ const Header: React.FC<HeaderProps> = ({
                 type="text" 
                 placeholder="ابحث في فاقوس..." 
                 onChange={(e) => onSearch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-2 md:py-3 px-5 pr-10 outline-none focus:ring-4 focus:ring-emerald-50 focus:bg-white transition-all font-bold text-sm"
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-2 md:py-3 px-5 pr-10 outline-none focus:ring-4 focus:ring-emerald-50:focus:bg-white transition-all font-bold text-sm"
               />
               <svg className="absolute right-3.5 top-2.5 md:top-3.5 h-4 w-4 md:h-5 md:w-5 text-slate-300 group-focus-within:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
