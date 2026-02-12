@@ -13,7 +13,7 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onClose }) =
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const bgColor = type === 'success' ? 'bg-emerald-500' : 'bg-rose-500';
+  const bgColor = type === 'success' ? 'bg-indigo-500' : 'bg-rose-500';
   const icon = type === 'success' ? '✅' : '❌';
 
   return (

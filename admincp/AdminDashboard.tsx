@@ -132,7 +132,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <aside className="w-full lg:w-72 bg-slate-900 text-white p-8 flex flex-col gap-8">
         <div>
           <h2 className="text-2xl font-black tracking-tighter flex items-center gap-3">
-            <span className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl">🏛️</span>
+            <span className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-xl">🏛️</span>
             سوق العصر
           </h2>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2 border-t border-slate-800 pt-2">إدارة أكبر سوق في فاقوس</p>
@@ -158,13 +158,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
           <div className="flex items-center gap-3">
             <button onClick={onOpenInvoiceForm} className="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-black text-sm shadow-sm hover:bg-slate-50 transition">🧾 فاتورة سريعة</button>
-            <button onClick={onOpenAddForm} className="bg-emerald-500 text-white px-8 py-3 rounded-2xl font-black text-sm shadow-xl shadow-emerald-100 hover:scale-105 transition active:scale-95">+ إضافة منتج</button>
+            <button onClick={onOpenAddForm} className="bg-indigo-500 text-white px-8 py-3 rounded-2xl font-black text-sm shadow-xl shadow-indigo-100 hover:scale-105 transition active:scale-95">+ إضافة منتج</button>
           </div>
         </header>
 
         {activeTab === 'stats' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-slideUp">
-            <StatBox title="إجمالي المبيعات" value={`${stats.revenue} ج.م`} icon="💰" color="text-emerald-500" />
+            <StatBox title="إجمالي المبيعات" value={`${stats.revenue} ج.م`} icon="💰" color="text-indigo-500" />
             <StatBox title="عدد الطلبات" value={stats.ordersCount} icon="🔥" color="text-orange-500" />
             <StatBox title="إجمالي المنتجات" value={stats.productCount} icon="🧺" color="text-blue-500" />
             <StatBox title="نفذ المخزون" value={stats.outOfStock} icon="⚠️" color="text-rose-500" />
@@ -179,7 +179,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                  placeholder="بحث سريع في المنتجات..." 
                  value={adminSearch} 
                  onChange={e => setAdminSearch(e.target.value)}
-                 className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 w-64"
+                 className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 w-64"
                />
                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{filteredProducts.length} منتج</span>
             </div>
@@ -204,9 +204,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-4 font-black text-emerald-600 text-sm">{p.price} ج.م</td>
+                    <td className="px-8 py-4 font-black text-indigo-600 text-sm">{p.price} ج.م</td>
                     <td className="px-8 py-4">
-                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black ${p.stockQuantity > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black ${p.stockQuantity > 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>
                         {p.stockQuantity} وحدة
                       </span>
                     </td>
@@ -232,7 +232,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   value={newCatName} 
                   onChange={e => setNewCatName(e.target.value)} 
                   placeholder="مثال: محاصيل موسمية" 
-                  className="flex-grow px-6 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                  className="flex-grow px-6 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
                 />
                 <button 
                   onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName}); setNewCatName(''); } }}
@@ -243,16 +243,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {sortedCategories.map((cat, index) => (
-                <div key={cat.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition">
+                <div key={cat.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-indigo-200 transition">
                   {editingCatId === cat.id ? (
                     <div className="flex items-center gap-2 flex-grow">
                       <input 
                         value={editingCatName}
                         onChange={e => setEditingCatName(e.target.value)}
-                        className="flex-grow bg-slate-50 px-4 py-2 rounded-xl outline-none font-bold border-2 border-emerald-200"
+                        className="flex-grow bg-slate-50 px-4 py-2 rounded-xl outline-none font-bold border-2 border-indigo-200"
                         autoFocus
                       />
-                      <button onClick={() => handleUpdateCat(cat.id)} className="p-2 bg-emerald-600 text-white rounded-xl">✓</button>
+                      <button onClick={() => handleUpdateCat(cat.id)} className="p-2 bg-indigo-600 text-white rounded-xl">✓</button>
                       <button onClick={() => setEditingCatId(null)} className="p-2 bg-slate-200 text-slate-500 rounded-xl">✕</button>
                     </div>
                   ) : (
@@ -262,13 +262,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                            <button 
                              disabled={index === 0}
                              onClick={() => handleMoveCategory(cat.id, 'up')}
-                             className="text-slate-300 hover:text-emerald-500 disabled:opacity-20 transition"
+                             className="text-slate-300 hover:text-indigo-500 disabled:opacity-20 transition"
                              title="تحريك للأعلى"
                            >▲</button>
                            <button 
                              disabled={index === sortedCategories.length - 1}
                              onClick={() => handleMoveCategory(cat.id, 'down')}
-                             className="text-slate-300 hover:text-emerald-500 disabled:opacity-20 transition"
+                             className="text-slate-300 hover:text-indigo-500 disabled:opacity-20 transition"
                              title="تحريك للأسفل"
                            >▼</button>
                         </div>
@@ -314,9 +314,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <p className="text-[10px] text-slate-400 font-bold">{o.phone}</p>
                       </td>
                       <td className="px-8 py-4 text-sm font-bold text-slate-500">{o.city}</td>
-                      <td className="px-8 py-4 font-black text-emerald-600 text-sm">{o.total} ج.م</td>
+                      <td className="px-8 py-4 font-black text-indigo-600 text-sm">{o.total} ج.م</td>
                       <td className="px-8 py-4">
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black ${o.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black ${o.status === 'completed' ? 'bg-indigo-50 text-indigo-600' : 'bg-orange-50 text-orange-600'}`}>
                           {o.status === 'completed' ? 'مكتمل' : 'قيد الانتظار'}
                         </span>
                       </td>
@@ -337,7 +337,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 const NavBtn = ({ active, onClick, label, icon }: any) => (
   <button 
     onClick={onClick}
-    className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all ${active ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+    className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all ${active ? 'bg-indigo-500 text-white shadow-xl shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
   >
     <span className="text-xl">{icon}</span>
     {label}

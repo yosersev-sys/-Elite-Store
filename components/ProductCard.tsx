@@ -64,7 +64,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </div>
       
       <div className="p-3 md:p-6 flex flex-col flex-grow">
-        <h3 className="font-black text-sm md:text-lg text-slate-800 line-clamp-1 mb-1 md:mb-2 group-hover:text-emerald-600 transition-colors">
+        <h3 className="font-black text-sm md:text-lg text-slate-800 line-clamp-1 mb-1 md:mb-2 group-hover:text-indigo-600 transition-colors">
           {product.name}
         </h3>
         <p className="text-slate-400 text-[10px] md:text-xs font-medium line-clamp-2 mb-3 md:mb-6 flex-grow">
@@ -76,14 +76,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
             <span className="text-[7px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">السعر</span>
             <div className="flex items-baseline gap-0.5 md:gap-1">
               <span className="text-base md:text-2xl font-black text-slate-900 tracking-tighter">{product.price}</span>
-              <span className="text-[8px] md:text-[10px] font-black text-emerald-600">ج.م</span>
+              <span className="text-[8px] md:text-[10px] font-black text-indigo-600">ج.م</span>
             </div>
           </div>
           
           <button 
             onClick={handleAddToCart}
             className={`flex-grow md:flex-grow-0 h-10 md:h-12 px-4 md:px-6 rounded-xl md:rounded-2xl flex items-center justify-center gap-2 transition-all duration-300 shadow-xl active:scale-95 whitespace-nowrap overflow-hidden relative ${
-              isAdded ? 'bg-emerald-500 text-white shadow-emerald-200' : 'bg-slate-900 text-white hover:bg-emerald-600'
+              isAdded ? 'bg-indigo-500 text-white shadow-indigo-200' : 'bg-slate-900 text-white hover:bg-indigo-600'
             }`}
           >
             {isAdded ? (

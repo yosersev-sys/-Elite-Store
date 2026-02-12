@@ -33,7 +33,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
         </div>
         <button 
           onClick={() => onCategorySelect('all')}
-          className="text-green-600 font-black text-sm hover:underline"
+          className="text-indigo-600 font-black text-sm hover:underline"
         >
           عرض الكل
         </button>
@@ -45,8 +45,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
           onClick={() => onCategorySelect('all')}
           className={`cursor-pointer group p-6 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-3 text-center ${
             selectedCategoryId === 'all' 
-            ? 'bg-green-600 border-green-600 text-white shadow-xl scale-105' 
-            : 'bg-white border-green-50 text-slate-500 hover:border-green-200'
+            ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl scale-105' 
+            : 'bg-white border-indigo-50 text-slate-500 hover:border-indigo-200'
           }`}
         >
           <span className={`text-3xl transition-transform group-hover:scale-110 ${selectedCategoryId === 'all' ? '' : 'grayscale opacity-50'}`}>🛍️</span>
@@ -63,8 +63,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
               onClick={() => onCategorySelect(cat.id)}
               className={`cursor-pointer group p-6 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-3 text-center ${
                 isSelected 
-                ? 'bg-green-600 border-green-600 text-white shadow-xl scale-105' 
-                : 'bg-white border-green-50 text-slate-500 hover:border-green-200'
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl scale-105' 
+                : 'bg-white border-slate-50 text-slate-500 hover:border-indigo-200'
               }`}
             >
               <span className={`text-3xl transition-transform group-hover:scale-110 ${isSelected ? '' : 'grayscale-0'}`}>

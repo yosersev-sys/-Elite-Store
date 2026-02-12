@@ -33,7 +33,7 @@ header('Content-Type: text/html; charset=utf-8');
     </script>
     
     <style>
-        :root { --primary: #10b981; }
+        :root { --primary: #4f46e5; }
         * { font-family: 'Cairo', sans-serif; }
         body { background: #f8fafc; margin: 0; }
         #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 9999; transition: opacity 0.5s; }
@@ -43,8 +43,8 @@ header('Content-Type: text/html; charset=utf-8');
         /* تحسينات التمرير */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #059669; }
+        ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4338ca; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -52,7 +52,7 @@ header('Content-Type: text/html; charset=utf-8');
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">جاري تهيئة المتجر...</p>
+        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#4f46e5; text-align:center;">جاري تهيئة المتجر...</p>
     </div>
     <div id="root"></div>
 

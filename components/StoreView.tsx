@@ -117,7 +117,7 @@ const StoreView: React.FC<StoreViewProps> = ({
           </div>
           
           <div className="hidden md:block">
-             <span className="bg-green-50 text-green-600 px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
+             <span className="bg-indigo-50 text-indigo-600 px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
                 موسم {new Date().getFullYear()}
              </span>
           </div>
@@ -143,7 +143,7 @@ const StoreView: React.FC<StoreViewProps> = ({
              <p className="text-gray-400 font-black text-base md:text-xl">عذراً، لم نجد منتجات تطابق اختيارك.</p>
              <button 
                onClick={() => onCategorySelect('all')}
-               className="mt-6 bg-green-600 text-white px-8 py-3 rounded-2xl font-black transition-transform active:scale-95"
+               className="mt-6 bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black transition-transform active:scale-95"
              >
                عرض كل المنتجات
              </button>
