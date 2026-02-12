@@ -23,8 +23,14 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!validatePhone(formData.phone)) {
-      alert('يرجى إدخال رقم جوال مصري صحيح (مثال: 01012345678)');
+      alert('يرجى إدخال رقم جوال مصري صحيح مكون من 11 رقم (مثال: 01012345678)');
+      return;
+    }
+
+    if (!formData.password || formData.password.length < 4) {
+      alert('كلمة المرور يجب أن تكون 4 أحرف على الأقل');
       return;
     }
 
@@ -40,56 +46,58 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
         alert(res?.message || 'رقم الجوال أو كلمة المرور غير صحيحة');
       }
     } catch (err) {
-      alert('عذراً، تعذر الاتصال بالخادم');
+      console.error("Auth Error:", err);
+      alert('عذراً، حدث خطأ في الاتصال بالسيرفر. يرجى المحاولة لاحقاً.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
-      {/* Backdrop */}
+    <div className="fixed inset-0 w-full h-full z-[9999] flex items-center justify-center p-4">
+      {/* Backdrop with animation */}
       <div 
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-fadeIn"
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
         onClick={onClose}
       ></div>
 
       {/* Modal Card */}
-      <div className="max-w-md w-full space-y-8 bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border border-slate-50 relative overflow-hidden animate-slideUp">
+      <div className="relative w-full max-w-md bg-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 overflow-hidden animate-slideUp">
         
         {/* Close Button */}
         <button 
           onClick={onClose}
-          className="absolute top-6 left-6 text-slate-300 hover:text-rose-500 transition-colors active:scale-90"
+          type="button"
+          className="absolute top-6 left-6 text-slate-300 hover:text-rose-500 transition-colors p-2 rounded-full hover:bg-rose-50"
         >
-          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
 
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-50 rounded-full blur-3xl"></div>
-
-        <div className="relative text-center pt-4">
-          <div className="w-16 h-16 bg-emerald-500 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white shadow-xl rotate-3">
-             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/></svg>
+        <div className="text-center relative pt-4">
+          <div className="w-16 h-16 bg-emerald-500 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white shadow-xl shadow-emerald-100 rotate-3">
+             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/>
+             </svg>
           </div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-            {isLogin ? 'أهلاً بك في فاقوس' : 'انضم لسوق العصر'}
+          <h2 className="text-2xl font-black text-slate-900">
+            {isLogin ? 'أهلاً بك في سوق العصر' : 'إنشاء حساب جديد'}
           </h2>
-          <p className="mt-2 text-sm text-slate-400 font-bold uppercase tracking-widest">
-            {isLogin ? 'سجل دخولك برقم الجوال' : 'أنشئ حساباً جديداً في ثوانٍ'}
+          <p className="mt-2 text-xs text-slate-400 font-bold uppercase tracking-widest">
+            {isLogin ? 'سجل دخولك لمتابعة التسوق' : 'انضم إلينا الآن في فاقوس'}
           </p>
         </div>
 
-        <form className="mt-10 space-y-5 relative" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
           {!isLogin && (
-            <div className="animate-slideDown">
-              <label className="block text-xs font-black text-slate-400 mr-4 mb-2 uppercase tracking-widest">الاسم بالكامل</label>
+            <div className="animate-fadeIn">
+              <label className="block text-[10px] font-black text-slate-400 mr-2 mb-1 uppercase tracking-widest">الاسم بالكامل</label>
               <input
                 type="text"
                 required
-                className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-4 focus:ring-emerald-50 outline-none transition-all font-bold text-sm"
-                placeholder="مثال: أحمد محمد"
+                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-emerald-50 focus:bg-white outline-none transition-all font-bold text-sm"
+                placeholder="مثال: محمد أحمد"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
               />
@@ -97,12 +105,12 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
           )}
           
           <div>
-            <label className="block text-xs font-black text-slate-400 mr-4 mb-2 uppercase tracking-widest">رقم الجوال المصري</label>
+            <label className="block text-[10px] font-black text-slate-400 mr-2 mb-1 uppercase tracking-widest">رقم الجوال المصري</label>
             <input
               type="tel"
               required
               maxLength={11}
-              className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-4 focus:ring-emerald-50 outline-none transition-all font-bold text-sm text-left"
+              className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-emerald-50 focus:bg-white outline-none transition-all font-bold text-sm text-left"
               placeholder="01xxxxxxxxx"
               dir="ltr"
               value={formData.phone}
@@ -111,11 +119,11 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
           </div>
 
           <div>
-            <label className="block text-xs font-black text-slate-400 mr-4 mb-2 uppercase tracking-widest">كلمة المرور</label>
+            <label className="block text-[10px] font-black text-slate-400 mr-2 mb-1 uppercase tracking-widest">كلمة المرور</label>
             <input
               type="password"
               required
-              className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-4 focus:ring-emerald-50 outline-none transition-all font-bold text-sm"
+              className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-emerald-50 focus:bg-white outline-none transition-all font-bold text-sm text-right"
               placeholder="••••••••"
               value={formData.password}
               onChange={(e) => setFormData({...formData, password: e.target.value})}
@@ -125,18 +133,23 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex justify-center py-5 px-4 border border-transparent text-sm font-black rounded-[1.5rem] text-white bg-slate-900 hover:bg-emerald-600 transition-all shadow-xl active:scale-95 disabled:opacity-50"
+            className="w-full flex justify-center py-4 px-4 bg-slate-900 text-white text-sm font-black rounded-xl hover:bg-emerald-600 transition-all shadow-xl active:scale-95 disabled:opacity-50 mt-6"
           >
-            {isLoading ? 'جاري التحميل...' : (isLogin ? 'تسجيل الدخول' : 'إنشاء الحساب الآن')}
+            {isLoading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              isLogin ? 'تسجيل الدخول' : 'إنشاء حسابي'
+            )}
           </button>
         </form>
 
-        <div className="mt-8 text-center pb-4">
+        <div className="mt-8 text-center border-t border-slate-50 pt-6">
           <button
             onClick={() => setIsLogin(!isLogin)}
-            className="text-sm font-black text-emerald-600 hover:text-slate-900 transition"
+            type="button"
+            className="text-xs font-black text-emerald-600 hover:text-slate-900 transition"
           >
-            {isLogin ? 'ليس لديك حساب؟ سجل الآن' : 'لديك حساب بالفعل؟ سجل دخولك'}
+            {isLogin ? 'ليس لديك حساب؟ اشترك مجاناً' : 'لديك حساب بالفعل؟ سجل دخولك'}
           </button>
         </div>
       </div>

@@ -36,7 +36,6 @@ const App: React.FC = () => {
   };
 
   const loadData = async () => {
-    setIsLoading(true);
     try {
       const user = await ApiService.getCurrentUser();
       setCurrentUser(user);
@@ -47,8 +46,10 @@ const App: React.FC = () => {
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
 
-      const fetchedOrders = await ApiService.getOrders();
-      setOrders(fetchedOrders || []);
+      if (user?.role === 'admin') {
+        const fetchedOrders = await ApiService.getOrders();
+        setOrders(fetchedOrders || []);
+      }
     } catch (err) {
       console.error("Data loading error:", err);
     } finally {
@@ -60,7 +61,7 @@ const App: React.FC = () => {
 
   const onNavigateAction = (v: View) => {
     setView(v);
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleLogout = async () => {
@@ -74,7 +75,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-emerald-600">جاري تحميل البيانات...</p>
+        <p className="font-black text-emerald-600">جاري تحميل سوق العصر...</p>
       </div>
     );
   }
@@ -89,7 +90,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* نافذة تسجيل الدخول المنبثقة */}
+      {/* Auth Modal Overlay */}
       {showAuthModal && (
         <AuthView 
           onClose={() => setShowAuthModal(false)}
@@ -132,23 +133,19 @@ const App: React.FC = () => {
             onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
             onDeleteProduct={async (id) => { 
                 const success = await ApiService.deleteProduct(id); 
-                if (success) showNotify('تم حذف المنتج بنجاح');
-                loadData(); 
+                if (success) { showNotify('تم حذف المنتج بنجاح'); loadData(); }
             }}
             onAddCategory={async (c) => { 
                 const success = await ApiService.addCategory(c); 
-                if (success) showNotify('تم إضافة القسم بنجاح');
-                loadData(); 
+                if (success) { showNotify('تم إضافة القسم بنجاح'); loadData(); }
             }}
             onUpdateCategory={async (c) => { 
                 const success = await ApiService.updateCategory(c); 
-                if (success) showNotify('تم تحديث القسم بنجاح');
-                loadData(); 
+                if (success) { showNotify('تم تحديث القسم بنجاح'); loadData(); }
             }}
             onDeleteCategory={async (id) => { 
                 const success = await ApiService.deleteCategory(id); 
-                if (success) showNotify('تم حذف القسم بنجاح');
-                loadData(); 
+                if (success) { showNotify('تم حذف القسم بنجاح'); loadData(); }
             }}
           />
         )}
@@ -247,9 +244,9 @@ const App: React.FC = () => {
             </svg>
           </div>
           <h2 className="text-xl font-black">سوق العصر</h2>
-          <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">أكبر سوق إلكتروني في فاقوس</p>
+          <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">فاقوس - الشرقية</p>
         </div>
-        <p className="text-slate-500 text-xs tracking-widest">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+        <p className="text-slate-500 text-[10px] tracking-widest uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
       </footer>
     </div>
   );
