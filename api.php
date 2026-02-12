@@ -2,6 +2,7 @@
 <?php
 /**
  * API Backend for Faqous Store
+ * تم التحديث لدعم إدارة المنتجات بشكل كامل
  */
 error_reporting(0); 
 header('Content-Type: application/json; charset=utf-8');
@@ -15,13 +16,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once 'config.php';
 
-// دالة فحص وتحديث قاعدة البيانات تلقائياً
-function ensureSortOrderColumn($pdo) {
-    try {
-        $pdo->query("SELECT sortOrder FROM categories LIMIT 1");
-    } catch (Exception $e) {
-        // العمود غير موجود، نقوم بإضافته
-        $pdo->exec("ALTER TABLE categories ADD COLUMN sortOrder INT DEFAULT 0");
+// دالة فحص وتحديث قاعدة البيانات تلقائياً للأعمدة الجديدة
+function ensureSchema($pdo) {
+    $columns = [
+        'sortOrder' => "ALTER TABLE categories ADD COLUMN sortOrder INT DEFAULT 0",
+        'barcode' => "ALTER TABLE products ADD COLUMN barcode VARCHAR(100)",
+        'seoSettings' => "ALTER TABLE products ADD COLUMN seoSettings TEXT"
+    ];
+
+    foreach ($columns as $col => $sql) {
+        try {
+            $pdo->query("SELECT $col FROM " . (strpos($sql, 'categories') ? 'categories' : 'products') . " LIMIT 1");
+        } catch (Exception $e) {
+            $pdo->exec($sql);
+        }
     }
 }
 
@@ -39,6 +47,8 @@ $action = $_GET['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true);
 
 try {
+    ensureSchema($pdo);
+
     switch ($action) {
         case 'get_products':
             $stmt = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC");
@@ -54,18 +64,59 @@ try {
             sendRes($products);
             break;
 
+        case 'add_product':
+            if (!$input) sendErr('Data missing');
+            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, categoryId, images, sizes, colors, stockQuantity, createdAt, barcode, seoSettings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $input['id'], 
+                $input['name'], 
+                $input['description'], 
+                $input['price'],
+                $input['categoryId'], 
+                json_encode($input['images'] ?? []), 
+                json_encode($input['sizes'] ?? []),
+                json_encode($input['colors'] ?? []), 
+                $input['stockQuantity'], 
+                $input['createdAt'] ?? (time() * 1000),
+                $input['barcode'] ?? '', 
+                json_encode($input['seoSettings'] ?? [])
+            ]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'update_product':
+            if (!$input || !isset($input['id'])) sendErr('ID missing');
+            $stmt = $pdo->prepare("UPDATE products SET name = ?, description = ?, price = ?, categoryId = ?, images = ?, sizes = ?, colors = ?, stockQuantity = ?, barcode = ?, seoSettings = ? WHERE id = ?");
+            $stmt->execute([
+                $input['name'], 
+                $input['description'], 
+                $input['price'],
+                $input['categoryId'], 
+                json_encode($input['images'] ?? []), 
+                json_encode($input['sizes'] ?? []),
+                json_encode($input['colors'] ?? []), 
+                $input['stockQuantity'],
+                $input['barcode'] ?? '', 
+                json_encode($input['seoSettings'] ?? []), 
+                $input['id']
+            ]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_product':
+            if (!isset($_GET['id'])) sendErr('ID missing');
+            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
+            $stmt->execute([$_GET['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
         case 'get_categories':
-            ensureSortOrderColumn($pdo); // التأكد من وجود العمود قبل الاستعلام
             $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC, name ASC");
             $categories = $stmt->fetchAll() ?: [];
-            foreach ($categories as &$c) {
-                $c['sortOrder'] = isset($c['sortOrder']) ? (int)$c['sortOrder'] : 0;
-            }
             sendRes($categories);
             break;
 
         case 'add_category':
-            ensureSortOrderColumn($pdo);
             $res = $pdo->query("SELECT MAX(sortOrder) as maxOrder FROM categories")->fetch();
             $nextOrder = ($res['maxOrder'] ?? 0) + 1;
             $stmt = $pdo->prepare("INSERT INTO categories (id, name, sortOrder) VALUES (?, ?, ?)");
@@ -74,15 +125,9 @@ try {
             break;
 
         case 'update_category':
-            ensureSortOrderColumn($pdo);
             if (!$input) sendErr('Data missing');
-            if (isset($input['sortOrder'])) {
-                $stmt = $pdo->prepare("UPDATE categories SET name = ?, sortOrder = ? WHERE id = ?");
-                $stmt->execute([$input['name'], $input['sortOrder'], $input['id']]);
-            } else {
-                $stmt = $pdo->prepare("UPDATE categories SET name = ? WHERE id = ?");
-                $stmt->execute([$input['name'], $input['id']]);
-            }
+            $stmt = $pdo->prepare("UPDATE categories SET name = ?, sortOrder = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['sortOrder'] ?? 0, $input['id']]);
             sendRes(['status' => 'success']);
             break;
 
@@ -113,3 +158,4 @@ try {
 } catch (Exception $e) {
     sendErr($e->getMessage(), 500);
 }
+?>
