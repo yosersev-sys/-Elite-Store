@@ -25,18 +25,44 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
   const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high'>('newest');
   const productsGridRef = useRef<HTMLDivElement>(null);
 
-  // التمرير التلقائي لشبكة المنتجات عند تحميل القسم
+  // دالة مخصصة للتمرير البطيء والناعم
+  const slowScrollTo = (targetY: number, duration: number) => {
+    const startY = window.pageYOffset;
+    const diff = targetY - startY;
+    let start: number | null = null;
+
+    const step = (timestamp: number) => {
+      if (!start) start = timestamp;
+      const progress = timestamp - start;
+      const percent = Math.min(progress / duration, 1);
+      
+      // معادلة Ease-in-out لتجربة أكثر نعومة
+      const ease = percent < 0.5 
+        ? 2 * percent * percent 
+        : -1 + (4 - 2 * percent) * percent;
+
+      window.scrollTo(0, startY + diff * ease);
+
+      if (progress < duration) {
+        window.requestAnimationFrame(step);
+      }
+    };
+
+    window.requestAnimationFrame(step);
+  };
+
   useEffect(() => {
+    // ننتظر قليلاً حتى تكتمل أنيميشن دخول الصفحة (Fade In)
     const timer = setTimeout(() => {
       if (productsGridRef.current) {
-        // حساب الإزاحة لتكون الشبكة في منتصف الشاشة أو تحت الهيدر قليلاً
-        const yOffset = -120; 
-        const element = productsGridRef.current;
-        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-        
-        window.scrollTo({ top: y, behavior: 'smooth' });
+        const headerOffset = 140; // المسافة تحت الهيدر الثابت
+        const elementPosition = productsGridRef.current.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+        // تمرير بطيء يستغرق 1200ms
+        slowScrollTo(offsetPosition, 1200);
       }
-    }, 800); // تأخير بسيط للسماح للأنيميشن بالبدء
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [category.id]);
@@ -62,7 +88,7 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
   return (
     <div className="animate-fadeIn space-y-12 pb-20">
       {/* 1. Header Section */}
-      <section className={`relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] bg-gradient-to-br ${theme.gradient} p-8 md:p-20 text-white shadow-2xl transition-all duration-700`}>
+      <section className={`relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] bg-gradient-to-br ${theme.gradient} p-8 md:p-20 text-white shadow-2xl`}>
         <div className="relative z-10 space-y-4 md:space-y-6">
           <button 
             onClick={onBack}
@@ -77,15 +103,14 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
           </div>
           <p className="text-white/80 text-sm md:text-xl font-bold max-w-xl">اكتشف أجود أنواع {category.name} في فاقوس ستور، نضمن لك الطزاجة والجودة العالية يومياً.</p>
         </div>
-        
-        {/* Decorative Elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
       </section>
 
-      {/* 2. Controls & Filter Bar - سيعمل كنقطة مرجع للتمرير */}
+      {/* 2. Controls & Filter Bar - نقطة بداية المنتجات */}
       <div 
         ref={productsGridRef}
-        className="flex flex-col md:flex-row justify-between items-center gap-6 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm sticky top-24 z-30 transition-all duration-500"
+        id="category-products-grid"
+        className="flex flex-col md:flex-row justify-between items-center gap-6 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm sticky top-28 z-30 transition-all duration-500"
       >
         <div className="flex items-center gap-4">
           <div className={`w-3 h-8 ${theme.bg} rounded-full`}></div>

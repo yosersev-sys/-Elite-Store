@@ -1,22 +1,23 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Category } from '../types';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Category } from '../types';
 
 interface HeaderProps {
   cartCount: number;
   wishlistCount: number;
-  currentView: View;
   categories: Category[];
-  selectedCategoryId: string | 'all';
-  onNavigate: (view: View) => void;
+  onNavigate: (view: string) => void;
   onSearch: (query: string) => void;
   onCategorySelect: (id: string | 'all') => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-  cartCount, wishlistCount, currentView, categories,
-  selectedCategoryId, onNavigate, onSearch, onCategorySelect 
+  cartCount, wishlistCount, categories,
+  onNavigate, onSearch, onCategorySelect 
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
@@ -36,17 +37,34 @@ const Header: React.FC<HeaderProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const currentPath = location.pathname;
+
+  const handleCategoryClick = (id: string | 'all') => {
+    const targetPath = id === 'all' ? '/' : `/category/${id}`;
+    
+    // إذا كان المستخدم بالفعل في نفس المسار، نقوم بالتمرير يدوياً
+    if (currentPath === targetPath) {
+      const grid = document.getElementById('category-products-grid') || document.getElementById('products-list');
+      if (grid) {
+        const headerOffset = 140;
+        const elementPosition = grid.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+      }
+    } else {
+      navigate(targetPath);
+    }
+  };
+
   return (
     <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out transform ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'} ${scrolled ? 'py-1 md:py-2' : 'py-3 md:py-4'}`}
     >
       <div className="container mx-auto px-2 md:px-4">
-        {/* تم تغيير الكلاس من glass إلى bg-white وإضافة حدود صريحة */}
         <div className={`bg-white border border-slate-100 rounded-[1.5rem] md:rounded-[2rem] px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2 md:gap-8 card-shadow transition-all duration-500 ${scrolled ? 'mx-1 md:mx-2 shadow-emerald-100/20' : 'mx-0 shadow-slate-200/50'}`}>
           
-          {/* Logo Section */}
           <div 
-            onClick={() => { onNavigate('store'); onCategorySelect('all'); }}
+            onClick={() => navigate('/')}
             className="flex items-center gap-2 md:gap-3 cursor-pointer group shrink-0"
           >
             <div className="w-9 h-9 md:w-12 md:h-12 bg-emerald-500 rounded-xl md:rounded-2xl flex items-center justify-center text-lg md:text-2xl shadow-lg shadow-emerald-200 group-hover:rotate-12 transition-transform">
@@ -58,7 +76,6 @@ const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Search Bar */}
           <div className="flex-grow max-w-xl">
             <div className="relative group">
               <input 
@@ -73,36 +90,34 @@ const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex items-center gap-1 md:gap-3 shrink-0">
             <ActionButton 
               count={wishlistCount} 
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />}
-              onClick={() => onNavigate('wishlist')}
+              onClick={() => navigate('/wishlist')}
               className="hidden sm:flex"
             />
             <ActionButton 
               count={cartCount} 
               variant="primary"
               icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />}
-              onClick={() => onNavigate('cart')}
+              onClick={() => navigate('/cart')}
             />
           </div>
         </div>
 
-        {/* Categories Bar */}
         <div className={`mt-2 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 transition-all duration-500 ${scrolled ? 'opacity-0 h-0 pointer-events-none' : 'opacity-100 h-auto'}`}>
           <CategoryChip 
-            active={selectedCategoryId === 'all'} 
-            onClick={() => onCategorySelect('all')} 
+            active={currentPath === '/'} 
+            onClick={() => handleCategoryClick('all')} 
             label="الكل" 
             icon="✨"
           />
           {categories.map(cat => (
             <CategoryChip 
               key={cat.id}
-              active={selectedCategoryId === cat.id} 
-              onClick={() => onCategorySelect(cat.id)} 
+              active={currentPath === `/category/${cat.id}`} 
+              onClick={() => handleCategoryClick(cat.id)} 
               label={cat.name} 
               icon={cat.name.includes('سوبر') ? '🛒' : cat.name.includes('خضر') ? '🥦' : cat.name.includes('فواك') ? '🍎' : '🌿'}
             />
