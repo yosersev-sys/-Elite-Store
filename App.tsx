@@ -14,6 +14,7 @@ import AuthView from './components/AuthView.tsx';
 import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import Notification from './components/Notification.tsx';
+import MyOrdersView from './components/MyOrdersView.tsx';
 import { ApiService } from './services/api.ts';
 
 const App: React.FC = () => {
@@ -74,7 +75,8 @@ const App: React.FC = () => {
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
 
-      if (user?.role === 'admin') {
+      // جلب الطلبات إذا كان المستخدم مسجل دخول (سواء مدير أو عميل)
+      if (user) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
       }
@@ -117,6 +119,7 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     await ApiService.logout();
     setCurrentUser(null);
+    setOrders([]);
     showNotify('تم تسجيل الخروج بنجاح');
     onNavigateAction('store');
   };
@@ -290,6 +293,17 @@ const App: React.FC = () => {
               onNavigateAction('order-success');
               loadData();
             }}
+          />
+        )}
+
+        {view === 'my-orders' && (
+          <MyOrdersView 
+            orders={orders} 
+            onViewDetails={(order) => {
+              setLastCreatedOrder(order);
+              onNavigateAction('order-success');
+            }}
+            onBack={() => onNavigateAction('store')}
           />
         )}
 

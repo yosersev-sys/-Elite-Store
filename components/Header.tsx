@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Category, User } from '../types';
@@ -107,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({
                     {currentUser.role === 'admin' && (
                       <button onClick={() => {onNavigate('admin'); setShowUserMenu(false);}} className="w-full text-right px-5 py-3 text-sm font-black text-emerald-600 hover:bg-emerald-50 transition">لوحة التحكم ⚙️</button>
                     )}
-                    <button className="w-full text-right px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 transition">طلباتي 📦</button>
+                    <button onClick={() => {onNavigate('my-orders'); setShowUserMenu(false);}} className="w-full text-right px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 transition">طلباتي 📦</button>
                     <button onClick={() => {onLogout(); setShowUserMenu(false);}} className="w-full text-right px-5 py-3 text-sm font-black text-rose-500 hover:bg-rose-50 transition">تسجيل الخروج 👋</button>
                   </div>
                 </>
