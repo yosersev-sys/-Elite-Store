@@ -60,7 +60,13 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
         : await ApiService.register(formData.name, formData.phone, formData.password);
 
       if (res && res.status === 'success' && res.user) {
-        onSuccess(res.user);
+        // منع المدير من الدخول عبر هذه الواجهة
+        if (res.user.role === 'admin') {
+          alert('هذا الحساب مخصص للإدارة فقط. يرجى تسجيل الدخول من خلال لوحة التحكم الخاصة بالمديرين.');
+          await ApiService.logout(); // تسجيل الخروج لمسح الجلسة
+        } else {
+          onSuccess(res.user);
+        }
       } else {
         alert(res?.message || 'رقم الجوال أو كلمة المرور غير صحيحة');
       }
