@@ -1,7 +1,8 @@
+
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v6.1 - تحديث حالة الدفع
+ * نظام الإدارة المطور v6.2 - تحديث الحساب الشخصي
  */
 session_start();
 error_reporting(E_ALL); 
@@ -183,6 +184,31 @@ try {
             $userData = ['id' => $id, 'name' => $input['name'], 'phone' => $input['phone'], 'role' => 'user'];
             $_SESSION['user'] = $userData;
             sendRes(['status' => 'success', 'user' => $userData]);
+            break;
+
+        case 'update_profile':
+            if (!isset($_SESSION['user'])) sendErr('غير مصرح', 401);
+            $id = $_SESSION['user']['id'];
+            $name = $input['name'];
+            $phone = $input['phone'];
+            
+            // تحقق من عدم تكرار رقم الجوال لمستخدم آخر
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE phone = ? AND id != ?");
+            $stmt->execute([$phone, $id]);
+            if ($stmt->fetch()) sendErr('رقم الجوال هذا مستخدم بالفعل من قبل شخص آخر');
+
+            if (!empty($input['password'])) {
+                $pass = password_hash($input['password'], PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ?, password = ? WHERE id = ?");
+                $stmt->execute([$name, $phone, $pass, $id]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ? WHERE id = ?");
+                $stmt->execute([$name, $phone, $id]);
+            }
+            
+            // إنهاء الجلسة لضمان إعادة تسجيل الدخول
+            session_destroy();
+            sendRes(['status' => 'success']);
             break;
 
         case 'logout': session_destroy(); sendRes(['status' => 'success']); break;

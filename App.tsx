@@ -221,7 +221,7 @@ const App: React.FC = () => {
         
         {view === 'admin' && currentUser?.role === 'admin' && (
           <AdminDashboard 
-            products={products} categories={categories} orders={orders}
+            products={products} categories={categories} orders={orders} currentUser={currentUser}
             onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
             onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
             onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
@@ -248,6 +248,7 @@ const App: React.FC = () => {
             onUpdateOrderPayment={handleUpdateOrderPayment}
             soundEnabled={soundEnabled}
             onToggleSound={() => setSoundEnabled(!soundEnabled)}
+            onLogout={handleLogout}
           />
         )}
 

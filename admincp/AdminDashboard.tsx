@@ -1,11 +1,13 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Product, Category, Order } from '../types';
+import { Product, Category, Order, User } from '../types';
+import { ApiService } from '../services/api';
 
 interface AdminDashboardProps {
   products: Product[];
   categories: Category[];
   orders: Order[];
+  currentUser: User | null;
   onOpenAddForm: () => void;
   onOpenEditForm: (product: Product) => void;
   onOpenInvoiceForm: () => void;
@@ -17,14 +19,15 @@ interface AdminDashboardProps {
   onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
+  onLogout: () => void;
 }
 
-type AdminTab = 'stats' | 'products' | 'categories' | 'orders';
+type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'settings';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  products, categories, orders, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
+  products, categories, orders, currentUser, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
   onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory,
-  onViewOrder, onUpdateOrderPayment, soundEnabled, onToggleSound
+  onViewOrder, onUpdateOrderPayment, soundEnabled, onToggleSound, onLogout
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
@@ -40,6 +43,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [catFormData, setCatFormData] = useState<Category>({
     id: '', name: '', image: '', isActive: true, sortOrder: 0
   });
+
+  // إعدادات الملف الشخصي
+  const [profileData, setProfileData] = useState({
+    name: currentUser?.name || '',
+    phone: currentUser?.phone || '',
+    password: ''
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -122,6 +134,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
   }, [products, orders, criticalStockProducts]);
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileData.name || !profileData.phone) return alert('يرجى ملء الاسم ورقم الجوال');
+    
+    setIsUpdatingProfile(true);
+    try {
+      const res = await ApiService.updateProfile(profileData);
+      if (res.status === 'success') {
+        alert('تم تحديث البيانات بنجاح. سيتم تسجيل خروجك للأمان.');
+        onLogout();
+      } else {
+        alert(res.message || 'حدث خطأ أثناء التحديث');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
   const handleEditCategory = (cat: Category) => {
     setCatFormData({
       ...cat,
@@ -182,6 +214,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="المخزون" icon="📦" badge={stats.criticalCount > 0 ? stats.criticalCount : undefined} badgeColor="bg-rose-500" />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام" icon="🏷️" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" badge={orders.length} />
+          <AdminNavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} label="الإعدادات" icon="👤" />
         </nav>
 
         <div className="mt-auto pt-8 border-t border-slate-800 space-y-4">
@@ -522,6 +555,79 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
         )}
+
+        {activeTab === 'settings' && (
+          <div className="max-w-2xl mx-auto py-8 animate-fadeIn">
+            <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-emerald-100">
+               <div className="flex items-center gap-4 border-b pb-6 mb-8">
+                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl">👤</div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-800">إعدادات الحساب</h3>
+                    <p className="text-slate-400 text-xs font-bold">تغيير الاسم، رقم الجوال أو كلمة المرور</p>
+                  </div>
+               </div>
+
+               <form onSubmit={handleUpdateProfile} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الاسم الكامل</label>
+                    <input 
+                      type="text"
+                      value={profileData.name}
+                      onChange={e => setProfileData({...profileData, name: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال (اسم المستخدم الجديد)</label>
+                    <input 
+                      type="tel"
+                      value={profileData.phone}
+                      onChange={e => setProfileData({...profileData, phone: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner text-left"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">كلمة المرور الجديدة (اتركها فارغة لعدم التغيير)</label>
+                    <div className="relative">
+                      <input 
+                        type={showPass ? "text" : "password"}
+                        value={profileData.password}
+                        onChange={e => setProfileData({...profileData, password: e.target.value})}
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                        placeholder="••••••••"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPass(!showPass)}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-500 transition-colors"
+                      >
+                        {showPass ? '👁️' : '🙈'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button 
+                    disabled={isUpdatingProfile}
+                    className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl hover:bg-emerald-600 transition shadow-lg active:scale-95 disabled:opacity-50 mt-4"
+                  >
+                    {isUpdatingProfile ? 'جاري الحفظ...' : 'حفظ التغييرات ✨'}
+                  </button>
+               </form>
+
+               <div className="mt-8 pt-6 border-t border-slate-50">
+                  <button 
+                    onClick={onLogout}
+                    className="w-full text-rose-500 font-black text-sm hover:bg-rose-50 py-3 rounded-2xl transition"
+                  >
+                    تسجيل الخروج 👋
+                  </button>
+               </div>
+            </div>
+          </div>
+        )}
       </main>
       
       <style>{`
@@ -542,7 +648,7 @@ const AdminNavButton = ({ active, onClick, label, icon, badge, badgeColor = "bg-
 );
 
 const StatCard = ({ title, value, icon, color, highlight = false }: any) => (
-  <div className={`bg-white p-8 rounded-[2.5rem] shadow-sm border transition-all hover:shadow-md ${highlight ? 'border-orange-200 bg-orange-50/20' : 'border-slate-50'}`}><div className={`${color} text-4xl mb-4`}>{icon}</div><p className="text-[10px] font-black text-slate-400 uppercase mb-1">{title}</p><p className={`text-2xl font-black ${highlight ? 'text-orange-600' : 'text-slate-800'}`}>{value}</p></div>
+  <div className={`bg-white p-8 rounded-[2.5rem] shadow-sm border transition-all hover:shadow-md ${highlight ? 'border-orange-200 bg-orange-50/20' : 'border-slate-50'}`}><div className={`${color} text-4xl mb-4`}>{icon}</div><p className="text-[10px] font-black text-slate-400 uppercase mr-1">{title}</p><p className={`text-2xl font-black ${highlight ? 'text-orange-600' : 'text-slate-800'}`}>{value}</p></div>
 );
 
 export default AdminDashboard;
