@@ -48,7 +48,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
 
-  // إعدادات الملف الشخصي
+  // إحصائيات الأعضاء وتعديلهم
+  const [editingMember, setEditingMember] = useState<User | null>(null);
+  const [memberFormData, setMemberFormData] = useState({
+    id: '', name: '', phone: '', password: ''
+  });
+  const [isSavingMember, setIsSavingMember] = useState(false);
+
+  // إعدادات الملف الشخصي للمدير
   const [profileData, setProfileData] = useState({
     name: currentUser?.name || '',
     phone: currentUser?.phone || '',
@@ -106,8 +113,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [orders, orderSearch, paymentFilter, startDate, endDate]);
 
-  // منطق تصفية الأعضاء وحساب نشاطهم
-  const filteredUsers = useMemo(() => {
+  const filteredUsersList = useMemo(() => {
     return users.filter(u => 
       u.name.toLowerCase().includes(memberSearch.toLowerCase()) || 
       u.phone.includes(memberSearch)
@@ -199,7 +205,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handlePasswordInput = (e: React.FormEvent<HTMLInputElement>) => {
     const input = e.currentTarget;
     input.value = input.value.replace(/[\u0600-\u06FF]/g, '');
-    setProfileData({ ...profileData, password: input.value });
+    if (editingMember) {
+      setMemberFormData({ ...memberFormData, password: input.value });
+    } else {
+      setProfileData({ ...profileData, password: input.value });
+    }
+  };
+
+  const openEditMember = (user: User) => {
+    setEditingMember(user);
+    setMemberFormData({
+      id: user.id,
+      name: user.name,
+      phone: user.phone,
+      password: ''
+    });
+  };
+
+  const handleAdminUpdateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!memberFormData.name || !memberFormData.phone) return alert('يرجى ملء البيانات المطلوبة');
+    
+    setIsSavingMember(true);
+    try {
+      const res = await ApiService.adminUpdateUser(memberFormData);
+      if (res && res.status === 'success') {
+        alert('تم تحديث بيانات العضو بنجاح ✨');
+        setEditingMember(null);
+        // إعادة تحميل البيانات أو تحديث القائمة محلياً
+        window.location.reload();
+      } else {
+        alert(res?.message || 'حدث خطأ أثناء التعديل');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setIsSavingMember(false);
+    }
   };
 
   const handleEditCategory = (cat: Category) => {
@@ -240,6 +282,73 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="relative flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
       
+      {/* النافذة المنبثقة لتعديل العضو */}
+      {editingMember && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingMember(null)}></div>
+           <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 md:p-12 animate-slideUp">
+              <div className="flex items-center gap-4 border-b pb-6 mb-8">
+                 <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl font-black">👤</div>
+                 <div>
+                    <h3 className="font-black text-xl text-slate-800">تعديل بيانات العضو</h3>
+                    <p className="text-slate-400 text-xs font-bold">يمكنك تغيير الاسم، رقم الجوال أو كلمة المرور</p>
+                 </div>
+              </div>
+
+              <form onSubmit={handleAdminUpdateMember} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">الاسم بالكامل</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={memberFormData.name} 
+                    onChange={e => setMemberFormData({...memberFormData, name: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">رقم الجوال</label>
+                  <input 
+                    type="tel" 
+                    required 
+                    value={memberFormData.phone} 
+                    onChange={e => setMemberFormData({...memberFormData, phone: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold transition shadow-inner text-left" 
+                    dir="ltr"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">كلمة مرور جديدة (English Only)</label>
+                  <input 
+                    type="text" 
+                    dir="ltr"
+                    lang="en"
+                    onInput={handlePasswordInput}
+                    value={memberFormData.password} 
+                    onChange={e => setMemberFormData({...memberFormData, password: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                    placeholder="اتركها فارغة لعدم التغيير"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                   <button 
+                    disabled={isSavingMember}
+                    className="flex-grow bg-slate-900 text-white py-5 rounded-[2rem] font-black text-lg hover:bg-emerald-600 transition shadow-lg active:scale-95 disabled:opacity-50"
+                   >
+                     {isSavingMember ? 'جاري الحفظ...' : 'حفظ التعديلات ✨'}
+                   </button>
+                   <button 
+                    type="button"
+                    onClick={() => setEditingMember(null)}
+                    className="px-8 bg-slate-100 text-slate-500 py-5 rounded-[2rem] font-black hover:bg-slate-200 transition"
+                   >إلغاء</button>
+                </div>
+              </form>
+           </div>
+        </div>
+      )}
+
       <button 
         onClick={onOpenInvoiceForm}
         className="fixed bottom-32 left-10 z-[100] flex items-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-3xl font-black shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition-all transform hover:scale-110 active:scale-95 animate-pulse-slow group"
@@ -687,18 +796,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <th className="px-8 py-6">رقم الجوال</th>
                       <th className="px-8 py-6 text-center">النشاط</th>
                       <th className="px-8 py-6 text-center">إجمالي المشتريات</th>
-                      <th className="px-8 py-6 text-center">التواصل</th>
+                      <th className="px-8 py-6 text-center">الإجراءات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {filteredUsers.length === 0 ? (
+                    {filteredUsersList.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="px-8 py-20 text-center">
                           <p className="text-slate-400 font-black">لا يوجد أعضاء يطابقون بحثك</p>
                         </td>
                       </tr>
                     ) : (
-                      filteredUsers.map(u => (
+                      filteredUsersList.map(u => (
                         <tr key={u.id} className="hover:bg-slate-50/50 transition group">
                           <td className="px-8 py-5">
                             <div className="flex items-center gap-4">
@@ -731,6 +840,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <td className="px-8 py-5">
                             <div className="flex justify-center gap-2">
                               <button 
+                                onClick={() => openEditMember(u)}
+                                className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition shadow-sm group/btn relative"
+                              >
+                                <span className="text-lg">✎</span>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[8px] font-black rounded opacity-0 group-hover/btn:opacity-100 transition whitespace-nowrap">تعديل</div>
+                              </button>
+                              <button 
                                 onClick={() => window.open(`https://wa.me/${u.phone.startsWith('0') ? '2'+u.phone : u.phone}`, '_blank')}
                                 className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition shadow-sm group/btn relative"
                               >
@@ -739,10 +855,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </button>
                               <button 
                                 onClick={() => { setOrderSearch(u.phone); setActiveTab('orders'); }}
-                                className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition shadow-sm group/btn relative"
+                                className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white transition shadow-sm group/btn relative"
                               >
                                 <span className="text-lg">🛍️</span>
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[8px] font-black rounded opacity-0 group-hover/btn:opacity-100 transition whitespace-nowrap">عرض الطلبات</div>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[8px] font-black rounded opacity-0 group-hover/btn:opacity-100 transition whitespace-nowrap">الطلبات</div>
                               </button>
                             </div>
                           </td>

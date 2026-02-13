@@ -1,8 +1,7 @@
-
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v6.7 - معالجة كافة طلبات لوحة التحكم
+ * نظام الإدارة المطور v6.8 - معالجة كافة طلبات لوحة التحكم
  */
 session_start();
 error_reporting(E_ALL); 
@@ -57,6 +56,26 @@ try {
                 $p['stockQuantity'] = (int)$p['stockQuantity'];
             }
             sendRes($products);
+            break;
+
+        case 'admin_update_user':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            if (!isset($input['id'], $input['name'], $input['phone'])) sendErr('بيانات ناقصة');
+            
+            $id = $input['id'];
+            $name = $input['name'];
+            $phone = $input['phone'];
+            $password = $input['password'] ?? '';
+
+            if ($password) {
+                $hashed = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ?, password = ? WHERE id = ?");
+                $stmt->execute([$name, $phone, $hashed, $id]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ? WHERE id = ?");
+                $stmt->execute([$name, $phone, $id]);
+            }
+            sendRes(['status' => 'success']);
             break;
 
         case 'add_product':

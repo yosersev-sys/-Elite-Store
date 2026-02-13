@@ -1,4 +1,3 @@
-
 import { Product, Category, Order, User } from '../types.ts';
 
 const API_URL = 'api.php';
@@ -47,6 +46,13 @@ export const ApiService = {
 
   async updateProfile(data: { name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
     return await safeFetch('update_profile', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async adminUpdateUser(data: { id: string, name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
+    return await safeFetch('admin_update_user', {
       method: 'POST',
       body: JSON.stringify(data)
     });
