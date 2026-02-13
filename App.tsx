@@ -15,6 +15,7 @@ import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
+import ProfileView from './components/ProfileView.tsx';
 import MobileNav from './components/MobileNav.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
@@ -358,6 +359,14 @@ const App: React.FC = () => {
               onNavigateAction('order-success');
             }}
             onBack={() => onNavigateAction('store')}
+          />
+        )}
+
+        {view === 'profile' && currentUser && (
+          <ProfileView 
+            currentUser={currentUser} 
+            onSuccess={handleLogout} 
+            onBack={() => onNavigateAction('store')} 
           />
         )}
 

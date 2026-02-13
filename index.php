@@ -14,15 +14,10 @@ header('Content-Type: text/html; charset=utf-8');
     
     <!-- PWA & Android Meta Tags -->
     <link rel="manifest" href="manifest.json">
-    
-    <!-- Favicon definitions -->
-    <link rel="icon" type="image/png" href="https://soqelasr.com/shopping-bag.png">
-    <link rel="shortcut icon" type="image/png" href="https://soqelasr.com/shopping-bag.png">
-    <link rel="apple-touch-icon" href="https://soqelasr.com/shopping-bag.png">
-    
     <meta name="theme-color" content="#10b981">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3737/3737372.png">
 
     <script>window.process = { env: { API_KEY: "" } };</script>
     <script src="https://cdn.tailwindcss.com"></script>

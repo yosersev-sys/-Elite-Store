@@ -17,9 +17,9 @@ export interface SeoSettings {
 export interface Category {
   id: string;
   name: string;
-  image?: string; // صورة القسم
-  isActive?: boolean; // حالة القسم (نشط/مخفي)
-  sortOrder?: number; // ترتيب الظهور
+  image?: string;
+  isActive?: boolean;
+  sortOrder?: number;
 }
 
 export interface Product {
@@ -61,4 +61,4 @@ export interface Order {
   userId?: string;
 }
 
-export type View = 'store' | 'admin' | 'cart' | 'product-details' | 'admin-form' | 'admin-invoice' | 'auth' | 'checkout' | 'wishlist' | 'order-success' | 'category-page' | 'admin-auth' | 'my-orders';
+export type View = 'store' | 'admin' | 'cart' | 'product-details' | 'admin-form' | 'admin-invoice' | 'auth' | 'checkout' | 'wishlist' | 'order-success' | 'category-page' | 'admin-auth' | 'my-orders' | 'profile';

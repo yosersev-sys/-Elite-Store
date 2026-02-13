@@ -28,7 +28,6 @@ const Header: React.FC<HeaderProps> = ({
       const currentScrollY = window.scrollY;
       setScrolled(currentScrollY > 20);
       
-      // إخفاء الهيدر عند التمرير للأسفل وإظهاره عند التمرير للأعلى
       if (currentScrollY <= 0) setIsVisible(true);
       else if (currentScrollY - lastScrollY.current > 10) setIsVisible(false);
       else if (lastScrollY.current - currentScrollY > 10) setIsVisible(true);
@@ -36,7 +35,6 @@ const Header: React.FC<HeaderProps> = ({
       lastScrollY.current = currentScrollY;
     };
 
-    // مستمع لحدث إظهار الهيدر قسراً (مثلاً عند التمرير البرمجي)
     const handleForceShow = () => setIsVisible(true);
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -54,12 +52,11 @@ const Header: React.FC<HeaderProps> = ({
         <div className="bg-white border border-slate-100 rounded-[2rem] px-4 md:px-6 py-2 md:py-3 flex items-center justify-between gap-3 shadow-lg shadow-emerald-900/5">
           
           <div onClick={() => onNavigate('store')} className="flex items-center gap-2 md:gap-3 cursor-pointer group shrink-0">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-500 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg group-hover:rotate-6 transition-transform overflow-hidden">
-              <img 
-                src="https://soqelasr.com/shopping-bag.png" 
-                alt="Logo" 
-                className="w-7 h-7 md:w-9 md:h-9 object-contain brightness-0 invert" 
-              />
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-500 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg text-white group-hover:rotate-6 transition-transform">
+              <svg className="w-6 h-6 md:w-7 md:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
+                <path d="M3 9l2.44-4.91A2 2 0 0 1 7.23 3h9.54a2 2 0 0 1 1.79 1.09L21 9" />
+              </svg>
             </div>
             <div className="hidden sm:flex flex-col">
               <h1 className="text-lg md:text-xl font-black text-slate-800 leading-none">سوق العصر</h1>
@@ -120,6 +117,7 @@ const Header: React.FC<HeaderProps> = ({
                     {currentUser.role === 'admin' && (
                       <button onClick={() => {onNavigate('admin'); setShowUserMenu(false);}} className="w-full text-right px-5 py-3 text-sm font-black text-emerald-600 hover:bg-emerald-50 transition">لوحة التحكم ⚙️</button>
                     )}
+                    <button onClick={() => {onNavigate('profile'); setShowUserMenu(false);}} className="w-full text-right px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 transition">تعديل الحساب 👤</button>
                     <button onClick={() => {onNavigate('my-orders'); setShowUserMenu(false);}} className="w-full text-right px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 transition">طلباتي 📦</button>
                     <button onClick={() => {onLogout(); setShowUserMenu(false);}} className="w-full text-right px-5 py-3 text-sm font-black text-rose-500 hover:bg-rose-50 transition">تسجيل الخروج 👋</button>
                   </div>
