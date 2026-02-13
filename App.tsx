@@ -67,6 +67,7 @@ const App: React.FC = () => {
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
       
+      // جلب الطلبات دائماً عند وجود مستخدم (آدمن أو عميل)
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
@@ -215,11 +216,15 @@ const App: React.FC = () => {
           <AdminInvoiceForm 
             products={products}
             onSubmit={async (order) => {
-              await ApiService.saveOrder(order);
-              setLastCreatedOrder(order);
-              showNotify('تم إصدار الفاتورة بنجاح');
-              await loadData();
-              onNavigateAction('order-success');
+              const success = await ApiService.saveOrder(order);
+              if (success) {
+                setLastCreatedOrder(order);
+                showNotify('تم إصدار الفاتورة بنجاح');
+                await loadData();
+                onNavigateAction('order-success');
+              } else {
+                showNotify('فشل حفظ الفاتورة', 'error');
+              }
             }}
             onCancel={() => onNavigateAction('admin')}
           />
@@ -251,26 +256,33 @@ const App: React.FC = () => {
             cart={cart}
             onBack={() => onNavigateAction('cart')}
             onPlaceOrder={async (details) => {
+              const totalAmount = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
               const newOrder: Order = {
                 id: 'ORD-' + Date.now().toString().slice(-6),
-                customerName: details.fullName, // تصحيح: تعيين الاسم بشكل صريح ليتوافق مع API
+                customerName: details.fullName,
                 phone: details.phone,
                 city: details.city,
                 address: details.address,
                 items: cart,
-                total: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
-                subtotal: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
+                total: totalAmount,
+                subtotal: totalAmount,
                 createdAt: Date.now(),
                 status: 'completed',
-                paymentMethod: details.paymentMethod,
+                paymentMethod: details.paymentMethod || 'عند الاستلام',
                 userId: currentUser?.id || null
               };
-              await ApiService.saveOrder(newOrder);
-              setLastCreatedOrder(newOrder);
-              setCart([]);
-              showNotify('تم إرسال طلبك بنجاح');
-              onNavigateAction('order-success');
-              loadData();
+              
+              const success = await ApiService.saveOrder(newOrder);
+              if (success) {
+                setLastCreatedOrder(newOrder);
+                setCart([]);
+                showNotify('تم إرسال طلبك بنجاح');
+                onNavigateAction('order-success');
+                // تحديث البيانات فوراً لضمان ظهور الطلب في صفحة طلباتي ولوحة التحكم
+                loadData();
+              } else {
+                showNotify('عذراً، حدث خطأ أثناء إرسال الطلب', 'error');
+              }
             }}
           />
         )}

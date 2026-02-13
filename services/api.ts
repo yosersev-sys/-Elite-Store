@@ -61,7 +61,6 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  // Added updateProduct to handle product edits as requested in App.tsx
   async updateProduct(product: Product): Promise<boolean> {
     const result = await safeFetch('update_product', {
       method: 'POST',
@@ -70,11 +69,12 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async saveOrder(order: Order): Promise<void> {
-    await safeFetch('save_order', {
+  async saveOrder(order: Order): Promise<boolean> {
+    const result = await safeFetch('save_order', {
       method: 'POST',
       body: JSON.stringify(order)
     });
+    return result?.status === 'success';
   },
 
   async deleteProduct(id: string): Promise<boolean> {
