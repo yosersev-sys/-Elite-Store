@@ -1,3 +1,4 @@
+
 import { Product, Category, Order, User } from '../types.ts';
 
 const API_URL = 'api.php';
@@ -61,6 +62,10 @@ export const ApiService = {
 
   async getOrders(): Promise<Order[]> {
     return await safeFetch('get_orders') || [];
+  },
+
+  async getUsers(): Promise<User[]> {
+    return await safeFetch('get_users') || [];
   },
 
   async addProduct(product: Product): Promise<boolean> {

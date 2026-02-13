@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,9 +97,14 @@ const App: React.FC = () => {
         const fetchedOrders = await ApiService.getOrders();
         const newOrdersList = fetchedOrders || [];
         
-        if (user.role === 'admin' && isSilent && newOrdersList.length > prevOrdersCount.current && prevOrdersCount.current > 0) {
-          playNotificationSound();
-          showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
+        if (user.role === 'admin') {
+          const fetchedUsers = await ApiService.getUsers();
+          setUsers(fetchedUsers || []);
+
+          if (isSilent && newOrdersList.length > prevOrdersCount.current && prevOrdersCount.current > 0) {
+            playNotificationSound();
+            showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
+          }
         }
         
         setOrders(newOrdersList);
@@ -134,7 +140,6 @@ const App: React.FC = () => {
   }, [currentUser?.id, currentUser?.role]);
 
   const onNavigateAction = (v: View) => {
-    // إذا حاول المستخدم الدخول لصفحة الملف الشخصي وهو غير مسجل، نظهر له نافذة الدخول
     if ((v === 'profile' || v === 'my-orders') && !currentUser) {
       setShowAuthModal(true);
       return;
@@ -153,6 +158,7 @@ const App: React.FC = () => {
     await ApiService.logout();
     setCurrentUser(null);
     setOrders([]);
+    setUsers([]);
     prevOrdersCount.current = 0;
     showNotify('تم تسجيل الخروج بنجاح');
     onNavigateAction('store');
@@ -235,7 +241,7 @@ const App: React.FC = () => {
         
         {view === 'admin' && currentUser?.role === 'admin' && (
           <AdminDashboard 
-            products={products} categories={categories} orders={orders} currentUser={currentUser}
+            products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
             onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
             onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
             onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
@@ -388,7 +394,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* الأزرار العائمة */}
       {!isAdminView && (
         <>
           <FloatingCartButton 

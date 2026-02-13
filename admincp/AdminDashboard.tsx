@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Category, Order, User } from '../types';
 import { ApiService } from '../services/api';
@@ -7,6 +8,7 @@ interface AdminDashboardProps {
   products: Product[];
   categories: Category[];
   orders: Order[];
+  users: User[];
   currentUser: User | null;
   onOpenAddForm: () => void;
   onOpenEditForm: (product: Product) => void;
@@ -22,10 +24,10 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'settings';
+type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'settings';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  products, categories, orders, currentUser, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
+  products, categories, orders, users, currentUser, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
   onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory,
   onViewOrder, onUpdateOrderPayment, soundEnabled, onToggleSound, onLogout
 }) => {
@@ -133,9 +135,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       productCount: products.length,
       criticalCount: criticalStockProducts.length,
       delayedAmount: delayedAmount.toLocaleString(),
-      delayedCount: delayedOrders.length
+      delayedCount: delayedOrders.length,
+      userCount: users.length
     };
-  }, [products, orders, criticalStockProducts]);
+  }, [products, orders, criticalStockProducts, users]);
 
   const handleReturnOrder = async (orderId: string) => {
     if (isProcessingReturn) return;
@@ -243,6 +246,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="المخزون" icon="📦" badge={stats.criticalCount > 0 ? stats.criticalCount : undefined} badgeColor="bg-rose-500" />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام" icon="🏷️" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" badge={orders.length} />
+          <AdminNavButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} label="الأعضاء" icon="👥" badge={users.length} badgeColor="bg-blue-500" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} label="الإعدادات" icon="👤" />
         </nav>
 
@@ -262,7 +266,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <StatCard title="عدد الطلبيات" value={stats.salesCount} icon="🛒" color="text-blue-600" />
               <StatCard title="إجمالي الآجل" value={`${stats.delayedAmount} ج.م`} icon="⏳" color="text-orange-600" highlight={stats.delayedCount > 0} />
               <StatCard title="نقص حاد" value={stats.criticalCount} icon="🚨" color="text-rose-600" highlight={stats.criticalCount > 0} />
-              <StatCard title="إجمالي الأصناف" value={stats.productCount} icon="📦" color="text-purple-600" />
+              <StatCard title="إجمالي الأعضاء" value={stats.userCount} icon="👥" color="text-indigo-600" />
             </div>
 
             {stats.delayedCount > 0 && (
@@ -610,6 +614,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 })
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'members' && (
+          <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden animate-fadeIn">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/30">
+               <h3 className="text-xl font-black text-slate-800">الأعضاء المسجلين</h3>
+               <p className="text-slate-400 text-xs font-bold mt-1">عرض كافة العملاء والمديرين المسجلين في النظام</p>
+            </div>
+            <table className="w-full text-right">
+              <thead>
+                <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
+                  <th className="px-8 py-6">الاسم</th>
+                  <th className="px-8 py-6">رقم الجوال</th>
+                  <th className="px-8 py-6">الرتبة</th>
+                  <th className="px-8 py-6">تاريخ التسجيل</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {users.map(u => (
+                  <tr key={u.id} className="hover:bg-slate-50/50 transition">
+                    <td className="px-8 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-xs uppercase">
+                          {u.name[0]}
+                        </div>
+                        <span className="font-black text-slate-800 text-sm">{u.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-4 font-bold text-slate-500 text-sm" dir="ltr">{u.phone}</td>
+                    <td className="px-8 py-4">
+                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black ${u.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                        {u.role === 'admin' ? 'مدير' : 'عميل'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-4 text-xs text-slate-400 font-bold">
+                      {new Date(u.createdAt).toLocaleDateString('ar-EG')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 

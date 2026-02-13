@@ -175,6 +175,12 @@ try {
             sendRes(['status' => 'success']);
             break;
 
+        case 'get_users':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->query("SELECT id, name, phone, role, createdAt FROM users ORDER BY createdAt DESC");
+            sendRes($stmt->fetchAll() ?: []);
+            break;
+
         case 'login':
             if (!isset($input['phone'], $input['password'])) sendErr('بيانات ناقصة');
             $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ?");
