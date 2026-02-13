@@ -23,7 +23,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'settings';
+type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'reports' | 'settings';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, categories, orders, users, currentUser, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
@@ -41,6 +41,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cash' | 'delayed'>('all');
+
+  // فلتر التقارير
+  const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]); // أول الشهر الحالي
+  const [reportEnd, setReportEnd] = useState(new Date().toISOString().split('T')[0]);
 
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [catFormData, setCatFormData] = useState<Category>({
@@ -115,6 +119,54 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return matchesSearch && matchesPayment && matchesDate;
     });
   }, [orders, orderSearch, paymentFilter, startDate, endDate]);
+
+  const profitStats = useMemo(() => {
+    const start = new Date(reportStart);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(reportEnd);
+    end.setHours(23, 59, 59, 999);
+
+    const periodOrders = orders.filter(o => {
+      const d = new Date(o.createdAt);
+      return d >= start && d <= end && o.status !== 'cancelled';
+    });
+
+    let totalRevenue = 0;
+    let totalWholesale = 0;
+    const categoryBreakdown: Record<string, { revenue: number, profit: number }> = {};
+    const productPerformance: Record<string, { name: string, qty: number, profit: number }> = {};
+
+    periodOrders.forEach(order => {
+      order.items.forEach(item => {
+        const itemRevenue = item.price * item.quantity;
+        const itemWholesale = (item.wholesalePrice || 0) * item.quantity;
+        const itemProfit = itemRevenue - itemWholesale;
+
+        totalRevenue += itemRevenue;
+        totalWholesale += itemWholesale;
+
+        // تحليل الأقسام
+        const catName = categories.find(c => c.id === item.categoryId)?.name || 'أخرى';
+        if (!categoryBreakdown[catName]) categoryBreakdown[catName] = { revenue: 0, profit: 0 };
+        categoryBreakdown[catName].revenue += itemRevenue;
+        categoryBreakdown[catName].profit += itemProfit;
+
+        // أداء المنتجات
+        if (!productPerformance[item.id]) productPerformance[item.id] = { name: item.name, qty: 0, profit: 0 };
+        productPerformance[item.id].qty += item.quantity;
+        productPerformance[item.id].profit += itemProfit;
+      });
+    });
+
+    return {
+      revenue: totalRevenue,
+      wholesale: totalWholesale,
+      profit: totalRevenue - totalWholesale,
+      orderCount: periodOrders.length,
+      categoryBreakdown: Object.entries(categoryBreakdown).sort((a, b) => b[1].profit - a[1].profit),
+      topProducts: Object.values(productPerformance).sort((a, b) => b.profit - a.profit).slice(0, 5)
+    };
+  }, [orders, reportStart, reportEnd, categories]);
 
   const filteredUsersList = useMemo(() => {
     return users.filter(u => 
@@ -372,6 +424,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminNavButton active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setStockFilter('all'); }} label="المخزون" icon="📦" badge={stats.criticalCount > 0 ? stats.criticalCount : undefined} badgeColor="bg-rose-500" />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام" icon="🏷️" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" badge={orders.length} />
+          <AdminNavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} label="الأرباح" icon="📈" />
           <AdminNavButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} label="الأعضاء" icon="👥" badge={users.length} badgeColor="bg-blue-500" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} label="الإعدادات" icon="👤" />
         </nav>
@@ -769,6 +822,144 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   );
                 })
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* اختيار الفترة */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+               <div className="flex flex-col md:flex-row items-end gap-6">
+                  <div className="flex-grow space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">من تاريخ</label>
+                    <input 
+                      type="date" 
+                      value={reportStart}
+                      onChange={e => setReportStart(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl px-6 py-4 outline-none font-black text-sm transition-all"
+                    />
+                  </div>
+                  <div className="flex-grow space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">إلى تاريخ</label>
+                    <input 
+                      type="date" 
+                      value={reportEnd}
+                      onChange={e => setReportEnd(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl px-6 py-4 outline-none font-black text-sm transition-all"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                     <button 
+                      onClick={() => {
+                        const today = new Date().toISOString().split('T')[0];
+                        setReportStart(today);
+                        setReportEnd(today);
+                      }}
+                      className="bg-slate-100 text-slate-600 px-6 py-4 rounded-2xl font-black text-xs hover:bg-emerald-50 hover:text-emerald-600 transition"
+                     >اليوم</button>
+                     <button 
+                      onClick={() => {
+                        const firstDay = new Date(new Date().setDate(1)).toISOString().split('T')[0];
+                        const lastDay = new Date().toISOString().split('T')[0];
+                        setReportStart(firstDay);
+                        setReportEnd(lastDay);
+                      }}
+                      className="bg-slate-100 text-slate-600 px-6 py-4 rounded-2xl font-black text-xs hover:bg-emerald-50 hover:text-emerald-600 transition"
+                     >هذا الشهر</button>
+                  </div>
+               </div>
+            </div>
+
+            {/* ملخص الأرقام */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                 <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-4">💰</div>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي المبيعات</p>
+                 <p className="text-3xl font-black text-slate-800 mt-1">{profitStats.revenue.toLocaleString()} <small className="text-xs">ج.م</small></p>
+                 <p className="text-[10px] text-slate-400 font-bold mt-2">عن {profitStats.orderCount} طلب مكتمل</p>
+              </div>
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                 <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-2xl mb-4">📦</div>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي التكلفة</p>
+                 <p className="text-3xl font-black text-slate-800 mt-1">{profitStats.wholesale.toLocaleString()} <small className="text-xs">ج.م</small></p>
+                 <p className="text-[10px] text-slate-400 font-bold mt-2">سعر الجملة للمنتجات المباعة</p>
+              </div>
+              <div className="bg-emerald-600 p-8 rounded-[3rem] shadow-xl border border-emerald-500 relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform"></div>
+                 <div className="relative z-10">
+                    <div className="w-12 h-12 bg-white/20 text-white rounded-2xl flex items-center justify-center text-2xl mb-4">✨</div>
+                    <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">صافي الربح</p>
+                    <p className="text-3xl font-black text-white mt-1">{profitStats.profit.toLocaleString()} <small className="text-xs">ج.م</small></p>
+                    <div className="mt-4 flex items-center gap-2">
+                       <span className="text-[10px] font-black bg-white/20 text-white px-2 py-0.5 rounded-full">
+                         هامش الربح: {profitStats.revenue > 0 ? ((profitStats.profit / profitStats.revenue) * 100).toFixed(1) : 0}%
+                       </span>
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               {/* أرباح الأقسام */}
+               <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                  <h4 className="font-black text-slate-800 mb-6 flex items-center gap-2">
+                    <span className="w-2 h-6 bg-blue-500 rounded-full"></span>
+                    توزيع الأرباح حسب القسم
+                  </h4>
+                  <div className="space-y-6">
+                    {profitStats.categoryBreakdown.length === 0 ? (
+                      <p className="text-center py-10 text-slate-300 font-bold">لا توجد بيانات لهذه الفترة</p>
+                    ) : (
+                      profitStats.categoryBreakdown.map(([name, data]) => (
+                        <div key={name} className="space-y-2">
+                           <div className="flex justify-between items-end">
+                              <div>
+                                 <p className="font-black text-sm text-slate-800">{name}</p>
+                                 <p className="text-[9px] text-slate-400 font-bold">مبيعات: {data.revenue.toLocaleString()} ج.م</p>
+                              </div>
+                              <p className="font-black text-emerald-600 text-sm">{data.profit.toLocaleString()} <small className="text-[9px]">ربح</small></p>
+                           </div>
+                           <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-emerald-500 rounded-full transition-all duration-1000" 
+                                style={{ width: `${(data.profit / profitStats.profit) * 100}%` }}
+                              ></div>
+                           </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+               </div>
+
+               {/* المنتجات الأكثر ربحية */}
+               <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                  <h4 className="font-black text-slate-800 mb-6 flex items-center gap-2">
+                    <span className="w-2 h-6 bg-purple-500 rounded-full"></span>
+                    أكثر 5 منتجات ربحية
+                  </h4>
+                  <div className="space-y-4">
+                    {profitStats.topProducts.length === 0 ? (
+                      <p className="text-center py-10 text-slate-300 font-bold">لا توجد بيانات لهذه الفترة</p>
+                    ) : (
+                      profitStats.topProducts.map((p, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-emerald-200 transition-colors">
+                           <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-400 text-xs shadow-sm border border-slate-100">#{idx+1}</div>
+                              <div>
+                                 <p className="font-black text-slate-800 text-xs truncate max-w-[150px]">{p.name}</p>
+                                 <p className="text-[9px] text-slate-400 font-bold">بيع {p.qty} قطعة</p>
+                              </div>
+                           </div>
+                           <div className="text-right">
+                              <p className="font-black text-emerald-600 text-sm">{p.profit.toLocaleString()} <small className="text-[9px]">ج.م</small></p>
+                              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">صافي الربح</p>
+                           </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+               </div>
             </div>
           </div>
         )}
