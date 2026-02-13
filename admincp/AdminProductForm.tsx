@@ -81,7 +81,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       const desc = await generateProductDescription(formData.name, catName);
       setFormData(prev => ({ ...prev, description: desc }));
     } catch (err) {
-      alert('فشل في الاتصال بالذكاء الاصطناعي');
+      alert('خطأ في الاتصال بالذكاء الاصطناعي');
     } finally {
       setIsLoadingAi(false);
     }
@@ -102,7 +102,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.images.length === 0) return alert('يرجى إضافة صورة واحدة على الأقل للمنتج');
+    if (formData.images.length === 0) {
+      alert('⚠️ يرجى إضافة صورة واحدة على الأقل للمنتج');
+      return;
+    }
 
     const productData: Product = {
       id: product ? product.id : 'p_' + Date.now(),
@@ -133,31 +136,34 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <p className="text-emerald-600 font-bold mt-1 uppercase tracking-widest text-xs">إدارة مخزون سوق العصر</p>
         </div>
         <button type="button" onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-black hover:bg-rose-50 hover:text-rose-500 transition">
-          إلغاء التغييرات
+          إلغاء
         </button>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-8">
         
-        {/* القسم 1: الصور - تم إصلاحه لضمان الظهور */}
+        {/* قسم الصور - المعاد بناؤه */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50">
-          <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
-            <span className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">🖼️</span>
-            صور المنتج
-          </h3>
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+              <span className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">🖼️</span>
+              معرض الصور
+            </h3>
+            <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-widest">الصورة الأولى هي الرئيسية</span>
+          </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-6">
             {formData.images.map((img, index) => (
               <div key={index} className="relative aspect-square rounded-[2rem] overflow-hidden group border-4 border-slate-50 shadow-md">
-                <img src={img} className="w-full h-full object-cover" />
+                <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                 <button 
                   type="button" 
                   onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, i) => i !== index)}))}
                   className="absolute inset-0 bg-rose-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-black"
                 >
-                  حذف
+                  حذف الصورة
                 </button>
-                {index === 0 && <div className="absolute top-2 right-2 bg-emerald-500 text-white text-[8px] px-2 py-1 rounded-full font-black uppercase">الرئيسية</div>}
+                {index === 0 && <div className="absolute top-2 right-2 bg-emerald-500 text-white text-[8px] px-2 py-1 rounded-full font-black uppercase">الأساسية</div>}
               </div>
             ))}
             
@@ -166,69 +172,71 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               onClick={() => fileInputRef.current?.click()}
               className="aspect-square rounded-[2rem] border-4 border-dashed border-slate-100 flex flex-col items-center justify-center gap-3 text-slate-300 hover:border-emerald-300 hover:text-emerald-500 hover:bg-emerald-50 transition-all group"
             >
-              <span className="text-4xl group-hover:scale-125 transition-transform">➕</span>
+              <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                 <span className="text-2xl">➕</span>
+              </div>
               <span className="text-[10px] font-black uppercase tracking-widest">إضافة صورة</span>
             </button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
           </div>
         </section>
 
-        {/* القسم 2: المعلومات الأساسية */}
+        {/* المعلومات الأساسية */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
           <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
             <span className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">📝</span>
-            المعلومات الأساسية
+            بيانات المنتج
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">اسم المنتج</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">اسم المنتج التجاري</label>
               <input 
                 required 
                 value={formData.name} 
                 onChange={e => setFormData({...formData, name: e.target.value})} 
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition"
-                placeholder="مثال: أرز بسمتي هندي"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition shadow-inner"
+                placeholder="مثال: زيت زيتون بكر ممتاز 1لتر"
               />
             </div>
 
             <div className="space-y-2 relative md:col-span-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">وصف المنتج</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">وصف المنتج التسويقي</label>
               <textarea 
                 required 
                 value={formData.description} 
                 onChange={e => setFormData({...formData, description: e.target.value})} 
-                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition min-h-[150px] resize-none"
-                placeholder="اكتب وصفاً جذاباً للمنتج..."
+                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition min-h-[150px] resize-none shadow-inner"
+                placeholder="اكتب ما يميز منتجك..."
               />
               <button 
                 type="button" 
                 onClick={handleAiDescription} 
                 disabled={isLoadingAi}
-                className="absolute left-4 bottom-4 bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black shadow-lg hover:bg-emerald-600 transition disabled:opacity-50"
+                className="absolute left-4 bottom-4 bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black shadow-lg hover:bg-emerald-600 transition disabled:opacity-50 flex items-center gap-2"
               >
-                {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي (AI)'}
+                {isLoadingAi ? 'جاري التفكير...' : '✨ كتابة ذكية (AI)'}
               </button>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">التصنيف</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">القسم الرئيسي</label>
               <select 
                 required 
                 value={formData.categoryId} 
                 onChange={e => setFormData({...formData, categoryId: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition cursor-pointer"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition cursor-pointer shadow-inner"
               >
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الباركود</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الباركود (SKU)</label>
               <input 
                 value={formData.barcode} 
                 onChange={e => setFormData({...formData, barcode: e.target.value})} 
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition text-left" 
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition text-left shadow-inner" 
                 dir="ltr"
                 placeholder="628xxxxxxxx"
               />
@@ -236,34 +244,40 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        {/* القسم 3: الأسعار والمخزون */}
+        {/* الأسعار والمخزون */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
           <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
             <span className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">💰</span>
-            الأسعار والمخزون
+            الأسعار والمخازن
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">سعر الجملة (التكلفة)</label>
-              <input 
-                required type="number" step="0.01"
-                value={formData.wholesalePrice} 
-                onChange={e => setFormData({...formData, wholesalePrice: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition"
-                placeholder="0.00"
-              />
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">تكلفة الشراء (جملة)</label>
+              <div className="relative">
+                <input 
+                  required type="number" step="0.01"
+                  value={formData.wholesalePrice} 
+                  onChange={e => setFormData({...formData, wholesalePrice: e.target.value})}
+                  className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition shadow-inner"
+                  placeholder="0.00"
+                />
+                <span className="absolute left-6 top-4 text-xs font-black text-slate-300">ج.م</span>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">سعر البيع</label>
-              <input 
-                required type="number" step="0.01"
-                value={formData.price} 
-                onChange={e => setFormData({...formData, price: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition"
-                placeholder="0.00"
-              />
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">سعر البيع للجمهور</label>
+              <div className="relative">
+                <input 
+                  required type="number" step="0.01"
+                  value={formData.price} 
+                  onChange={e => setFormData({...formData, price: e.target.value})}
+                  className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition shadow-inner"
+                  placeholder="0.00"
+                />
+                <span className="absolute left-6 top-4 text-xs font-black text-emerald-500">ج.م</span>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -283,23 +297,26 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الكمية المتوفرة</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الكمية الحالية</label>
               <input 
                 required type="number"
                 value={formData.stockQuantity} 
                 onChange={e => setFormData({...formData, stockQuantity: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition shadow-inner"
               />
+              {parseInt(formData.stockQuantity) < 5 && parseInt(formData.stockQuantity) > 0 && (
+                <p className="text-[9px] text-amber-600 font-black mr-2">⚠️ تنبيه: الكمية منخفضة جداً</p>
+              )}
             </div>
           </div>
         </section>
 
-        {/* القسم 4: SEO */}
+        {/* تحسين محركات البحث */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
               <span className="w-10 h-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center">🚀</span>
-              SEO ذكي
+              SEO الذكي
             </h3>
             <button 
               type="button" 
@@ -307,34 +324,34 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               disabled={isLoadingSeo}
               className="bg-emerald-500 text-white px-5 py-2 rounded-xl text-[10px] font-black shadow-lg hover:bg-emerald-600 transition disabled:opacity-50"
             >
-              {isLoadingSeo ? 'جاري التحليل...' : 'توليد SEO ذكي ✨'}
+              {isLoadingSeo ? 'جاري التحليل...' : 'توليد بيانات SEO ✨'}
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">Meta Title</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">عنوان الصفحة (Meta Title)</label>
               <input 
                 value={seoData.metaTitle} 
                 onChange={e => setSeoData({...seoData, metaTitle: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition shadow-inner"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">رابط المنتج (Slug)</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الرابط الصديق (Slug)</label>
               <input 
                 value={seoData.slug} 
                 onChange={e => setSeoData({...seoData, slug: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition text-left"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition text-left shadow-inner"
                 dir="ltr"
               />
             </div>
             <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">Meta Description</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">وصف البحث (Meta Description)</label>
               <textarea 
                 value={seoData.metaDescription} 
                 onChange={e => setSeoData({...seoData, metaDescription: e.target.value})}
-                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition h-24 resize-none"
+                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition h-24 resize-none shadow-inner"
               />
             </div>
           </div>
@@ -342,9 +359,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
         <button 
           type="submit" 
-          className="w-full bg-emerald-600 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:bg-slate-900 transition-all active:scale-95"
+          className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:bg-emerald-600 transition-all active:scale-95"
         >
-          {product ? 'حفظ كافة التغييرات' : 'نشر المنتج في المتجر 🚀'}
+          {product ? 'تحديث بيانات المنتج' : 'نشر المنتج في المتجر 🚀'}
         </button>
       </form>
     </div>
