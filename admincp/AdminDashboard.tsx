@@ -34,6 +34,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [adminSearch, setAdminSearch] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [stockFilter, setStockFilter] = useState<'all' | 'critical'>('all');
   const itemsPerPage = 10;
   
   const [orderSearch, setOrderSearch] = useState('');
@@ -67,11 +68,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const filteredProducts = useMemo(() => {
-    return products.filter(p => 
-      p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
-      (p.barcode && p.barcode.includes(adminSearch))
-    );
-  }, [products, adminSearch]);
+    return products.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
+                           (p.barcode && p.barcode.includes(adminSearch));
+      const matchesStock = stockFilter === 'all' || (p.stockQuantity < 5 && p.stockQuantity >= 0);
+      return matchesSearch && matchesStock;
+    });
+  }, [products, adminSearch, stockFilter]);
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
@@ -130,7 +133,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [adminSearch, activeTab]);
+  }, [adminSearch, activeTab, stockFilter]);
 
   const criticalStockProducts = useMemo(() => {
     return products.filter(p => p.stockQuantity < 5 && p.stockQuantity >= 0);
@@ -232,7 +235,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (res && res.status === 'success') {
         alert('تم تحديث بيانات العضو بنجاح ✨');
         setEditingMember(null);
-        // إعادة تحميل البيانات أو تحديث القائمة محلياً
         window.location.reload();
       } else {
         alert(res?.message || 'حدث خطأ أثناء التعديل');
@@ -282,7 +284,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="relative flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
       
-      {/* النافذة المنبثقة لتعديل العضو */}
       {editingMember && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingMember(null)}></div>
@@ -368,7 +369,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         
         <nav className="space-y-2 flex-grow">
           <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label=" الرئيسية" icon="📊" />
-          <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="المخزون" icon="📦" badge={stats.criticalCount > 0 ? stats.criticalCount : undefined} badgeColor="bg-rose-500" />
+          <AdminNavButton active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setStockFilter('all'); }} label="المخزون" icon="📦" badge={stats.criticalCount > 0 ? stats.criticalCount : undefined} badgeColor="bg-rose-500" />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام" icon="🏷️" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" badge={orders.length} />
           <AdminNavButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} label="الأعضاء" icon="👥" badge={users.length} badgeColor="bg-blue-500" />
@@ -388,10 +389,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-8 animate-fadeIn">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
               <StatCard title="إجمالي الدخل" value={`${stats.revenue} ج.م`} icon="💰" color="text-emerald-600" />
-              <StatCard title="عدد الطلبيات" value={stats.salesCount} icon="🛒" color="text-blue-600" />
-              <StatCard title="إجمالي الآجل" value={`${stats.delayedAmount} ج.م`} icon="⏳" color="text-orange-600" highlight={stats.delayedCount > 0} />
-              <StatCard title="نقص حاد" value={stats.criticalCount} icon="🚨" color="text-rose-600" highlight={stats.criticalCount > 0} />
-              <StatCard title="إجمالي الأعضاء" value={stats.userCount} icon="👥" color="text-indigo-600" />
+              <StatCard title="عدد الطلبيات" value={stats.salesCount} icon="🛒" color="text-blue-600" onClick={() => setActiveTab('orders')} />
+              <StatCard title="إجمالي الآجل" value={`${stats.delayedAmount} ج.م`} icon="⏳" color="text-orange-600" highlight={stats.delayedCount > 0} onClick={() => { setActiveTab('orders'); setPaymentFilter('delayed'); }} />
+              <StatCard 
+                title="نقص حاد" 
+                value={stats.criticalCount} 
+                icon="🚨" 
+                color="text-rose-600" 
+                highlight={stats.criticalCount > 0} 
+                onClick={() => {
+                  setActiveTab('products');
+                  setStockFilter('critical');
+                  setAdminSearch('');
+                }}
+              />
+              <StatCard title="إجمالي الأعضاء" value={stats.userCount} icon="👥" color="text-indigo-600" onClick={() => setActiveTab('members')} />
             </div>
 
             {stats.delayedCount > 0 && (
@@ -417,7 +429,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'products' && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full md:w-80 px-6 py-3 bg-white border rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm shadow-sm" />
+              <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-center">
+                <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full md:w-80 px-6 py-3 bg-white border rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm shadow-sm" />
+                {stockFilter === 'critical' && (
+                  <button 
+                    onClick={() => setStockFilter('all')}
+                    className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-xs font-black border border-rose-100 hover:bg-rose-100 transition whitespace-nowrap"
+                  >
+                    عرض الكل (إلغاء فلتر النقص) ✕
+                  </button>
+                )}
+              </div>
               <div className="flex gap-3 w-full md:w-auto">
                  <button onClick={onOpenAddForm} className="flex-grow bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">+ إضافة منتج جديد</button>
               </div>
@@ -429,14 +451,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase border-b"><th className="px-8 py-6">المنتج</th><th className="px-8 py-6">السعر</th><th className="px-8 py-6">المخزون</th><th className="px-8 py-6">الإجراء</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {paginatedProducts.map(p => (
-                    <tr key={p.id} className="hover:bg-slate-50 transition">
-                      <td className="px-8 py-4 flex items-center gap-4"><img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover" /><div><p className="font-black text-sm">{p.name}</p><p className="text-[9px] text-slate-400">{p.barcode || 'بدون كود'}</p></div></td>
-                      <td className="px-8 py-4 font-black text-emerald-600 text-sm">{p.price} ج.م</td>
-                      <td className={`px-8 py-4 font-black text-sm ${p.stockQuantity < 5 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}>{p.stockQuantity} وحدة</td>
-                      <td className="px-8 py-4 flex gap-2"><button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-white shadow-sm rounded-xl">✎</button><button onClick={() => onDeleteProduct(p.id)} className="p-2 text-rose-500 bg-white shadow-sm rounded-xl">🗑</button></td>
+                  {paginatedProducts.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-8 py-20 text-center">
+                        <div className="text-4xl mb-4">📦</div>
+                        <p className="text-slate-400 font-black">لا توجد منتجات تطابق البحث أو الفلتر</p>
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    paginatedProducts.map(p => (
+                      <tr key={p.id} className="hover:bg-slate-50 transition">
+                        <td className="px-8 py-4 flex items-center gap-4"><img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover" /><div><p className="font-black text-sm">{p.name}</p><p className="text-[9px] text-slate-400">{p.barcode || 'بدون كود'}</p></div></td>
+                        <td className="px-8 py-4 font-black text-emerald-600 text-sm">{p.price} ج.م</td>
+                        <td className={`px-8 py-4 font-black text-sm ${p.stockQuantity < 5 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}>{p.stockQuantity} وحدة</td>
+                        <td className="px-8 py-4 flex gap-2"><button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-white shadow-sm rounded-xl">✎</button><button onClick={() => onDeleteProduct(p.id)} className="p-2 text-rose-500 bg-white shadow-sm rounded-xl">🗑</button></td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
               
@@ -744,7 +775,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {activeTab === 'members' && (
           <div className="space-y-6 animate-fadeIn">
-            {/* إحصائيات الأعضاء */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center gap-4">
                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl font-black">👥</div>
@@ -769,7 +799,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* شريط البحث */}
             <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
                <div className="relative">
                  <input 
@@ -786,7 +815,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                </div>
             </div>
 
-            {/* قائمة الأعضاء */}
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
               <div className="overflow-x-auto no-scrollbar">
                 <table className="w-full text-right min-w-[800px]">
@@ -965,8 +993,16 @@ const AdminNavButton = ({ active, onClick, label, icon, badge, badgeColor = "bg-
   <button onClick={onClick} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all ${active ? 'bg-emerald-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><span className="text-lg">{icon}</span><span className="flex-grow text-right">{label}</span>{badge !== undefined && <span className={`${badgeColor} text-white text-[9px] px-2.5 py-1 rounded-full border-2 border-slate-900`}>{badge}</span>}</button>
 );
 
-const StatCard = ({ title, value, icon, color, highlight = false }: any) => (
-  <div className={`bg-white p-8 rounded-[2.5rem] shadow-sm border transition-all hover:shadow-md ${highlight ? 'border-orange-200 bg-orange-50/20' : 'border-slate-50'}`}><div className={`${color} text-4xl mb-4`}>{icon}</div><p className="text-[10px] font-black text-slate-400 uppercase mr-1">{title}</p><p className={`text-2xl font-black ${highlight ? 'text-orange-600' : 'text-slate-800'}`}>{value}</p></div>
+const StatCard = ({ title, value, icon, color, highlight = false, onClick }: any) => (
+  <div 
+    onClick={onClick}
+    className={`bg-white p-8 rounded-[2.5rem] shadow-sm border transition-all hover:shadow-md group ${onClick ? 'cursor-pointer hover:-translate-y-1 active:scale-95' : ''} ${highlight ? 'border-orange-200 bg-orange-50/20' : 'border-slate-50'}`}
+  >
+    <div className={`${color} text-4xl mb-4 group-hover:scale-110 transition-transform`}>{icon}</div>
+    <p className="text-[10px] font-black text-slate-400 uppercase mr-1">{title}</p>
+    <p className={`text-2xl font-black ${highlight ? 'text-orange-600' : 'text-slate-800'}`}>{value}</p>
+    {onClick && <div className="mt-2 text-[8px] font-black text-slate-300 group-hover:text-emerald-500 transition-colors">اضغط للتفاصيل 🔍</div>}
+  </div>
 );
 
 export default AdminDashboard;
