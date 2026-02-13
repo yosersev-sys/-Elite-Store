@@ -10,6 +10,7 @@ interface StoreViewProps {
   products: Product[];
   categories: Category[];
   searchQuery: string;
+  onSearch: (query: string) => void;
   selectedCategoryId: string | 'all';
   onCategorySelect: (id: string | 'all') => void;
   onAddToCart: (product: Product) => void;
@@ -22,6 +23,7 @@ const StoreView: React.FC<StoreViewProps> = ({
   products, 
   categories, 
   searchQuery, 
+  onSearch,
   selectedCategoryId,
   onCategorySelect,
   onAddToCart, 
@@ -36,8 +38,11 @@ const StoreView: React.FC<StoreViewProps> = ({
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
 
-  // دالة مخصصة للتمرير البطيء جداً
+  // دالة مخصصة للتمرير البطيء جداً مع إظهار الهيدر
   const slowScrollTo = (targetY: number, duration: number) => {
+    // إرسال إشارة للهيدر ليظهر فوراً
+    window.dispatchEvent(new CustomEvent('force-header-show'));
+
     const startY = window.pageYOffset;
     const diff = targetY - startY;
     let start: number | null = null;
@@ -71,7 +76,7 @@ const StoreView: React.FC<StoreViewProps> = ({
     }
   }, [selectedCategoryId, searchQuery]);
 
-  // منطق التصفية المطور ليشمل السعر
+  // منطق التصفية المطور ليشمل السعر والبحث
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -96,9 +101,10 @@ const StoreView: React.FC<StoreViewProps> = ({
     onCategorySelect('all');
     setMinPrice('');
     setMaxPrice('');
+    onSearch('');
   };
 
-  const hasActiveFilters = selectedCategoryId !== 'all' || minPrice !== '' || maxPrice !== '';
+  const hasActiveFilters = selectedCategoryId !== 'all' || minPrice !== '' || maxPrice !== '' || searchQuery !== '';
 
   return (
     <div className="space-y-12 md:space-y-20 animate-fadeIn">
@@ -137,7 +143,7 @@ const StoreView: React.FC<StoreViewProps> = ({
                onClick={() => setShowFilters(!showFilters)}
                className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95 ${showFilters ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}
              >
-               <span>{showFilters ? 'إخفاء الفلاتر' : 'تصفية النتائج'}</span>
+               <span>{showFilters ? 'إخفاء الفلاتر' : 'خيارات الفلترة'}</span>
                <svg className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                </svg>
@@ -147,30 +153,46 @@ const StoreView: React.FC<StoreViewProps> = ({
 
         {/* لوحة الفلاتر المتقدمة */}
         {showFilters && (
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-emerald-900/5 animate-slideDown grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-emerald-900/5 animate-slideDown grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            
+            {/* خيار البحث المدمج - طلب المستخدم */}
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">بحث سريع</label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="ابحث عن اسم المنتج..." 
+                  value={searchQuery}
+                  onChange={(e) => onSearch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm pr-10"
+                />
+                <span className="absolute right-3 top-3 text-slate-300">🔍</span>
+              </div>
+            </div>
+
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">نطاق السعر (ج.م)</label>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <input 
                   type="number" 
                   placeholder="من" 
                   value={minPrice}
                   onChange={(e) => setMinPrice(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center"
                 />
-                <span className="text-slate-300">إلى</span>
+                <span className="text-slate-300">-</span>
                 <input 
                   type="number" 
                   placeholder="إلى" 
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center"
                 />
               </div>
             </div>
 
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">القسم المختار</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">القسم</label>
               <select 
                 value={selectedCategoryId}
                 onChange={(e) => onCategorySelect(e.target.value)}
@@ -184,10 +206,12 @@ const StoreView: React.FC<StoreViewProps> = ({
             </div>
 
             <div className="flex items-end">
-               <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex items-center gap-3 w-full">
-                  <div className="w-8 h-8 bg-emerald-500 text-white rounded-lg flex items-center justify-center text-xs">✨</div>
-                  <p className="text-[10px] font-black text-emerald-800 leading-tight">نصيحة: استخدم نطاق السعر للوصول لمنتجات تناسب ميزانيتك في فاقوس.</p>
-               </div>
+               <button 
+                 onClick={resetFilters}
+                 className="w-full py-3 rounded-xl font-black text-xs bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
+               >
+                 مسح كل الفلاتر
+               </button>
             </div>
           </div>
         )}

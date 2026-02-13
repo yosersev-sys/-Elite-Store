@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Category, User } from '../types';
 
 interface HeaderProps {
@@ -28,17 +27,29 @@ const Header: React.FC<HeaderProps> = ({
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       setScrolled(currentScrollY > 20);
+      
+      // إخفاء الهيدر عند التمرير للأسفل وإظهاره عند التمرير للأعلى
       if (currentScrollY <= 0) setIsVisible(true);
       else if (currentScrollY - lastScrollY.current > 10) setIsVisible(false);
       else if (lastScrollY.current - currentScrollY > 10) setIsVisible(true);
+      
       lastScrollY.current = currentScrollY;
     };
+
+    // مستمع لحدث إظهار الهيدر قسراً (مثلاً عند التمرير البرمجي)
+    const handleForceShow = () => setIsVisible(true);
+
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('force-header-show', handleForceShow);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('force-header-show', handleForceShow);
+    };
   }, []);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isVisible ? 'translate-y-0' : '-translate-y-full'} ${scrolled ? 'py-2' : 'py-4'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'} ${scrolled ? 'py-2' : 'py-4'}`}>
       <div className="container mx-auto px-4">
         <div className="bg-white border border-slate-100 rounded-[2rem] px-4 md:px-6 py-2 md:py-3 flex items-center justify-between gap-3 shadow-lg shadow-emerald-900/5">
           
@@ -61,7 +72,7 @@ const Header: React.FC<HeaderProps> = ({
                 type="text" 
                 placeholder="ابحث في فاقوس..." 
                 onChange={(e) => onSearch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-2 md:py-3 px-5 pr-10 outline-none focus:ring-4 focus:ring-emerald-50:focus:bg-white transition-all font-bold text-sm"
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-2 md:py-3 px-5 pr-10 outline-none focus:ring-4 focus:ring-emerald-500/20 focus:bg-white transition-all font-bold text-sm"
               />
               <svg className="absolute right-3.5 top-2.5 md:top-3.5 h-4 w-4 md:h-5 md:w-5 text-slate-300 group-focus-within:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
