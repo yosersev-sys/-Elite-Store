@@ -31,7 +31,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
-  // فلاتر الطلبات المتقدمة
   const [orderSearch, setOrderSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -44,7 +43,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // تصفية المنتجات
   const filteredProducts = useMemo(() => {
     return products.filter(p => 
       p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
@@ -59,24 +57,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredProducts, currentPage]);
 
-  // تصفية الطلبات المتقدمة
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
-      // 1. البحث النصي
       const searchLower = orderSearch.toLowerCase();
       const matchesSearch = 
         order.id.toLowerCase().includes(searchLower) ||
         (order.customerName && order.customerName.toLowerCase().includes(searchLower)) ||
         (order.phone && order.phone.includes(searchLower));
 
-      // 2. فلترة حالة الدفع
       const paymentMethod = order.paymentMethod || '';
       const matchesPayment = 
         paymentFilter === 'all' || 
         (paymentFilter === 'cash' && paymentMethod.includes('نقدي')) ||
         (paymentFilter === 'delayed' && paymentMethod.includes('آجل'));
 
-      // 3. فلترة التاريخ
       const orderDate = new Date(order.createdAt);
       orderDate.setHours(0, 0, 0, 0);
 
@@ -115,8 +109,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const stats = useMemo(() => {
     const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-    
-    // حساب المديونيات الآجلة
     const delayedOrders = orders.filter(o => (o.paymentMethod || '').includes('آجل'));
     const delayedAmount = delayedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
     
@@ -131,17 +123,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }, [products, orders, criticalStockProducts]);
 
   const handleEditCategory = (cat: Category) => {
-    setCatFormData(cat);
+    setCatFormData({
+      ...cat,
+      sortOrder: cat.sortOrder ?? 0,
+      isActive: cat.isActive ?? true
+    });
     setIsEditingCategory(true);
   };
 
   const handleAddCategoryClick = () => {
-    setCatFormData({ id: 'cat_' + Date.now(), name: '', image: '', isActive: true, sortOrder: categories.length });
+    setCatFormData({ 
+      id: 'cat_' + Date.now(), 
+      name: '', 
+      image: '', 
+      isActive: true, 
+      sortOrder: categories.length 
+    });
     setIsEditingCategory(true);
   };
 
   const handleSaveCategory = () => {
-    if (!catFormData.name.trim()) return alert('يرجى إدخل اسم القسم');
+    if (!catFormData.name.trim()) return alert('يرجى إدخال اسم القسم');
     const existing = categories.find(c => c.id === catFormData.id);
     if (existing) onUpdateCategory(catFormData);
     else onAddCategory(catFormData);
@@ -158,7 +160,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="relative flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
       
-      {/* زر فاتورة كاشير العائم */}
       <button 
         onClick={onOpenInvoiceForm}
         className="fixed bottom-32 left-10 z-[100] flex items-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-3xl font-black shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition-all transform hover:scale-110 active:scale-95 animate-pulse-slow group"
@@ -202,7 +203,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <StatCard title="إجمالي الأصناف" value={stats.productCount} icon="📦" color="text-purple-600" />
             </div>
 
-            {/* قسم تفصيلي سريع للمديونيات في الصفحة الرئيسية */}
             {stats.delayedCount > 0 && (
               <div className="bg-orange-50 border border-orange-200 p-6 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse-slow">
                 <div className="flex items-center gap-4">
@@ -249,7 +249,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </tbody>
               </table>
               
-              {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="p-6 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
                   <div className="text-xs font-bold text-slate-400">
@@ -281,22 +280,129 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {activeTab === 'categories' && (
-          <div className="space-y-8">
-            <div className="flex justify-between items-center"><h3 className="text-2xl font-black">إدارة الأقسام</h3>{!isEditingCategory && <button onClick={handleAddCategoryClick} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-xl">+ إضافة قسم</button>}</div>
+          <div className="space-y-8 animate-fadeIn">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div>
+                <h3 className="text-2xl font-black text-slate-800">إدارة الأقسام</h3>
+                <p className="text-slate-400 text-sm font-bold mt-1">يمكنك إضافة، تعديل أو ترتيب أقسام المتجر الرئيسية</p>
+              </div>
+              {!isEditingCategory && (
+                <button 
+                  onClick={handleAddCategoryClick} 
+                  className="w-full md:w-auto bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg hover:bg-emerald-700 transition active:scale-95"
+                >
+                  + إضافة قسم جديد
+                </button>
+              )}
+            </div>
+
             {isEditingCategory ? (
-              <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-emerald-100 space-y-8">
-                <input value={catFormData.name} onChange={e => setCatFormData({...catFormData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" placeholder="اسم القسم" />
-                <button onClick={handleSaveCategory} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl">حفظ القسم 💾</button>
+              <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-emerald-100 space-y-8 animate-slideUp">
+                <div className="flex items-center gap-4 border-b pb-6">
+                   <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl font-black">🏷️</div>
+                   <div>
+                     <h4 className="font-black text-xl text-slate-800">{catFormData.id.startsWith('cat_') && catFormData.name === '' ? 'إضافة قسم جديد' : 'تعديل بيانات القسم'}</h4>
+                     <p className="text-slate-400 text-xs font-bold">يرجى ملء البيانات التالية بدقة</p>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">اسم القسم</label>
+                    <input 
+                      value={catFormData.name} 
+                      onChange={e => setCatFormData({...catFormData, name: e.target.value})} 
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner" 
+                      placeholder="مثال: الخضروات، السوبر ماركت..." 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">ترتيب الظهور</label>
+                    <input 
+                      type="number"
+                      value={catFormData.sortOrder} 
+                      onChange={e => setCatFormData({...catFormData, sortOrder: parseInt(e.target.value) || 0})} 
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner" 
+                      placeholder="رقم الترتيب (0, 1, 2...)" 
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رابط صورة القسم (اختياري)</label>
+                    <input 
+                      value={catFormData.image || ''} 
+                      onChange={e => setCatFormData({...catFormData, image: e.target.value})} 
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner" 
+                      placeholder="رابط URL للصورة..." 
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                     <input 
+                        type="checkbox" 
+                        id="cat-active"
+                        checked={catFormData.isActive}
+                        onChange={e => setCatFormData({...catFormData, isActive: e.target.checked})}
+                        className="w-6 h-6 rounded accent-emerald-600 cursor-pointer"
+                     />
+                     <label htmlFor="cat-active" className="font-black text-sm text-slate-700 cursor-pointer select-none">القسم نشط ويظهر للعملاء</label>
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-3 pt-6">
+                  <button onClick={handleSaveCategory} className="flex-grow bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl hover:bg-emerald-600 transition shadow-lg active:scale-95">حفظ التغييرات 💾</button>
+                  <button onClick={() => setIsEditingCategory(false)} className="bg-slate-100 text-slate-500 px-10 py-5 rounded-[2rem] font-black text-xl hover:bg-slate-200 transition">إلغاء</button>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">{categories.map(cat => <div key={cat.id} className="bg-white rounded-[2.5rem] p-6 border shadow-sm text-center"><p className="font-black text-lg">{cat.name}</p><div className="flex justify-center gap-2 mt-4"><button onClick={() => handleEditCategory(cat)} className="text-blue-500 text-xs font-bold">تعديل</button><button onClick={() => onDeleteCategory(cat.id)} className="text-rose-500 text-xs font-bold">حذف</button></div></div>)}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {categories.length === 0 ? (
+                  <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+                    <p className="text-slate-400 font-black">لا توجد أقسام حالياً. ابدأ بإضافة قسمك الأول!</p>
+                  </div>
+                ) : (
+                  categories
+                    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                    .map(cat => {
+                      const prodCount = products.filter(p => p.categoryId === cat.id).length;
+                      return (
+                        <div key={cat.id} className="bg-white rounded-[2.5rem] p-6 border shadow-sm flex flex-col items-center text-center transition-all hover:shadow-xl hover:-translate-y-1 relative group overflow-hidden">
+                          {/* شارة الحالة */}
+                          <div className={`absolute top-4 right-4 text-[8px] font-black px-2 py-0.5 rounded-full ${cat.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                            {cat.isActive ? 'نشط' : 'مخفي'}
+                          </div>
+                          
+                          {/* أيقونة/صورة */}
+                          <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center text-4xl mb-4 group-hover:scale-110 transition-transform">
+                             {cat.image ? <img src={cat.image} className="w-full h-full object-cover rounded-3xl" alt="" /> : '🏷️'}
+                          </div>
+
+                          <h5 className="font-black text-lg text-slate-800 line-clamp-1">{cat.name}</h5>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">المنتجات: {prodCount}</p>
+                          
+                          <div className="flex gap-2 mt-6 w-full pt-4 border-t border-slate-50">
+                            <button 
+                              onClick={() => handleEditCategory(cat)} 
+                              className="flex-grow bg-blue-50 text-blue-600 py-2.5 rounded-xl font-black text-xs hover:bg-blue-600 hover:text-white transition"
+                            >
+                              تعديل
+                            </button>
+                            <button 
+                              onClick={() => onDeleteCategory(cat.id)} 
+                              className="bg-rose-50 text-rose-500 py-2.5 rounded-xl font-black text-xs hover:bg-rose-500 hover:text-white transition"
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
             )}
           </div>
         )}
 
         {activeTab === 'orders' && (
           <div className="space-y-4">
-            {/* بار الفلاتر المتقدم للطلبات */}
             <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 animate-slideDown">
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                   
