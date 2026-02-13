@@ -18,6 +18,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ currentUser, onSuccess, onBac
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const handlePasswordInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    input.value = input.value.replace(/[\u0600-\u06FF]/g, '');
+    setFormData({ ...formData, password: input.value });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.phone) return alert('يرجى ملء جميع الحقول المطلوبة');
@@ -81,13 +87,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ currentUser, onSuccess, onBac
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">كلمة المرور الجديدة (اختياري)</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">كلمة المرور الجديدة (English Only)</label>
             <div className="relative">
               <input 
                 type={showPassword ? "text" : "password"}
+                dir="ltr"
+                lang="en"
+                onInput={handlePasswordInput}
                 value={formData.password}
-                onChange={e => setFormData({...formData, password: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner placeholder:text-right"
                 placeholder="••••••••"
               />
               <button 

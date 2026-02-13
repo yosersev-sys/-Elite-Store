@@ -39,6 +39,12 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
     }
   };
 
+  const handlePasswordInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    input.value = input.value.replace(/[\u0600-\u06FF]/g, '');
+    setPassword(input.value);
+  };
+
   return (
     <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-4 overflow-hidden">
       {/* Background Decor */}
@@ -85,10 +91,12 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
                 <input 
                   type={showPassword ? "text" : "password"} 
                   required
+                  dir="ltr"
+                  lang="en"
+                  onInput={handlePasswordInput}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-800/50 border border-slate-700 px-6 py-4 pl-12 rounded-2xl text-white outline-none focus:border-emerald-500 transition-all font-bold"
-                  placeholder="••••••••"
+                  className="w-full bg-slate-800/50 border border-slate-700 px-6 py-4 pl-12 rounded-2xl text-white outline-none focus:border-emerald-500 transition-all font-bold placeholder:text-right"
+                  placeholder="Password (English Only)"
                 />
                 <button 
                   type="button"

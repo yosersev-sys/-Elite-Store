@@ -155,6 +155,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handlePasswordInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    input.value = input.value.replace(/[\u0600-\u06FF]/g, '');
+    setProfileData({ ...profileData, password: input.value });
+  };
+
   const handleEditCategory = (cat: Category) => {
     setCatFormData({
       ...cat,
@@ -603,13 +609,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">كلمة المرور الجديدة (اتركها فارغة لعدم التغيير)</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">كلمة المرور الجديدة (English Only)</label>
                     <div className="relative">
                       <input 
                         type={showPass ? "text" : "password"}
+                        dir="ltr"
+                        lang="en"
+                        onInput={handlePasswordInput}
                         value={profileData.password}
-                        onChange={e => setProfileData({...profileData, password: e.target.value})}
-                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner placeholder:text-right"
                         placeholder="••••••••"
                       />
                       <button 

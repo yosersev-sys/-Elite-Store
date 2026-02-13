@@ -38,6 +38,13 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
     return /^01[0125][0-9]{8}$/.test(phone);
   };
 
+  const handlePasswordInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    // منع الحروف العربية وأي حروف غير إنجليزية/أرقام/رموز
+    input.value = input.value.replace(/[\u0600-\u06FF]/g, '');
+    setFormData({ ...formData, password: input.value });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -137,13 +144,16 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
 
             <div className="relative group">
                <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-300 group-focus-within:text-emerald-500 transition-colors">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00 2 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/></svg>
                </div>
                <input
                 type={showPassword ? "text" : "password"}
                 required
-                className="w-full pr-12 pl-12 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-emerald-500/20 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all font-bold text-sm"
-                placeholder="كلمة المرور"
+                dir="ltr"
+                lang="en"
+                onInput={handlePasswordInput}
+                className="w-full pr-12 pl-12 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-emerald-500/20 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all font-bold text-sm placeholder:text-right"
+                placeholder="كلمة المرور (English Only)"
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
               />
