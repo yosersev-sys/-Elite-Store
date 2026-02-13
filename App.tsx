@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User } from './types.ts';
 import Header from './components/Header.tsx';
 import StoreView from './components/StoreView.tsx';
@@ -16,6 +16,9 @@ import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import { ApiService } from './services/api.ts';
+
+// رابط صوت التنبيه (يمكن تغييره برابط ملف MP3 آخر)
+const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const App: React.FC = () => {
   const getInitialView = (): View => {
@@ -38,10 +41,23 @@ const App: React.FC = () => {
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  
+  // مرجع لتتبع عدد الطلبات السابق وتنبيهات الصوت
+  const prevOrdersCount = useRef<number>(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
   };
+
+  const playNotificationSound = useCallback(() => {
+    if (!soundEnabled) return;
+    if (!audioRef.current) {
+      audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
+    }
+    audioRef.current.play().catch(err => console.log("Autoplay blocked by browser. Interaction required."));
+  }, [soundEnabled]);
 
   const syncViewWithHash = useCallback((user: User | null) => {
     const hash = window.location.hash;
@@ -56,8 +72,10 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (isSilent: boolean = false) => {
     try {
+      if (!isSilent) setIsLoading(true);
+      
       const user = await ApiService.getCurrentUser();
       setCurrentUser(user);
       
@@ -67,26 +85,46 @@ const App: React.FC = () => {
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
       
-      // جلب الطلبات دائماً عند وجود مستخدم (آدمن أو عميل)
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
-        setOrders(fetchedOrders || []);
+        const newOrdersList = fetchedOrders || [];
+        
+        // التنبيه الصوتي للمدير عند وجود طلب جديد
+        if (user.role === 'admin' && isSilent && newOrdersList.length > prevOrdersCount.current && prevOrdersCount.current > 0) {
+          playNotificationSound();
+          showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
+        }
+        
+        setOrders(newOrdersList);
+        prevOrdersCount.current = newOrdersList.length;
       }
 
-      syncViewWithHash(user);
+      if (!isSilent) syncViewWithHash(user);
     } catch (err) {
       console.error("Data loading error:", err);
     } finally {
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
     }
   };
 
+  // تحميل البيانات لأول مرة
   useEffect(() => { 
     loadData(); 
     const handleHashChange = () => syncViewWithHash(currentUser);
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [currentUser, syncViewWithHash]);
+
+  // تفعيل التحديث التلقائي للمدير كل 20 ثانية للتحقق من الطلبات الجديدة
+  useEffect(() => {
+    let interval: any;
+    if (currentUser?.role === 'admin') {
+      interval = setInterval(() => {
+        loadData(true); // تحميل صامت في الخلفية
+      }, 20000);
+    }
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   const onNavigateAction = (v: View) => {
     setView(v);
@@ -102,6 +140,7 @@ const App: React.FC = () => {
     await ApiService.logout();
     setCurrentUser(null);
     setOrders([]);
+    prevOrdersCount.current = 0;
     showNotify('تم تسجيل الخروج بنجاح');
     onNavigateAction('store');
   };
@@ -193,6 +232,8 @@ const App: React.FC = () => {
                 const success = await ApiService.deleteCategory(id); 
                 if (success) { showNotify('تم حذف القسم بنجاح'); loadData(); }
             }}
+            soundEnabled={soundEnabled}
+            onToggleSound={() => setSoundEnabled(!soundEnabled)}
           />
         )}
 
@@ -278,7 +319,6 @@ const App: React.FC = () => {
                 setCart([]);
                 showNotify('تم إرسال طلبك بنجاح');
                 onNavigateAction('order-success');
-                // تحديث البيانات فوراً لضمان ظهور الطلب في صفحة طلباتي ولوحة التحكم
                 loadData();
               } else {
                 showNotify('عذراً، حدث خطأ أثناء إرسال الطلب', 'error');

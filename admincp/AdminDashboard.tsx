@@ -15,13 +15,16 @@ interface AdminDashboardProps {
   onUpdateCategory: (category: Category) => void;
   onDeleteCategory: (id: string) => void;
   onUpdateOrder?: (order: Order) => void;
+  soundEnabled: boolean;
+  onToggleSound: () => void;
 }
 
 type AdminTab = 'stats' | 'products' | 'categories' | 'orders';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, categories, orders, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
-  onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory 
+  onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory,
+  soundEnabled, onToggleSound
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
@@ -73,8 +76,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" badge={orders.length} />
         </nav>
 
-        <div className="mt-auto pt-8 border-t border-slate-800">
-           <button onClick={() => window.location.hash = ''} className="text-slate-400 hover:text-white font-bold text-sm transition">العودة للمتجر 🏪</button>
+        <div className="mt-auto pt-8 border-t border-slate-800 space-y-4">
+           <button 
+             onClick={onToggleSound} 
+             className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all ${soundEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-400'}`}
+           >
+             {soundEnabled ? '🔔 التنبيهات مفعلة' : '🔕 التنبيهات معطلة'}
+           </button>
+           <button onClick={() => window.location.hash = ''} className="w-full text-slate-400 hover:text-white font-bold text-sm transition">العودة للمتجر 🏪</button>
         </div>
       </aside>
 
