@@ -52,11 +52,12 @@ const Header: React.FC<HeaderProps> = ({
         <div className="bg-white border border-slate-100 rounded-[2rem] px-4 md:px-6 py-2 md:py-3 flex items-center justify-between gap-3 shadow-lg shadow-emerald-900/5">
           
           <div onClick={() => onNavigate('store')} className="flex items-center gap-2 md:gap-3 cursor-pointer group shrink-0">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-500 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg text-white group-hover:rotate-6 transition-transform">
-              <svg className="w-6 h-6 md:w-7 md:h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
-                <path d="M3 9l2.44-4.91A2 2 0 0 1 7.23 3h9.54a2 2 0 0 1 1.79 1.09L21 9" />
-              </svg>
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-500 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg group-hover:rotate-6 transition-transform overflow-hidden p-1">
+              <img 
+                src="https://soqelasr.com/shopping-bag.png" 
+                alt="سوق العصر" 
+                className="w-full h-full object-contain" 
+              />
             </div>
             <div className="hidden sm:flex flex-col">
               <h1 className="text-lg md:text-xl font-black text-slate-800 leading-none">سوق العصر</h1>
