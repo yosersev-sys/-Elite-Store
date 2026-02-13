@@ -11,6 +11,7 @@ import ProductDetailsView from './components/ProductDetailsView.tsx';
 import CheckoutView from './components/CheckoutView.tsx';
 import OrderSuccessView from './components/OrderSuccessView.tsx';
 import AuthView from './components/AuthView.tsx';
+import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import Notification from './components/Notification.tsx';
 import { ApiService } from './services/api.ts';
@@ -57,10 +58,34 @@ const App: React.FC = () => {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData(); 
+
+    // التعامل مع الروابط الخاصة عند التحميل
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash === '#/admincp') {
+        setView('admin-auth');
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const onNavigateAction = (v: View) => {
     setView(v);
+    if (v === 'admin-auth') {
+       window.location.hash = '#/admincp';
+    } else if (v === 'admin') {
+       window.location.hash = '#/admincp';
+    } else {
+       // إزالة الهاش عند العودة للمتجر
+       if (window.location.hash === '#/admincp') {
+         window.history.pushState("", document.title, window.location.pathname + window.location.search);
+       }
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -90,6 +115,19 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* Admin Special Login */}
+      {view === 'admin-auth' && !currentUser && (
+        <AdminAuthView 
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            showNotify('تم الدخول كمدير بنجاح');
+            onNavigateAction('admin');
+            loadData();
+          }}
+          onClose={() => onNavigateAction('store')}
+        />
+      )}
+
       {/* Auth Modal Overlay */}
       {showAuthModal && (
         <AuthView 
@@ -103,19 +141,22 @@ const App: React.FC = () => {
         />
       )}
 
-      <Header 
-        cartCount={cart.length} 
-        wishlistCount={wishlist.length} 
-        categories={categories}
-        currentUser={currentUser}
-        onNavigate={onNavigateAction}
-        onLoginClick={() => setShowAuthModal(true)}
-        onLogout={handleLogout}
-        onSearch={setSearchQuery} 
-        onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
-      />
+      {/* إخفاء الترويسة في صفحة دخول المدير */}
+      {view !== 'admin-auth' && (
+        <Header 
+          cartCount={cart.length} 
+          wishlistCount={wishlist.length} 
+          categories={categories}
+          currentUser={currentUser}
+          onNavigate={onNavigateAction}
+          onLoginClick={() => setShowAuthModal(true)}
+          onLogout={handleLogout}
+          onSearch={setSearchQuery} 
+          onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
+        />
+      )}
 
-      <main className="flex-grow container mx-auto px-4 pt-32 pb-20">
+      <main className={`flex-grow container mx-auto px-4 ${view === 'admin-auth' ? '' : 'pt-32 pb-20'}`}>
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
@@ -125,7 +166,7 @@ const App: React.FC = () => {
           />
         )}
         
-        {view === 'admin' && (
+        {view === 'admin' && currentUser?.role === 'admin' && (
           <AdminDashboard 
             products={products} categories={categories} orders={orders}
             onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
@@ -233,21 +274,23 @@ const App: React.FC = () => {
 
       {currentUser?.role === 'admin' && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
 
-      <footer className="bg-slate-900 text-white py-12 text-center">
-        <div className="flex flex-col items-center gap-2 mb-4">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg text-white">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
-              <path d="M3 9l2.44-4.91A2 2 0 0 1 7.23 3h9.54a2 2 0 0 1 1.79 1.09L21 9" />
-              <path d="M9 21V12" />
-              <path d="M15 21V12" />
-            </svg>
+      {view !== 'admin-auth' && (
+        <footer className="bg-slate-900 text-white py-12 text-center">
+          <div className="flex flex-col items-center gap-2 mb-4">
+            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg text-white">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
+                <path d="M3 9l2.44-4.91A2 2 0 0 1 7.23 3h9.54a2 2 0 0 1 1.79 1.09L21 9" />
+                <path d="M9 21V12" />
+                <path d="M15 21V12" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-black">سوق العصر</h2>
+            <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">فاقوس - الشرقية</p>
           </div>
-          <h2 className="text-xl font-black">سوق العصر</h2>
-          <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">فاقوس - الشرقية</p>
-        </div>
-        <p className="text-slate-500 text-[10px] tracking-widest uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
-      </footer>
+          <p className="text-slate-500 text-[10px] tracking-widest uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+        </footer>
+      )}
     </div>
   );
 };
