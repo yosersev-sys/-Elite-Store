@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Category, Order, User } from '../types';
 import { ApiService } from '../services/api';
@@ -44,6 +43,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [catFormData, setCatFormData] = useState<Category>({
     id: '', name: '', image: '', isActive: true, sortOrder: 0
   });
+
+  const [isProcessingReturn, setIsProcessingReturn] = useState(false);
 
   // إعدادات الملف الشخصي
   const [profileData, setProfileData] = useState({
@@ -121,19 +122,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }, [criticalStockProducts.length, soundEnabled]);
 
   const stats = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-    const delayedOrders = orders.filter(o => (o.paymentMethod || '').includes('آجل'));
+    // نحسب الإحصائيات فقط للطلبات غير الملغاة
+    const activeOrders = orders.filter(o => o.status !== 'cancelled');
+    const totalRevenue = activeOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const delayedOrders = activeOrders.filter(o => (o.paymentMethod || '').includes('آجل'));
     const delayedAmount = delayedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
     
     return {
       revenue: totalRevenue.toLocaleString(),
-      salesCount: orders.length,
+      salesCount: activeOrders.length,
       productCount: products.length,
       criticalCount: criticalStockProducts.length,
       delayedAmount: delayedAmount.toLocaleString(),
       delayedCount: delayedOrders.length
     };
   }, [products, orders, criticalStockProducts]);
+
+  const handleReturnOrder = async (orderId: string) => {
+    if (isProcessingReturn) return;
+    if (!confirm('هل أنت متأكد من استرداد هذه الفاتورة؟ سيتم إعادة الكميات للمخزن وخصم المبيعات.')) return;
+
+    setIsProcessingReturn(true);
+    try {
+      const res = await ApiService.returnOrder(orderId);
+      if (res && res.status === 'success') {
+        alert('تم استرداد الفاتورة وإعادة المنتجات للمخزن بنجاح ✅');
+        window.location.reload(); // تحديث شامل للبيانات
+      } else {
+        alert(res?.message || 'فشل استرداد الفاتورة');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setIsProcessingReturn(false);
+    }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -515,16 +538,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 filteredOrders.map(order => {
                   const paymentMethod = order.paymentMethod || 'غير محدد';
                   const isDelayed = paymentMethod.includes('آجل');
+                  const isCancelled = order.status === 'cancelled';
 
                   return (
-                    <div key={order.id} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-l-8 transition-all hover:shadow-md ${isDelayed ? 'border-l-orange-500' : 'border-l-emerald-500'}`}>
+                    <div key={order.id} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-l-8 transition-all hover:shadow-md ${isCancelled ? 'border-l-slate-300 opacity-60' : (isDelayed ? 'border-l-orange-500' : 'border-l-emerald-500')}`}>
                       <div className="flex items-center gap-4">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${isDelayed ? 'bg-orange-50' : 'bg-emerald-50'}`}>📦</div>
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${isCancelled ? 'bg-slate-100 grayscale' : (isDelayed ? 'bg-orange-50' : 'bg-emerald-50')}`}>
+                          {isCancelled ? '🔄' : '📦'}
+                        </div>
                         <div>
                           <div className="flex items-center gap-2">
                              <p className="font-black text-slate-800 text-sm">طلب #{order.id}</p>
-                             <span className="text-[9px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-400 font-bold">
-                               {new Date(order.createdAt).toLocaleDateString('ar-EG')}
+                             <span className={`text-[9px] px-2 py-0.5 rounded-full font-black ${isCancelled ? 'bg-rose-100 text-rose-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                               {isCancelled ? 'مسترد/ملغي' : 'مكتمل'}
                              </span>
                           </div>
                           <p className="text-[10px] text-slate-400 font-bold">{order.customerName || 'عميل مجهول'} • {order.phone || 'بدون هاتف'}</p>
@@ -536,12 +562,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <p className="text-[10px] font-black text-slate-400 uppercase mb-1">حالة الدفع</p>
                           <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
                              <button 
+                               disabled={isCancelled}
                                onClick={() => onUpdateOrderPayment(order.id, 'نقدي (تم الدفع)')}
                                className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${!isDelayed ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
                              >
                                نقدي
                              </button>
                              <button 
+                               disabled={isCancelled}
                                onClick={() => onUpdateOrderPayment(order.id, 'آجل (مديونية)')}
                                className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${isDelayed ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
                              >
@@ -551,13 +579,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                         <div>
                           <p className="text-[10px] font-black text-slate-400 uppercase mb-1">المبلغ</p>
-                          <p className="font-black text-emerald-600 text-base">{(Number(order.total) || 0).toFixed(2)} ج.م</p>
+                          <p className={`font-black text-base ${isCancelled ? 'text-slate-400 line-through' : 'text-emerald-600'}`}>{(Number(order.total) || 0).toFixed(2)} ج.م</p>
                         </div>
                       </div>
                       
                       <div className="flex flex-col gap-2 w-full md:w-auto">
-                        <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
-                        {isDelayed && (
+                        <div className="flex gap-2">
+                          <button onClick={() => onViewOrder(order)} className="flex-grow bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
+                          
+                          {/* زر استرداد الفاتورة */}
+                          {!isCancelled && (
+                            <button 
+                              onClick={() => handleReturnOrder(order.id)}
+                              disabled={isProcessingReturn}
+                              title="استرداد الفاتورة"
+                              className="p-3 bg-rose-50 text-rose-500 rounded-2xl border border-rose-100 hover:bg-rose-500 hover:text-white transition-all shadow-sm group"
+                            >
+                              <span className="text-xs group-hover:rotate-180 transition-transform block">🔄</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {isDelayed && !isCancelled && (
                           <button 
                             onClick={() => WhatsAppService.sendDebtReminderToCustomer(order)}
                             className="bg-emerald-50 text-emerald-600 px-6 py-3 rounded-2xl font-black text-[10px] border border-emerald-100 hover:bg-emerald-600 hover:text-white transition shadow-sm flex items-center justify-center gap-2"
@@ -638,7 +681,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                </form>
 
-               <div className="mt-8 pt-6 border-t border-slate-50">
+               <div className="mt-8 pt-6 border-t border-slate-50 text-center">
                   <button 
                     onClick={onLogout}
                     className="w-full text-rose-500 font-black text-sm hover:bg-rose-50 py-3 rounded-2xl transition"
