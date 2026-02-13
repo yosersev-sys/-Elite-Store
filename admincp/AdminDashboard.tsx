@@ -31,6 +31,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
+  // فلاتر الطلبات المتقدمة
+  const [orderSearch, setOrderSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'cash' | 'delayed'>('all');
+
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [catFormData, setCatFormData] = useState<Category>({
     id: '', name: '', image: '', isActive: true, sortOrder: 0
@@ -38,6 +44,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  // تصفية المنتجات
   const filteredProducts = useMemo(() => {
     return products.filter(p => 
       p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
@@ -49,6 +56,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredProducts, currentPage]);
+
+  // تصفية الطلبات المتقدمة
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      // 1. البحث النصي
+      const searchLower = orderSearch.toLowerCase();
+      const matchesSearch = 
+        order.id.toLowerCase().includes(searchLower) ||
+        (order.customerName && order.customerName.toLowerCase().includes(searchLower)) ||
+        (order.phone && order.phone.includes(searchLower));
+
+      // 2. فلترة حالة الدفع
+      const paymentMethod = order.paymentMethod || '';
+      const matchesPayment = 
+        paymentFilter === 'all' || 
+        (paymentFilter === 'cash' && paymentMethod.includes('نقدي')) ||
+        (paymentFilter === 'delayed' && paymentMethod.includes('آجل'));
+
+      // 3. فلترة التاريخ
+      const orderDate = new Date(order.createdAt);
+      orderDate.setHours(0, 0, 0, 0);
+
+      let matchesDate = true;
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (orderDate < start) matchesDate = false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(0, 0, 0, 0);
+        if (orderDate > end) matchesDate = false;
+      }
+
+      return matchesSearch && matchesPayment && matchesDate;
+    });
+  }, [orders, orderSearch, paymentFilter, startDate, endDate]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -95,10 +139,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsEditingCategory(false);
   };
 
+  const resetOrderFilters = () => {
+    setOrderSearch('');
+    setStartDate('');
+    setEndDate('');
+    setPaymentFilter('all');
+  };
+
   return (
     <div className="relative flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
       
-      {/* زر فاتورة كاشير العائم - Floating POS Button */}
+      {/* زر فاتورة كاشير العائم */}
       <button 
         onClick={onOpenInvoiceForm}
         className="fixed bottom-32 left-10 z-[100] flex items-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-3xl font-black shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition-all transform hover:scale-110 active:scale-95 animate-pulse-slow group"
@@ -184,54 +235,125 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {activeTab === 'orders' && (
-          <div className="space-y-4">
-            {orders.length === 0 ? (
-               <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100">
-                  <p className="text-slate-400 font-black">لا توجد طلبات لعرضها حالياً</p>
-               </div>
-            ) : (
-              orders.map(order => {
-                const paymentMethod = order.paymentMethod || 'غير محدد';
-                const isDelayed = paymentMethod.includes('آجل');
+          <div className="space-y-8">
+            {/* بار الفلاتر المتقدم للطلبات */}
+            <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 animate-slideDown">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">بحث (رقم/اسم/هاتف)</label>
+                    <input 
+                      type="text" 
+                      placeholder="ابحث..." 
+                      value={orderSearch}
+                      onChange={e => setOrderSearch(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs"
+                    />
+                  </div>
 
-                return (
-                  <div key={order.id} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-l-8 transition-all hover:shadow-md ${isDelayed ? 'border-l-orange-500' : 'border-l-emerald-500'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${isDelayed ? 'bg-orange-50' : 'bg-emerald-50'}`}>📦</div>
-                      <div>
-                        <p className="font-black text-slate-800 text-sm">طلب رقم {order.id}</p>
-                        <p className="text-[10px] text-slate-400 font-bold">{order.customerName || 'عميل مجهول'} • {order.phone || 'بدون هاتف'}</p>
-                      </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">من تاريخ</label>
+                    <input 
+                      type="date" 
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">إلى تاريخ</label>
+                    <input 
+                      type="date" 
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">نوع الدفع</label>
+                    <div className="flex gap-2">
+                       <select 
+                         value={paymentFilter}
+                         onChange={e => setPaymentFilter(e.target.value as any)}
+                         className="flex-grow bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-black text-xs cursor-pointer"
+                       >
+                         <option value="all">الكل</option>
+                         <option value="cash">نقدي فقط</option>
+                         <option value="delayed">آجل فقط</option>
+                       </select>
+                       {(orderSearch || startDate || endDate || paymentFilter !== 'all') && (
+                         <button 
+                           onClick={resetOrderFilters}
+                           className="bg-rose-50 text-rose-500 p-2.5 rounded-xl hover:bg-rose-500 hover:text-white transition shadow-sm"
+                           title="مسح الفلاتر"
+                         >
+                           ✕
+                         </button>
+                       )}
                     </div>
-                    
-                    <div className="flex items-center gap-6 text-center">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">حالة الدفع</p>
-                        <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                           <button 
-                             onClick={() => onUpdateOrderPayment(order.id, 'نقدي (تم الدفع)')}
-                             className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${!isDelayed ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
-                           >
-                             نقدي
-                           </button>
-                           <button 
-                             onClick={() => onUpdateOrderPayment(order.id, 'آجل (مديونية)')}
-                             className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${isDelayed ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
-                           >
-                             آجل
-                           </button>
+                  </div>
+
+               </div>
+            </div>
+
+            <div className="space-y-4">
+              {filteredOrders.length === 0 ? (
+                 <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100">
+                    <div className="text-4xl mb-4">🔍</div>
+                    <p className="text-slate-400 font-black">لا توجد طلبات تطابق معايير البحث الحالية</p>
+                    <button onClick={resetOrderFilters} className="mt-4 text-emerald-600 font-bold text-xs underline">عرض كل الطلبات</button>
+                 </div>
+              ) : (
+                filteredOrders.map(order => {
+                  const paymentMethod = order.paymentMethod || 'غير محدد';
+                  const isDelayed = paymentMethod.includes('آجل');
+
+                  return (
+                    <div key={order.id} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-l-8 transition-all hover:shadow-md ${isDelayed ? 'border-l-orange-500' : 'border-l-emerald-500'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${isDelayed ? 'bg-orange-50' : 'bg-emerald-50'}`}>📦</div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                             <p className="font-black text-slate-800 text-sm">طلب #{order.id}</p>
+                             <span className="text-[9px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-400 font-bold">
+                               {new Date(order.createdAt).toLocaleDateString('ar-EG')}
+                             </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-bold">{order.customerName || 'عميل مجهول'} • {order.phone || 'بدون هاتف'}</p>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">المبلغ</p>
-                        <p className="font-black text-emerald-600 text-base">{(Number(order.total) || 0).toFixed(2)} ج.م</p>
+                      
+                      <div className="flex items-center gap-6 text-center">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase mb-1">حالة الدفع</p>
+                          <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                             <button 
+                               onClick={() => onUpdateOrderPayment(order.id, 'نقدي (تم الدفع)')}
+                               className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${!isDelayed ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
+                             >
+                               نقدي
+                             </button>
+                             <button 
+                               onClick={() => onUpdateOrderPayment(order.id, 'آجل (مديونية)')}
+                               className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${isDelayed ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
+                             >
+                               آجل
+                             </button>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase mb-1">المبلغ</p>
+                          <p className="font-black text-emerald-600 text-base">{(Number(order.total) || 0).toFixed(2)} ج.م</p>
+                        </div>
                       </div>
+                      <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
                     </div>
-                    <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
       </main>
