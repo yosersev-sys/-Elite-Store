@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Category, Order } from '../types';
 
@@ -95,7 +96,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
+    <div className="relative flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
+      
+      {/* زر فاتورة كاشير العائم - Floating POS Button */}
+      <button 
+        onClick={onOpenInvoiceForm}
+        className="fixed bottom-32 left-10 z-[100] flex items-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-3xl font-black shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition-all transform hover:scale-110 active:scale-95 animate-pulse-slow group"
+      >
+        <span className="text-xl group-hover:rotate-12 transition-transform">📄</span>
+        <span>فاتورة كاشير</span>
+        <div className="absolute inset-0 rounded-3xl bg-blue-400 animate-ping opacity-20 pointer-events-none"></div>
+      </button>
+
       <aside className="w-full lg:w-72 bg-slate-900 text-white p-8 flex flex-col shrink-0">
         <div className="mb-12">
           <h2 className="text-2xl font-black flex items-center gap-2">
@@ -134,8 +146,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full md:w-80 px-6 py-3 bg-white border rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm shadow-sm" />
               <div className="flex gap-3 w-full md:w-auto">
-                 <button onClick={onOpenInvoiceForm} className="flex-grow bg-blue-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg">📄 فاتورة كاشير</button>
-                 <button onClick={onOpenAddForm} className="flex-grow bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg">+ إضافة منتج</button>
+                 <button onClick={onOpenAddForm} className="flex-grow bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">+ إضافة منتج جديد</button>
               </div>
             </div>
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
@@ -224,6 +235,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
       </main>
+      
+      <style>{`
+        @keyframes pulse-slow {
+          0%, 100% { transform: scale(1); box-shadow: 0 20px 50px rgba(37,99,235,0.4); }
+          50% { transform: scale(1.05); box-shadow: 0 25px 60px rgba(37,99,235,0.6); }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 3s infinite ease-in-out;
+        }
+      `}</style>
     </div>
   );
 };
