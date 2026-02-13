@@ -2,7 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v5.0 - إصلاح مشكلة ظهور الطلبات بشكل نهائي
+ * نظام الإدارة المطور v6.0 - تطوير نظام الأقسام
  */
 session_start();
 error_reporting(E_ALL); 
@@ -27,7 +27,20 @@ function sendErr($msg, $code = 400) {
 }
 
 function initDatabase($pdo) {
-    // إنشاء جدول المستخدمين
+    // الأقسام المطورة
+    $pdo->exec("CREATE TABLE IF NOT EXISTS categories (
+        id VARCHAR(50) PRIMARY KEY, 
+        name VARCHAR(255) NOT NULL,
+        image LONGTEXT,
+        isActive BOOLEAN DEFAULT 1,
+        sortOrder INT DEFAULT 0
+    )");
+
+    try { $pdo->exec("ALTER TABLE categories ADD COLUMN image LONGTEXT AFTER name"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE categories ADD COLUMN isActive BOOLEAN DEFAULT 1 AFTER image"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE categories ADD COLUMN sortOrder INT DEFAULT 0 AFTER isActive"); } catch (Exception $e) {}
+
+    // بقية الجداول...
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -37,14 +50,6 @@ function initDatabase($pdo) {
         createdAt BIGINT
     )");
 
-    // إنشاء جدول الأقسام
-    $pdo->exec("CREATE TABLE IF NOT EXISTS categories (
-        id VARCHAR(50) PRIMARY KEY, 
-        name VARCHAR(255) NOT NULL,
-        sortOrder INT DEFAULT 0
-    )");
-
-    // إنشاء جدول المنتجات
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (
         id VARCHAR(50) PRIMARY KEY, 
         name VARCHAR(255) NOT NULL, 
@@ -52,7 +57,7 @@ function initDatabase($pdo) {
         price DECIMAL(10,2), 
         wholesalePrice DECIMAL(10,2) DEFAULT 0,
         categoryId VARCHAR(50), 
-        images TEXT, 
+        images LONGTEXT, 
         sizes TEXT, 
         colors TEXT, 
         stockQuantity INT DEFAULT 0, 
@@ -63,11 +68,6 @@ function initDatabase($pdo) {
         barcode VARCHAR(100)
     )");
 
-    // تحديث هيكل جدول المنتجات للتأكد من وجود الأعمدة الجديدة
-    try { $pdo->exec("ALTER TABLE products ADD COLUMN wholesalePrice DECIMAL(10,2) DEFAULT 0 AFTER price"); } catch (Exception $e) {}
-    try { $pdo->exec("ALTER TABLE products ADD COLUMN unit VARCHAR(20) DEFAULT 'piece' AFTER stockQuantity"); } catch (Exception $e) {}
-
-    // إنشاء جدول الطلبات
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (
         id VARCHAR(50) PRIMARY KEY,
         customerName VARCHAR(255),
@@ -76,30 +76,12 @@ function initDatabase($pdo) {
         address TEXT,
         total DECIMAL(10,2),
         subtotal DECIMAL(10,2),
-        items TEXT,
+        items LONGTEXT,
         paymentMethod VARCHAR(50),
         status VARCHAR(20),
         createdAt BIGINT,
         userId VARCHAR(50)
     )");
-
-    // تحديث هيكل جدول الطلبات للتأكد من وجود أعمدة (customerName, subtotal, userId, status)
-    $cols = [
-        "customerName" => "VARCHAR(255)",
-        "phone" => "VARCHAR(20)",
-        "city" => "VARCHAR(100)",
-        "address" => "TEXT",
-        "total" => "DECIMAL(10,2)",
-        "subtotal" => "DECIMAL(10,2)",
-        "items" => "TEXT",
-        "paymentMethod" => "VARCHAR(50)",
-        "status" => "VARCHAR(20)",
-        "createdAt" => "BIGINT",
-        "userId" => "VARCHAR(50)"
-    ];
-    foreach ($cols as $col => $type) {
-        try { $pdo->exec("ALTER TABLE orders ADD COLUMN $col $type"); } catch (Exception $e) {}
-    }
 }
 
 $action = $_GET['action'] ?? '';
@@ -122,6 +104,45 @@ try {
                 $p['stockQuantity'] = (int)$p['stockQuantity'];
             }
             sendRes($products);
+            break;
+
+        case 'get_categories':
+            $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC, name ASC");
+            $cats = $stmt->fetchAll() ?: [];
+            foreach ($cats as &$c) {
+                $c['isActive'] = (bool)$c['isActive'];
+                $c['sortOrder'] = (int)$c['sortOrder'];
+            }
+            sendRes($cats);
+            break;
+
+        case 'add_category':
+        case 'update_category':
+            $isUpdate = $action === 'update_category';
+            $sql = $isUpdate 
+                ? "UPDATE categories SET name=?, image=?, isActive=?, sortOrder=? WHERE id=?"
+                : "INSERT INTO categories (id, name, image, isActive, sortOrder) VALUES (?, ?, ?, ?, ?)";
+            
+            $stmt = $pdo->prepare($sql);
+            if ($isUpdate) {
+                $stmt->execute([
+                    $input['name'], $input['image'] ?? null, 
+                    $input['isActive'] ? 1 : 0, $input['sortOrder'] ?? 0, 
+                    $input['id']
+                ]);
+            } else {
+                $stmt->execute([
+                    $input['id'], $input['name'], $input['image'] ?? null, 
+                    $input['isActive'] ? 1 : 0, $input['sortOrder'] ?? 0
+                ]);
+            }
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_category':
+            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+            $stmt->execute([$_GET['id']]);
+            sendRes(['status' => 'success']);
             break;
 
         case 'add_product':
@@ -173,12 +194,9 @@ try {
 
         case 'logout': session_destroy(); sendRes(['status' => 'success']); break;
         
-        case 'get_categories': sendRes($pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC, name ASC")->fetchAll() ?: []); break;
-
         case 'save_order':
             $pdo->beginTransaction();
             try {
-                // التأكد من مسميات الحقول
                 $customerName = $input['customerName'] ?? ($input['fullName'] ?? 'عميل مجهول');
                 $phone = $input['phone'] ?? '00000000000';
                 $city = $input['city'] ?? 'فاقوس';
@@ -196,7 +214,6 @@ try {
                     'completed', $createdAt, $userId
                 ]);
 
-                // تحديث الكميات في المخزن
                 $updateStock = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?");
                 foreach ($input['items'] as $item) { 
                     $updateStock->execute([$item['quantity'], $item['quantity'], $item['id']]); 
@@ -215,7 +232,6 @@ try {
             if ($isAdmin) { 
                 $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); 
             } else if (isset($_SESSION['user']['phone'])) {
-                // البحث بالـ ID أو برقم الهاتف لضمان ظهور طلبات الزائر السابقة
                 $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? OR phone = ? ORDER BY createdAt DESC");
                 $stmt->execute([$_SESSION['user']['id'] ?? 'none', $_SESSION['user']['phone']]);
             } else { 
@@ -228,18 +244,6 @@ try {
                 $o['subtotal'] = (float)$o['subtotal'];
             }
             sendRes($orders);
-            break;
-
-        case 'delete_product':
-            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-            $stmt->execute([$_GET['id']]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'add_category':
-            $stmt = $pdo->prepare("INSERT INTO categories (id, name, sortOrder) VALUES (?, ?, ?)");
-            $stmt->execute([$input['id'], $input['name'], $input['sortOrder'] ?? 0]);
-            sendRes(['status' => 'success']);
             break;
 
         default: sendErr('Unknown action');

@@ -17,15 +17,17 @@ export interface SeoSettings {
 export interface Category {
   id: string;
   name: string;
-  sortOrder?: number;
+  image?: string; // صورة القسم
+  isActive?: boolean; // حالة القسم (نشط/مخفي)
+  sortOrder?: number; // ترتيب الظهور
 }
 
 export interface Product {
   id: string;
   name: string;
   description: string;
-  price: number; // سعر البيع
-  wholesalePrice: number; // سعر الجملة
+  price: number; 
+  wholesalePrice: number; 
   categoryId: string;
   images: string[];
   sizes?: string[]; 
