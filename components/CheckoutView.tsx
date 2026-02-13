@@ -11,7 +11,6 @@ interface CheckoutViewProps {
 interface FormErrors {
   fullName?: string;
   phone?: string;
-  city?: string;
   address?: string;
 }
 
@@ -19,36 +18,28 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
-    city: '',
     address: '',
-    paymentMethod: 'cod'
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.15; // ضريبة القيمة المضافة 15%
-  const total = subtotal + tax;
+  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
     
     if (!formData.fullName.trim()) {
-      newErrors.fullName = 'يرجى إدخال الاسم الكامل المستلم';
+      newErrors.fullName = 'يرجى إدخال اسم المستلم كاملاً';
     }
     
     if (!formData.phone.trim()) {
       newErrors.phone = 'يرجى إدخال رقم الجوال';
     } else if (!/^(01)\d{9}$/.test(formData.phone.trim())) {
-      newErrors.phone = 'يرجى إدخال رقم جوال مصري صحيح (مثال: 01xxxxxxxxx)';
+      newErrors.phone = 'يرجى إدخال رقم جوال صحيح (11 رقم)';
     }
 
-    if (!formData.city) {
-      newErrors.city = 'يرجى اختيار مدينة التوصيل';
-    }
-
-    if (!formData.address.trim() || formData.address.trim().length < 10) {
-      newErrors.address = 'يرجى إدخال عنوان تفصيلي واضح (الحي والشارع)';
+    if (!formData.address.trim() || formData.address.trim().length < 5) {
+      newErrors.address = 'يرجى إدخال عنوان واضح (الشارع أو المنطقة)';
     }
 
     setErrors(newErrors);
@@ -57,7 +48,6 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // إزالة الخطأ عند بدء الكتابة
     if (errors[field as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
@@ -65,200 +55,145 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
 
   const handleConfirmOrder = () => {
     if (validate()) {
-      onPlaceOrder(formData);
+      // إرسال البيانات مع قيم افتراضية للمدينة وطريقة الدفع للحفاظ على توافق النظام
+      onPlaceOrder({
+        ...formData,
+        city: 'فاقوس',
+        paymentMethod: 'الدفع عند الاستلام'
+      });
     } else {
-      // التمرير لأول خطأ
-      window.scrollTo({ top: 100, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   return (
-    <div className="animate-fadeIn max-w-6xl mx-auto py-8 px-4">
+    <div className="animate-fadeIn max-w-5xl mx-auto py-4 md:py-8 px-4">
       <button 
         onClick={onBack}
-        className="flex items-center gap-2 text-gray-500 hover:text-indigo-600 transition mb-8 font-bold group"
+        className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 transition mb-6 font-black text-sm group"
       >
         <svg className="w-5 h-5 rotate-180 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
         </svg>
         العودة للسلة
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        {/* نموذج البيانات */}
-        <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-50">
-            <h2 className="text-3xl font-black text-gray-900 mb-8 flex items-center gap-3">
-              <span className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* نموذج البيانات الرئيسي */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-50">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-              </span>
-              بيانات الشحن والتوصيل
-            </h2>
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-slate-900 leading-tight">بيانات التوصيل</h2>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-0.5">يرجى كتابة البيانات بدقة</p>
+              </div>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
               {/* الاسم الكامل */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-500 mr-2 flex items-center gap-1">
-                  الاسم الكامل <span className="text-red-500">*</span>
-                </label>
+                <label className="text-sm font-black text-slate-600 mr-2">اسم المستلم</label>
                 <input 
                   type="text"
                   value={formData.fullName}
                   onChange={(e) => handleChange('fullName', e.target.value)}
-                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition ${errors.fullName ? 'border-red-500 bg-red-50' : 'border-transparent bg-gray-50 focus:border-indigo-100 focus:bg-white'}`} 
-                  placeholder="أدخل اسم المستلم" 
+                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all ${errors.fullName ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} 
+                  placeholder="اكتب اسمك الثلاثي هنا" 
                 />
-                {errors.fullName && <p className="text-xs text-red-500 font-bold mr-2">{errors.fullName}</p>}
+                {errors.fullName && <p className="text-xs text-rose-500 font-bold mr-2">{errors.fullName}</p>}
               </div>
 
               {/* رقم الجوال */}
               <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-500 mr-2 flex items-center gap-1">
-                  رقم الجوال <span className="text-red-500">*</span>
-                </label>
+                <label className="text-sm font-black text-slate-600 mr-2">رقم الجوال</label>
                 <input 
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => handleChange('phone', e.target.value)}
-                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition text-left ${errors.phone ? 'border-red-500 bg-red-50' : 'border-transparent bg-gray-50 focus:border-indigo-100 focus:bg-white'}`} 
+                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all text-left ${errors.phone ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} 
                   placeholder="01xxxxxxxxx" 
                   dir="ltr"
                 />
-                {errors.phone && <p className="text-xs text-red-500 font-bold mr-2">{errors.phone}</p>}
-              </div>
-
-              {/* المدينة */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-500 mr-2 flex items-center gap-1">
-                  المحافظة <span className="text-red-500">*</span>
-                </label>
-                <select 
-                  value={formData.city}
-                  onChange={(e) => handleChange('city', e.target.value)}
-                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition appearance-none ${errors.city ? 'border-red-500 bg-red-50' : 'border-transparent bg-gray-50 focus:border-indigo-100 focus:bg-white'}`}
-                >
-                  <option value="">اختر المحافظة</option>
-                  <option value="القاهرة">القاهرة</option>
-                  <option value="الجيزة">الجيزة</option>
-                  <option value="الإسكندرية">الإسكندرية</option>
-                  <option value="الشرقية">الشرقية</option>
-                  <option value="الدقهلية">الدقهلية</option>
-                  <option value="القليوبية">القليوبية</option>
-                </select>
-                {errors.city && <p className="text-xs text-red-500 font-bold mr-2">{errors.city}</p>}
+                {errors.phone && <p className="text-xs text-rose-500 font-bold mr-2">{errors.phone}</p>}
               </div>
 
               {/* العنوان التفصيلي */}
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-bold text-gray-500 mr-2 flex items-center gap-1">
-                  العنوان بالتفصيل <span className="text-red-500">*</span>
-                </label>
+              <div className="space-y-2">
+                <label className="text-sm font-black text-slate-600 mr-2">العنوان بالتفصيل</label>
                 <textarea 
                   value={formData.address}
                   onChange={(e) => handleChange('address', e.target.value)}
-                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition min-h-[100px] resize-none ${errors.address ? 'border-red-500 bg-red-50' : 'border-transparent bg-gray-50 focus:border-indigo-100 focus:bg-white'}`} 
-                  placeholder="الحي، الشارع، رقم المنزل..."
+                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all min-h-[120px] resize-none ${errors.address ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} 
+                  placeholder="اكتب الحي، الشارع، أو علامة مميزة بالقرب منك..."
                 />
-                {errors.address && <p className="text-xs text-red-500 font-bold mr-2">{errors.address}</p>}
+                {errors.address && <p className="text-xs text-rose-500 font-bold mr-2">{errors.address}</p>}
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl shadow-gray-100 border border-gray-50">
-            <h2 className="text-3xl font-black text-gray-900 mb-8 flex items-center gap-3">
-              <span className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>
-              </span>
-              طريقة الدفع
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button 
-                type="button"
-                onClick={() => setFormData({...formData, paymentMethod: 'cod'})}
-                className={`p-6 rounded-2xl border-2 transition-all flex items-center gap-4 text-right ${formData.paymentMethod === 'cod' ? 'border-indigo-600 bg-indigo-50/30' : 'border-gray-100 bg-white hover:border-gray-200'}`}
-              >
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${formData.paymentMethod === 'cod' ? 'border-indigo-600' : 'border-gray-300'}`}>
-                  {formData.paymentMethod === 'cod' && <div className="w-3 h-3 bg-indigo-600 rounded-full"></div>}
-                </div>
-                <div>
-                  <p className="font-black text-gray-900">الدفع عند الاستلام</p>
-                  <p className="text-xs text-gray-500">ادفع نقداً عند وصول طلبك</p>
-                </div>
-              </button>
-
-              <button 
-                type="button"
-                onClick={() => setFormData({...formData, paymentMethod: 'card'})}
-                className={`p-6 rounded-2xl border-2 transition-all flex items-center gap-4 text-right ${formData.paymentMethod === 'card' ? 'border-indigo-600 bg-indigo-50/30' : 'border-gray-100 bg-white hover:border-gray-200'}`}
-              >
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${formData.paymentMethod === 'card' ? 'border-indigo-600' : 'border-gray-300'}`}>
-                  {formData.paymentMethod === 'card' && <div className="w-3 h-3 bg-indigo-600 rounded-full"></div>}
-                </div>
-                <div>
-                  <p className="font-black text-gray-900">بطاقة ميزة / ائتمان</p>
-                  <p className="text-xs text-gray-500">دفع آمن وسريع أونلاين</p>
-                </div>
-              </button>
-            </div>
+          <div className="bg-emerald-50 p-6 rounded-[2rem] border border-emerald-100 flex items-center gap-4">
+             <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center text-xl">🚚</div>
+             <div>
+                <p className="font-black text-emerald-800 text-sm">خدمة التوصيل السريع</p>
+                <p className="text-emerald-600 text-[10px] font-bold">التوصيل متاح داخل فاقوس والمناطق المجاورة في أسرع وقت.</p>
+             </div>
           </div>
         </div>
 
-        {/* ملخص الطلب */}
-        <div className="lg:col-span-1">
-          <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100 sticky top-24 space-y-6">
-            <h3 className="text-xl font-black text-gray-900 border-b border-gray-100 pb-4">ملخص الفاتورة</h3>
+        {/* ملخص الطلب الجانبي */}
+        <div className="lg:col-span-5">
+          <div className="bg-white p-8 rounded-[3rem] border border-slate-50 shadow-xl shadow-slate-200/50 sticky top-24 space-y-8">
+            <h3 className="text-xl font-black text-slate-900 border-b border-slate-50 pb-5">ملخص الطلب</h3>
             
-            <div className="max-h-[300px] overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+            <div className="max-h-[200px] overflow-y-auto space-y-4 pr-2 no-scrollbar">
               {cart.map((item, idx) => (
                 <div key={`${item.id}-${idx}`} className="flex gap-4 items-center">
-                  <img src={item.images[0]} className="w-14 h-14 rounded-xl object-cover border border-gray-50" alt="" />
+                  <div className="w-14 h-14 rounded-xl overflow-hidden border border-slate-50 shrink-0">
+                    <img src={item.images[0]} className="w-full h-full object-cover" alt="" />
+                  </div>
                   <div className="flex-grow min-w-0">
-                    <p className="text-sm font-bold text-gray-800 truncate">{item.name}</p>
-                    <p className="text-xs text-gray-400 font-bold">{item.quantity} × {item.price} ج.م</p>
+                    <p className="text-sm font-black text-slate-800 truncate">{item.name}</p>
+                    <p className="text-[10px] text-slate-400 font-bold">{item.quantity} {item.unit === 'kg' ? 'كيلو' : 'قطعة'} × {item.price} ج.م</p>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="space-y-3 pt-4 border-t border-gray-100 text-sm">
-              <div className="flex justify-between text-gray-500 font-bold">
-                <span>المجموع الفرعي</span>
-                <span>{subtotal.toFixed(2)} ج.م</span>
+            <div className="space-y-4 pt-4 border-t border-slate-50">
+              <div className="flex justify-between text-slate-400 font-black text-xs uppercase tracking-widest">
+                <span>المجموع</span>
+                <span>{total.toLocaleString()} ج.م</span>
               </div>
-              <div className="flex justify-between text-gray-500 font-bold">
-                <span>ضريبة القيمة المضافة (15%)</span>
-                <span>{tax.toFixed(2)} ج.م</span>
-              </div>
-              <div className="flex justify-between text-gray-500 font-bold">
+              <div className="flex justify-between text-emerald-600 font-black text-xs uppercase tracking-widest">
                 <span>الشحن</span>
-                <span className="text-emerald-600">مجاني</span>
+                <span>مجاني لفترة محدودة</span>
               </div>
-              <div className="flex justify-between text-2xl font-black text-gray-900 pt-4">
+              <div className="flex justify-between text-3xl font-black text-slate-900 pt-4 border-t border-slate-50">
                 <span>الإجمالي</span>
-                <span className="text-indigo-600">{total.toFixed(2)} ج.م</span>
+                <span className="text-emerald-600">{total.toLocaleString()} ج.م</span>
               </div>
             </div>
 
-            <button 
-              type="button"
-              onClick={handleConfirmOrder}
-              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg hover:bg-indigo-600 transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 group"
-            >
-              تأكيد الطلب الآن
-              <svg className="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-              </svg>
-            </button>
-
-            <p className="text-[10px] text-gray-400 text-center leading-relaxed font-bold">
-              بالضغط على تأكيد الطلب، فإنك توافق على شروط الاستخدام وسياسة الخصوصية الخاصة بمتجر النخبة.
-            </p>
+            <div className="space-y-3">
+              <button 
+                type="button"
+                onClick={handleConfirmOrder}
+                className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95 flex items-center justify-center gap-3 group"
+              >
+                تأكيد الطلب الآن
+                <svg className="w-6 h-6 transition-transform group-hover:translate-x-[-4px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+              </button>
+              <p className="text-[9px] text-slate-400 text-center font-bold px-4">
+                بالضغط على الزر، سيصلك طلبك في أقرب وقت متاح. الدفع نقداً عند الاستلام.
+              </p>
+            </div>
           </div>
         </div>
       </div>
