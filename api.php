@@ -2,7 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v4.9 - دعم جلب الطلبات برقم الهاتف
+ * نظام الإدارة المطور v4.9.1 - إصلاح مشكلة ظهور الطلبات
  */
 session_start();
 error_reporting(E_ALL); 
@@ -151,25 +151,41 @@ try {
             $pdo->beginTransaction();
             try {
                 $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, createdAt, userId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                
+                // إضافة قيم افتراضية في حال نقص البيانات
+                $customerName = $input['customerName'] ?? ($input['fullName'] ?? 'عميل مجهول');
+                $phone = $input['phone'] ?? '00000000000';
+                $city = $input['city'] ?? 'فاقوس';
+                $address = $input['address'] ?? '';
+                $userId = $input['userId'] ?? null;
+                $paymentMethod = $input['paymentMethod'] ?? 'عند الاستلام';
+
                 $stmt->execute([
-                    $input['id'], $input['customerName'], $input['phone'], $input['city'], $input['address'], 
-                    $input['subtotal'], $input['total'], json_encode($input['items']), $input['paymentMethod'], 
-                    'completed', $input['createdAt'], $input['userId']
+                    $input['id'], $customerName, $phone, $city, $address, 
+                    $input['subtotal'], $input['total'], json_encode($input['items']), $paymentMethod, 
+                    'completed', $input['createdAt'], $userId
                 ]);
+
                 $updateStock = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?");
-                foreach ($input['items'] as $item) { $updateStock->execute([$item['quantity'], $item['quantity'], $item['id']]); }
+                foreach ($input['items'] as $item) { 
+                    $updateStock->execute([$item['quantity'], $item['quantity'], $item['id']]); 
+                }
+                
                 $pdo->commit();
                 sendRes(['status' => 'success']);
-            } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
+            } catch (Exception $e) { 
+                $pdo->rollBack(); 
+                sendErr($e->getMessage()); 
+            }
             break;
         case 'get_orders':
             $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
             if ($isAdmin) { 
                 $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); 
-            } else if (isset($_SESSION['user']['id'])) {
-                // تعديل الاستعلام للبحث بـ userId أو برقم الجوال المسجل
+            } else if (isset($_SESSION['user']['phone'])) {
+                // البحث برقم الهاتف لضمان ظهور طلبات الزوار أيضاً بعد تسجيل الدخول
                 $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? OR phone = ? ORDER BY createdAt DESC");
-                $stmt->execute([$_SESSION['user']['id'], $_SESSION['user']['phone']]);
+                $stmt->execute([$_SESSION['user']['id'] ?? 'none', $_SESSION['user']['phone']]);
             } else { 
                 sendRes([]); 
             }

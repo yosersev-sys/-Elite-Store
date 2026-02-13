@@ -67,7 +67,6 @@ const App: React.FC = () => {
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
       
-      // جلب الطلبات إذا كان المستخدم مسجل دخول أو كان مديراً
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
@@ -254,12 +253,16 @@ const App: React.FC = () => {
             onPlaceOrder={async (details) => {
               const newOrder: Order = {
                 id: 'ORD-' + Date.now().toString().slice(-6),
-                ...details,
+                customerName: details.fullName, // تصحيح: تعيين الاسم بشكل صريح ليتوافق مع API
+                phone: details.phone,
+                city: details.city,
+                address: details.address,
                 items: cart,
                 total: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
                 subtotal: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
                 createdAt: Date.now(),
                 status: 'completed',
+                paymentMethod: details.paymentMethod,
                 userId: currentUser?.id || null
               };
               await ApiService.saveOrder(newOrder);
@@ -267,7 +270,6 @@ const App: React.FC = () => {
               setCart([]);
               showNotify('تم إرسال طلبك بنجاح');
               onNavigateAction('order-success');
-              // تحديث البيانات فوراً لضمان ظهور الطلب في صفحة طلباتي
               loadData();
             }}
           />
