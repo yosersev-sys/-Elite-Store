@@ -2,7 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام العضويات المتقدم v4.0
+ * نظام الإدارة المطور v4.5 - دعم المخزون التلقائي
  */
 session_start();
 error_reporting(E_ALL); 
@@ -27,7 +27,7 @@ function sendErr($msg, $code = 400) {
 }
 
 function initDatabase($pdo) {
-    // إنشاء جدول المستخدمين
+    // جداول النظام الأساسية
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -66,6 +66,9 @@ function initDatabase($pdo) {
         city VARCHAR(100),
         address TEXT,
         total DECIMAL(10,2),
+        subtotal DECIMAL(10,2),
+        items TEXT,
+        paymentMethod VARCHAR(50),
         status VARCHAR(20),
         createdAt BIGINT,
         userId VARCHAR(50)
@@ -140,23 +143,87 @@ try {
             sendRes($products);
             break;
 
+        case 'add_product':
+        case 'update_product':
+            $isUpdate = $action === 'update_product';
+            $sql = $isUpdate 
+                ? "UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=?, barcode=? WHERE id=?"
+                : "INSERT INTO products (name, description, price, categoryId, images, sizes, colors, stockQuantity, seoSettings, barcode, createdAt, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $stmt = $pdo->prepare($sql);
+            $params = [
+                $input['name'], $input['description'], $input['price'], $input['categoryId'],
+                json_encode($input['images']), json_encode($input['sizes'] ?? []), json_encode($input['colors'] ?? []),
+                $input['stockQuantity'], json_encode($input['seoSettings']), $input['barcode']
+            ];
+            
+            if ($isUpdate) {
+                $params[] = $input['id'];
+            } else {
+                $params[] = $input['createdAt'];
+                $params[] = $input['id'];
+            }
+            
+            $stmt->execute($params);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_product':
+            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
+            $stmt->execute([$_GET['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
         case 'get_categories':
             $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC, name ASC");
             sendRes($stmt->fetchAll() ?: []);
             break;
 
-        case 'save_order':
-            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, total, createdAt, status, userId) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)");
-            $stmt->execute([
-                $input['id'], $input['customerName'], $input['phone'], 
-                $input['city'], $input['address'], $input['total'], time()*1000,
-                $_SESSION['user']['id'] ?? null
-            ]);
+        case 'add_category':
+            $stmt = $pdo->prepare("INSERT INTO categories (id, name, sortOrder) VALUES (?, ?, ?)");
+            $stmt->execute([$input['id'], $input['name'], $input['sortOrder'] ?? 0]);
             sendRes(['status' => 'success']);
+            break;
+
+        case 'update_category':
+            $stmt = $pdo->prepare("UPDATE categories SET name=?, sortOrder=? WHERE id=?");
+            $stmt->execute([$input['name'], $input['sortOrder'] ?? 0, $input['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_category':
+            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+            $stmt->execute([$_GET['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'save_order':
+            $pdo->beginTransaction();
+            try {
+                // 1. تسجيل الطلب
+                $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, createdAt, userId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    $input['id'], $input['customerName'], $input['phone'], 
+                    $input['city'], $input['address'], $input['subtotal'], $input['total'],
+                    json_encode($input['items']), $input['paymentMethod'], $input['status'] ?? 'pending',
+                    $input['createdAt'], $_SESSION['user']['id'] ?? null
+                ]);
+
+                // 2. تحديث المخزون وعدد المبيعات لكل منتج
+                $updateStock = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?");
+                foreach ($input['items'] as $item) {
+                    $updateStock->execute([$item['quantity'], $item['quantity'], $item['id']]);
+                }
+
+                $pdo->commit();
+                sendRes(['status' => 'success']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                sendErr("فشل تسجيل الطلب: " . $e->getMessage());
+            }
             break;
             
         case 'get_orders':
-            // الأدمن يرى كل الطلبات، المستخدم يرى طلباته فقط
             if (($_SESSION['user']['role'] ?? '') === 'admin') {
                 $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC");
             } else if (isset($_SESSION['user']['id'])) {
@@ -165,12 +232,16 @@ try {
             } else {
                 sendRes([]);
             }
-            sendRes($stmt->fetchAll() ?: []);
+            $orders = $stmt->fetchAll() ?: [];
+            foreach ($orders as &$o) {
+                $o['items'] = json_decode($o['items'] ?? '[]') ?: [];
+                $o['total'] = (float)$o['total'];
+                $o['subtotal'] = (float)$o['subtotal'];
+            }
+            sendRes($orders);
             break;
 
         default:
-            // استكمال بقية العمليات السابقة (add_product, update_category, etc)
-            // لضمان استمرارية لوحة التحكم
             sendErr('Unknown action: ' . $action);
     }
 } catch (Exception $e) {
