@@ -1,14 +1,30 @@
 
 import { Order } from '../types';
 
-// يمكنك تغيير هذا الرقم لرقم واتساب المدير الفعلي (يجب أن يبدأ بكود الدولة بدون أصفار أو +)
-const ADMIN_WHATSAPP_NUMBER = '201026034170'; 
+/**
+ * وظيفة لتنسيق رقم الهاتف للتوافق مع واتساب (إضافة كود الدولة)
+ */
+const formatWhatsAppPhone = (phone: string) => {
+  if (!phone) return '';
+  // إزالة أي مسافات أو رموز
+  let clean = phone.replace(/\D/g, '');
+  // إذا بدأ بـ 0 وكان مصرياً (11 رقم)
+  if (clean.length === 11 && clean.startsWith('0')) {
+    return '2' + clean;
+  }
+  // إذا لم يبدأ بـ 20 (كود مصر) نضيفه افتراضياً
+  if (!clean.startsWith('20') && clean.length >= 10) {
+    return '20' + (clean.startsWith('0') ? clean.slice(1) : clean);
+  }
+  return clean;
+};
 
 export const WhatsAppService = {
   /**
    * إرسال تفاصيل الطلب إلى واتساب المدير
    */
-  sendOrderNotification: (order: Order) => {
+  sendOrderNotification: (order: Order, adminPhone: string) => {
+    const targetPhone = formatWhatsAppPhone(adminPhone);
     const itemsList = order.items
       .map(item => `• ${item.name} (الكمية: ${item.quantity}) - ${item.price * item.quantity} ج.م`)
       .join('\n');
@@ -32,17 +48,16 @@ ${itemsList}
     `.trim();
 
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${ADMIN_WHATSAPP_NUMBER}?text=${encodedMessage}`;
+    const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodedMessage}`;
     
-    // فتح الرابط في نافذة جديدة
     window.open(whatsappUrl, '_blank');
   },
 
   /**
    * إرسال نسخة من الفاتورة (للكاشير)
    */
-  sendInvoiceToCustomer: (order: Order, customerPhone?: string) => {
-    const phone = customerPhone ? `2${customerPhone.startsWith('0') ? customerPhone.slice(1) : customerPhone}` : ADMIN_WHATSAPP_NUMBER;
+  sendInvoiceToCustomer: (order: Order, customerPhone: string) => {
+    const targetPhone = formatWhatsAppPhone(customerPhone);
     
     const itemsList = order.items
       .map(item => `• ${item.name} (${item.quantity} × ${item.price})`)
@@ -64,6 +79,6 @@ ${itemsList}
     `.trim();
 
     const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/${phone}?text=${encodedMessage}`, '_blank');
+    window.open(`https://wa.me/${targetPhone}?text=${encodedMessage}`, '_blank');
   }
 };

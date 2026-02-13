@@ -2,7 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v6.2 - تحديث الحساب الشخصي
+ * نظام الإدارة المطور v6.3 - جلب بيانات المدير تلقائياً
  */
 session_start();
 error_reporting(E_ALL); 
@@ -162,6 +162,12 @@ try {
             break;
 
         case 'get_current_user': sendRes($_SESSION['user'] ?? null); break;
+
+        case 'get_admin_phone':
+            $stmt = $pdo->query("SELECT phone FROM users WHERE role = 'admin' LIMIT 1");
+            $admin = $stmt->fetch();
+            sendRes(['phone' => $admin['phone'] ?? '201026034170']);
+            break;
         
         case 'login':
             if (!isset($input['phone'], $input['password'])) sendErr('بيانات ناقصة');
@@ -192,7 +198,6 @@ try {
             $name = $input['name'];
             $phone = $input['phone'];
             
-            // تحقق من عدم تكرار رقم الجوال لمستخدم آخر
             $stmt = $pdo->prepare("SELECT id FROM users WHERE phone = ? AND id != ?");
             $stmt->execute([$phone, $id]);
             if ($stmt->fetch()) sendErr('رقم الجوال هذا مستخدم بالفعل من قبل شخص آخر');
@@ -206,7 +211,6 @@ try {
                 $stmt->execute([$name, $phone, $id]);
             }
             
-            // إنهاء الجلسة لضمان إعادة تسجيل الدخول
             session_destroy();
             sendRes(['status' => 'success']);
             break;

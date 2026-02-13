@@ -23,6 +23,10 @@ export const ApiService = {
     return await safeFetch('get_current_user');
   },
 
+  async getAdminPhone(): Promise<{phone: string} | null> {
+    return await safeFetch('get_admin_phone');
+  },
+
   async login(phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
     return await safeFetch('login', {
       method: 'POST',

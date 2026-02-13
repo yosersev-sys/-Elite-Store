@@ -29,6 +29,7 @@ const App: React.FC = () => {
 
   const [view, setView] = useState<View>(getInitialView());
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [adminPhone, setAdminPhone] = useState('201026034170'); // القيمة الافتراضية كاحتياط
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -78,6 +79,10 @@ const App: React.FC = () => {
       const user = await ApiService.getCurrentUser();
       setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
       
+      // جلب رقم المدير تلقائياً
+      const adminInfo = await ApiService.getAdminPhone();
+      if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
+
       const fetchedProducts = await ApiService.getProducts();
       setProducts(fetchedProducts || []);
       
@@ -276,7 +281,7 @@ const App: React.FC = () => {
               if (success) {
                 setLastCreatedOrder(order);
                 showNotify('تم إصدار الفاتورة بنجاح');
-                // إرسال نسخة واتساب تلقائياً
+                // إرسال نسخة واتساب تلقائياً لرقم العميل
                 WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                 await loadData();
                 onNavigateAction('order-success');
@@ -336,8 +341,8 @@ const App: React.FC = () => {
                 setLastCreatedOrder(newOrder);
                 setCart([]);
                 showNotify('تم إرسال طلبك بنجاح');
-                // إرسال إشعار للمدير عبر واتساب
-                WhatsAppService.sendOrderNotification(newOrder);
+                // إرسال إشعار للمدير عبر واتساب (باستخدام رقم المدير المجلب تلقائياً)
+                WhatsAppService.sendOrderNotification(newOrder, adminPhone);
                 onNavigateAction('order-success');
                 loadData();
               } else {
