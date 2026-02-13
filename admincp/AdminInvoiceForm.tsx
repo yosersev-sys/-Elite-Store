@@ -55,7 +55,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
     });
   };
 
-  // التعامل مع الباركود: يتم التنفيذ فقط إذا كان هناك نص حقيقي في البحث
+  // التعامل مع الباركود
   useEffect(() => {
     const trimmedQuery = searchQuery.trim();
     if (!trimmedQuery) return; 
@@ -91,8 +91,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
     invoiceItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   , [invoiceItems]);
 
-  const tax = subtotal * 0.15;
-  const total = subtotal + tax;
+  // تم حذف متغير الضريبة وجعل الإجمالي يساوي المجموع مباشرة
+  const total = subtotal;
 
   const handleFinalSubmit = () => {
     if (invoiceItems.length === 0) return alert('يرجى إضافة منتجات للفاتورة');
@@ -279,12 +279,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
 
               <div className="space-y-4 pt-6 border-t border-slate-50">
                  <div className="flex justify-between text-slate-500 font-bold">
-                    <span>المجموع الفرعي</span>
+                    <span>المجموع</span>
                     <span>{subtotal.toFixed(2)} ج.م</span>
-                 </div>
-                 <div className="flex justify-between text-slate-500 font-bold">
-                    <span>الضريبة (15%)</span>
-                    <span>{tax.toFixed(2)} ج.م</span>
                  </div>
                  <div className="flex justify-between text-3xl font-black text-slate-900 pt-6">
                     <span>الإجمالي</span>
