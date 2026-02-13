@@ -80,13 +80,8 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-2 md:gap-3 shrink-0">
-            <ActionButton 
-              count={cartCount} 
-              variant="primary"
-              icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />}
-              onClick={() => onNavigate('cart')}
-            />
-
+            {/* تم إزالة زر السلة من هنا وتحويله لزر عائم */}
+            
             <div className="relative">
               {currentUser ? (
                 <button 
@@ -131,12 +126,5 @@ const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
-const ActionButton = ({ count, icon, onClick, variant = 'secondary' }: any) => (
-  <button onClick={onClick} className={`relative p-2.5 md:p-3.5 rounded-2xl transition-all active:scale-90 ${variant === 'primary' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
-    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">{icon}</svg>
-    {count > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 md:w-5 md:h-5 bg-rose-500 text-white text-[8px] md:text-[10px] font-black rounded-lg flex items-center justify-center border-2 border-white">{count}</span>}
-  </button>
-);
 
 export default Header;

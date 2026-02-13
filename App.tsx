@@ -13,6 +13,7 @@ import OrderSuccessView from './components/OrderSuccessView.tsx';
 import AuthView from './components/AuthView.tsx';
 import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
+import FloatingCartButton from './components/FloatingCartButton.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
@@ -374,6 +375,15 @@ const App: React.FC = () => {
           <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('store')} />
         )}
       </main>
+
+      {/* الأزرار العائمة */}
+      {!isAdminView && (
+        <FloatingCartButton 
+          count={cart.length} 
+          onClick={() => onNavigateAction('cart')} 
+          isVisible={view !== 'cart' && view !== 'checkout'}
+        />
+      )}
 
       {currentUser?.role === 'admin' && view !== 'admin' && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
 
