@@ -2,7 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v4.5 - دعم المخزون التلقائي والربط الذكي للعملاء
+ * نظام الإدارة المطور v4.6 - الفواتير المؤكدة تلقائياً
  */
 session_start();
 error_reporting(E_ALL); 
@@ -205,23 +205,19 @@ try {
                 $stmtUser->execute([$input['phone']]);
                 $foundUser = $stmtUser->fetch();
 
-                // إذا وُجد حساب، نربط الفاتورة بمعرفه (userId)
-                // إذا لم يوجد، نتركها مرتبطة بـ session الحالية (التي قد تكون للمسؤول) أو فارغة
                 $targetUserId = $foundUser ? $foundUser['id'] : null;
-                
-                // تحديث اسم العميل ليكون اسم العميل المسجل إذا كانت الفاتورة من POS (عميل نقدي)
                 $finalCustomerName = ($foundUser && $input['customerName'] === 'عميل نقدي') ? $foundUser['name'] : $input['customerName'];
 
-                // 1. تسجيل الطلب
+                // تسجيل الطلب - الحالة دائماً مكتملة
                 $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, createdAt, userId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([
                     $input['id'], $finalCustomerName, $input['phone'], 
                     $input['city'], $input['address'], $input['subtotal'], $input['total'],
-                    json_encode($input['items']), $input['paymentMethod'], $input['status'] ?? 'pending',
+                    json_encode($input['items']), $input['paymentMethod'], 'completed',
                     $input['createdAt'], $targetUserId
                 ]);
 
-                // 2. تحديث المخزون وعدد المبيعات لكل منتج
+                // تحديث المخزون
                 $updateStock = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?");
                 foreach ($input['items'] as $item) {
                     $updateStock->execute([$item['quantity'], $item['quantity'], $item['id']]);

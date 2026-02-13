@@ -39,14 +39,7 @@ const MyOrdersView: React.FC<MyOrdersViewProps> = ({ orders, onViewDetails, onBa
                   🧾
                 </div>
                 <div>
-                  <div className="flex items-center gap-3">
-                    <p className="font-black text-slate-800 text-lg">طلب #{order.id}</p>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                      order.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
-                    }`}>
-                      {order.status === 'completed' ? 'تم التسليم' : 'قيد المعالجة'}
-                    </span>
-                  </div>
+                  <p className="font-black text-slate-800 text-lg">طلب #{order.id}</p>
                   <p className="text-xs text-slate-400 font-bold mt-1">
                     {new Date(order.createdAt).toLocaleString('ar-SA')} • {order.items.length} منتجات
                   </p>
@@ -71,12 +64,7 @@ const MyOrdersView: React.FC<MyOrdersViewProps> = ({ orders, onViewDetails, onBa
           <div className="bg-white border-2 border-dashed border-slate-100 rounded-[3rem] py-20 text-center">
             <div className="text-6xl mb-6 opacity-20">🛒</div>
             <p className="text-slate-400 font-black text-xl">لا توجد طلبات مسجلة باسمك بعد.</p>
-            <button 
-              onClick={onBack}
-              className="mt-6 bg-emerald-600 text-white px-10 py-3 rounded-2xl font-black shadow-lg hover:bg-emerald-700 transition"
-            >
-              ابدأ التسوق الآن
-            </button>
+            <button onClick={onBack} className="mt-6 bg-emerald-600 text-white px-10 py-3 rounded-2xl font-black shadow-lg">ابدأ التسوق الآن</button>
           </div>
         )}
       </div>

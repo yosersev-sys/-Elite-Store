@@ -18,7 +18,6 @@ import MyOrdersView from './components/MyOrdersView.tsx';
 import { ApiService } from './services/api.ts';
 
 const App: React.FC = () => {
-  // تحديد الواجهة الابتدائية بناءً على الرابط فوراً
   const getInitialView = (): View => {
     const hash = window.location.hash;
     if (hash.includes('admincp')) return 'admin-auth';
@@ -48,19 +47,12 @@ const App: React.FC = () => {
     const hash = window.location.hash;
     if (hash.includes('admincp')) {
       if (user && user.role === 'admin') {
-        // نغير الواجهة فقط إذا لم تكن بالفعل واجهة إدارية
-        setView(prev => {
-          if (prev === 'admin' || prev === 'admin-form' || prev === 'admin-invoice') return prev;
-          return 'admin';
-        });
+        setView(prev => (prev === 'admin' || prev === 'admin-form' || prev === 'admin-invoice') ? prev : 'admin');
       } else {
         setView('admin-auth');
       }
     } else {
-      setView(prev => {
-        if (prev === 'admin' || prev === 'admin-auth' || prev === 'admin-form' || prev === 'admin-invoice') return 'store';
-        return prev;
-      });
+      setView(prev => (prev === 'admin' || prev === 'admin-auth' || prev === 'admin-form' || prev === 'admin-invoice') ? 'store' : prev);
     }
   }, []);
 
@@ -68,21 +60,15 @@ const App: React.FC = () => {
     try {
       const user = await ApiService.getCurrentUser();
       setCurrentUser(user);
-
       const fetchedProducts = await ApiService.getProducts();
       setProducts(fetchedProducts || []);
-
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
-
-      // جلب الطلبات إذا كان المستخدم مسجل دخول (سواء مدير أو عميل)
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
       }
-      
       syncViewWithHash(user);
-
     } catch (err) {
       console.error("Data loading error:", err);
     } finally {
@@ -92,12 +78,7 @@ const App: React.FC = () => {
 
   useEffect(() => { 
     loadData(); 
-
-    const handleHashChange = () => {
-      // نمرر المستخدم الحالي من الحالة
-      syncViewWithHash(currentUser);
-    };
-
+    const handleHashChange = () => syncViewWithHash(currentUser);
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [currentUser, syncViewWithHash]);
@@ -105,13 +86,9 @@ const App: React.FC = () => {
   const onNavigateAction = (v: View) => {
     setView(v);
     if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
-       if (!window.location.hash.includes('admincp')) {
-          window.location.hash = '#/admincp';
-       }
+       if (!window.location.hash.includes('admincp')) window.location.hash = '#/admincp';
     } else {
-       if (window.location.hash.includes('admincp')) {
-         window.history.pushState("", document.title, window.location.pathname + window.location.search);
-       }
+       if (window.location.hash.includes('admincp')) window.history.pushState("", document.title, window.location.pathname + window.location.search);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -138,14 +115,9 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       {notification && (
-        <Notification 
-          message={notification.message} 
-          type={notification.type} 
-          onClose={() => setNotification(null)} 
-        />
+        <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
       )}
 
-      {/* واجهة دخول المدير */}
       {view === 'admin-auth' && (!currentUser || currentUser.role !== 'admin') && (
         <AdminAuthView 
           onSuccess={(user) => {
@@ -158,7 +130,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* تسجيل دخول المستخدم العادي */}
       {showAuthModal && (
         <AuthView 
           onClose={() => setShowAuthModal(false)}
@@ -283,7 +254,7 @@ const App: React.FC = () => {
                 total: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
                 subtotal: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
                 createdAt: Date.now(),
-                status: 'pending',
+                status: 'completed', // الحالة دائماً مكتملة فور الإرسال
                 userId: currentUser?.id
               };
               await ApiService.saveOrder(newOrder);
