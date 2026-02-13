@@ -26,22 +26,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
   }, []);
 
   const filteredProducts = useMemo(() => {
-    if (!searchQuery) return [];
+    if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
     return products.filter(p => 
       p.name.toLowerCase().includes(q) || 
       (p.barcode && p.barcode.includes(q))
     ).slice(0, 6);
   }, [products, searchQuery]);
-
-  // التعامل مع الباركود: إذا وجدنا تطابقاً تاماً مع باركود، أضفه فوراً
-  useEffect(() => {
-    const exactMatch = products.find(p => p.barcode === searchQuery);
-    if (exactMatch) {
-      addItemToInvoice(exactMatch);
-      setSearchQuery('');
-    }
-  }, [searchQuery, products]);
 
   const addItemToInvoice = (product: Product) => {
     if (product.stockQuantity <= 0) {
@@ -62,9 +53,20 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
       }
       return [...prev, { ...product, quantity: 1 }];
     });
-    setSearchQuery('');
-    searchInputRef.current?.focus();
   };
+
+  // التعامل مع الباركود: يتم التنفيذ فقط إذا كان هناك نص حقيقي في البحث
+  useEffect(() => {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) return; // منع الزيادة التلقائية عند فراغ الحقل
+
+    const exactMatch = products.find(p => p.barcode && p.barcode === trimmedQuery);
+    if (exactMatch) {
+      addItemToInvoice(exactMatch);
+      setSearchQuery(''); // مسح الحقل فوراً لمنع التكرار
+      if (searchInputRef.current) searchInputRef.current.focus();
+    }
+  }, [searchQuery, products]);
 
   const updateQuantity = (id: string, delta: number) => {
     setInvoiceItems(prev => prev.map(item => {
@@ -168,12 +170,12 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
                />
                <div className="absolute left-6 top-[44px] text-emerald-600 animate-pulse">⌨️</div>
                
-               {searchQuery && filteredProducts.length > 0 && (
+               {searchQuery.trim() && filteredProducts.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-4 bg-white border border-slate-100 rounded-[2rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] z-50 overflow-hidden animate-slideUp">
                     {filteredProducts.map(p => (
                       <button 
                         key={p.id}
-                        onClick={() => addItemToInvoice(p)}
+                        onClick={() => { addItemToInvoice(p); setSearchQuery(''); }}
                         className="w-full px-8 py-5 flex items-center justify-between hover:bg-emerald-50 transition-colors border-b last:border-none group"
                       >
                         <div className="flex items-center gap-5 text-right">
