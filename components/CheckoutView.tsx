@@ -103,7 +103,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
                   value={formData.fullName}
                   onChange={(e) => handleChange('fullName', e.target.value)}
                   className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all ${errors.fullName ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} 
-                  placeholder="اكتب اسمك الثلاثي هنا" 
+                  placeholder="اكتب اسمك هنا" 
                 />
                 {errors.fullName && <p className="text-xs text-rose-500 font-bold mr-2">{errors.fullName}</p>}
               </div>
