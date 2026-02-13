@@ -35,7 +35,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     id: '', name: '', image: '', isActive: true, sortOrder: 0
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const filteredProducts = useMemo(() => {
@@ -95,15 +94,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (existing) onUpdateCategory(catFormData);
     else onAddCategory(catFormData);
     setIsEditingCategory(false);
-  };
-
-  const handleCategoryImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setCatFormData(prev => ({ ...prev, image: reader.result as string }));
-      reader.readAsDataURL(file);
-    }
   };
 
   return (
@@ -186,25 +176,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {activeTab === 'orders' && (
           <div className="space-y-4">
-            {orders.map(order => (
-              <div key={order.id} className="bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-l-8 border-l-emerald-500">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-2xl">📦</div>
-                  <div><p className="font-black text-slate-800">طلب رقم {order.id}</p><p className="text-xs text-slate-400 font-bold">{order.customerName} • {order.phone}</p></div>
-                </div>
-                {/* عرض حالة الدفع - التحديث الجديد */}
-                <div className="flex items-center gap-8 text-center">
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">حالة الدفع</p>
-                    <span className={`text-[10px] font-black px-3 py-1 rounded-full ${order.paymentMethod.includes('آجل') ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                      {order.paymentMethod}
-                    </span>
+            {orders.length === 0 ? (
+               <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100">
+                  <p className="text-slate-400 font-black">لا توجد طلبات لعرضها حالياً</p>
+               </div>
+            ) : (
+              orders.map(order => {
+                // تأمين قراءة حالة الدفع - منع انهيار الواجهة
+                const paymentMethod = order.paymentMethod || 'غير محدد';
+                const isDelayed = paymentMethod.includes('آجل');
+
+                return (
+                  <div key={order.id} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-l-8 transition-all hover:shadow-md ${isDelayed ? 'border-l-orange-500' : 'border-l-emerald-500'}`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${isDelayed ? 'bg-orange-50' : 'bg-emerald-50'}`}>📦</div>
+                      <div>
+                        <p className="font-black text-slate-800">طلب رقم {order.id}</p>
+                        <p className="text-xs text-slate-400 font-bold">{order.customerName || 'عميل مجهول'} • {order.phone || 'بدون هاتف'}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-8 text-center">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">حالة الدفع</p>
+                        <span className={`text-[10px] font-black px-4 py-1.5 rounded-full ${isDelayed ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                          {paymentMethod}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المبلغ</p>
+                        <p className="font-black text-emerald-600 text-lg">{(Number(order.total) || 0).toFixed(2)} ج.م</p>
+                      </div>
+                    </div>
+                    <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-8 py-3.5 rounded-2xl font-black text-xs hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
                   </div>
-                  <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المبلغ</p><p className="font-black text-emerald-600 text-lg">{order.total} ج.م</p></div>
-                </div>
-                <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-emerald-600 transition">عرض الفاتورة</button>
-              </div>
-            ))}
+                );
+              })
+            )}
           </div>
         )}
       </main>
