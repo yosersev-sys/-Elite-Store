@@ -42,8 +42,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [endDate, setEndDate] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cash' | 'delayed'>('all');
 
-  // فلتر التقارير المطور
-  const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]);
+  // فلتر التقارير
+  const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]); // أول الشهر الحالي
   const [reportEnd, setReportEnd] = useState(new Date().toISOString().split('T')[0]);
 
   const [isEditingCategory, setIsEditingCategory] = useState(false);
@@ -52,16 +52,75 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
 
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
+
+  // إحصائيات الأعضاء وتعديلهم
   const [editingMember, setEditingMember] = useState<User | null>(null);
-  const [memberFormData, setMemberFormData] = useState({ id: '', name: '', phone: '', password: '' });
+  const [memberFormData, setMemberFormData] = useState({
+    id: '', name: '', phone: '', password: ''
+  });
   const [isSavingMember, setIsSavingMember] = useState(false);
-  const [profileData, setProfileData] = useState({ name: currentUser?.name || '', phone: currentUser?.phone || '', password: '' });
+
+  // إعدادات الملف الشخصي للمدير
+  const [profileData, setProfileData] = useState({
+    name: currentUser?.name || '',
+    phone: currentUser?.phone || '',
+    password: ''
+  });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [showPass, setShowPass] = useState(false);
+
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // حسابات الأرباح المتطورة
-  const profitAnalysis = useMemo(() => {
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
+                           (p.barcode && p.barcode.includes(adminSearch));
+      const matchesStock = stockFilter === 'all' || (p.stockQuantity < 5 && p.stockQuantity >= 0);
+      return matchesSearch && matchesStock;
+    });
+  }, [products, adminSearch, stockFilter]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProducts, currentPage]);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      const searchLower = orderSearch.toLowerCase();
+      const matchesSearch = 
+        order.id.toLowerCase().includes(searchLower) ||
+        (order.customerName && order.customerName.toLowerCase().includes(searchLower)) ||
+        (order.phone && order.phone.includes(searchLower));
+
+      const paymentMethod = order.paymentMethod || '';
+      const matchesPayment = 
+        paymentFilter === 'all' || 
+        (paymentFilter === 'cash' && paymentMethod.includes('نقدي')) ||
+        (paymentFilter === 'delayed' && paymentMethod.includes('آجل'));
+
+      const orderDate = new Date(order.createdAt);
+      orderDate.setHours(0, 0, 0, 0);
+
+      let matchesDate = true;
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (orderDate < start) matchesDate = false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(0, 0, 0, 0);
+        if (orderDate > end) matchesDate = false;
+      }
+
+      return matchesSearch && matchesPayment && matchesDate;
+    });
+  }, [orders, orderSearch, paymentFilter, startDate, endDate]);
+
+  const profitStats = useMemo(() => {
     const start = new Date(reportStart);
     start.setHours(0, 0, 0, 0);
     const end = new Date(reportEnd);
@@ -74,15 +133,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     let totalRevenue = 0;
     let totalWholesale = 0;
-    let totalItemsSold = 0;
-    const dailyData: Record<string, { revenue: number, profit: number }> = {};
-    const categoryStats: Record<string, { revenue: number, profit: number }> = {};
-    const productStats: Record<string, { name: string, qty: number, profit: number, img?: string }> = {};
+    const categoryBreakdown: Record<string, { revenue: number, profit: number }> = {};
+    const productPerformance: Record<string, { name: string, qty: number, profit: number }> = {};
 
     periodOrders.forEach(order => {
-      const dateKey = new Date(order.createdAt).toLocaleDateString('en-CA'); // YYYY-MM-DD
-      if (!dailyData[dateKey]) dailyData[dateKey] = { revenue: 0, profit: 0 };
-
       order.items.forEach(item => {
         const itemRevenue = item.price * item.quantity;
         const itemWholesale = (item.wholesalePrice || 0) * item.quantity;
@@ -90,52 +144,65 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         totalRevenue += itemRevenue;
         totalWholesale += itemWholesale;
-        totalItemsSold += itemQuantityAsNumber(item.quantity);
 
-        dailyData[dateKey].revenue += itemRevenue;
-        dailyData[dateKey].profit += itemProfit;
-
+        // تحليل الأقسام
         const catName = categories.find(c => c.id === item.categoryId)?.name || 'أخرى';
-        if (!categoryStats[catName]) categoryStats[catName] = { revenue: 0, profit: 0 };
-        categoryStats[catName].revenue += itemRevenue;
-        categoryStats[catName].profit += itemProfit;
+        if (!categoryBreakdown[catName]) categoryBreakdown[catName] = { revenue: 0, profit: 0 };
+        categoryBreakdown[catName].revenue += itemRevenue;
+        categoryBreakdown[catName].profit += itemProfit;
 
-        if (!productStats[item.id]) productStats[item.id] = { name: item.name, qty: 0, profit: 0, img: item.images?.[0] };
-        productStats[item.id].qty += itemQuantityAsNumber(item.quantity);
-        productStats[item.id].profit += itemProfit;
+        // أداء المنتجات
+        if (!productPerformance[item.id]) productPerformance[item.id] = { name: item.name, qty: 0, profit: 0 };
+        productPerformance[item.id].qty += item.quantity;
+        productPerformance[item.id].profit += itemProfit;
       });
     });
-
-    function itemQuantityAsNumber(q: any) { return typeof q === 'number' ? q : parseFloat(q) || 0; }
 
     return {
       revenue: totalRevenue,
       wholesale: totalWholesale,
       profit: totalRevenue - totalWholesale,
       orderCount: periodOrders.length,
-      itemsSold: totalItemsSold,
-      avgOrderValue: periodOrders.length > 0 ? totalRevenue / periodOrders.length : 0,
-      margin: totalRevenue > 0 ? ((totalRevenue - totalWholesale) / totalRevenue) * 100 : 0,
-      dailyChart: Object.entries(dailyData).sort((a, b) => a[0].localeCompare(b[0])),
-      categoryBreakdown: Object.entries(categoryStats).sort((a, b) => b[1].profit - a[1].profit),
-      topProducts: Object.values(productStats).sort((a, b) => b.profit - a.profit).slice(0, 5),
-      recentTransactions: periodOrders.slice(0, 10)
+      categoryBreakdown: Object.entries(categoryBreakdown).sort((a, b) => b[1].profit - a[1].profit),
+      topProducts: Object.values(productPerformance).sort((a, b) => b.profit - a.profit).slice(0, 5)
     };
   }, [orders, reportStart, reportEnd, categories]);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
-                           (p.barcode && p.barcode.includes(adminSearch));
-      const matchesStock = stockFilter === 'all' || (p.stockQuantity < 5 && p.stockQuantity >= 0);
-      return matchesSearch && matchesStock;
+  const filteredUsersList = useMemo(() => {
+    return users.filter(u => 
+      u.name.toLowerCase().includes(memberSearch.toLowerCase()) || 
+      u.phone.includes(memberSearch)
+    ).map(u => {
+      const userOrders = orders.filter(o => o.userId === u.id || o.phone === u.phone);
+      const totalSpent = userOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+      return {
+        ...u,
+        orderCount: userOrders.length,
+        totalSpent: totalSpent
+      };
     });
-  }, [products, adminSearch, stockFilter]);
+  }, [users, memberSearch, orders]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [adminSearch, activeTab, stockFilter]);
+
+  const criticalStockProducts = useMemo(() => {
+    return products.filter(p => p.stockQuantity < 5 && p.stockQuantity >= 0);
+  }, [products]);
+
+  useEffect(() => {
+    if (soundEnabled && criticalStockProducts.length > 0) {
+      if (!alertAudioRef.current) {
+        alertAudioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      }
+      alertAudioRef.current.play().catch(() => {});
+    }
+  }, [criticalStockProducts.length, soundEnabled]);
 
   const stats = useMemo(() => {
     const activeOrders = orders.filter(o => o.status !== 'cancelled');
     const totalRevenue = activeOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-    const criticalCount = products.filter(p => p.stockQuantity < 5 && p.stockQuantity >= 0).length;
     const delayedOrders = activeOrders.filter(o => (o.paymentMethod || '').includes('آجل'));
     const delayedAmount = delayedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
     
@@ -143,59 +210,221 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       revenue: totalRevenue.toLocaleString(),
       salesCount: activeOrders.length,
       productCount: products.length,
-      criticalCount,
+      criticalCount: criticalStockProducts.length,
       delayedAmount: delayedAmount.toLocaleString(),
       delayedCount: delayedOrders.length,
       userCount: users.length
     };
-  }, [products, orders, users]);
+  }, [products, orders, criticalStockProducts, users]);
 
   const handleReturnOrder = async (orderId: string) => {
     if (isProcessingReturn) return;
     if (!confirm('هل أنت متأكد من استرداد هذه الفاتورة؟ سيتم إعادة الكميات للمخزن وخصم المبيعات من الإحصائيات.')) return;
+
     setIsProcessingReturn(true);
     try {
       const res = await ApiService.returnOrder(orderId);
-      if (res && res.status === 'success') { alert('تم استرداد الفاتورة بنجاح ✅'); window.location.reload(); }
-    } finally { setIsProcessingReturn(false); }
+      if (res && res.status === 'success') {
+        alert('تم استرداد الفاتورة وإعادة المنتجات للمخزن بنجاح ✅');
+        window.location.reload();
+      } else {
+        alert(res?.message || 'فشل استرداد الفاتورة');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setIsProcessingReturn(false);
+    }
   };
 
-  const setQuickDate = (range: 'today' | 'yesterday' | 'week' | 'month') => {
-    const now = new Date();
-    let start = new Date();
-    let end = new Date();
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileData.name || !profileData.phone) return alert('يرجى ملء الاسم ورقم الجوال');
     
-    if (range === 'yesterday') {
-      start.setDate(now.getDate() - 1);
-      end.setDate(now.getDate() - 1);
-    } else if (range === 'week') {
-      start.setDate(now.getDate() - 7);
-    } else if (range === 'month') {
-      start.setDate(1);
+    setIsUpdatingProfile(true);
+    try {
+      const res = await ApiService.updateProfile(profileData);
+      if (res.status === 'success') {
+        alert('تم تحديث البيانات بنجاح. سيتم تسجيل خروجك للأمان.');
+        onLogout();
+      } else {
+        alert(res.message || 'حدث خطأ أثناء التحديث');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setIsUpdatingProfile(false);
     }
+  };
+
+  const handlePasswordInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    input.value = input.value.replace(/[\u0600-\u06FF]/g, '');
+    if (editingMember) {
+      setMemberFormData({ ...memberFormData, password: input.value });
+    } else {
+      setProfileData({ ...profileData, password: input.value });
+    }
+  };
+
+  const openEditMember = (user: User) => {
+    setEditingMember(user);
+    setMemberFormData({
+      id: user.id,
+      name: user.name,
+      phone: user.phone,
+      password: ''
+    });
+  };
+
+  const handleAdminUpdateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!memberFormData.name || !memberFormData.phone) return alert('يرجى ملء البيانات المطلوبة');
     
-    setReportStart(start.toISOString().split('T')[0]);
-    setReportEnd(end.toISOString().split('T')[0]);
+    setIsSavingMember(true);
+    try {
+      const res = await ApiService.adminUpdateUser(memberFormData);
+      if (res && res.status === 'success') {
+        alert('تم تحديث بيانات العضو بنجاح ✨');
+        setEditingMember(null);
+        window.location.reload();
+      } else {
+        alert(res?.message || 'حدث خطأ أثناء التعديل');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
+
+  const handleEditCategory = (cat: Category) => {
+    setCatFormData({
+      ...cat,
+      sortOrder: cat.sortOrder ?? 0,
+      isActive: cat.isActive ?? true
+    });
+    setIsEditingCategory(true);
+  };
+
+  const handleAddCategoryClick = () => {
+    setCatFormData({ 
+      id: 'cat_' + Date.now(), 
+      name: '', 
+      image: '', 
+      isActive: true, 
+      sortOrder: categories.length 
+    });
+    setIsEditingCategory(true);
+  };
+
+  const handleSaveCategory = () => {
+    if (!catFormData.name.trim()) return alert('يرجى إدخال اسم القسم');
+    const existing = categories.find(c => c.id === catFormData.id);
+    if (existing) onUpdateCategory(catFormData);
+    else onAddCategory(catFormData);
+    setIsEditingCategory(false);
+  };
+
+  const resetOrderFilters = () => {
+    setOrderSearch('');
+    setStartDate('');
+    setEndDate('');
+    setPaymentFilter('all');
   };
 
   return (
     <div className="relative flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
       
-      {/* Side Nav */}
+      {editingMember && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingMember(null)}></div>
+           <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 md:p-12 animate-slideUp">
+              <div className="flex items-center gap-4 border-b pb-6 mb-8">
+                 <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl font-black">👤</div>
+                 <div>
+                    <h3 className="font-black text-xl text-slate-800">تعديل بيانات العضو</h3>
+                    <p className="text-slate-400 text-xs font-bold">يمكنك تغيير الاسم، رقم الجوال أو كلمة المرور</p>
+                 </div>
+              </div>
+
+              <form onSubmit={handleAdminUpdateMember} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">الاسم بالكامل</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={memberFormData.name} 
+                    onChange={e => setMemberFormData({...memberFormData, name: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">رقم الجوال</label>
+                  <input 
+                    type="tel" 
+                    required 
+                    value={memberFormData.phone} 
+                    onChange={e => setMemberFormData({...memberFormData, phone: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold transition shadow-inner text-left" 
+                    dir="ltr"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">كلمة مرور جديدة (English Only)</label>
+                  <input 
+                    type="text" 
+                    dir="ltr"
+                    lang="en"
+                    onInput={handlePasswordInput}
+                    value={memberFormData.password} 
+                    onChange={e => setMemberFormData({...memberFormData, password: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                    placeholder="اتركها فارغة لعدم التغيير"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                   <button 
+                    disabled={isSavingMember}
+                    className="flex-grow bg-slate-900 text-white py-5 rounded-[2rem] font-black text-lg hover:bg-emerald-600 transition shadow-lg active:scale-95 disabled:opacity-50"
+                   >
+                     {isSavingMember ? 'جاري الحفظ...' : 'حفظ التعديلات ✨'}
+                   </button>
+                   <button 
+                    type="button"
+                    onClick={() => setEditingMember(null)}
+                    className="px-8 bg-slate-100 text-slate-500 py-5 rounded-[2rem] font-black hover:bg-slate-200 transition"
+                   >إلغاء</button>
+                </div>
+              </form>
+           </div>
+        </div>
+      )}
+
+      <button 
+        onClick={onOpenInvoiceForm}
+        className="fixed bottom-32 left-10 z-[100] flex items-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-3xl font-black shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition-all transform hover:scale-110 active:scale-95 animate-pulse-slow group"
+      >
+        <span className="text-xl group-hover:rotate-12 transition-transform">📄</span>
+        <span>فاتورة كاشير</span>
+        <div className="absolute inset-0 rounded-3xl bg-blue-400 animate-ping opacity-20 pointer-events-none"></div>
+      </button>
+
       <aside className="w-full lg:w-72 bg-slate-900 text-white p-8 flex flex-col shrink-0">
         <div className="mb-12">
           <h2 className="text-2xl font-black flex items-center gap-2">
-            <span className="text-emerald-500">⚙️</span> الإدارة
+            <span className="text-emerald-500">⚙️</span> لوحة التحكم
           </h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase mt-1">سوق العصر - فاقوس</p>
+          <p className="text-slate-500 text-[10px] font-black uppercase mt-1">سوق العصر - الإدارة</p>
         </div>
         
         <nav className="space-y-2 flex-grow">
-          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label="الرئيسية" icon="📊" />
+          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label=" الرئيسية" icon="📊" />
           <AdminNavButton active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setStockFilter('all'); }} label="المخزون" icon="📦" badge={stats.criticalCount > 0 ? stats.criticalCount : undefined} badgeColor="bg-rose-500" />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام" icon="🏷️" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" badge={orders.length} />
-          <AdminNavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} label="التقارير المالية" icon="📈" />
+          <AdminNavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} label="الأرباح" icon="📈" />
           <AdminNavButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} label="الأعضاء" icon="👥" badge={users.length} badgeColor="bg-blue-500" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} label="الإعدادات" icon="👤" />
         </nav>
@@ -204,7 +433,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
            <button onClick={onToggleSound} className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all ${soundEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-400'}`}>
              {soundEnabled ? '🔔 منبه مفعل' : '🔕 منبه صامت'}
            </button>
-           <button onClick={() => window.location.hash = ''} className="w-full text-slate-400 hover:text-white font-bold text-sm transition">عرض المتجر 🏪</button>
+           <button onClick={() => window.location.hash = ''} className="w-full text-slate-400 hover:text-white font-bold text-sm transition">المتجر 🏪</button>
         </div>
       </aside>
 
@@ -221,172 +450,47 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 icon="🚨" 
                 color="text-rose-600" 
                 highlight={stats.criticalCount > 0} 
-                onClick={() => { setActiveTab('products'); setStockFilter('critical'); }}
+                onClick={() => {
+                  setActiveTab('products');
+                  setStockFilter('critical');
+                  setAdminSearch('');
+                }}
               />
               <StatCard title="إجمالي الأعضاء" value={stats.userCount} icon="👥" color="text-indigo-600" onClick={() => setActiveTab('members')} />
             </div>
-          </div>
-        )}
 
-        {activeTab === 'reports' && (
-          <div className="space-y-10 animate-fadeIn pb-20">
-            {/* رأس التقرير والتحكم بالتاريخ */}
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100">
-               <div className="flex flex-col lg:flex-row justify-between items-center gap-8">
+            {stats.delayedCount > 0 && (
+              <div className="bg-orange-50 border border-orange-200 p-6 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse-slow">
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">⚠️</span>
                   <div>
-                    <h3 className="text-2xl font-black text-slate-900">التقرير المالي التفصيلي</h3>
-                    <p className="text-slate-400 font-bold text-sm mt-1">حلل أرباحك ومبيعاتك بدقة ذكية</p>
+                    <h4 className="font-black text-orange-900">تنبيه المديونيات</h4>
+                    <p className="text-orange-700 text-sm font-bold">لديك حالياً {stats.delayedCount} طلبيات بنظام الآجل، بإجمالي مبلغ {stats.delayedAmount} ج.م</p>
                   </div>
-                  
-                  <div className="flex flex-col md:flex-row items-center gap-4 w-full lg:w-auto">
-                    <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
-                       <button onClick={() => setQuickDate('today')} className="px-4 py-2 bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-xl font-black text-[10px] transition border border-transparent hover:border-emerald-100">اليوم</button>
-                       <button onClick={() => setQuickDate('yesterday')} className="px-4 py-2 bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-xl font-black text-[10px] transition border border-transparent hover:border-emerald-100">أمس</button>
-                       <button onClick={() => setQuickDate('week')} className="px-4 py-2 bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-xl font-black text-[10px] transition border border-transparent hover:border-emerald-100">آخر 7 أيام</button>
-                       <button onClick={() => setQuickDate('month')} className="px-4 py-2 bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-xl font-black text-[10px] transition border border-transparent hover:border-emerald-100">هذا الشهر</button>
-                    </div>
-                    <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100 w-full md:w-auto">
-                       <input type="date" value={reportStart} onChange={e => setReportStart(e.target.value)} className="bg-transparent border-none outline-none font-black text-xs text-slate-700" />
-                       <span className="text-slate-300">←</span>
-                       <input type="date" value={reportEnd} onChange={e => setReportEnd(e.target.value)} className="bg-transparent border-none outline-none font-black text-xs text-slate-700" />
-                    </div>
-                  </div>
-               </div>
-            </div>
-
-            {/* بطاقات الإحصائيات المتقدمة */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-               <ReportStatCard label="صافي الربح" value={profitAnalysis.profit.toLocaleString()} subValue={`هامش ${profitAnalysis.margin.toFixed(1)}%`} icon="✨" color="bg-emerald-600" textColor="text-white" />
-               <ReportStatCard label="إجمالي المبيعات" value={profitAnalysis.revenue.toLocaleString()} subValue={`${profitAnalysis.orderCount} طلب مكتمل`} icon="💰" color="bg-white" />
-               <ReportStatCard label="متوسط قيمة الطلب" value={profitAnalysis.avgOrderValue.toFixed(1)} subValue="لكل عملية بيع" icon="📈" color="bg-white" />
-               <ReportStatCard label="الأصناف المباعة" value={profitAnalysis.itemsSold.toLocaleString()} subValue="قطعة/كيلو مبيع" icon="📦" color="bg-white" />
-            </div>
-
-            {/* الرسم البياني للأداء اليومي */}
-            <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-               <div className="flex items-center justify-between mb-10">
-                  <h4 className="font-black text-slate-800 flex items-center gap-2 text-lg">
-                    <span className="w-2 h-6 bg-emerald-500 rounded-full"></span>
-                    منحنى النمو اليومي
-                  </h4>
-                  <div className="flex items-center gap-4 text-[10px] font-black">
-                     <span className="flex items-center gap-1.5 text-emerald-500"><span className="w-2 h-2 bg-emerald-500 rounded-full"></span> الربح</span>
-                     <span className="flex items-center gap-1.5 text-slate-300"><span className="w-2 h-2 bg-slate-300 rounded-full"></span> المبيعات</span>
-                  </div>
-               </div>
-               
-               <div className="h-64 flex items-end justify-between gap-2 px-2">
-                  {profitAnalysis.dailyChart.length === 0 ? (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300 font-bold italic">لا توجد بيانات كافية لعرض الرسم البياني</div>
-                  ) : (
-                    profitAnalysis.dailyChart.map(([date, data], idx) => {
-                      const maxVal = Math.max(...profitAnalysis.dailyChart.map(d => d[1].revenue));
-                      const revHeight = (data.revenue / maxVal) * 100;
-                      const profHeight = (data.profit / maxVal) * 100;
-                      return (
-                        <div key={idx} className="flex-grow flex flex-col items-center group relative h-full justify-end">
-                           <div className="w-full max-w-[20px] bg-slate-100 rounded-t-lg relative" style={{ height: `${revHeight}%` }}>
-                              <div className="absolute bottom-0 inset-x-0 bg-emerald-400 rounded-t-lg transition-all duration-700" style={{ height: `${(profHeight/revHeight)*100}%` }}></div>
-                           </div>
-                           <div className="absolute bottom-full mb-2 bg-slate-900 text-white text-[8px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap">
-                              {data.profit.toLocaleString()} ج.م ربح
-                           </div>
-                           <span className="text-[7px] font-black text-slate-400 mt-2 rotate-45 md:rotate-0">{new Date(date).getDate()}</span>
-                        </div>
-                      );
-                    })
-                  )}
-               </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-               {/* توزيع الأقسام والمنتجات الأكثر ربحاً */}
-               <div className="space-y-8">
-                  <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-                    <h4 className="font-black text-slate-800 mb-6 flex items-center gap-2">توزيع الأرباح حسب القسم</h4>
-                    <div className="space-y-5">
-                       {profitAnalysis.categoryBreakdown.map(([name, data]) => (
-                         <div key={name} className="space-y-1.5">
-                            <div className="flex justify-between font-black text-[11px]">
-                               <span className="text-slate-600">{name}</span>
-                               <span className="text-emerald-600">{data.profit.toLocaleString()} ج.م</span>
-                            </div>
-                            <div className="h-1.5 bg-slate-50 rounded-full overflow-hidden">
-                               <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(data.profit / profitAnalysis.profit) * 100}%` }}></div>
-                            </div>
-                         </div>
-                       ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-900 p-8 rounded-[3rem] shadow-2xl text-white">
-                    <h4 className="font-black mb-6 flex items-center gap-2 text-emerald-400">المنتجات الذهبية (الأكثر ربحية)</h4>
-                    <div className="space-y-4">
-                       {profitAnalysis.topProducts.map((p, idx) => (
-                         <div key={idx} className="flex items-center gap-4 p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition border border-white/5">
-                            <div className="w-12 h-12 rounded-xl bg-white overflow-hidden shadow-lg shrink-0">
-                               {p.img ? <img src={p.img} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">📦</div>}
-                            </div>
-                            <div className="flex-grow min-w-0">
-                               <p className="font-black text-sm truncate">{p.name}</p>
-                               <p className="text-[9px] text-emerald-400 font-bold">صافي الربح: {p.profit.toLocaleString()} ج.م</p>
-                            </div>
-                            <div className="text-right">
-                               <span className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-lg">{p.qty} مبيع</span>
-                            </div>
-                         </div>
-                       ))}
-                    </div>
-                  </div>
-               </div>
-
-               {/* سجل العمليات الحديثة */}
-               <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 flex flex-col">
-                  <h4 className="font-black text-slate-800 mb-6">أحدث سجلات الأرباح</h4>
-                  <div className="flex-grow overflow-x-auto no-scrollbar">
-                     <table className="w-full text-right border-separate border-spacing-y-3">
-                        <thead>
-                           <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">
-                              <th className="pb-2">الطلب</th>
-                              <th className="pb-2">المبلغ</th>
-                              <th className="pb-2 text-left">صافي الربح</th>
-                           </tr>
-                        </thead>
-                        <tbody>
-                           {profitAnalysis.recentTransactions.map(order => {
-                             const orderProfit = order.items.reduce((s, i) => s + ((i.price - (i.wholesalePrice || 0)) * i.quantity), 0);
-                             return (
-                               <tr key={order.id} className="group hover:bg-slate-50 transition-colors">
-                                  <td className="py-3 px-4 bg-slate-50 rounded-r-2xl border-y border-r border-slate-50 group-hover:border-slate-100">
-                                     <p className="font-black text-xs text-slate-800">#{order.id}</p>
-                                     <p className="text-[9px] text-slate-400 font-bold">{new Date(order.createdAt).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'})}</p>
-                                  </td>
-                                  <td className="py-3 px-2 bg-slate-50 border-y border-slate-50 group-hover:border-slate-100">
-                                     <span className="font-bold text-xs text-slate-600">{order.total.toLocaleString()}</span>
-                                  </td>
-                                  <td className="py-3 px-4 bg-slate-50 rounded-l-2xl border-y border-l border-slate-50 group-hover:border-slate-100 text-left">
-                                     <span className="font-black text-xs text-emerald-600">+{orderProfit.toLocaleString()}</span>
-                                  </td>
-                               </tr>
-                             );
-                           })}
-                        </tbody>
-                     </table>
-                  </div>
-                  <button onClick={() => setActiveTab('orders')} className="mt-6 w-full py-4 rounded-2xl bg-slate-50 text-slate-500 font-black text-xs hover:bg-slate-100 transition uppercase tracking-widest">عرض كافة الطلبات 🔍</button>
-               </div>
-            </div>
+                </div>
+                <button 
+                  onClick={() => { setActiveTab('orders'); setPaymentFilter('delayed'); }}
+                  className="bg-orange-600 text-white px-6 py-3 rounded-2xl font-black text-xs hover:bg-orange-700 transition shadow-lg"
+                >
+                  عرض مديونيات الآجل 🔍
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ... بقية التبويبات الأخرى (منتجات، أقسام، إلخ) تظل كما هي ... */}
         {activeTab === 'products' && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-center">
                 <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full md:w-80 px-6 py-3 bg-white border rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm shadow-sm" />
                 {stockFilter === 'critical' && (
-                  <button onClick={() => setStockFilter('all')} className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-xs font-black border border-rose-100 hover:bg-rose-100 transition whitespace-nowrap">عرض الكل (إلغاء فلتر النقص) ✕</button>
+                  <button 
+                    onClick={() => setStockFilter('all')}
+                    className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-xs font-black border border-rose-100 hover:bg-rose-100 transition whitespace-nowrap"
+                  >
+                    عرض الكل (إلغاء فلتر النقص) ✕
+                  </button>
                 )}
               </div>
               <div className="flex gap-3 w-full md:w-auto">
@@ -400,81 +504,695 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase border-b"><th className="px-8 py-6">المنتج</th><th className="px-8 py-6">السعر</th><th className="px-8 py-6">المخزون</th><th className="px-8 py-6">الإجراء</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredProducts.slice((currentPage-1)*itemsPerPage, currentPage*itemsPerPage).map(p => (
-                    <tr key={p.id} className="hover:bg-slate-50 transition">
-                      <td className="px-8 py-4 flex items-center gap-4"><img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover" /><div><p className="font-black text-sm">{p.name}</p><p className="text-[9px] text-slate-400">{p.barcode || 'بدون كود'}</p></div></td>
-                      <td className="px-8 py-4 font-black text-emerald-600 text-sm">{p.price} ج.م</td>
-                      <td className={`px-8 py-4 font-black text-sm ${p.stockQuantity < 5 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}>{p.stockQuantity} وحدة</td>
-                      <td className="px-8 py-4 flex gap-2"><button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-white shadow-sm rounded-xl">✎</button><button onClick={() => onDeleteProduct(p.id)} className="p-2 text-rose-500 bg-white shadow-sm rounded-xl">🗑</button></td>
+                  {paginatedProducts.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-8 py-20 text-center">
+                        <div className="text-4xl mb-4">📦</div>
+                        <p className="text-slate-400 font-black">لا توجد منتجات تطابق البحث أو الفلتر</p>
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    paginatedProducts.map(p => (
+                      <tr key={p.id} className="hover:bg-slate-50 transition">
+                        <td className="px-8 py-4 flex items-center gap-4"><img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover" /><div><p className="font-black text-sm">{p.name}</p><p className="text-[9px] text-slate-400">{p.barcode || 'بدون كود'}</p></div></td>
+                        <td className="px-8 py-4 font-black text-emerald-600 text-sm">{p.price} ج.م</td>
+                        <td className={`px-8 py-4 font-black text-sm ${p.stockQuantity < 5 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}>{p.stockQuantity} وحدة</td>
+                        <td className="px-8 py-4 flex gap-2"><button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-white shadow-sm rounded-xl">✎</button><button onClick={() => onDeleteProduct(p.id)} className="p-2 text-rose-500 bg-white shadow-sm rounded-xl">🗑</button></td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
+              
+              {totalPages > 1 && (
+                <div className="p-6 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
+                  <div className="text-xs font-bold text-slate-400">
+                    عرض {paginatedProducts.length} من أصل {filteredProducts.length} منتج
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      className="px-4 py-2 bg-white border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                    >
+                      السابق
+                    </button>
+                    <div className="bg-white px-4 py-2 rounded-xl border font-black text-xs text-emerald-600">
+                      صفحة {currentPage} من {totalPages}
+                    </div>
+                    <button 
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      className="px-4 py-2 bg-white border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                    >
+                      التالي
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* بقية الأقسام المفقودة التي كانت موجودة سابقاً كالأعضاء والإعدادات يتم الحفاظ عليها هنا */}
         {activeTab === 'categories' && (
-           <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 text-center py-20">
-              <p className="text-slate-400 font-bold italic">تبويب الأقسام قيد التحميل أو فارغ حالياً...</p>
-           </div>
+          <div className="space-y-8 animate-fadeIn">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div>
+                <h3 className="text-2xl font-black text-slate-800">إدارة الأقسام</h3>
+                <p className="text-slate-400 text-sm font-bold mt-1">يمكنك إضافة، تعديل أو ترتيب أقسام المتجر الرئيسية</p>
+              </div>
+              {!isEditingCategory && (
+                <button 
+                  onClick={handleAddCategoryClick} 
+                  className="w-full md:w-auto bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg hover:bg-emerald-700 transition active:scale-95"
+                >
+                  + إضافة قسم جديد
+                </button>
+              )}
+            </div>
+
+            {isEditingCategory ? (
+              <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-emerald-100 space-y-8 animate-slideUp">
+                <div className="flex items-center gap-4 border-b pb-6">
+                   <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl font-black">🏷️</div>
+                   <div>
+                     <h4 className="font-black text-xl text-slate-800">{catFormData.id.startsWith('cat_') && catFormData.name === '' ? 'إضافة قسم جديد' : 'تعديل بيانات القسم'}</h4>
+                     <p className="text-slate-400 text-xs font-bold">يرجى ملء البيانات التالية بدقة</p>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">اسم القسم</label>
+                    <input 
+                      value={catFormData.name} 
+                      onChange={e => setCatFormData({...catFormData, name: e.target.value})} 
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner" 
+                      placeholder="مثال: الخضروات، السوبر ماركت..." 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">ترتيب الظهور</label>
+                    <input 
+                      type="number"
+                      value={catFormData.sortOrder} 
+                      onChange={e => setCatFormData({...catFormData, sortOrder: parseInt(e.target.value) || 0})} 
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner" 
+                      placeholder="رقم الترتيب (0, 1, 2...)" 
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رابط صورة القسم (اختياري)</label>
+                    <input 
+                      value={catFormData.image || ''} 
+                      onChange={e => setCatFormData({...catFormData, image: e.target.value})} 
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner" 
+                      placeholder="رابط URL للصورة..." 
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                     <input 
+                        type="checkbox" 
+                        id="cat-active"
+                        checked={catFormData.isActive}
+                        onChange={e => setCatFormData({...catFormData, isActive: e.target.checked})}
+                        className="w-6 h-6 rounded accent-emerald-600 cursor-pointer"
+                     />
+                     <label htmlFor="cat-active" className="font-black text-sm text-slate-700 cursor-pointer select-none">القسم نشط ويظهر للعملاء</label>
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-3 pt-6">
+                  <button onClick={handleSaveCategory} className="flex-grow bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl hover:bg-emerald-600 transition shadow-lg active:scale-95">حفظ التغييرات 💾</button>
+                  <button onClick={() => setIsEditingCategory(false)} className="bg-slate-100 text-slate-500 px-10 py-5 rounded-[2rem] font-black text-xl hover:bg-slate-200 transition">إلغاء</button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {categories.length === 0 ? (
+                  <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+                    <p className="text-slate-400 font-black">لا توجد أقسام حالياً. ابدأ بإضافة قسمك الأول!</p>
+                  </div>
+                ) : (
+                  categories
+                    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                    .map(cat => {
+                      const prodCount = products.filter(p => p.categoryId === cat.id).length;
+                      return (
+                        <div key={cat.id} className="bg-white rounded-[2.5rem] p-6 border shadow-sm flex flex-col items-center text-center transition-all hover:shadow-xl hover:-translate-y-1 relative group overflow-hidden">
+                          <div className={`absolute top-4 right-4 text-[8px] font-black px-2 py-0.5 rounded-full ${cat.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                            {cat.isActive ? 'نشط' : 'مخفي'}
+                          </div>
+                          
+                          <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center text-4xl mb-4 group-hover:scale-110 transition-transform">
+                             {cat.image ? <img src={cat.image} className="w-full h-full object-cover rounded-3xl" alt="" /> : '🏷️'}
+                          </div>
+
+                          <h5 className="font-black text-lg text-slate-800 line-clamp-1">{cat.name}</h5>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">المنتجات: {prodCount}</p>
+                          
+                          <div className="flex gap-2 mt-6 w-full pt-4 border-t border-slate-50">
+                            <button 
+                              onClick={() => handleEditCategory(cat)} 
+                              className="flex-grow bg-blue-50 text-blue-600 py-2.5 rounded-xl font-black text-xs hover:bg-blue-600 hover:text-white transition"
+                            >
+                              تعديل
+                            </button>
+                            <button 
+                              onClick={() => onDeleteCategory(cat.id)} 
+                              className="bg-rose-50 text-rose-500 py-2.5 rounded-xl font-black text-xs hover:bg-rose-500 hover:text-white transition"
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'orders' && (
+          <div className="space-y-4">
+            <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 animate-slideDown">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">بحث (رقم/اسم/هاتف)</label>
+                    <input 
+                      type="text" 
+                      placeholder="ابحث..." 
+                      value={orderSearch}
+                      onChange={e => setOrderSearch(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">من تاريخ</label>
+                    <input 
+                      type="date" 
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">إلى تاريخ</label>
+                    <input 
+                      type="date" 
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">نوع الدفع</label>
+                    <div className="flex gap-2">
+                       <select 
+                         value={paymentFilter}
+                         onChange={e => setPaymentFilter(e.target.value as any)}
+                         className="flex-grow bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-black text-xs cursor-pointer"
+                       >
+                         <option value="all">الكل</option>
+                         <option value="cash">نقدي فقط</option>
+                         <option value="delayed">آجل فقط</option>
+                       </select>
+                       {(orderSearch || startDate || endDate || paymentFilter !== 'all') && (
+                         <button 
+                           onClick={resetOrderFilters}
+                           className="bg-rose-50 text-rose-500 p-2.5 rounded-xl hover:bg-rose-500 hover:text-white transition shadow-sm"
+                           title="مسح الفلاتر"
+                         >
+                           ✕
+                         </button>
+                       )}
+                    </div>
+                  </div>
+
+               </div>
+            </div>
+
+            <div className="space-y-4">
+              {filteredOrders.length === 0 ? (
+                 <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100">
+                    <div className="text-4xl mb-4">🔍</div>
+                    <p className="text-slate-400 font-black">لا توجد طلبات تطابق معايير البحث الحالية</p>
+                    <button onClick={resetOrderFilters} className="mt-4 text-emerald-600 font-bold text-xs underline">عرض كل الطلبات</button>
+                 </div>
+              ) : (
+                filteredOrders.map(order => {
+                  const paymentMethod = order.paymentMethod || 'غير محدد';
+                  const isDelayed = paymentMethod.includes('آجل');
+                  const isCancelled = order.status === 'cancelled';
+
+                  return (
+                    <div key={order.id} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-l-8 transition-all hover:shadow-md ${isCancelled ? 'border-l-slate-300 opacity-60' : (isDelayed ? 'border-l-orange-500' : 'border-l-emerald-500')}`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${isCancelled ? 'bg-slate-100 grayscale' : (isDelayed ? 'bg-orange-50' : 'bg-emerald-50')}`}>
+                          {isCancelled ? '🔄' : '📦'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                             <p className="font-black text-slate-800 text-sm">طلب #{order.id}</p>
+                             <span className={`text-[9px] px-2 py-0.5 rounded-full font-black ${isCancelled ? 'bg-rose-100 text-rose-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                               {isCancelled ? 'مسترد/ملغي' : 'مكتمل'}
+                             </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-bold">{order.customerName || 'عميل مجهول'} • {order.phone || 'بدون هاتف'}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-6 text-center">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase mb-1">حالة الدفع</p>
+                          <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                             <button 
+                               disabled={isCancelled}
+                               onClick={() => onUpdateOrderPayment(order.id, 'نقدي (تم الدفع)')}
+                               className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${!isDelayed ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
+                             >
+                               نقدي
+                             </button>
+                             <button 
+                               disabled={isCancelled}
+                               onClick={() => onUpdateOrderPayment(order.id, 'آجل (مديونية)')}
+                               className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${isDelayed ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
+                             >
+                               آجل
+                             </button>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase mb-1">المبلغ</p>
+                          <p className={`font-black text-base ${isCancelled ? 'text-slate-400 line-through' : 'text-emerald-600'}`}>{(Number(order.total) || 0).toFixed(2)} ج.م</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col gap-2 w-full md:w-auto">
+                        <div className="flex gap-2">
+                          <button onClick={() => onViewOrder(order)} className="flex-grow bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
+                          
+                          {!isCancelled && (
+                            <button 
+                              onClick={() => handleReturnOrder(order.id)}
+                              disabled={isProcessingReturn}
+                              className="px-4 py-3 bg-rose-50 text-rose-500 rounded-2xl border border-rose-100 hover:bg-rose-500 hover:text-white transition-all shadow-sm font-black text-[10px] whitespace-nowrap active:scale-95"
+                            >
+                              استرداد الفاتورة
+                            </button>
+                          )}
+                        </div>
+
+                        {isDelayed && !isCancelled && (
+                          <button 
+                            onClick={() => WhatsAppService.sendDebtReminderToCustomer(order)}
+                            className="bg-emerald-50 text-emerald-600 px-6 py-3 rounded-2xl font-black text-[10px] border border-emerald-100 hover:bg-emerald-600 hover:text-white transition shadow-sm flex items-center justify-center gap-2"
+                          >
+                            <span>تنبيه واتساب</span>
+                            <span className="text-xs">💬</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* اختيار الفترة */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+               <div className="flex flex-col md:flex-row items-end gap-6">
+                  <div className="flex-grow space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">من تاريخ</label>
+                    <input 
+                      type="date" 
+                      value={reportStart}
+                      onChange={e => setReportStart(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl px-6 py-4 outline-none font-black text-sm transition-all"
+                    />
+                  </div>
+                  <div className="flex-grow space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">إلى تاريخ</label>
+                    <input 
+                      type="date" 
+                      value={reportEnd}
+                      onChange={e => setReportEnd(e.target.value)}
+                      className="w-full bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl px-6 py-4 outline-none font-black text-sm transition-all"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                     <button 
+                      onClick={() => {
+                        const today = new Date().toISOString().split('T')[0];
+                        setReportStart(today);
+                        setReportEnd(today);
+                      }}
+                      className="bg-slate-100 text-slate-600 px-6 py-4 rounded-2xl font-black text-xs hover:bg-emerald-50 hover:text-emerald-600 transition"
+                     >اليوم</button>
+                     <button 
+                      onClick={() => {
+                        const firstDay = new Date(new Date().setDate(1)).toISOString().split('T')[0];
+                        const lastDay = new Date().toISOString().split('T')[0];
+                        setReportStart(firstDay);
+                        setReportEnd(lastDay);
+                      }}
+                      className="bg-slate-100 text-slate-600 px-6 py-4 rounded-2xl font-black text-xs hover:bg-emerald-50 hover:text-emerald-600 transition"
+                     >هذا الشهر</button>
+                  </div>
+               </div>
+            </div>
+
+            {/* ملخص الأرقام */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                 <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-4">💰</div>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي المبيعات</p>
+                 <p className="text-3xl font-black text-slate-800 mt-1">{profitStats.revenue.toLocaleString()} <small className="text-xs">ج.م</small></p>
+                 <p className="text-[10px] text-slate-400 font-bold mt-2">عن {profitStats.orderCount} طلب مكتمل</p>
+              </div>
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                 <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-2xl mb-4">📦</div>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي التكلفة</p>
+                 <p className="text-3xl font-black text-slate-800 mt-1">{profitStats.wholesale.toLocaleString()} <small className="text-xs">ج.م</small></p>
+                 <p className="text-[10px] text-slate-400 font-bold mt-2">سعر الجملة للمنتجات المباعة</p>
+              </div>
+              <div className="bg-emerald-600 p-8 rounded-[3rem] shadow-xl border border-emerald-500 relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform"></div>
+                 <div className="relative z-10">
+                    <div className="w-12 h-12 bg-white/20 text-white rounded-2xl flex items-center justify-center text-2xl mb-4">✨</div>
+                    <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">صافي الربح</p>
+                    <p className="text-3xl font-black text-white mt-1">{profitStats.profit.toLocaleString()} <small className="text-xs">ج.م</small></p>
+                    <div className="mt-4 flex items-center gap-2">
+                       <span className="text-[10px] font-black bg-white/20 text-white px-2 py-0.5 rounded-full">
+                         هامش الربح: {profitStats.revenue > 0 ? ((profitStats.profit / profitStats.revenue) * 100).toFixed(1) : 0}%
+                       </span>
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               {/* أرباح الأقسام */}
+               <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                  <h4 className="font-black text-slate-800 mb-6 flex items-center gap-2">
+                    <span className="w-2 h-6 bg-blue-500 rounded-full"></span>
+                    توزيع الأرباح حسب القسم
+                  </h4>
+                  <div className="space-y-6">
+                    {profitStats.categoryBreakdown.length === 0 ? (
+                      <p className="text-center py-10 text-slate-300 font-bold">لا توجد بيانات لهذه الفترة</p>
+                    ) : (
+                      profitStats.categoryBreakdown.map(([name, data]) => (
+                        <div key={name} className="space-y-2">
+                           <div className="flex justify-between items-end">
+                              <div>
+                                 <p className="font-black text-sm text-slate-800">{name}</p>
+                                 <p className="text-[9px] text-slate-400 font-bold">مبيعات: {data.revenue.toLocaleString()} ج.م</p>
+                              </div>
+                              <p className="font-black text-emerald-600 text-sm">{data.profit.toLocaleString()} <small className="text-[9px]">ربح</small></p>
+                           </div>
+                           <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-emerald-500 rounded-full transition-all duration-1000" 
+                                style={{ width: `${(data.profit / profitStats.profit) * 100}%` }}
+                              ></div>
+                           </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+               </div>
+
+               {/* المنتجات الأكثر ربحية */}
+               <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                  <h4 className="font-black text-slate-800 mb-6 flex items-center gap-2">
+                    <span className="w-2 h-6 bg-purple-500 rounded-full"></span>
+                    أكثر 5 منتجات ربحية
+                  </h4>
+                  <div className="space-y-4">
+                    {profitStats.topProducts.length === 0 ? (
+                      <p className="text-center py-10 text-slate-300 font-bold">لا توجد بيانات لهذه الفترة</p>
+                    ) : (
+                      profitStats.topProducts.map((p, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-emerald-200 transition-colors">
+                           <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-400 text-xs shadow-sm border border-slate-100">#{idx+1}</div>
+                              <div>
+                                 <p className="font-black text-slate-800 text-xs truncate max-w-[150px]">{p.name}</p>
+                                 <p className="text-[9px] text-slate-400 font-bold">بيع {p.qty} قطعة</p>
+                              </div>
+                           </div>
+                           <div className="text-right">
+                              <p className="font-black text-emerald-600 text-sm">{p.profit.toLocaleString()} <small className="text-[9px]">ج.م</small></p>
+                              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">صافي الربح</p>
+                           </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+               </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'members' && (
-          <div className="space-y-6">
-            <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
-               <input type="text" placeholder="ابحث عن عضو..." value={memberSearch} onChange={e => setMemberSearch(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-6 py-4 outline-none font-bold text-sm" />
+          <div className="space-y-6 animate-fadeIn">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center gap-4">
+                 <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl font-black">👥</div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي المسجلين</p>
+                   <p className="text-xl font-black text-slate-800">{users.length} عضو</p>
+                 </div>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center gap-4">
+                 <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl font-black">⭐</div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">العملاء النشطين</p>
+                   <p className="text-xl font-black text-slate-800">{users.filter(u => orders.some(o => o.userId === u.id || o.phone === u.phone)).length} عضو</p>
+                 </div>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center gap-4">
+                 <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-xl font-black">👑</div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">فريق الإدارة</p>
+                   <p className="text-xl font-black text-slate-800">{users.filter(u => u.role === 'admin').length} مدير</p>
+                 </div>
+              </div>
             </div>
-            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden text-center py-20">
-               <p className="text-slate-400 font-bold italic">قائمة الأعضاء يتم تحميلها...</p>
+
+            <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
+               <div className="relative">
+                 <input 
+                   type="text" 
+                   placeholder="ابحث عن عضو بالاسم أو رقم الجوال..." 
+                   value={memberSearch}
+                   onChange={e => setMemberSearch(e.target.value)}
+                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-12 py-4 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm transition-all"
+                 />
+                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl opacity-30">🔍</span>
+                 {memberSearch && (
+                   <button onClick={() => setMemberSearch('')} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500 font-black text-xs hover:underline">مسح</button>
+                 )}
+               </div>
+            </div>
+
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+              <div className="overflow-x-auto no-scrollbar">
+                <table className="w-full text-right min-w-[800px]">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
+                      <th className="px-8 py-6">العضو</th>
+                      <th className="px-8 py-6">رقم الجوال</th>
+                      <th className="px-8 py-6 text-center">النشاط</th>
+                      <th className="px-8 py-6 text-center">إجمالي المشتريات</th>
+                      <th className="px-8 py-6 text-center">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredUsersList.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-8 py-20 text-center">
+                          <p className="text-slate-400 font-black">لا يوجد أعضاء يطابقون بحثك</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsersList.map(u => (
+                        <tr key={u.id} className="hover:bg-slate-50/50 transition group">
+                          <td className="px-8 py-5">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black shadow-sm ${u.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                                {u.name[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                   <span className="font-black text-slate-800 text-sm">{u.name}</span>
+                                   {u.role === 'admin' && <span className="text-[8px] bg-purple-600 text-white px-1.5 py-0.5 rounded-md font-black uppercase">مدير</span>}
+                                </div>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">مسجل منذ: {new Date(u.createdAt).toLocaleDateString('ar-EG')}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-8 py-5">
+                            <span className="font-bold text-slate-600 text-sm" dir="ltr">{u.phone}</span>
+                          </td>
+                          <td className="px-8 py-5 text-center">
+                            <div className="inline-flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                               <span className="text-xs font-black text-slate-700">{u.orderCount}</span>
+                               <span className="text-[10px] font-bold text-slate-400">طلبات</span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-5 text-center">
+                            <span className={`font-black text-sm ${u.totalSpent > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                              {u.totalSpent.toLocaleString()} <small className="text-[9px]">ج.م</small>
+                            </span>
+                          </td>
+                          <td className="px-8 py-5">
+                            <div className="flex justify-center gap-2">
+                              <button 
+                                onClick={() => openEditMember(u)}
+                                className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition shadow-sm group/btn relative"
+                              >
+                                <span className="text-lg">✎</span>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[8px] font-black rounded opacity-0 group-hover/btn:opacity-100 transition whitespace-nowrap">تعديل</div>
+                              </button>
+                              <button 
+                                onClick={() => window.open(`https://wa.me/${u.phone.startsWith('0') ? '2'+u.phone : u.phone}`, '_blank')}
+                                className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition shadow-sm group/btn relative"
+                              >
+                                <span className="text-lg">💬</span>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[8px] font-black rounded opacity-0 group-hover/btn:opacity-100 transition whitespace-nowrap">واتساب</div>
+                              </button>
+                              <button 
+                                onClick={() => { setOrderSearch(u.phone); setActiveTab('orders'); }}
+                                className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white transition shadow-sm group/btn relative"
+                              >
+                                <span className="text-lg">🛍️</span>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[8px] font-black rounded opacity-0 group-hover/btn:opacity-100 transition whitespace-nowrap">الطلبات</div>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'settings' && (
-          <div className="max-w-2xl mx-auto py-8">
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-emerald-100 text-center">
-               <h3 className="text-xl font-black mb-10">إعدادات الحساب</h3>
-               <button onClick={onLogout} className="bg-rose-50 text-rose-500 px-10 py-4 rounded-2xl font-black hover:bg-rose-500 hover:text-white transition">تسجيل الخروج 👋</button>
+          <div className="max-w-2xl mx-auto py-8 animate-fadeIn">
+            <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-emerald-100">
+               <div className="flex items-center gap-4 border-b pb-6 mb-8">
+                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl">👤</div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-800">إعدادات الحساب</h3>
+                    <p className="text-slate-400 text-xs font-bold">تغيير الاسم، رقم الجوال أو كلمة المرور</p>
+                  </div>
+               </div>
+
+               <form onSubmit={handleUpdateProfile} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الاسم الكامل</label>
+                    <input 
+                      type="text"
+                      value={profileData.name}
+                      onChange={e => setProfileData({...profileData, name: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال (اسم المستخدم الجديد)</label>
+                    <input 
+                      type="tel"
+                      value={profileData.phone}
+                      onChange={e => setProfileData({...profileData, phone: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner text-left"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">كلمة المرور الجديدة (English Only)</label>
+                    <div className="relative">
+                      <input 
+                        type={showPass ? "text" : "password"}
+                        dir="ltr"
+                        lang="en"
+                        onInput={handlePasswordInput}
+                        value={profileData.password}
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner placeholder:text-right"
+                        placeholder="••••••••"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPass(!showPass)}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-500 transition-colors"
+                      >
+                        {showPass ? '👁️' : '🙈'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button 
+                    disabled={isUpdatingProfile}
+                    className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl hover:bg-emerald-600 transition shadow-lg active:scale-95 disabled:opacity-50 mt-4"
+                  >
+                    {isUpdatingProfile ? 'جاري الحفظ...' : 'حفظ التغييرات ✨'}
+                  </button>
+               </form>
+
+               <div className="mt-8 pt-6 border-t border-slate-50 text-center">
+                  <button 
+                    onClick={onLogout}
+                    className="w-full text-rose-500 font-black text-sm hover:bg-rose-50 py-3 rounded-2xl transition"
+                  >
+                    تسجيل الخروج 👋
+                  </button>
+               </div>
             </div>
           </div>
         )}
-        
-        {activeTab === 'orders' && (
-          <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden text-center py-20">
-             <p className="text-slate-400 font-bold italic">تبويب الطلبات قيد التحميل...</p>
-          </div>
-        )}
       </main>
+      
+      <style>{`
+        @keyframes pulse-slow {
+          0%, 100% { transform: scale(1); box-shadow: 0 20px 50px rgba(37,99,235,0.4); }
+          50% { transform: scale(1.05); box-shadow: 0 25px 60px rgba(37,99,235,0.6); }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 3s infinite ease-in-out;
+        }
+      `}</style>
     </div>
   );
 };
-
-// مكونات فرعية احترافية للتقارير
-const ReportStatCard = ({ label, value, subValue, icon, color, textColor = "text-slate-800" }: any) => (
-  <div className={`${color} ${color === 'bg-white' ? 'border border-slate-100' : 'shadow-xl'} p-8 rounded-[3rem] transition-all hover:-translate-y-1 relative overflow-hidden group`}>
-    <div className="relative z-10 flex flex-col h-full">
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-6 ${color === 'bg-white' ? 'bg-slate-50' : 'bg-white/20'}`}>{icon}</div>
-      <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${color === 'bg-white' ? 'text-slate-400' : 'text-white/70'}`}>{label}</p>
-      <p className={`text-3xl font-black mb-1 ${textColor}`}>{value} <small className="text-[10px] font-bold">ج.م</small></p>
-      <p className={`text-[9px] font-bold ${color === 'bg-white' ? 'text-emerald-500' : 'text-white/60'}`}>{subValue}</p>
-    </div>
-    {color !== 'bg-white' && (
-      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform"></div>
-    )}
-  </div>
-);
 
 const AdminNavButton = ({ active, onClick, label, icon, badge, badgeColor = "bg-red-500" }: any) => (
   <button onClick={onClick} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all ${active ? 'bg-emerald-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><span className="text-lg">{icon}</span><span className="flex-grow text-right">{label}</span>{badge !== undefined && <span className={`${badgeColor} text-white text-[9px] px-2.5 py-1 rounded-full border-2 border-slate-900`}>{badge}</span>}</button>
 );
 
 const StatCard = ({ title, value, icon, color, highlight = false, onClick }: any) => (
-  <div onClick={onClick} className={`bg-white p-8 rounded-[2.5rem] shadow-sm border transition-all hover:shadow-md group ${onClick ? 'cursor-pointer hover:-translate-y-1' : ''} ${highlight ? 'border-orange-200 bg-orange-50/20' : 'border-slate-50'}`}>
+  <div 
+    onClick={onClick}
+    className={`bg-white p-8 rounded-[2.5rem] shadow-sm border transition-all hover:shadow-md group ${onClick ? 'cursor-pointer hover:-translate-y-1 active:scale-95' : ''} ${highlight ? 'border-orange-200 bg-orange-50/20' : 'border-slate-50'}`}
+  >
     <div className={`${color} text-4xl mb-4 group-hover:scale-110 transition-transform`}>{icon}</div>
     <p className="text-[10px] font-black text-slate-400 uppercase mr-1">{title}</p>
     <p className={`text-2xl font-black ${highlight ? 'text-orange-600' : 'text-slate-800'}`}>{value}</p>
+    {onClick && <div className="mt-2 text-[8px] font-black text-slate-300 group-hover:text-emerald-500 transition-colors">اضغط للتفاصيل 🔍</div>}
   </div>
 );
 
