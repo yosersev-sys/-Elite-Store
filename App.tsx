@@ -17,7 +17,7 @@ import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import { ApiService } from './services/api.ts';
 
-// رابط صوت التنبيه (يمكن تغييره برابط ملف MP3 آخر)
+// رابط صوت التنبيه
 const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const App: React.FC = () => {
@@ -42,7 +42,6 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
-  // مرجع لتتبع عدد الطلبات السابق وتنبيهات الصوت
   const prevOrdersCount = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -56,7 +55,7 @@ const App: React.FC = () => {
     if (!audioRef.current) {
       audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
     }
-    audioRef.current.play().catch(err => console.log("Autoplay blocked by browser. Interaction required."));
+    audioRef.current.play().catch(() => {});
   }, [soundEnabled]);
 
   const syncViewWithHash = useCallback((user: User | null) => {
@@ -77,7 +76,8 @@ const App: React.FC = () => {
       if (!isSilent) setIsLoading(true);
       
       const user = await ApiService.getCurrentUser();
-      setCurrentUser(user);
+      // تحديث المستخدم فقط إذا تغيرت حالته لتجنب دورات إعادة التصيير غير الضرورية
+      setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
       
       const fetchedProducts = await ApiService.getProducts();
       setProducts(fetchedProducts || []);
@@ -89,7 +89,6 @@ const App: React.FC = () => {
         const fetchedOrders = await ApiService.getOrders();
         const newOrdersList = fetchedOrders || [];
         
-        // التنبيه الصوتي للمدير عند وجود طلب جديد
         if (user.role === 'admin' && isSilent && newOrdersList.length > prevOrdersCount.current && prevOrdersCount.current > 0) {
           playNotificationSound();
           showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
@@ -107,24 +106,28 @@ const App: React.FC = () => {
     }
   };
 
-  // تحميل البيانات لأول مرة
+  // تأثير التحميل الأولي فقط - يتم استدعاؤه مرة واحدة عند فتح التطبيق
   useEffect(() => { 
     loadData(); 
+  }, []); // مصفوفة فارغة تمنع التكرار اللا نهائي
+
+  // تأثير مراقبة تغيير الروابط (Hash)
+  useEffect(() => {
     const handleHashChange = () => syncViewWithHash(currentUser);
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [currentUser, syncViewWithHash]);
 
-  // تفعيل التحديث التلقائي للمدير كل 20 ثانية للتحقق من الطلبات الجديدة
+  // تأثير التحديث التلقائي للطلبات الجديدة للمدير
   useEffect(() => {
     let interval: any;
     if (currentUser?.role === 'admin') {
       interval = setInterval(() => {
-        loadData(true); // تحميل صامت في الخلفية
+        loadData(true); 
       }, 20000);
     }
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser?.id, currentUser?.role]);
 
   const onNavigateAction = (v: View) => {
     setView(v);
