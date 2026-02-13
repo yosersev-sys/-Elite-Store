@@ -2,7 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v4.8 - دعم سعر الجملة وسعر البيع
+ * نظام الإدارة المطور v4.9 - دعم جلب الطلبات برقم الهاتف
  */
 session_start();
 error_reporting(E_ALL); 
@@ -60,7 +60,6 @@ function initDatabase($pdo) {
         barcode VARCHAR(100)
     )");
 
-    // تأكد من وجود عمود wholesalePrice و unit في حال وجود الجدول سابقاً
     try { $pdo->exec("ALTER TABLE products ADD COLUMN wholesalePrice DECIMAL(10,2) DEFAULT 0 AFTER price"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE products ADD COLUMN unit VARCHAR(20) DEFAULT 'piece' AFTER stockQuantity"); } catch (Exception $e) {}
 
@@ -165,11 +164,15 @@ try {
             break;
         case 'get_orders':
             $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
-            if ($isAdmin) { $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); } 
-            else if (isset($_SESSION['user']['id'])) {
-                $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? ORDER BY createdAt DESC");
-                $stmt->execute([$_SESSION['user']['id']]);
-            } else { sendRes([]); }
+            if ($isAdmin) { 
+                $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); 
+            } else if (isset($_SESSION['user']['id'])) {
+                // تعديل الاستعلام للبحث بـ userId أو برقم الجوال المسجل
+                $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? OR phone = ? ORDER BY createdAt DESC");
+                $stmt->execute([$_SESSION['user']['id'], $_SESSION['user']['phone']]);
+            } else { 
+                sendRes([]); 
+            }
             $orders = $stmt->fetchAll() ?: [];
             foreach ($orders as &$o) { $o['items'] = json_decode($o['items'] ?? '[]') ?: []; }
             sendRes($orders);

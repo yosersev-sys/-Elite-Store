@@ -60,14 +60,19 @@ const App: React.FC = () => {
     try {
       const user = await ApiService.getCurrentUser();
       setCurrentUser(user);
+      
       const fetchedProducts = await ApiService.getProducts();
       setProducts(fetchedProducts || []);
+      
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
+      
+      // جلب الطلبات إذا كان المستخدم مسجل دخول أو كان مديراً
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
       }
+
       syncViewWithHash(user);
     } catch (err) {
       console.error("Data loading error:", err);
@@ -255,13 +260,14 @@ const App: React.FC = () => {
                 subtotal: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
                 createdAt: Date.now(),
                 status: 'completed',
-                userId: currentUser?.id
+                userId: currentUser?.id || null
               };
               await ApiService.saveOrder(newOrder);
               setLastCreatedOrder(newOrder);
               setCart([]);
               showNotify('تم إرسال طلبك بنجاح');
               onNavigateAction('order-success');
+              // تحديث البيانات فوراً لضمان ظهور الطلب في صفحة طلباتي
               loadData();
             }}
           />
