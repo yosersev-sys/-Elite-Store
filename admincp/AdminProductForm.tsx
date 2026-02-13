@@ -35,13 +35,14 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
+  // مزامنة البيانات فقط عند تغيير المنتج أو عند التحميل الأول
   useEffect(() => {
     if (product) {
       setFormData({
-        name: product.name,
-        description: product.description,
-        price: product.price.toString(),
-        categoryId: product.categoryId,
+        name: product.name || '',
+        description: product.description || '',
+        price: product.price?.toString() || '',
+        categoryId: product.categoryId || (categories[0]?.id || ''),
         stockQuantity: (product.stockQuantity || 0).toString(),
         unit: product.unit || 'piece',
         barcode: product.barcode || '',
@@ -56,7 +57,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         description: '', 
         price: '', 
         categoryId: categories[0]?.id || '', 
-        stockQuantity: '10', 
+        stockQuantity: '0', 
         unit: 'piece',
         barcode: '', 
         sizes: '', 
@@ -65,11 +66,19 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       });
       setSeoData({ metaTitle: '', metaDescription: '', metaKeywords: '', slug: '' });
     }
-  }, [product, categories]);
+  }, [product?.id]); // نعتمد فقط على ID المنتج لتجنب التكرار اللا نهائي
+
+  const handleChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSeoChange = (field: keyof SeoSettings, value: string) => {
+    setSeoData(prev => ({ ...prev, [field]: value }));
+  };
 
   const generateRandomBarcode = () => {
     const random = Math.floor(Math.random() * 9000000000000) + 1000000000000;
-    setFormData(prev => ({ ...prev, barcode: random.toString() }));
+    handleChange('barcode', random.toString());
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,7 +88,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === 'string') {
-          setFormData(prev => ({ ...prev, images: [...prev.images, reader.result as string] }));
+          const newImg = reader.result;
+          setFormData(prev => ({ ...prev, images: [...prev.images, newImg] }));
         }
       };
       reader.readAsDataURL(file);
@@ -91,7 +101,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setIsLoadingAi(true);
     const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
     const desc = await generateProductDescription(formData.name, catName);
-    setFormData(prev => ({ ...prev, description: desc }));
+    handleChange('description', desc);
     setIsLoadingAi(false);
   };
 
@@ -111,7 +121,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       id: product ? product.id : 'p_' + Date.now(),
       name: formData.name,
       description: formData.description,
-      price: parseFloat(formData.price),
+      price: parseFloat(formData.price) || 0,
       categoryId: formData.categoryId,
       stockQuantity: parseInt(formData.stockQuantity) || 0,
       unit: formData.unit,
@@ -140,10 +150,11 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             {product ? `تعديل المنتج: ${product.name}` : 'نظام إدارة المنتجات والمخزون المطور'}
           </p>
         </div>
-        <button onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition">إلغاء</button>
+        <button type="button" onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition">إلغاء</button>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-10">
+        {/* قسم الصور */}
         <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
           <div className="space-y-6">
             <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">معرض الصور</h3>
@@ -163,11 +174,20 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* اسم المنتج */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">اسم المنتج</label>
-              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" placeholder="مثال: طماطم بلدي" />
+              <input 
+                required 
+                type="text"
+                value={formData.name} 
+                onChange={e => handleChange('name', e.target.value)} 
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent outline-none focus:border-emerald-400 focus:bg-white transition" 
+                placeholder="مثال: طماطم بلدي" 
+              />
             </div>
             
+            {/* وحدة البيع */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
               <div className="flex gap-2">
@@ -175,7 +195,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                   <button
                     key={u}
                     type="button"
-                    onClick={() => setFormData({...formData, unit: u})}
+                    onClick={() => handleChange('unit', u)}
                     className={`flex-grow py-4 rounded-2xl font-black text-sm transition-all border-2 ${formData.unit === u ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-white hover:border-emerald-100'}`}
                   >
                     {u === 'piece' ? 'بالقطعة' : u === 'kg' ? 'بالكيلو' : 'بالجرام'}
@@ -184,27 +204,55 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               </div>
             </div>
 
+            {/* التصنيف */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">التصنيف</label>
-              <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition">
+              <select 
+                required 
+                value={formData.categoryId} 
+                onChange={e => handleChange('categoryId', e.target.value)} 
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent outline-none focus:border-emerald-400 focus:bg-white transition"
+              >
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+
+            {/* السعر */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">السعر (ج.م) لكل وحدة</label>
-              <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" placeholder="0.00" />
+              <input 
+                required 
+                type="number" 
+                step="0.01" 
+                value={formData.price} 
+                onChange={e => handleChange('price', e.target.value)} 
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent outline-none focus:border-emerald-400 focus:bg-white transition" 
+                placeholder="0.00" 
+              />
             </div>
+
+            {/* المخزون */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">الكمية بالمخزن (بالوحدة المختارة)</label>
-              <input required type="number" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" placeholder="مثال: 50" />
+              <input 
+                required 
+                type="number" 
+                value={formData.stockQuantity} 
+                onChange={e => handleChange('stockQuantity', e.target.value)} 
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent outline-none focus:border-emerald-400 focus:bg-white transition" 
+                placeholder="مثال: 50" 
+              />
             </div>
+
+            {/* الباركود */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">رقم الباركود</label>
               <div className="relative">
                 <input 
+                  type="text"
                   value={formData.barcode} 
-                  onChange={e => setFormData({...formData, barcode: e.target.value})} 
-                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition text-left" 
+                  onChange={e => handleChange('barcode', e.target.value)} 
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent outline-none focus:border-emerald-400 focus:bg-white transition text-left" 
                   placeholder="Barcode..." 
                   dir="ltr"
                 />
@@ -215,6 +263,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 >توليد</button>
               </div>
             </div>
+
+            {/* الوصف */}
             <div className="space-y-2 relative md:col-span-2">
               <label className="text-sm font-bold text-slate-500 mr-2 flex justify-between">
                 الوصف
@@ -222,11 +272,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                   {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي (AI)'}
                 </button>
               </label>
-              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition min-h-[150px] resize-none" placeholder="وصف المنتج..." />
+              <textarea 
+                required 
+                value={formData.description} 
+                onChange={e => handleChange('description', e.target.value)} 
+                className="w-full p-6 bg-slate-50 rounded-2xl border-2 border-transparent outline-none focus:border-emerald-400 focus:bg-white transition min-h-[150px] resize-none" 
+                placeholder="وصف المنتج..." 
+              />
             </div>
           </div>
         </section>
 
+        {/* قسم SEO */}
         <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">تحسين محركات البحث (SEO)</h3>
@@ -237,15 +294,30 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">Meta Title</label>
-              <input value={seoData.metaTitle} onChange={e => setSeoData({...seoData, metaTitle: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" />
+              <input 
+                type="text"
+                value={seoData.metaTitle} 
+                onChange={e => handleSeoChange('metaTitle', e.target.value)} 
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent outline-none focus:border-emerald-400 focus:bg-white transition" 
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">Slug (الرابط)</label>
-              <input value={seoData.slug} onChange={e => setSeoData({...seoData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" dir="ltr" />
+              <input 
+                type="text"
+                value={seoData.slug} 
+                onChange={e => handleSeoChange('slug', e.target.value)} 
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent outline-none focus:border-emerald-400 focus:bg-white transition" 
+                dir="ltr" 
+              />
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-bold text-slate-500 mr-2">Meta Description</label>
-              <textarea value={seoData.metaDescription} onChange={e => setSeoData({...seoData, metaDescription: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition min-h-[100px] resize-none" />
+              <textarea 
+                value={seoData.metaDescription} 
+                onChange={e => handleSeoChange('metaDescription', e.target.value)} 
+                className="w-full p-6 bg-slate-50 rounded-2xl border-2 border-transparent outline-none focus:border-emerald-400 focus:bg-white transition min-h-[100px] resize-none" 
+              />
             </div>
           </div>
         </section>
