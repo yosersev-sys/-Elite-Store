@@ -115,11 +115,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const stats = useMemo(() => {
     const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    
+    // حساب المديونيات الآجلة
+    const delayedOrders = orders.filter(o => (o.paymentMethod || '').includes('آجل'));
+    const delayedAmount = delayedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    
     return {
       revenue: totalRevenue.toLocaleString(),
       salesCount: orders.length,
       productCount: products.length,
-      criticalCount: criticalStockProducts.length
+      criticalCount: criticalStockProducts.length,
+      delayedAmount: delayedAmount.toLocaleString(),
+      delayedCount: delayedOrders.length
     };
   }, [products, orders, criticalStockProducts]);
 
@@ -186,11 +193,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       <main className="flex-grow p-6 md:p-10 bg-slate-50/50 overflow-y-auto no-scrollbar">
         {activeTab === 'stats' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard title="إجمالي الدخل" value={`${stats.revenue} ج.م`} icon="💰" color="text-emerald-600" />
-            <StatCard title="عدد الطلبيات" value={stats.salesCount} icon="🛒" color="text-blue-600" />
-            <StatCard title="نقص حاد" value={stats.criticalCount} icon="🚨" color="text-rose-600" highlight={stats.criticalCount > 0} />
-            <StatCard title="إجمالي الأصناف" value={stats.productCount} icon="📦" color="text-purple-600" />
+          <div className="space-y-8 animate-fadeIn">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+              <StatCard title="إجمالي الدخل" value={`${stats.revenue} ج.م`} icon="💰" color="text-emerald-600" />
+              <StatCard title="عدد الطلبيات" value={stats.salesCount} icon="🛒" color="text-blue-600" />
+              <StatCard title="إجمالي الآجل" value={`${stats.delayedAmount} ج.م`} icon="⏳" color="text-orange-600" highlight={stats.delayedCount > 0} />
+              <StatCard title="نقص حاد" value={stats.criticalCount} icon="🚨" color="text-rose-600" highlight={stats.criticalCount > 0} />
+              <StatCard title="إجمالي الأصناف" value={stats.productCount} icon="📦" color="text-purple-600" />
+            </div>
+
+            {/* قسم تفصيلي سريع للمديونيات في الصفحة الرئيسية */}
+            {stats.delayedCount > 0 && (
+              <div className="bg-orange-50 border border-orange-200 p-6 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse-slow">
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">⚠️</span>
+                  <div>
+                    <h4 className="font-black text-orange-900">تنبيه المديونيات</h4>
+                    <p className="text-orange-700 text-sm font-bold">لديك حالياً {stats.delayedCount} طلبيات بنظام الآجل، بإجمالي مبلغ {stats.delayedAmount} ج.م</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { setActiveTab('orders'); setPaymentFilter('delayed'); }}
+                  className="bg-orange-600 text-white px-6 py-3 rounded-2xl font-black text-xs hover:bg-orange-700 transition shadow-lg"
+                >
+                  عرض مديونيات الآجل 🔍
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -220,7 +249,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </tbody>
               </table>
               
-              {/* Pagination Controls - أدوات التنقل بين الصفحات */}
+              {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="p-6 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
                   <div className="text-xs font-bold text-slate-400">
@@ -407,7 +436,7 @@ const AdminNavButton = ({ active, onClick, label, icon, badge, badgeColor = "bg-
 );
 
 const StatCard = ({ title, value, icon, color, highlight = false }: any) => (
-  <div className={`bg-white p-8 rounded-[2.5rem] shadow-sm border ${highlight ? 'border-rose-200 bg-rose-50/30' : 'border-slate-50'}`}><div className={`${color} text-4xl mb-4`}>{icon}</div><p className="text-[10px] font-black text-slate-400 uppercase mb-1">{title}</p><p className={`text-2xl font-black ${highlight ? 'text-rose-600' : 'text-slate-800'}`}>{value}</p></div>
+  <div className={`bg-white p-8 rounded-[2.5rem] shadow-sm border transition-all hover:shadow-md ${highlight ? 'border-orange-200 bg-orange-50/20' : 'border-slate-50'}`}><div className={`${color} text-4xl mb-4`}>{icon}</div><p className="text-[10px] font-black text-slate-400 uppercase mb-1">{title}</p><p className={`text-2xl font-black ${highlight ? 'text-orange-600' : 'text-slate-800'}`}>{value}</p></div>
 );
 
 export default AdminDashboard;
