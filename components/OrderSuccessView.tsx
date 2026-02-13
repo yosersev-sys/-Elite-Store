@@ -47,7 +47,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
         <div className="bg-emerald-600 p-12 text-center text-white relative print:bg-white print:text-black print:p-6 print:border-b-2">
           <div className="relative z-10 flex flex-col items-center">
             <h1 className="text-4xl font-black mb-2 flex items-center gap-4">سوق العصر</h1>
-            <p className="font-bold opacity-80 print:opacity-100 tracking-widest text-xs uppercase">اول سوق الكتروني بفاقوس</p>
+            <p className="font-bold opacity-80 print:opacity-100 tracking-widest text-xs uppercase">اول سوق الكتروني في فاقوس</p>
           </div>
         </div>
 
