@@ -34,7 +34,11 @@ header('Content-Type: text/html; charset=utf-8');
     
     <style>
         :root { --primary: #10b981; }
-        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
+        * { 
+            font-family: 'Cairo', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+            letter-spacing: 0em !important; 
+        }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
         
         #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 99999; transition: opacity 0.5s; }

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Category } from '../types';
 
@@ -12,7 +13,6 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   selectedCategoryId, 
   onCategorySelect 
 }) => {
-  // Map icons/colors to categories based on their names/IDs
   const getCategoryMeta = (name: string) => {
     const n = name.toLowerCase();
     if (n.includes('سوبر ماركت')) return { icon: '🛒', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' };
@@ -27,7 +27,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
     <section className="space-y-8 animate-fadeIn">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-2xl font-black text-slate-800 tracking-tighter">تصفح حسب القسم</h2>
+          <h2 className="text-2xl font-black text-slate-800">تصفح حسب القسم</h2>
           <p className="text-slate-400 text-sm font-bold">اختر القسم الذي تريده للوصول السريع لمنتجاتك</p>
         </div>
         <button 

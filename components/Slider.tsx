@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 
 interface Slide {
@@ -68,7 +69,7 @@ const Slider: React.FC = () => {
           
           {/* Content */}
           <div className="absolute inset-0 z-20 flex flex-col justify-center px-8 md:px-20 text-white">
-            <h2 className="text-4xl md:text-6xl font-black mb-4 animate-slideDown tracking-tighter">
+            <h2 className="text-4xl md:text-6xl font-black mb-4 animate-slideDown">
               {slide.title}
             </h2>
             <p className="text-lg md:text-xl text-gray-100 mb-8 max-w-xl animate-fadeIn font-bold">

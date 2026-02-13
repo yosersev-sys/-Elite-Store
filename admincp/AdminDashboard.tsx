@@ -100,10 +100,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     <div className="flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
       <aside className="w-full lg:w-72 bg-slate-900 text-white p-8 flex flex-col shrink-0">
         <div className="mb-12">
-          <h2 className="text-2xl font-black tracking-tighter flex items-center gap-2">
+          <h2 className="text-2xl font-black flex items-center gap-2">
             <span className="text-emerald-500">⚙️</span> لوحة التحكم
           </h2>
-          <p className="text-slate-500 text-[10px] font-black uppercase mt-1 tracking-widest">سوق العصر - الإدارة</p>
+          <p className="text-slate-500 text-[10px] font-black uppercase mt-1">سوق العصر - الإدارة</p>
         </div>
         
         <nav className="space-y-2 flex-grow">
@@ -182,7 +182,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                </div>
             ) : (
               orders.map(order => {
-                // تأمين قراءة حالة الدفع - منع انهيار الواجهة
                 const paymentMethod = order.paymentMethod || 'غير محدد';
                 const isDelayed = paymentMethod.includes('آجل');
 
@@ -198,13 +197,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     
                     <div className="flex items-center gap-8 text-center">
                       <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">حالة الدفع</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">حالة الدفع</p>
                         <span className={`text-[10px] font-black px-4 py-1.5 rounded-full ${isDelayed ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'}`}>
                           {paymentMethod}
                         </span>
                       </div>
                       <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المبلغ</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1">المبلغ</p>
                         <p className="font-black text-emerald-600 text-lg">{(Number(order.total) || 0).toFixed(2)} ج.م</p>
                       </div>
                     </div>
@@ -225,7 +224,7 @@ const AdminNavButton = ({ active, onClick, label, icon, badge, badgeColor = "bg-
 );
 
 const StatCard = ({ title, value, icon, color, highlight = false }: any) => (
-  <div className={`bg-white p-8 rounded-[2.5rem] shadow-sm border ${highlight ? 'border-rose-200 bg-rose-50/30' : 'border-slate-50'}`}><div className={`${color} text-4xl mb-4`}>{icon}</div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p><p className={`text-2xl font-black ${highlight ? 'text-rose-600' : 'text-slate-800'}`}>{value}</p></div>
+  <div className={`bg-white p-8 rounded-[2.5rem] shadow-sm border ${highlight ? 'border-rose-200 bg-rose-50/30' : 'border-slate-50'}`}><div className={`${color} text-4xl mb-4`}>{icon}</div><p className="text-[10px] font-black text-slate-400 uppercase mb-1">{title}</p><p className={`text-2xl font-black ${highlight ? 'text-rose-600' : 'text-slate-800'}`}>{value}</p></div>
 );
 
 export default AdminDashboard;

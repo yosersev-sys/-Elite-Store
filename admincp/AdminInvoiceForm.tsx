@@ -21,7 +21,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
   const [showPreview, setShowPreview] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // التركيز تلقائياً على حقل البحث
   useEffect(() => {
     searchInputRef.current?.focus();
   }, []);
@@ -146,8 +145,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
 
       <div className="flex items-center justify-between mb-10">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">نقطة البيع (POS)</h2>
-          <p className="text-emerald-600 font-black text-xs uppercase tracking-[0.2em] mt-1">سوق العصر - إدارة المبيعات المباشرة</p>
+          <h2 className="text-4xl font-black text-slate-900">نقطة البيع (POS)</h2>
+          <p className="text-emerald-600 font-black text-xs uppercase mt-1">سوق العصر - إدارة المبيعات المباشرة</p>
         </div>
         <button onClick={onCancel} className="bg-white border-2 border-slate-100 px-8 py-3 rounded-2xl font-black text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition">إلغاء العملية</button>
       </div>
@@ -156,7 +155,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
         <div className="lg:col-span-8 space-y-8">
           <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-50">
             <div className="relative mb-10">
-               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-4 mb-2 block">ابحث أو امسح الباركود</label>
+               <label className="text-[10px] font-black text-slate-400 uppercase mr-4 mb-2 block">ابحث أو امسح الباركود</label>
                <input 
                  ref={searchInputRef}
                  type="text" 
@@ -194,7 +193,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
                <h3 className="font-black text-slate-800 text-xl px-2">الأصناف المختارة</h3>
                <div className="overflow-hidden border border-slate-100 rounded-[2rem]">
                   <table className="w-full text-right">
-                    <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">
+                    <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-b">
                       <tr>
                         <th className="px-8 py-5">المنتج</th>
                         <th className="px-8 py-5">الكمية</th>
@@ -236,9 +235,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
               <h3 className="font-black text-slate-800 text-xl border-b pb-4 border-slate-50 text-center">تفاصيل الفاتورة</h3>
               
               <div className="space-y-6">
-                 {/* خيار نوع الفاتورة - التحديث الجديد */}
                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">حالة الدفع</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">حالة الدفع</label>
                     <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-2xl">
                        <button 
                          type="button"
@@ -258,13 +256,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
                  </div>
 
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم الجوال (للمتابعة)</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال (للمتابعة)</label>
                     <input 
                       type="tel"
                       value={customerInfo.phone}
                       onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
                       placeholder="01xxxxxxxxx"
-                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-center tracking-widest"
+                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-center"
                     />
                  </div>
 

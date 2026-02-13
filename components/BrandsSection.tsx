@@ -12,7 +12,6 @@ const BRANDS = [
   { name: 'صافولا', domain: 'savola.com' }
 ];
 
-// Fix: Define BrandLogo with React.FC to properly handle React internal props like 'key'
 interface BrandLogoProps {
   brand: typeof BRANDS[0];
 }
@@ -41,29 +40,25 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ brand }) => {
 };
 
 const BrandsSection: React.FC = () => {
-  // تكرار الماركات لضمان استمرارية الشريط بشكل لا نهائي
   const duplicatedBrands = [...BRANDS, ...BRANDS, ...BRANDS];
 
   return (
     <section className="relative py-8 bg-white rounded-[2.5rem] border border-slate-50 shadow-sm mb-12 overflow-hidden group">
-      {/* الترويسة العلوية الصغيرة */}
       <div className="absolute top-3 right-8 z-10">
-        <span className="flex items-center gap-2 text-emerald-600 font-black text-[9px] bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-widest border border-emerald-100/50">
+        <span className="flex items-center gap-2 text-emerald-600 font-black text-[9px] bg-emerald-50 px-3 py-1 rounded-full uppercase border border-emerald-100/50">
           <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></span>
           شركاء الجودة
         </span>
       </div>
 
       <div className="text-center mb-6">
-        <h2 className="text-sm md:text-lg font-black text-slate-800 tracking-tighter">ماركات عالمية نوفرها لك</h2>
+        <h2 className="text-sm md:text-lg font-black text-slate-800">ماركات عالمية نوفرها لك</h2>
       </div>
 
       <div className="relative flex overflow-hidden">
-        {/* تظليل جانبي لتأثير التلاشي عند الأطراف */}
         <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
         <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
 
-        {/* شريط التمرير اللانهائي */}
         <div className="flex animate-scroll hover:pause-scroll items-center py-2">
           {duplicatedBrands.map((brand, index) => (
             <BrandLogo key={`${brand.domain}-${index}`} brand={brand} />
@@ -84,7 +79,6 @@ const BrandsSection: React.FC = () => {
         .pause-scroll:hover {
           animation-play-state: paused;
         }
-        /* دعم اتجاه اليمين لليسار في الأنيميشن */
         [dir="rtl"] .animate-scroll {
           animation: scroll-rtl 40s linear infinite;
         }

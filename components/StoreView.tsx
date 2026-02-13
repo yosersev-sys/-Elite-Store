@@ -100,7 +100,7 @@ const StoreView: React.FC<StoreViewProps> = ({
   const resetFilters = () => {
     onCategorySelect('all');
     setMinPrice('');
-    setMaxPrice('');
+    maxPrice('');
     onSearch('');
   };
 
@@ -122,7 +122,7 @@ const StoreView: React.FC<StoreViewProps> = ({
       <div className="space-y-8 md:space-y-12" id="products-list" ref={productsListRef}>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-t border-gray-100 pt-10 md:pt-16">
           <div className="space-y-1 md:space-y-2">
-             <h2 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tighter">
+             <h2 className="text-2xl md:text-4xl font-black text-gray-900">
                {searchQuery ? `نتائج البحث عن: ${searchQuery}` : activeCategoryName}
              </h2>
              <p className="text-gray-400 text-sm md:text-lg font-bold">
@@ -155,9 +155,8 @@ const StoreView: React.FC<StoreViewProps> = ({
         {showFilters && (
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-emerald-900/5 animate-slideDown grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             
-            {/* خيار البحث المدمج - طلب المستخدم */}
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">بحث سريع</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase mr-2">بحث سريع</label>
               <div className="relative">
                 <input 
                   type="text" 
@@ -171,7 +170,7 @@ const StoreView: React.FC<StoreViewProps> = ({
             </div>
 
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">نطاق السعر (ج.م)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase mr-2">نطاق السعر (ج.م)</label>
               <div className="flex items-center gap-2">
                 <input 
                   type="number" 
@@ -192,7 +191,7 @@ const StoreView: React.FC<StoreViewProps> = ({
             </div>
 
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">القسم</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase mr-2">القسم</label>
               <select 
                 value={selectedCategoryId}
                 onChange={(e) => onCategorySelect(e.target.value)}
