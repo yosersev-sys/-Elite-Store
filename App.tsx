@@ -36,6 +36,17 @@ const App: React.FC = () => {
     setNotification({ message, type });
   };
 
+  const handleRouteLogic = (user: User | null) => {
+    const hash = window.location.hash;
+    if (hash === '#/admincp') {
+      if (user && user.role === 'admin') {
+        setView('admin');
+      } else {
+        setView('admin-auth');
+      }
+    }
+  };
+
   const loadData = async () => {
     try {
       const user = await ApiService.getCurrentUser();
@@ -51,6 +62,10 @@ const App: React.FC = () => {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
       }
+      
+      // التوجيه بناءً على الرابط بعد تحميل بيانات المستخدم
+      handleRouteLogic(user);
+
     } catch (err) {
       console.error("Data loading error:", err);
     } finally {
@@ -61,27 +76,32 @@ const App: React.FC = () => {
   useEffect(() => { 
     loadData(); 
 
-    // التعامل مع الروابط الخاصة عند التحميل
     const handleHashChange = () => {
+      // نستخدم حالة المستخدم الحالية مباشرة
       const hash = window.location.hash;
       if (hash === '#/admincp') {
-        setView('admin-auth');
+        if (currentUser && currentUser.role === 'admin') {
+          setView('admin');
+        } else {
+          setView('admin-auth');
+        }
+      } else if (view === 'admin' || view === 'admin-auth') {
+        // إذا مسح الهاش يدوياً نرجعه للمتجر
+        setView('store');
       }
     };
 
-    handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [currentUser]);
 
   const onNavigateAction = (v: View) => {
     setView(v);
-    if (v === 'admin-auth') {
-       window.location.hash = '#/admincp';
-    } else if (v === 'admin') {
-       window.location.hash = '#/admincp';
+    if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
+       if (window.location.hash !== '#/admincp') {
+          window.location.hash = '#/admincp';
+       }
     } else {
-       // إزالة الهاش عند العودة للمتجر
        if (window.location.hash === '#/admincp') {
          window.history.pushState("", document.title, window.location.pathname + window.location.search);
        }
@@ -105,6 +125,8 @@ const App: React.FC = () => {
     );
   }
 
+  const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       {notification && (
@@ -115,8 +137,8 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Admin Special Login */}
-      {view === 'admin-auth' && !currentUser && (
+      {/* Admin Special Login - تظهر فقط إذا لم يكن مسجلاً كأدمن */}
+      {view === 'admin-auth' && (!currentUser || currentUser.role !== 'admin') && (
         <AdminAuthView 
           onSuccess={(user) => {
             setCurrentUser(user);
@@ -141,8 +163,8 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* إخفاء الترويسة في صفحة دخول المدير */}
-      {view !== 'admin-auth' && (
+      {/* إخفاء الترويسة في صفحات الإدارة لضمان تجربة مستخدم منفصلة */}
+      {!isAdminView && (
         <Header 
           cartCount={cart.length} 
           wishlistCount={wishlist.length} 
@@ -156,7 +178,7 @@ const App: React.FC = () => {
         />
       )}
 
-      <main className={`flex-grow container mx-auto px-4 ${view === 'admin-auth' ? '' : 'pt-32 pb-20'}`}>
+      <main className={`flex-grow container mx-auto px-4 ${isAdminView ? 'pt-6 pb-6' : 'pt-32 pb-20'}`}>
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} selectedCategoryId={selectedCategoryId}
@@ -274,7 +296,7 @@ const App: React.FC = () => {
 
       {currentUser?.role === 'admin' && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
 
-      {view !== 'admin-auth' && (
+      {!isAdminView && (
         <footer className="bg-slate-900 text-white py-12 text-center">
           <div className="flex flex-col items-center gap-2 mb-4">
             <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg text-white">
