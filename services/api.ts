@@ -23,6 +23,10 @@ export const ApiService = {
     return await safeFetch('get_current_user');
   },
 
+  async getAdminPhone(): Promise<{phone: string} | null> {
+    return await safeFetch('get_admin_phone');
+  },
+
   async login(phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
     return await safeFetch('login', {
       method: 'POST',
@@ -41,6 +45,13 @@ export const ApiService = {
     await safeFetch('logout');
   },
 
+  async updateProfile(data: { name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
+    return await safeFetch('update_profile', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   async getProducts(): Promise<Product[]> {
     return await safeFetch('get_products') || [];
   },
@@ -53,30 +64,6 @@ export const ApiService = {
     return await safeFetch('get_orders') || [];
   },
 
-  async saveOrder(order: Order): Promise<boolean> {
-    const result = await safeFetch('save_order', {
-      method: 'POST',
-      body: JSON.stringify(order)
-    });
-    return result?.status === 'success';
-  },
-
-  async returnOrder(id: string): Promise<{status: string, message?: string}> {
-    return await safeFetch('return_order', {
-      method: 'POST',
-      body: JSON.stringify({ id })
-    });
-  },
-
-  async updateOrderPayment(id: string, paymentMethod: string): Promise<boolean> {
-    const result = await safeFetch('update_order_payment', {
-      method: 'POST',
-      body: JSON.stringify({ id, paymentMethod })
-    });
-    return result?.status === 'success';
-  },
-
-  // Fix: Add missing addProduct method for handling product creation in Admin
   async addProduct(product: Product): Promise<boolean> {
     const result = await safeFetch('add_product', {
       method: 'POST',
@@ -85,7 +72,6 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  // Fix: Add missing updateProduct method for handling product updates in Admin
   async updateProduct(product: Product): Promise<boolean> {
     const result = await safeFetch('update_product', {
       method: 'POST',
@@ -94,11 +80,16 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async deleteProduct(id: string): Promise<boolean> {
-    const result = await safeFetch('delete_product', {
+  async saveOrder(order: Order): Promise<boolean> {
+    const result = await safeFetch('save_order', {
       method: 'POST',
-      body: JSON.stringify({ id })
+      body: JSON.stringify(order)
     });
+    return result?.status === 'success';
+  },
+
+  async deleteProduct(id: string): Promise<boolean> {
+    const result = await safeFetch(`delete_product&id=${id}`, { method: 'DELETE' });
     return result?.status === 'success';
   },
 
@@ -110,7 +101,7 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async updateCategory(category: Partial<Category> & { id: string }): Promise<boolean> {
+  async updateCategory(category: Category): Promise<boolean> {
     const result = await safeFetch('update_category', {
       method: 'POST',
       body: JSON.stringify(category)
@@ -119,35 +110,15 @@ export const ApiService = {
   },
 
   async deleteCategory(id: string): Promise<boolean> {
-    const result = await safeFetch('delete_category', {
-      method: 'POST',
-      body: JSON.stringify({ id })
-    });
+    const result = await safeFetch(`delete_category&id=${id}`, { method: 'DELETE' });
     return result?.status === 'success';
   },
 
-  async getAdminPhone(): Promise<{ phone: string } | null> {
-    return await safeFetch('get_admin_phone');
-  },
-
-  async generateMagicToken(phone: string): Promise<{status: string, token?: string, message?: string}> {
-    return await safeFetch('generate_magic_token', {
+  async updateOrderPayment(id: string, paymentMethod: string): Promise<boolean> {
+    const result = await safeFetch('update_order_payment', {
       method: 'POST',
-      body: JSON.stringify({ phone })
+      body: JSON.stringify({ id, paymentMethod })
     });
-  },
-
-  async loginViaToken(token: string): Promise<{status: string, user?: User, message?: string}> {
-    return await safeFetch('login_via_token', {
-      method: 'POST',
-      body: JSON.stringify({ token })
-    });
-  },
-
-  async updateProfile(data: { name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
-    return await safeFetch('update_profile', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
+    return result?.status === 'success';
   }
 };
