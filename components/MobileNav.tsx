@@ -12,7 +12,7 @@ interface MobileNavProps {
 
 const MobileNav: React.FC<MobileNavProps> = ({ currentView, cartCount, onNavigate, onCartClick, isAdmin }) => {
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-xl border-t border-slate-100 px-6 py-3 flex items-center justify-between shadow-[0_-10px_30px_rgba(0,0,0,0.05)] pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-xl border-t border-slate-100 px-4 py-3 flex items-center justify-between shadow-[0_-10px_30px_rgba(0,0,0,0.05)] pb-safe">
       <NavItem 
         active={currentView === 'store'} 
         icon="🏠" 
@@ -39,6 +39,13 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentView, cartCount, onNavigat
       </div>
 
       <NavItem 
+        active={currentView === 'quick-invoice'} 
+        icon="🧾" 
+        label="فاتورة" 
+        onClick={() => onNavigate('quick-invoice')} 
+      />
+
+      <NavItem 
         active={currentView === 'profile'} 
         icon="👤" 
         label="حسابي" 
@@ -58,7 +65,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentView, cartCount, onNavigat
 };
 
 const NavItem = ({ active, icon, label, onClick }: any) => (
-  <button onClick={onClick} className="flex flex-col items-center gap-1">
+  <button onClick={onClick} className="flex flex-col items-center gap-1 min-w-[50px]">
     <span className={`text-xl transition-transform ${active ? 'scale-110' : 'opacity-40 grayscale'}`}>
       {icon}
     </span>
