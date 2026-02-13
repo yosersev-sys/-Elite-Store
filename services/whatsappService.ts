@@ -105,27 +105,5 @@ ${itemsList}
 
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${targetPhone}?text=${encodedMessage}`, '_blank');
-  },
-
-  /**
-   * طلب استعادة كلمة المرور
-   */
-  sendPasswordRecoveryRequest: (phone: string, adminPhone: string) => {
-    const targetPhone = formatWhatsAppPhone(adminPhone);
-    const message = `
-🔒 *طلب استعادة كلمة المرور*
--------------------------
-مرحباً إدارة سوق العصر،
-لقد نسيت كلمة المرور الخاصة بحسابي.
-
-*بيانات الحساب:*
-رقم الهاتف: ${phone || 'غير محدد'}
-
-يرجى مساعدتي في تعيين كلمة مرور جديدة لحسابي.
-شكراً لكم.
-    `.trim();
-
-    const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/${targetPhone}?text=${encodedMessage}`, '_blank');
   }
 };

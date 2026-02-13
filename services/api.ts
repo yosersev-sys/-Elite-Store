@@ -23,24 +23,14 @@ export const ApiService = {
     return await safeFetch('get_current_user');
   },
 
+  async getAdminPhone(): Promise<{phone: string} | null> {
+    return await safeFetch('get_admin_phone');
+  },
+
   async login(phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
     return await safeFetch('login', {
       method: 'POST',
       body: JSON.stringify({ phone, password })
-    });
-  },
-
-  async generateMagicToken(phone: string): Promise<{status: string, token?: string, message?: string}> {
-    return await safeFetch('generate_magic_token', {
-      method: 'POST',
-      body: JSON.stringify({ phone })
-    });
-  },
-
-  async loginViaToken(token: string): Promise<{status: string, user?: User, message?: string}> {
-    return await safeFetch('login_via_token', {
-      method: 'POST',
-      body: JSON.stringify({ token })
     });
   },
 
@@ -74,6 +64,22 @@ export const ApiService = {
     return await safeFetch('get_orders') || [];
   },
 
+  async addProduct(product: Product): Promise<boolean> {
+    const result = await safeFetch('add_product', {
+      method: 'POST',
+      body: JSON.stringify(product)
+    });
+    return result?.status === 'success';
+  },
+
+  async updateProduct(product: Product): Promise<boolean> {
+    const result = await safeFetch('update_product', {
+      method: 'POST',
+      body: JSON.stringify(product)
+    });
+    return result?.status === 'success';
+  },
+
   async saveOrder(order: Order): Promise<boolean> {
     const result = await safeFetch('save_order', {
       method: 'POST',
@@ -82,29 +88,11 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async updateOrderPayment(id: string, paymentMethod: string): Promise<boolean> {
-    const result = await safeFetch('update_order_payment', {
-      method: 'POST',
-      body: JSON.stringify({ id, paymentMethod })
-    });
-    return result?.status === 'success';
-  },
-
-  // Fix: Add missing method to get admin phone
-  async getAdminPhone(): Promise<{ phone: string } | null> {
-    return await safeFetch('get_admin_phone');
-  },
-
-  // Fix: Add missing method to delete product
   async deleteProduct(id: string): Promise<boolean> {
-    const result = await safeFetch('delete_product', {
-      method: 'POST',
-      body: JSON.stringify({ id })
-    });
+    const result = await safeFetch(`delete_product&id=${id}`, { method: 'DELETE' });
     return result?.status === 'success';
   },
 
-  // Fix: Add missing method to add category
   async addCategory(category: Category): Promise<boolean> {
     const result = await safeFetch('add_category', {
       method: 'POST',
@@ -113,8 +101,7 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  // Fix: Add missing method to update category
-  async updateCategory(category: Partial<Category> & { id: string }): Promise<boolean> {
+  async updateCategory(category: Category): Promise<boolean> {
     const result = await safeFetch('update_category', {
       method: 'POST',
       body: JSON.stringify(category)
@@ -122,11 +109,15 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  // Fix: Add missing method to delete category
   async deleteCategory(id: string): Promise<boolean> {
-    const result = await safeFetch('delete_category', {
+    const result = await safeFetch(`delete_category&id=${id}`, { method: 'DELETE' });
+    return result?.status === 'success';
+  },
+
+  async updateOrderPayment(id: string, paymentMethod: string): Promise<boolean> {
+    const result = await safeFetch('update_order_payment', {
       method: 'POST',
-      body: JSON.stringify({ id })
+      body: JSON.stringify({ id, paymentMethod })
     });
     return result?.status === 'success';
   }
