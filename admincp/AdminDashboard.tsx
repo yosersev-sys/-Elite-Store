@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Category, Order } from '../types';
 
@@ -14,6 +13,7 @@ interface AdminDashboardProps {
   onUpdateCategory: (category: Category) => void;
   onDeleteCategory: (id: string) => void;
   onViewOrder: (order: Order) => void;
+  onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
 }
@@ -23,7 +23,7 @@ type AdminTab = 'stats' | 'products' | 'categories' | 'orders';
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, categories, orders, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
   onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory,
-  onViewOrder, soundEnabled, onToggleSound
+  onViewOrder, onUpdateOrderPayment, soundEnabled, onToggleSound
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
@@ -48,8 +48,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredProducts, currentPage]);
-
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -89,7 +87,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleSaveCategory = () => {
-    if (!catFormData.name.trim()) return alert('يرجى إدخال اسم القسم');
+    if (!catFormData.name.trim()) return alert('يرجى إدخل اسم القسم');
     const existing = categories.find(c => c.id === catFormData.id);
     if (existing) onUpdateCategory(catFormData);
     else onAddCategory(catFormData);
@@ -107,7 +105,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
         
         <nav className="space-y-2 flex-grow">
-          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label="الرئيسية" icon="📊" />
+          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label=" الرئيسية" icon="📊" />
           <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="المخزون" icon="📦" badge={stats.criticalCount > 0 ? stats.criticalCount : undefined} badgeColor="bg-rose-500" />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام" icon="🏷️" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" badge={orders.length} />
@@ -190,24 +188,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="flex items-center gap-4">
                       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${isDelayed ? 'bg-orange-50' : 'bg-emerald-50'}`}>📦</div>
                       <div>
-                        <p className="font-black text-slate-800">طلب رقم {order.id}</p>
-                        <p className="text-xs text-slate-400 font-bold">{order.customerName || 'عميل مجهول'} • {order.phone || 'بدون هاتف'}</p>
+                        <p className="font-black text-slate-800 text-sm">طلب رقم {order.id}</p>
+                        <p className="text-[10px] text-slate-400 font-bold">{order.customerName || 'عميل مجهول'} • {order.phone || 'بدون هاتف'}</p>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-8 text-center">
-                      <div>
+                    <div className="flex items-center gap-6 text-center">
+                      <div className="space-y-1">
                         <p className="text-[10px] font-black text-slate-400 uppercase mb-1">حالة الدفع</p>
-                        <span className={`text-[10px] font-black px-4 py-1.5 rounded-full ${isDelayed ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                          {paymentMethod}
-                        </span>
+                        <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                           <button 
+                             onClick={() => onUpdateOrderPayment(order.id, 'نقدي (تم الدفع)')}
+                             className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${!isDelayed ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
+                           >
+                             نقدي
+                           </button>
+                           <button 
+                             onClick={() => onUpdateOrderPayment(order.id, 'آجل (مديونية)')}
+                             className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${isDelayed ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
+                           >
+                             آجل
+                           </button>
+                        </div>
                       </div>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase mb-1">المبلغ</p>
-                        <p className="font-black text-emerald-600 text-lg">{(Number(order.total) || 0).toFixed(2)} ج.م</p>
+                        <p className="font-black text-emerald-600 text-base">{(Number(order.total) || 0).toFixed(2)} ج.م</p>
                       </div>
                     </div>
-                    <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-8 py-3.5 rounded-2xl font-black text-xs hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
+                    <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
                   </div>
                 );
               })

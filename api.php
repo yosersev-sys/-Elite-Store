@@ -1,8 +1,7 @@
-
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v6.0 - تطوير نظام الأقسام
+ * نظام الإدارة المطور v6.1 - تحديث حالة الدفع
  */
 session_start();
 error_reporting(E_ALL); 
@@ -27,7 +26,6 @@ function sendErr($msg, $code = 400) {
 }
 
 function initDatabase($pdo) {
-    // الأقسام المطورة
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (
         id VARCHAR(50) PRIMARY KEY, 
         name VARCHAR(255) NOT NULL,
@@ -36,11 +34,6 @@ function initDatabase($pdo) {
         sortOrder INT DEFAULT 0
     )");
 
-    try { $pdo->exec("ALTER TABLE categories ADD COLUMN image LONGTEXT AFTER name"); } catch (Exception $e) {}
-    try { $pdo->exec("ALTER TABLE categories ADD COLUMN isActive BOOLEAN DEFAULT 1 AFTER image"); } catch (Exception $e) {}
-    try { $pdo->exec("ALTER TABLE categories ADD COLUMN sortOrder INT DEFAULT 0 AFTER isActive"); } catch (Exception $e) {}
-
-    // بقية الجداول...
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -244,6 +237,13 @@ try {
                 $o['subtotal'] = (float)$o['subtotal'];
             }
             sendRes($orders);
+            break;
+
+        case 'update_order_payment':
+            if (!isset($input['id'], $input['paymentMethod'])) sendErr('بيانات ناقصة');
+            $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
+            $stmt->execute([$input['paymentMethod'], $input['id']]);
+            sendRes(['status' => 'success']);
             break;
 
         default: sendErr('Unknown action');

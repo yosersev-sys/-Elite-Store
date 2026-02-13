@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User } from './types.ts';
 import Header from './components/Header.tsx';
@@ -106,19 +105,16 @@ const App: React.FC = () => {
     }
   };
 
-  // تأثير التحميل الأولي فقط - يتم استدعاؤه مرة واحدة عند فتح التطبيق
   useEffect(() => { 
     loadData(); 
-  }, []); // مصفوفة فارغة تمنع التكرار اللا نهائي
+  }, []);
 
-  // تأثير مراقبة تغيير الروابط (Hash)
   useEffect(() => {
     const handleHashChange = () => syncViewWithHash(currentUser);
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [currentUser, syncViewWithHash]);
 
-  // تأثير التحديث التلقائي للطلبات الجديدة للمدير
   useEffect(() => {
     let interval: any;
     if (currentUser?.role === 'admin') {
@@ -146,6 +142,16 @@ const App: React.FC = () => {
     prevOrdersCount.current = 0;
     showNotify('تم تسجيل الخروج بنجاح');
     onNavigateAction('store');
+  };
+
+  const handleUpdateOrderPayment = async (id: string, paymentMethod: string) => {
+    const success = await ApiService.updateOrderPayment(id, paymentMethod);
+    if (success) {
+      showNotify('تم تحديث حالة الدفع بنجاح');
+      loadData(true);
+    } else {
+      showNotify('فشل تحديث حالة الدفع', 'error');
+    }
   };
 
   if (isLoading) {
@@ -239,6 +245,7 @@ const App: React.FC = () => {
               setLastCreatedOrder(order);
               onNavigateAction('order-success');
             }}
+            onUpdateOrderPayment={handleUpdateOrderPayment}
             soundEnabled={soundEnabled}
             onToggleSound={() => setSoundEnabled(!soundEnabled)}
           />
@@ -365,9 +372,9 @@ const App: React.FC = () => {
               </svg>
             </div>
             <h2 className="text-xl font-black">سوق العصر</h2>
-            <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">فاقوس - الشرقية</p>
+            <p className="text-emerald-500 text-[10px] font-black uppercase">فاقوس - الشرقية</p>
           </div>
-          <p className="text-slate-500 text-[10px] tracking-widest uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+          <p className="text-slate-500 text-[10px] uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
         </footer>
       )}
     </div>

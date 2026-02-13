@@ -1,4 +1,3 @@
-
 import { Product, Category, Order, User } from '../types.ts';
 
 const API_URL = 'api.php';
@@ -100,6 +99,14 @@ export const ApiService = {
 
   async deleteCategory(id: string): Promise<boolean> {
     const result = await safeFetch(`delete_category&id=${id}`, { method: 'DELETE' });
+    return result?.status === 'success';
+  },
+
+  async updateOrderPayment(id: string, paymentMethod: string): Promise<boolean> {
+    const result = await safeFetch('update_order_payment', {
+      method: 'POST',
+      body: JSON.stringify({ id, paymentMethod })
+    });
     return result?.status === 'success';
   }
 };
