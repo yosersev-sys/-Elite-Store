@@ -49,46 +49,44 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'} ${scrolled ? 'py-2' : 'py-4'}`}>
       <div className="container mx-auto px-4">
-        <div className="bg-white border border-slate-100 rounded-[2rem] px-4 md:px-6 py-2 md:py-3 flex items-center justify-between gap-3 shadow-lg shadow-emerald-900/5">
+        <div className="bg-white border border-slate-100 rounded-[2rem] px-3 md:px-6 py-2 md:py-3 flex items-center justify-between gap-2 md:gap-3 shadow-lg shadow-emerald-900/5">
           
           <div onClick={() => onNavigate('store')} className="flex items-center gap-2 md:gap-3 cursor-pointer group shrink-0">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-500 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg group-hover:rotate-6 transition-transform overflow-hidden p-1">
+            <div className="w-9 h-9 md:w-12 md:h-12 bg-emerald-500 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg group-hover:rotate-6 transition-transform overflow-hidden p-1">
               <img 
                 src="https://soqelasr.com/shopping-bag.png" 
                 alt="سوق العصر" 
                 className="w-full h-full object-contain" 
               />
             </div>
-            <div className="hidden sm:flex flex-col">
-              <h1 className="text-lg md:text-xl font-black text-slate-800 leading-none">سوق العصر</h1>
-              <p className="text-[8px] md:text-[9px] font-black text-emerald-600 uppercase">اول سوق الكتروني في فاقوس</p>
+            <div className="flex flex-col">
+              <h1 className="text-xs md:text-xl font-black text-slate-800 leading-none whitespace-nowrap">سوق العصر</h1>
+              <p className="hidden sm:block text-[8px] md:text-[9px] font-black text-emerald-600 uppercase">اول سوق الكتروني في فاقوس</p>
             </div>
           </div>
 
-          <div className="flex-grow max-w-lg">
+          <div className="flex-grow max-w-lg min-w-0">
             <div className="relative group">
               <input 
                 type="text" 
-                placeholder="ابحث في فاقوس..." 
+                placeholder="ابحث..." 
                 onChange={(e) => onSearch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-2 md:py-3 px-5 pr-10 outline-none focus:ring-4 focus:ring-emerald-500/20 focus:bg-white transition-all font-bold text-sm"
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-2 md:py-3 px-3 md:px-5 pr-8 md:pr-10 outline-none focus:ring-4 focus:ring-emerald-500/20 focus:bg-white transition-all font-bold text-xs md:text-sm"
               />
-              <svg className="absolute right-3.5 top-2.5 md:top-3.5 h-4 w-4 md:h-5 md:w-5 text-slate-300 group-focus-within:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="absolute right-2.5 top-2.5 md:right-3.5 md:top-3.5 h-3.5 w-3.5 md:h-5 md:w-5 text-slate-300 group-focus-within:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-3 shrink-0">
-            {/* تم إزالة زر السلة من هنا وتحويله لزر عائم */}
-            
+          <div className="flex items-center gap-1 md:gap-3 shrink-0">
             <div className="relative">
               {currentUser ? (
                 <button 
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 bg-slate-50 hover:bg-emerald-50 px-3 py-2 md:px-4 md:py-3 rounded-2xl border border-slate-100 transition-all group"
+                  className="flex items-center gap-1 md:gap-2 bg-slate-50 hover:bg-emerald-50 px-2 py-2 md:px-4 md:py-3 rounded-2xl border border-slate-100 transition-all group"
                 >
-                  <div className="w-7 h-7 md:w-8 md:h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 font-black text-xs">
+                  <div className="w-6 h-6 md:w-8 md:h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 font-black text-[10px] md:text-xs">
                     {currentUser.name[0].toUpperCase()}
                   </div>
                   <span className="hidden md:block font-black text-slate-700 text-sm">{currentUser.name.split(' ')[0]}</span>
@@ -96,7 +94,7 @@ const Header: React.FC<HeaderProps> = ({
               ) : (
                 <button 
                   onClick={onLoginClick}
-                  className="bg-slate-900 text-white px-4 py-2.5 md:px-6 md:py-3.5 rounded-2xl font-black text-xs md:text-sm hover:bg-emerald-600 transition-all shadow-xl active:scale-95"
+                  className="bg-slate-900 text-white px-3 py-2 md:px-6 md:py-3.5 rounded-xl md:rounded-2xl font-black text-[10px] md:text-sm hover:bg-emerald-600 transition-all shadow-xl active:scale-95"
                 >
                   دخول
                 </button>
