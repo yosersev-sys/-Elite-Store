@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Product } from '../types';
 
@@ -22,10 +23,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
     setIsAdded(true);
     onAddToCart();
     
-    // إعادة حالة الزر بعد 1.5 ثانية
     setTimeout(() => {
       setIsAdded(false);
     }, 1500);
+  };
+
+  const getUnitName = (u: string) => {
+    if (u === 'kg') return 'كجم';
+    if (u === 'gram') return 'جم';
+    return 'قطعة';
   };
 
   return (
@@ -37,14 +43,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
         
-        {/* Badge */}
         <div className="absolute top-2 md:top-4 right-2 md:right-4 z-10">
           <span className="glass px-2 md:px-4 py-1 rounded-full text-[8px] md:text-[10px] font-black text-slate-800 uppercase tracking-widest shadow-sm">
             {category}
           </span>
         </div>
 
-        {/* Favorite */}
         <button 
           onClick={(e) => { e.stopPropagation(); onToggleFavorite?.(); }}
           className={`absolute top-2 md:top-4 left-2 md:left-4 z-10 p-2 md:p-3 rounded-xl md:rounded-2xl shadow-lg transition-all active:scale-90 ${isFavorite ? 'bg-rose-500 text-white' : 'glass text-slate-400 hover:text-rose-500'}`}
@@ -54,7 +58,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </svg>
         </button>
 
-        {/* Overlay Action */}
         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex items-center justify-center">
            <div className="bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl font-black text-xs text-slate-800 shadow-2xl translate-y-4 group-hover:translate-y-0 transition-transform">
              عرض التفاصيل
@@ -66,13 +69,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
         <h3 className="font-black text-sm md:text-lg text-slate-800 line-clamp-1 mb-1 md:mb-2 group-hover:text-emerald-600 transition-colors">
           {product.name}
         </h3>
-        <p className="text-slate-400 text-[10px] md:text-xs font-medium line-clamp-2 mb-3 md:mb-6 flex-grow">
-          {product.description}
-        </p>
         
         <div className="flex items-center justify-between mt-auto gap-2">
           <div className="flex flex-col shrink-0">
-            <span className="text-[7px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">السعر</span>
+            <span className="text-[7px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">السعر / {getUnitName(product.unit)}</span>
             <div className="flex items-baseline gap-0.5 md:gap-1">
               <span className="text-base md:text-2xl font-black text-slate-900 tracking-tighter">{product.price}</span>
               <span className="text-[8px] md:text-[10px] font-black text-emerald-600">ج.م</span>
@@ -88,9 +88,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {isAdded ? (
               <div className="flex items-center gap-2 animate-fadeIn">
                 <span className="text-[10px] md:text-sm font-black">تمت الإضافة</span>
-                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-                </svg>
               </div>
             ) : (
               <div className="flex items-center gap-2">

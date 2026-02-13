@@ -20,7 +20,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     description: '',
     price: '',
     categoryId: '',
-    stockQuantity: '0', // الحالة الجديدة
+    stockQuantity: '0',
+    // Added unit to formData state
+    unit: 'piece' as 'piece' | 'kg' | 'gram', 
     sizes: '',
     colors: '',
     images: [] as string[]
@@ -41,6 +43,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         price: product.price.toString(),
         categoryId: product.categoryId,
         stockQuantity: (product.stockQuantity || 0).toString(),
+        // Set unit from product
+        unit: product.unit || 'piece', 
         sizes: product.sizes?.join(', ') || '',
         colors: product.colors?.join(', ') || '',
         images: product.images || []
@@ -49,7 +53,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     } else {
       setFormData({
         name: '', description: '', price: '', categoryId: categories[0]?.id || '', 
-        stockQuantity: '10', sizes: '', colors: '', images: []
+        // Initial unit value
+        stockQuantity: '10', unit: 'piece', sizes: '', colors: '', images: [] 
       });
     }
   }, [product, categories]);
@@ -95,6 +100,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     e.preventDefault();
     if (formData.images.length === 0) return alert('يرجى إضافة صورة واحدة على الأقل');
 
+    // Include required 'unit' property in productData to fix Type error
     const productData: Product = {
       id: product ? product.id : Date.now().toString(),
       name: formData.name,
@@ -102,6 +108,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       price: parseFloat(formData.price),
       categoryId: formData.categoryId,
       stockQuantity: parseInt(formData.stockQuantity) || 0,
+      unit: formData.unit,
       sizes: formData.sizes ? formData.sizes.split(',').map(s => s.trim()).filter(s => s !== '') : undefined,
       colors: formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(c => c !== '') : undefined,
       images: formData.images,
@@ -165,6 +172,22 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">السعر (ر.س)</label>
               <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="0.00" />
+            </div>
+            {/* Added unit selection UI to sync with interface requirements */}
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
+              <div className="flex gap-2">
+                {(['piece', 'kg', 'gram'] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setFormData({...formData, unit: u})}
+                    className={`flex-grow py-4 rounded-2xl font-black text-sm transition-all border-2 ${formData.unit === u ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-white hover:border-indigo-100'}`}
+                  >
+                    {u === 'piece' ? 'بالقطعة' : u === 'kg' ? 'بالكيلو' : 'بالجرام'}
+                  </button>
+                ))}
+              </div>
             </div>
             {/* الحقل الجديد: كمية المخزون */}
             <div className="space-y-2">

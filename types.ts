@@ -30,6 +30,7 @@ export interface Product {
   sizes?: string[]; 
   colors?: string[]; 
   stockQuantity: number;
+  unit: 'piece' | 'kg' | 'gram'; // الوحدة الجديدة
   barcode?: string;
   createdAt: number;
   salesCount?: number;

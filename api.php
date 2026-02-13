@@ -2,7 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v4.6 - الفواتير المؤكدة تلقائياً
+ * نظام الإدارة المطور v4.7 - دعم وحدات القياس (قطعة/وزن)
  */
 session_start();
 error_reporting(E_ALL); 
@@ -53,11 +53,17 @@ function initDatabase($pdo) {
         sizes TEXT, 
         colors TEXT, 
         stockQuantity INT DEFAULT 0, 
+        unit VARCHAR(20) DEFAULT 'piece',
         createdAt BIGINT, 
         salesCount INT DEFAULT 0, 
         seoSettings TEXT,
         barcode VARCHAR(100)
     )");
+
+    // تأكد من وجود عمود unit إذا كان الجدول موجوداً مسبقاً
+    try {
+        $pdo->exec("ALTER TABLE products ADD COLUMN unit VARCHAR(20) DEFAULT 'piece' AFTER stockQuantity");
+    } catch (Exception $e) {}
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (
         id VARCHAR(50) PRIMARY KEY,
@@ -139,6 +145,7 @@ try {
                 $p['seoSettings'] = json_decode($p['seoSettings'] ?? '{}') ?: null;
                 $p['price'] = (float)$p['price'];
                 $p['stockQuantity'] = (int)$p['stockQuantity'];
+                $p['unit'] = $p['unit'] ?? 'piece';
             }
             sendRes($products);
             break;
@@ -147,14 +154,14 @@ try {
         case 'update_product':
             $isUpdate = $action === 'update_product';
             $sql = $isUpdate 
-                ? "UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, seoSettings=?, barcode=? WHERE id=?"
-                : "INSERT INTO products (name, description, price, categoryId, images, sizes, colors, stockQuantity, seoSettings, barcode, createdAt, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                ? "UPDATE products SET name=?, description=?, price=?, categoryId=?, images=?, sizes=?, colors=?, stockQuantity=?, unit=?, seoSettings=?, barcode=? WHERE id=?"
+                : "INSERT INTO products (name, description, price, categoryId, images, sizes, colors, stockQuantity, unit, seoSettings, barcode, createdAt, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             $stmt = $pdo->prepare($sql);
             $params = [
                 $input['name'], $input['description'], $input['price'], $input['categoryId'],
                 json_encode($input['images']), json_encode($input['sizes'] ?? []), json_encode($input['colors'] ?? []),
-                $input['stockQuantity'], json_encode($input['seoSettings']), $input['barcode']
+                $input['stockQuantity'], $input['unit'] ?? 'piece', json_encode($input['seoSettings']), $input['barcode']
             ];
             
             if ($isUpdate) {

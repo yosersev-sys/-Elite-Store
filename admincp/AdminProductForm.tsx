@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings } from '../types';
 import { generateProductDescription, generateSeoData } from '../services/geminiService';
@@ -20,6 +21,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     price: '',
     categoryId: '',
     stockQuantity: '0',
+    unit: 'piece' as 'piece' | 'kg' | 'gram',
     barcode: '',
     sizes: '',
     colors: '',
@@ -41,6 +43,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         price: product.price.toString(),
         categoryId: product.categoryId,
         stockQuantity: (product.stockQuantity || 0).toString(),
+        unit: product.unit || 'piece',
         barcode: product.barcode || '',
         sizes: product.sizes?.join(', ') || '',
         colors: product.colors?.join(', ') || '',
@@ -54,6 +57,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         price: '', 
         categoryId: categories[0]?.id || '', 
         stockQuantity: '10', 
+        unit: 'piece',
         barcode: '', 
         sizes: '', 
         colors: '', 
@@ -83,7 +87,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   };
 
   const handleAiDescription = async () => {
-    if (!formData.name) return alert('يرجى إدخل اسم المنتج أولاً');
+    if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً');
     setIsLoadingAi(true);
     const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
     const desc = await generateProductDescription(formData.name, catName);
@@ -110,6 +114,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       price: parseFloat(formData.price),
       categoryId: formData.categoryId,
       stockQuantity: parseInt(formData.stockQuantity) || 0,
+      unit: formData.unit,
       barcode: formData.barcode,
       sizes: formData.sizes ? formData.sizes.split(',').map(s => s.trim()).filter(s => s !== '') : undefined,
       colors: formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(c => c !== '') : undefined,
@@ -129,10 +134,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       <div className="flex items-center justify-between mb-10">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-            {product ? 'تعديل بيانات المحصول' : 'إضافة محصول جديد'}
+            {product ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد'}
           </h2>
           <p className="text-emerald-600 mt-2 font-bold uppercase tracking-widest text-xs">
-            {product ? `تعديل المنتج: ${product.name}` : 'نظام إدارة المنتجات والباركود'}
+            {product ? `تعديل المنتج: ${product.name}` : 'نظام إدارة المنتجات والمخزون المطور'}
           </p>
         </div>
         <button onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition">إلغاء</button>
@@ -164,19 +169,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500 mr-2">رقم الباركود (Barcode)</label>
-              <div className="relative">
-                <input 
-                  value={formData.barcode} 
-                  onChange={e => setFormData({...formData, barcode: e.target.value})} 
-                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" 
-                  placeholder="مثال: 62810000001" 
-                />
-                <button 
-                  type="button" 
-                  onClick={generateRandomBarcode} 
-                  className="absolute left-2 top-2 bg-slate-200 px-3 py-2 rounded-xl text-[10px] font-black hover:bg-slate-300 transition"
-                >توليد تلقائي</button>
+              <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
+              <div className="flex gap-2">
+                {(['piece', 'kg', 'gram'] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setFormData({...formData, unit: u})}
+                    className={`flex-grow py-4 rounded-2xl font-black text-sm transition-all border-2 ${formData.unit === u ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-white hover:border-emerald-100'}`}
+                  >
+                    {u === 'piece' ? 'بالقطعة' : u === 'kg' ? 'بالكيلو' : 'بالجرام'}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -187,18 +191,35 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500 mr-2">السعر (ج.م)</label>
+              <label className="text-sm font-bold text-slate-500 mr-2">السعر (ج.م) لكل وحدة</label>
               <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" placeholder="0.00" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500 mr-2">الكمية بالمخزن</label>
+              <label className="text-sm font-bold text-slate-500 mr-2">الكمية بالمخزن (بالوحدة المختارة)</label>
               <input required type="number" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition" placeholder="مثال: 50" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">رقم الباركود</label>
+              <div className="relative">
+                <input 
+                  value={formData.barcode} 
+                  onChange={e => setFormData({...formData, barcode: e.target.value})} 
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition text-left" 
+                  placeholder="Barcode..." 
+                  dir="ltr"
+                />
+                <button 
+                  type="button" 
+                  onClick={generateRandomBarcode} 
+                  className="absolute left-2 top-2 bg-slate-200 px-3 py-2 rounded-xl text-[10px] font-black hover:bg-slate-300 transition"
+                >توليد</button>
+              </div>
             </div>
             <div className="space-y-2 relative md:col-span-2">
               <label className="text-sm font-bold text-slate-500 mr-2 flex justify-between">
                 الوصف
                 <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="text-[10px] font-black text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
-                  {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي (Gemini)'}
+                  {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي (AI)'}
                 </button>
               </label>
               <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 transition min-h-[150px] resize-none" placeholder="وصف المنتج..." />
