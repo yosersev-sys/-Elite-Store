@@ -14,7 +14,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
     name: 'عميل نقدي',
     phone: '',
     city: 'فاقوس',
-    address: 'استلام فرع'
+    address: ''
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -102,7 +102,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
       customerName: customerInfo.name,
       phone: customerInfo.phone || '00000000000',
       city: customerInfo.city,
-      address: customerInfo.address,
+      address: customerInfo.address || 'استلام فرع',
       items: invoiceItems,
       subtotal,
       total,
@@ -166,7 +166,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
                  placeholder="اسم المنتج أو كود الباركود..." 
                  value={searchQuery}
                  onChange={(e) => setSearchQuery(e.target.value)}
-                 className="w-full px-8 py-5 bg-slate-50 rounded-3xl outline-none focus:ring-4 focus:ring-emerald-500/10 font-black text-lg border-2 border-transparent focus:border-emerald-500 transition-all shadow-inner"
+                 className="w-full px-8 py-5 bg-slate-50 rounded-3xl outline-none focus:ring-4 focus:ring-emerald-50/10 font-black text-lg border-2 border-transparent focus:border-emerald-500 transition-all shadow-inner"
                />
                <div className="absolute left-6 top-[44px] text-emerald-600 animate-pulse">⌨️</div>
                
@@ -262,6 +262,16 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
                       onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
                       placeholder="01xxxxxxxxx"
                       className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-center tracking-widest"
+                    />
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">تفاصيل العنوان (اختياري)</label>
+                    <textarea 
+                      value={customerInfo.address}
+                      onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})}
+                      placeholder="الحي، الشارع، رقم المنزل..."
+                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm resize-none h-24"
                     />
                     <p className="text-[9px] text-slate-400 text-center font-bold">سيتم تسجيل الفاتورة تلقائياً باسم: <span className="text-emerald-600">عميل نقدي</span></p>
                  </div>
