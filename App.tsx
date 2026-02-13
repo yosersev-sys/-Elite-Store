@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Product, CartItem, Category, Order, User } from './types.ts';
 import Header from './components/Header.tsx';
@@ -16,7 +17,14 @@ import Notification from './components/Notification.tsx';
 import { ApiService } from './services/api.ts';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<View>('store');
+  // تحديد الواجهة الابتدائية بناءً على الرابط فوراً
+  const getInitialView = (): View => {
+    const hash = window.location.hash;
+    if (hash.includes('admincp')) return 'admin-auth';
+    return 'store';
+  };
+
+  const [view, setView] = useState<View>(getInitialView());
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -35,26 +43,25 @@ const App: React.FC = () => {
     setNotification({ message, type });
   };
 
-  // دالة ذكية للتعامل مع الروابط (Hash Routing)
   const syncViewWithHash = useCallback((user: User | null) => {
     const hash = window.location.hash;
     if (hash.includes('admincp')) {
       if (user && user.role === 'admin') {
-        // إذا كان مديراً، نوجهه للوحة التحكم إلا إذا كان في صفحة فرعية
-        if (view !== 'admin' && view !== 'admin-form' && view !== 'admin-invoice') {
-           setView('admin');
-        }
+        // نغير الواجهة فقط إذا لم تكن بالفعل واجهة إدارية
+        setView(prev => {
+          if (prev === 'admin' || prev === 'admin-form' || prev === 'admin-invoice') return prev;
+          return 'admin';
+        });
       } else {
-        // إذا لم يكن مسجلاً أو ليس مديراً، نوجهه لصفحة الدخول
         setView('admin-auth');
       }
     } else {
-      // إذا مسح الهاش، نرجعه للمتجر إذا كان في صفحات الإدارة
-      if (view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice') {
-        setView('store');
-      }
+      setView(prev => {
+        if (prev === 'admin' || prev === 'admin-auth' || prev === 'admin-form' || prev === 'admin-invoice') return 'store';
+        return prev;
+      });
     }
-  }, [view]);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -72,7 +79,6 @@ const App: React.FC = () => {
         setOrders(fetchedOrders || []);
       }
       
-      // المزامنة فور تحميل البيانات
       syncViewWithHash(user);
 
     } catch (err) {
@@ -85,8 +91,8 @@ const App: React.FC = () => {
   useEffect(() => { 
     loadData(); 
 
-    // الاستماع لتغيرات الرابط
     const handleHashChange = () => {
+      // نمرر المستخدم الحالي من الحالة
       syncViewWithHash(currentUser);
     };
 
@@ -96,14 +102,12 @@ const App: React.FC = () => {
 
   const onNavigateAction = (v: View) => {
     setView(v);
-    // تحديث الرابط في المتصفح بناءً على العرض المختار
     if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
        if (!window.location.hash.includes('admincp')) {
           window.location.hash = '#/admincp';
        }
     } else {
        if (window.location.hash.includes('admincp')) {
-         // إزالة الهاش عند العودة للمتجر
          window.history.pushState("", document.title, window.location.pathname + window.location.search);
        }
     }
@@ -138,7 +142,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Admin Special Login - تظهر فقط إذا لم يكن مسجلاً كأدمن */}
+      {/* واجهة دخول المدير */}
       {view === 'admin-auth' && (!currentUser || currentUser.role !== 'admin') && (
         <AdminAuthView 
           onSuccess={(user) => {
@@ -151,7 +155,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Auth Modal Overlay */}
+      {/* تسجيل دخول المستخدم العادي */}
       {showAuthModal && (
         <AuthView 
           onClose={() => setShowAuthModal(false)}
@@ -164,7 +168,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* إخفاء الترويسة في صفحات الإدارة لضمان تجربة مستخدم منفصلة */}
       {!isAdminView && (
         <Header 
           cartCount={cart.length} 

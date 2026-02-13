@@ -1,3 +1,4 @@
+
 <script type="importmap">
 {
   "imports": {
@@ -9,5 +10,8 @@
   }
 }
 </script>
-<!-- ضمان نقل الرابط (hash) عند التحويل -->
-<script>window.location.href = 'index.php' + window.location.hash;</script>
+<script>
+  // التوجيه الذكي مع الحفاظ على الرابط (Hash)
+  var currentHash = window.location.hash;
+  window.location.href = 'index.php' + currentHash;
+</script>
