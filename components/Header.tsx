@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Category, User } from '../types';
@@ -51,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="hidden sm:flex flex-col">
               <h1 className="text-lg md:text-xl font-black text-slate-800 leading-none">سوق العصر</h1>
-              <p className="text-[8px] md:text-[9px] font-black text-emerald-600 tracking-tight uppercase">اكبر سوق الكتروني في فاقوس</p>
+              <p className="text-[8px] md:text-[9px] font-black text-emerald-600 tracking-tight uppercase">اكبر سوق الكتروني بفاقوس</p>
             </div>
           </div>
 

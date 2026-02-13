@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { Order } from '../types';
 
@@ -68,7 +67,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
                   </svg>
                 </span> سوق العصر
             </h1>
-            <p className="font-bold opacity-80 print:opacity-100 tracking-widest text-xs">اكبر سوق الكتروني في فاقوس</p>
+            <p className="font-bold opacity-80 print:opacity-100 tracking-widest text-xs">اكبر سوق الكتروني بفاقوس</p>
             <div className="mt-4 no-screenshot print:hidden">
                  <span className="bg-white/20 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">تم تسجيل الطلب بنجاح ✅</span>
             </div>
