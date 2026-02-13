@@ -122,7 +122,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }, [criticalStockProducts.length, soundEnabled]);
 
   const stats = useMemo(() => {
-    // نحسب الإحصائيات فقط للطلبات غير الملغاة
     const activeOrders = orders.filter(o => o.status !== 'cancelled');
     const totalRevenue = activeOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
     const delayedOrders = activeOrders.filter(o => (o.paymentMethod || '').includes('آجل'));
@@ -140,14 +139,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleReturnOrder = async (orderId: string) => {
     if (isProcessingReturn) return;
-    if (!confirm('هل أنت متأكد من استرداد هذه الفاتورة؟ سيتم إعادة الكميات للمخزن وخصم المبيعات.')) return;
+    if (!confirm('هل أنت متأكد من استرداد هذه الفاتورة؟ سيتم إعادة الكميات للمخزن وخصم المبيعات من الإحصائيات.')) return;
 
     setIsProcessingReturn(true);
     try {
       const res = await ApiService.returnOrder(orderId);
       if (res && res.status === 'success') {
         alert('تم استرداد الفاتورة وإعادة المنتجات للمخزن بنجاح ✅');
-        window.location.reload(); // تحديث شامل للبيانات
+        window.location.reload();
       } else {
         alert(res?.message || 'فشل استرداد الفاتورة');
       }
@@ -428,12 +427,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       const prodCount = products.filter(p => p.categoryId === cat.id).length;
                       return (
                         <div key={cat.id} className="bg-white rounded-[2.5rem] p-6 border shadow-sm flex flex-col items-center text-center transition-all hover:shadow-xl hover:-translate-y-1 relative group overflow-hidden">
-                          {/* شارة الحالة */}
                           <div className={`absolute top-4 right-4 text-[8px] font-black px-2 py-0.5 rounded-full ${cat.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
                             {cat.isActive ? 'نشط' : 'مخفي'}
                           </div>
                           
-                          {/* أيقونة/صورة */}
                           <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center text-4xl mb-4 group-hover:scale-110 transition-transform">
                              {cat.image ? <img src={cat.image} className="w-full h-full object-cover rounded-3xl" alt="" /> : '🏷️'}
                           </div>
@@ -587,15 +584,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div className="flex gap-2">
                           <button onClick={() => onViewOrder(order)} className="flex-grow bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
                           
-                          {/* زر استرداد الفاتورة */}
                           {!isCancelled && (
                             <button 
                               onClick={() => handleReturnOrder(order.id)}
                               disabled={isProcessingReturn}
-                              title="استرداد الفاتورة"
-                              className="p-3 bg-rose-50 text-rose-500 rounded-2xl border border-rose-100 hover:bg-rose-500 hover:text-white transition-all shadow-sm group"
+                              className="px-4 py-3 bg-rose-50 text-rose-500 rounded-2xl border border-rose-100 hover:bg-rose-500 hover:text-white transition-all shadow-sm font-black text-[10px] whitespace-nowrap active:scale-95"
                             >
-                              <span className="text-xs group-hover:rotate-180 transition-transform block">🔄</span>
+                              استرداد الفاتورة
                             </button>
                           )}
                         </div>
