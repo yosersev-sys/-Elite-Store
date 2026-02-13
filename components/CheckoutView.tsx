@@ -24,13 +24,13 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
 
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // التعبئة التلقائية عند التحميل أو عند تغير المستخدم
+  // التعبئة التلقائية عند التحميل أو عند تغير المستخدم المسجل
   useEffect(() => {
     if (currentUser) {
       setFormData(prev => ({
         ...prev,
-        fullName: currentUser.name || '',
-        phone: currentUser.phone || '',
+        fullName: prev.fullName || currentUser.name || '',
+        phone: prev.phone || currentUser.phone || '',
       }));
     }
   }, [currentUser]);
@@ -47,11 +47,11 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
     if (!formData.phone.trim()) {
       newErrors.phone = 'يرجى إدخال رقم الجوال';
     } else if (!/^(01)\d{9}$/.test(formData.phone.trim())) {
-      newErrors.phone = 'يرجى إدخال رقم جوال صحيح (11 رقم)';
+      newErrors.phone = 'يرجى إدخال رقم جوال مصري صحيح (11 رقم)';
     }
 
     if (!formData.address.trim() || formData.address.trim().length < 5) {
-      newErrors.address = 'يرجى إدخال عنوان واضح (الشارع أو المنطقة)';
+      newErrors.address = 'يرجى إدخال عنوان واضح للتوصيل';
     }
 
     setErrors(newErrors);
@@ -150,8 +150,8 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
           <div className="bg-emerald-50 p-6 rounded-[2rem] border border-emerald-100 flex items-center gap-4">
              <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center text-xl">🚚</div>
              <div>
-                <p className="font-black text-emerald-800 text-sm">خدمة التوصيل السريع</p>
-                <p className="text-emerald-600 text-[10px] font-bold">التوصيل متاح داخل فاقوس والمناطق المجاورة في أسرع وقت.</p>
+                <p className="font-black text-emerald-800 text-sm">توصيل سريع داخل فاقوس</p>
+                <p className="text-emerald-600 text-[10px] font-bold">يصلك طلبك في أسرع وقت ممكن بمجرد التأكيد.</p>
              </div>
           </div>
         </div>
@@ -161,15 +161,15 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
           <div className="bg-white p-8 rounded-[3rem] border border-slate-50 shadow-xl shadow-slate-200/50 sticky top-24 space-y-8">
             <h3 className="text-xl font-black text-slate-900 border-b border-slate-50 pb-5">ملخص الطلب</h3>
             
-            <div className="max-h-[200px] overflow-y-auto space-y-4 pr-2 no-scrollbar">
+            <div className="max-h-[300px] overflow-y-auto space-y-4 pr-2 no-scrollbar">
               {cart.map((item, idx) => (
-                <div key={`${item.id}-${idx}`} className="flex gap-4 items-center">
+                <div key={`${item.id}-${idx}`} className="flex gap-4 items-center animate-fadeIn">
                   <div className="w-14 h-14 rounded-xl overflow-hidden border border-slate-50 shrink-0">
                     <img src={item.images[0]} className="w-full h-full object-cover" alt="" />
                   </div>
                   <div className="flex-grow min-w-0">
                     <p className="text-sm font-black text-slate-800 truncate">{item.name}</p>
-                    <p className="text-[10px] text-slate-400 font-bold">{item.quantity} {item.unit === 'kg' ? 'كيلو' : 'قطعة'} × {item.price} ج.م</p>
+                    <p className="text-[10px] text-slate-400 font-bold">{item.quantity} × {item.price} ج.م</p>
                   </div>
                 </div>
               ))}
@@ -190,21 +190,16 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
               </div>
             </div>
 
-            <div className="space-y-3">
-              <button 
-                type="button"
-                onClick={handleConfirmOrder}
-                className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95 flex items-center justify-center gap-3 group"
-              >
-                تأكيد الطلب الآن
-                <svg className="w-6 h-6 transition-transform group-hover:translate-x-[-4px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                </svg>
-              </button>
-              <p className="text-[9px] text-slate-400 text-center font-bold px-4">
-                بالضغط على الزر، سيصلك طلبك في أقرب وقت متاح. الدفع نقداً عند الاستلام.
-              </p>
-            </div>
+            <button 
+              type="button"
+              onClick={handleConfirmOrder}
+              className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95 flex items-center justify-center gap-3 group"
+            >
+              تأكيد الطلب الآن
+              <svg className="w-6 h-6 transition-transform group-hover:translate-x-[-4px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
