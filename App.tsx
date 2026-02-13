@@ -15,6 +15,7 @@ import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
+import MobileNav from './components/MobileNav.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
@@ -29,7 +30,7 @@ const App: React.FC = () => {
 
   const [view, setView] = useState<View>(getInitialView());
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [adminPhone, setAdminPhone] = useState('201026034170'); // القيمة الافتراضية كاحتياط
+  const [adminPhone, setAdminPhone] = useState('201026034170'); 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -79,7 +80,6 @@ const App: React.FC = () => {
       const user = await ApiService.getCurrentUser();
       setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
       
-      // جلب رقم المدير تلقائياً
       const adminInfo = await ApiService.getAdminPhone();
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
 
@@ -163,7 +163,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-emerald-600">جاري تحميل سوق العصر...</p>
+        <p className="font-black text-emerald-600 italic">سوق العصر - فاقوس</p>
       </div>
     );
   }
@@ -171,7 +171,7 @@ const App: React.FC = () => {
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc]">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] pb-24 md:pb-0">
       {notification && (
         <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
       )}
@@ -214,7 +214,7 @@ const App: React.FC = () => {
         />
       )}
 
-      <main className={`flex-grow container mx-auto px-4 ${isAdminView ? 'pt-6 pb-6' : 'pt-32 pb-20'}`}>
+      <main className={`flex-grow container mx-auto px-4 ${isAdminView ? 'pt-6 pb-6' : 'pt-24 md:pt-32 pb-6'}`}>
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
@@ -281,7 +281,6 @@ const App: React.FC = () => {
               if (success) {
                 setLastCreatedOrder(order);
                 showNotify('تم إصدار الفاتورة بنجاح');
-                // إرسال نسخة واتساب تلقائياً لرقم العميل
                 WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                 await loadData();
                 onNavigateAction('order-success');
@@ -341,7 +340,6 @@ const App: React.FC = () => {
                 setLastCreatedOrder(newOrder);
                 setCart([]);
                 showNotify('تم إرسال طلبك بنجاح');
-                // إرسال إشعار للمدير عبر واتساب (باستخدام رقم المدير المجلب تلقائياً)
                 WhatsAppService.sendOrderNotification(newOrder, adminPhone);
                 onNavigateAction('order-success');
                 loadData();
@@ -368,24 +366,25 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {currentUser?.role === 'admin' && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
+      {currentUser?.role === 'admin' && view !== 'admin' && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
 
       {!isAdminView && (
-        <footer className="bg-slate-900 text-white py-12 text-center">
-          <div className="flex flex-col items-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg text-white">
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
-                <path d="M3 9l2.44-4.91A2 2 0 0 1 7.23 3h9.54a2 2 0 0 1 1.79 1.09L21 9" />
-                <path d="M9 21V12" />
-                <path d="M15 21V12" />
-              </svg>
+        <>
+          <MobileNav 
+            currentView={view} 
+            cartCount={cart.length} 
+            onNavigate={onNavigateAction} 
+            onCartClick={() => onNavigateAction('cart')}
+            isAdmin={currentUser?.role === 'admin'}
+          />
+          <footer className="hidden md:block bg-slate-900 text-white py-12 text-center">
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <h2 className="text-xl font-black">سوق العصر</h2>
+              <p className="text-emerald-500 text-[10px] font-black uppercase">فاقوس - الشرقية</p>
             </div>
-            <h2 className="text-xl font-black">سوق العصر</h2>
-            <p className="text-emerald-500 text-[10px] font-black uppercase">فاقوس - الشرقية</p>
-          </div>
-          <p className="text-slate-500 text-[10px] uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
-        </footer>
+            <p className="text-slate-500 text-[10px] uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+          </footer>
+        </>
       )}
     </div>
   );

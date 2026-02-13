@@ -1,5 +1,8 @@
 {
-  "name": "سوق العصر",
-  "description": "اول سوق الكتروني في فاقوس - تسوق أونلاين بكل سهولة.",
-  "requestFramePermissions": []
+  "name": "سوق العصر - فاقوس",
+  "description": "اول سوق الكتروني في فاقوس - تسوق أونلاين بكل سهولة من هاتفك الأندرويد.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
 }
