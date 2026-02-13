@@ -45,6 +45,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     id: '', name: '', image: '', isActive: true, sortOrder: 0
   });
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   // إعدادات الملف الشخصي
   const [profileData, setProfileData] = useState({
     name: currentUser?.name || '',
@@ -107,78 +109,54 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setCurrentPage(1);
   }, [adminSearch, activeTab]);
 
-  const criticalStockProducts = useMemo(() => {
-    return products.filter(p => p.stockQuantity < 5 && p.stockQuantity >= 0);
-  }, [products]);
-
-  useEffect(() => {
-    if (soundEnabled && criticalStockProducts.length > 0) {
-      if (!alertAudioRef.current) {
-        alertAudioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-      }
-      alertAudioRef.current.play().catch(() => {});
-    }
-  }, [criticalStockProducts.length, soundEnabled]);
-
   const stats = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-    const delayedOrders = orders.filter(o => (o.paymentMethod || '').includes('آجل'));
+    const validOrders = orders.filter(o => o.status !== 'cancelled');
+    const totalRevenue = validOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const delayedOrders = validOrders.filter(o => (o.paymentMethod || '').includes('آجل'));
     const delayedAmount = delayedOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const lowStock = products.filter(p => p.stockQuantity < 5);
     
     return {
       revenue: totalRevenue.toLocaleString(),
-      salesCount: orders.length,
+      salesCount: validOrders.length,
       productCount: products.length,
-      criticalCount: criticalStockProducts.length,
+      criticalCount: lowStock.length,
       delayedAmount: delayedAmount.toLocaleString(),
       delayedCount: delayedOrders.length
     };
-  }, [products, orders, criticalStockProducts]);
+  }, [products, orders]);
+
+  const handleReturnOrder = async (orderId: string) => {
+    if (!confirm('هل أنت متأكد من استرداد هذه الفاتورة؟ سيتم إعادة المنتجات للمخزن وخصم المبالغ من الإحصائيات.')) return;
+    
+    setIsProcessing(true);
+    try {
+      const res = await ApiService.returnOrder(orderId);
+      if (res && res.status === 'success') {
+        alert('تم استرداد الفاتورة بنجاح ✅');
+        window.location.reload(); // تحديث شامل للبيانات
+      } else {
+        alert(res?.message || 'فشل استرداد الفاتورة');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileData.name || !profileData.phone) return alert('يرجى ملء الاسم ورقم الجوال');
-    
     setIsUpdatingProfile(true);
     try {
       const res = await ApiService.updateProfile(profileData);
       if (res.status === 'success') {
         alert('تم تحديث البيانات بنجاح. سيتم تسجيل خروجك للأمان.');
         onLogout();
-      } else {
-        alert(res.message || 'حدث خطأ أثناء التحديث');
-      }
-    } catch (err) {
-      alert('خطأ في الاتصال بالسيرفر');
-    } finally {
-      setIsUpdatingProfile(false);
-    }
-  };
-
-  const handlePasswordInput = (e: React.FormEvent<HTMLInputElement>) => {
-    const input = e.currentTarget;
-    input.value = input.value.replace(/[\u0600-\u06FF]/g, '');
-    setProfileData({ ...profileData, password: input.value });
-  };
-
-  const handleEditCategory = (cat: Category) => {
-    setCatFormData({
-      ...cat,
-      sortOrder: cat.sortOrder ?? 0,
-      isActive: cat.isActive ?? true
-    });
-    setIsEditingCategory(true);
-  };
-
-  const handleAddCategoryClick = () => {
-    setCatFormData({ 
-      id: 'cat_' + Date.now(), 
-      name: '', 
-      image: '', 
-      isActive: true, 
-      sortOrder: categories.length 
-    });
-    setIsEditingCategory(true);
+      } else alert(res.message || 'حدث خطأ أثناء التحديث');
+    } catch (err) { alert('خطأ في الاتصال'); }
+    finally { setIsUpdatingProfile(false); }
   };
 
   const handleSaveCategory = () => {
@@ -187,13 +165,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (existing) onUpdateCategory(catFormData);
     else onAddCategory(catFormData);
     setIsEditingCategory(false);
-  };
-
-  const resetOrderFilters = () => {
-    setOrderSearch('');
-    setStartDate('');
-    setEndDate('');
-    setPaymentFilter('all');
   };
 
   return (
@@ -267,9 +238,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full md:w-80 px-6 py-3 bg-white border rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm shadow-sm" />
-              <div className="flex gap-3 w-full md:w-auto">
-                 <button onClick={onOpenAddForm} className="flex-grow bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">+ إضافة منتج جديد</button>
-              </div>
+              <button onClick={onOpenAddForm} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">+ إضافة منتج جديد</button>
             </div>
             
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
@@ -288,156 +257,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ))}
                 </tbody>
               </table>
-              
               {totalPages > 1 && (
                 <div className="p-6 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
-                  <div className="text-xs font-bold text-slate-400">
-                    عرض {paginatedProducts.length} من أصل {filteredProducts.length} منتج
-                  </div>
+                  <div className="text-xs font-bold text-slate-400">عرض {paginatedProducts.length} منتج</div>
                   <div className="flex items-center gap-2">
-                    <button 
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      className="px-4 py-2 bg-white border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
-                    >
-                      السابق
-                    </button>
-                    <div className="bg-white px-4 py-2 rounded-xl border font-black text-xs text-emerald-600">
-                      صفحة {currentPage} من {totalPages}
-                    </div>
-                    <button 
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      className="px-4 py-2 bg-white border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
-                    >
-                      التالي
-                    </button>
+                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} className="px-4 py-2 bg-white border rounded-xl font-black text-xs">السابق</button>
+                    <span className="font-black text-xs">صفحة {currentPage} من {totalPages}</span>
+                    <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} className="px-4 py-2 bg-white border rounded-xl font-black text-xs">التالي</button>
                   </div>
                 </div>
               )}
             </div>
-          </div>
-        )}
-
-        {activeTab === 'categories' && (
-          <div className="space-y-8 animate-fadeIn">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <div>
-                <h3 className="text-2xl font-black text-slate-800">إدارة الأقسام</h3>
-                <p className="text-slate-400 text-sm font-bold mt-1">يمكنك إضافة، تعديل أو ترتيب أقسام المتجر الرئيسية</p>
-              </div>
-              {!isEditingCategory && (
-                <button 
-                  onClick={handleAddCategoryClick} 
-                  className="w-full md:w-auto bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg hover:bg-emerald-700 transition active:scale-95"
-                >
-                  + إضافة قسم جديد
-                </button>
-              )}
-            </div>
-
-            {isEditingCategory ? (
-              <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-emerald-100 space-y-8 animate-slideUp">
-                <div className="flex items-center gap-4 border-b pb-6">
-                   <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl font-black">🏷️</div>
-                   <div>
-                     <h4 className="font-black text-xl text-slate-800">{catFormData.id.startsWith('cat_') && catFormData.name === '' ? 'إضافة قسم جديد' : 'تعديل بيانات القسم'}</h4>
-                     <p className="text-slate-400 text-xs font-bold">يرجى ملء البيانات التالية بدقة</p>
-                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">اسم القسم</label>
-                    <input 
-                      value={catFormData.name} 
-                      onChange={e => setCatFormData({...catFormData, name: e.target.value})} 
-                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner" 
-                      placeholder="مثال: الخضروات، السوبر ماركت..." 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">ترتيب الظهور</label>
-                    <input 
-                      type="number"
-                      value={catFormData.sortOrder} 
-                      onChange={e => setCatFormData({...catFormData, sortOrder: parseInt(e.target.value) || 0})} 
-                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner" 
-                      placeholder="رقم الترتيب (0, 1, 2...)" 
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رابط صورة القسم (اختياري)</label>
-                    <input 
-                      value={catFormData.image || ''} 
-                      onChange={e => setCatFormData({...catFormData, image: e.target.value})} 
-                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner" 
-                      placeholder="رابط URL للصورة..." 
-                    />
-                  </div>
-                  <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                     <input 
-                        type="checkbox" 
-                        id="cat-active"
-                        checked={catFormData.isActive}
-                        onChange={e => setCatFormData({...catFormData, isActive: e.target.checked})}
-                        className="w-6 h-6 rounded accent-emerald-600 cursor-pointer"
-                     />
-                     <label htmlFor="cat-active" className="font-black text-sm text-slate-700 cursor-pointer select-none">القسم نشط ويظهر للعملاء</label>
-                  </div>
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-3 pt-6">
-                  <button onClick={handleSaveCategory} className="flex-grow bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl hover:bg-emerald-600 transition shadow-lg active:scale-95">حفظ التغييرات 💾</button>
-                  <button onClick={() => setIsEditingCategory(false)} className="bg-slate-100 text-slate-500 px-10 py-5 rounded-[2rem] font-black text-xl hover:bg-slate-200 transition">إلغاء</button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {categories.length === 0 ? (
-                  <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                    <p className="text-slate-400 font-black">لا توجد أقسام حالياً. ابدأ بإضافة قسمك الأول!</p>
-                  </div>
-                ) : (
-                  categories
-                    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                    .map(cat => {
-                      const prodCount = products.filter(p => p.categoryId === cat.id).length;
-                      return (
-                        <div key={cat.id} className="bg-white rounded-[2.5rem] p-6 border shadow-sm flex flex-col items-center text-center transition-all hover:shadow-xl hover:-translate-y-1 relative group overflow-hidden">
-                          {/* شارة الحالة */}
-                          <div className={`absolute top-4 right-4 text-[8px] font-black px-2 py-0.5 rounded-full ${cat.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                            {cat.isActive ? 'نشط' : 'مخفي'}
-                          </div>
-                          
-                          {/* أيقونة/صورة */}
-                          <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center text-4xl mb-4 group-hover:scale-110 transition-transform">
-                             {cat.image ? <img src={cat.image} className="w-full h-full object-cover rounded-3xl" alt="" /> : '🏷️'}
-                          </div>
-
-                          <h5 className="font-black text-lg text-slate-800 line-clamp-1">{cat.name}</h5>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">المنتجات: {prodCount}</p>
-                          
-                          <div className="flex gap-2 mt-6 w-full pt-4 border-t border-slate-50">
-                            <button 
-                              onClick={() => handleEditCategory(cat)} 
-                              className="flex-grow bg-blue-50 text-blue-600 py-2.5 rounded-xl font-black text-xs hover:bg-blue-600 hover:text-white transition"
-                            >
-                              تعديل
-                            </button>
-                            <button 
-                              onClick={() => onDeleteCategory(cat.id)} 
-                              className="bg-rose-50 text-rose-500 py-2.5 rounded-xl font-black text-xs hover:bg-rose-500 hover:text-white transition"
-                            >
-                              حذف
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -445,125 +275,83 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-4">
             <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 animate-slideDown">
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                  
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase mr-2">بحث (رقم/اسم/هاتف)</label>
-                    <input 
-                      type="text" 
-                      placeholder="ابحث..." 
-                      value={orderSearch}
-                      onChange={e => setOrderSearch(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs"
-                    />
+                    <input type="text" placeholder="ابحث..." value={orderSearch} onChange={e => setOrderSearch(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none font-bold text-xs" />
                   </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">من تاريخ</label>
-                    <input 
-                      type="date" 
-                      value={startDate}
-                      onChange={e => setStartDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">إلى تاريخ</label>
-                    <input 
-                      type="date" 
-                      value={endDate}
-                      onChange={e => setEndDate(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs"
-                    />
-                  </div>
-
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase mr-2">نوع الدفع</label>
-                    <div className="flex gap-2">
-                       <select 
-                         value={paymentFilter}
-                         onChange={e => setPaymentFilter(e.target.value as any)}
-                         className="flex-grow bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500 font-black text-xs cursor-pointer"
-                       >
-                         <option value="all">الكل</option>
-                         <option value="cash">نقدي فقط</option>
-                         <option value="delayed">آجل فقط</option>
-                       </select>
-                       {(orderSearch || startDate || endDate || paymentFilter !== 'all') && (
-                         <button 
-                           onClick={resetOrderFilters}
-                           className="bg-rose-50 text-rose-500 p-2.5 rounded-xl hover:bg-rose-500 hover:text-white transition shadow-sm"
-                           title="مسح الفلاتر"
-                         >
-                           ✕
-                         </button>
-                       )}
-                    </div>
+                    <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value as any)} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none font-black text-xs cursor-pointer">
+                      <option value="all">الكل</option>
+                      <option value="cash">نقدي فقط</option>
+                      <option value="delayed">آجل فقط</option>
+                    </select>
                   </div>
-
+                  <button onClick={() => {setOrderSearch(''); setStartDate(''); setEndDate(''); setPaymentFilter('all');}} className="bg-rose-50 text-rose-500 py-2.5 rounded-xl font-black text-xs">مسح الفلاتر</button>
                </div>
             </div>
 
             <div className="space-y-4">
               {filteredOrders.length === 0 ? (
                  <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100">
-                    <div className="text-4xl mb-4">🔍</div>
-                    <p className="text-slate-400 font-black">لا توجد طلبات تطابق معايير البحث الحالية</p>
-                    <button onClick={resetOrderFilters} className="mt-4 text-emerald-600 font-bold text-xs underline">عرض كل الطلبات</button>
+                    <p className="text-slate-400 font-black">لا توجد طلبات تطابق البحث</p>
                  </div>
               ) : (
                 filteredOrders.map(order => {
-                  const paymentMethod = order.paymentMethod || 'غير محدد';
-                  const isDelayed = paymentMethod.includes('آجل');
+                  const isDelayed = (order.paymentMethod || '').includes('آجل');
+                  const isCancelled = order.status === 'cancelled';
 
                   return (
-                    <div key={order.id} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-l-8 transition-all hover:shadow-md ${isDelayed ? 'border-l-orange-500' : 'border-l-emerald-500'}`}>
+                    <div key={order.id} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 border-l-8 transition-all hover:shadow-md ${isCancelled ? 'border-l-slate-300 opacity-70 grayscale' : (isDelayed ? 'border-l-orange-500' : 'border-l-emerald-500')}`}>
                       <div className="flex items-center gap-4">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${isDelayed ? 'bg-orange-50' : 'bg-emerald-50'}`}>📦</div>
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${isCancelled ? 'bg-slate-100' : (isDelayed ? 'bg-orange-50' : 'bg-emerald-50')}`}>
+                          {isCancelled ? '🔄' : '📦'}
+                        </div>
                         <div>
                           <div className="flex items-center gap-2">
                              <p className="font-black text-slate-800 text-sm">طلب #{order.id}</p>
-                             <span className="text-[9px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-400 font-bold">
-                               {new Date(order.createdAt).toLocaleDateString('ar-EG')}
+                             <span className={`text-[8px] px-2 py-0.5 rounded-full font-black ${isCancelled ? 'bg-slate-200 text-slate-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                               {isCancelled ? 'مسترد/ملغي' : 'مكتمل'}
                              </span>
                           </div>
-                          <p className="text-[10px] text-slate-400 font-bold">{order.customerName || 'عميل مجهول'} • {order.phone || 'بدون هاتف'}</p>
+                          <p className="text-[10px] text-slate-400 font-bold">{order.customerName || 'عميل مجهول'} • {new Date(order.createdAt).toLocaleDateString('ar-EG')}</p>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-6 text-center">
                         <div className="space-y-1">
-                          <p className="text-[10px] font-black text-slate-400 uppercase mb-1">حالة الدفع</p>
-                          <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                             <button 
-                               onClick={() => onUpdateOrderPayment(order.id, 'نقدي (تم الدفع)')}
-                               className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${!isDelayed ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
-                             >
-                               نقدي
-                             </button>
-                             <button 
-                               onClick={() => onUpdateOrderPayment(order.id, 'آجل (مديونية)')}
-                               className={`px-3 py-1 rounded-lg text-[9px] font-black transition-all ${isDelayed ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
-                             >
-                               آجل
-                             </button>
-                          </div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase mb-1">طريقة الدفع</p>
+                          <span className={`px-3 py-1 rounded-lg text-[9px] font-black ${isDelayed ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                            {order.paymentMethod}
+                          </span>
                         </div>
                         <div>
                           <p className="text-[10px] font-black text-slate-400 uppercase mb-1">المبلغ</p>
-                          <p className="font-black text-emerald-600 text-base">{(Number(order.total) || 0).toFixed(2)} ج.م</p>
+                          <p className="font-black text-emerald-600 text-base">{order.total.toFixed(2)} ج.م</p>
                         </div>
                       </div>
                       
-                      <div className="flex flex-col gap-2 w-full md:w-auto">
-                        <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
-                        {isDelayed && (
+                      <div className="flex items-center gap-2 w-full md:w-auto">
+                        <button onClick={() => onViewOrder(order)} className="flex-grow md:flex-none bg-slate-900 text-white px-5 py-3 rounded-2xl font-black text-[10px]">عرض</button>
+                        
+                        {!isCancelled && (
+                          <button 
+                            onClick={() => handleReturnOrder(order.id)}
+                            disabled={isProcessing}
+                            className="bg-rose-50 text-rose-500 p-3 rounded-2xl border border-rose-100 hover:bg-rose-500 hover:text-white transition group"
+                            title="استرداد الفاتورة"
+                          >
+                            <span className="text-xs group-hover:rotate-180 transition-transform block">🔄</span>
+                          </button>
+                        )}
+                        
+                        {isDelayed && !isCancelled && (
                           <button 
                             onClick={() => WhatsAppService.sendDebtReminderToCustomer(order)}
-                            className="bg-emerald-50 text-emerald-600 px-6 py-3 rounded-2xl font-black text-[10px] border border-emerald-100 hover:bg-emerald-600 hover:text-white transition shadow-sm flex items-center justify-center gap-2"
+                            className="bg-emerald-50 text-emerald-600 p-3 rounded-2xl border border-emerald-100"
+                            title="تنبيه واتساب"
                           >
-                            <span>تنبيه واتساب</span>
-                            <span className="text-xs">💬</span>
+                            💬
                           </button>
                         )}
                       </div>
@@ -578,88 +366,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto py-8 animate-fadeIn">
             <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-emerald-100">
-               <div className="flex items-center gap-4 border-b pb-6 mb-8">
-                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl">👤</div>
-                  <div>
-                    <h3 className="text-xl font-black text-slate-800">إعدادات الحساب</h3>
-                    <p className="text-slate-400 text-xs font-bold">تغيير الاسم، رقم الجوال أو كلمة المرور</p>
-                  </div>
-               </div>
-
+               <h3 className="text-xl font-black text-slate-800 mb-8 border-b pb-4">إعدادات الحساب الإداري</h3>
                <form onSubmit={handleUpdateProfile} className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الاسم الكامل</label>
-                    <input 
-                      type="text"
-                      value={profileData.name}
-                      onChange={e => setProfileData({...profileData, name: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
-                    />
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الاسم</label>
+                    <input type="text" value={profileData.name} onChange={e => setProfileData({...profileData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold" />
                   </div>
-
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال (اسم المستخدم الجديد)</label>
-                    <input 
-                      type="tel"
-                      value={profileData.phone}
-                      onChange={e => setProfileData({...profileData, phone: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner text-left"
-                      dir="ltr"
-                    />
+                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الموبايل</label>
+                    <input type="tel" value={profileData.phone} onChange={e => setProfileData({...profileData, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold text-left" dir="ltr" />
                   </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">كلمة المرور الجديدة (English Only)</label>
-                    <div className="relative">
-                      <input 
-                        type={showPass ? "text" : "password"}
-                        dir="ltr"
-                        lang="en"
-                        onInput={handlePasswordInput}
-                        value={profileData.password}
-                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner placeholder:text-right"
-                        placeholder="••••••••"
-                      />
-                      <button 
-                        type="button"
-                        onClick={() => setShowPass(!showPass)}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-500 transition-colors"
-                      >
-                        {showPass ? '👁️' : '🙈'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button 
-                    disabled={isUpdatingProfile}
-                    className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl hover:bg-emerald-600 transition shadow-lg active:scale-95 disabled:opacity-50 mt-4"
-                  >
-                    {isUpdatingProfile ? 'جاري الحفظ...' : 'حفظ التغييرات ✨'}
-                  </button>
+                  <button disabled={isUpdatingProfile} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl mt-4">حفظ التغييرات</button>
                </form>
-
-               <div className="mt-8 pt-6 border-t border-slate-50">
-                  <button 
-                    onClick={onLogout}
-                    className="w-full text-rose-500 font-black text-sm hover:bg-rose-50 py-3 rounded-2xl transition"
-                  >
-                    تسجيل الخروج 👋
-                  </button>
-               </div>
             </div>
           </div>
         )}
       </main>
-      
-      <style>{`
-        @keyframes pulse-slow {
-          0%, 100% { transform: scale(1); box-shadow: 0 20px 50px rgba(37,99,235,0.4); }
-          50% { transform: scale(1.05); box-shadow: 0 25px 60px rgba(37,99,235,0.6); }
-        }
-        .animate-pulse-slow {
-          animation: pulse-slow 3s infinite ease-in-out;
-        }
-      `}</style>
     </div>
   );
 };
