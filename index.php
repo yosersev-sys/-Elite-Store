@@ -1,4 +1,3 @@
-
 <?php
 /**
  * سوق العصر - المحرك الذكي v4.1 (Mobile APK Optimized)
@@ -58,7 +57,6 @@ header('Content-Type: text/html; charset=utf-8');
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">سوق العصر - جاري التحميل...</p>
         <div id="error-display"></div>
     </div>
     <div id="root"></div>
@@ -133,11 +131,9 @@ header('Content-Type: text/html; charset=utf-8');
             } catch (err) {
                 console.error("Critical Load Error:", err);
                 const errorDisplay = document.getElementById('error-display');
-                const loaderText = document.getElementById('loader-text');
                 if (errorDisplay) {
                     errorDisplay.style.display = 'block';
                     errorDisplay.innerHTML = `حدث خطأ تقني: <br/> ${err.message}`;
-                    if (loaderText) loaderText.style.display = 'none';
                 }
             }
         }
