@@ -80,5 +80,30 @@ ${itemsList}
 
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${targetPhone}?text=${encodedMessage}`, '_blank');
+  },
+
+  /**
+   * إرسال رسالة تنبيه مديونية (للطلبات الآجل)
+   */
+  sendDebtReminderToCustomer: (order: Order) => {
+    const targetPhone = formatWhatsAppPhone(order.phone);
+    
+    const message = `
+⚠️ *تذكير بمديونية - سوق العصر*
+-------------------------
+عزيزنا العميل: *${order.customerName}*
+نود تذكيركم بطلبكم رقم: *#${order.id}*
+المسجل بتاريخ: ${new Date(order.createdAt).toLocaleDateString('ar-EG')}
+
+*تفاصيل المديونية:*
+الإجمالي: *${order.total} ج.م*
+حالة الدفع: *آجل (لم يتم السداد بعد)*
+
+يرجى التكرم بزيارة الفرع أو التواصل معنا لإتمام عملية السداد.
+شاكرين لكم حسن تعاونكم ✨
+    `.trim();
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${targetPhone}?text=${encodedMessage}`, '_blank');
   }
 };

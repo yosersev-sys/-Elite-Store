@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Category, Order, User } from '../types';
 import { ApiService } from '../services/api';
+import { WhatsAppService } from '../services/whatsappService';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -547,7 +548,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <p className="font-black text-emerald-600 text-base">{(Number(order.total) || 0).toFixed(2)} ج.م</p>
                         </div>
                       </div>
-                      <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
+                      
+                      <div className="flex flex-col gap-2 w-full md:w-auto">
+                        <button onClick={() => onViewOrder(order)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg active:scale-95">عرض الفاتورة</button>
+                        {isDelayed && (
+                          <button 
+                            onClick={() => WhatsAppService.sendDebtReminderToCustomer(order)}
+                            className="bg-emerald-50 text-emerald-600 px-6 py-3 rounded-2xl font-black text-[10px] border border-emerald-100 hover:bg-emerald-600 hover:text-white transition shadow-sm flex items-center justify-center gap-2"
+                          >
+                            <span>تنبيه واتساب</span>
+                            <span className="text-xs">💬</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })

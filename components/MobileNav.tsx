@@ -39,25 +39,18 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentView, cartCount, onNavigat
       </div>
 
       <NavItem 
-        active={currentView === 'wishlist'} 
-        icon="❤️" 
-        label="المفضلة" 
-        onClick={() => onNavigate('store')} // يمكن تحويلها لصفحة المفضلة مستقبلاً
+        active={currentView === 'profile'} 
+        icon="👤" 
+        label="حسابي" 
+        onClick={() => onNavigate('profile')} 
       />
 
-      {isAdmin ? (
+      {isAdmin && (
         <NavItem 
           active={currentView === 'admin'} 
           icon="⚙️" 
           label="الإدارة" 
           onClick={() => onNavigate('admin')} 
-        />
-      ) : (
-        <NavItem 
-          active={false} 
-          icon="👤" 
-          label="حسابي" 
-          onClick={() => {}} // يمكن ربطها ببروفايل العميل
         />
       )}
     </nav>
