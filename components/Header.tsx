@@ -60,8 +60,8 @@ const Header: React.FC<HeaderProps> = ({
               />
             </div>
             <div className="flex flex-col">
-              <h1 className="text-xs md:text-xl font-black text-slate-800 leading-none whitespace-nowrap">سوق العصر</h1>
-              <p className="hidden sm:block text-[8px] md:text-[9px] font-black text-emerald-600 uppercase">اول سوق الكتروني في فاقوس</p>
+              <h1 className="text-[10px] md:text-xl font-black text-slate-800 leading-none whitespace-nowrap">سوق العصر</h1>
+              <p className="block text-[6px] md:text-[9px] font-black text-emerald-600 uppercase mt-0.5">اول سوق الكتروني في فاقوس</p>
             </div>
           </div>
 
