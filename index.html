@@ -1,17 +1,28 @@
 
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>سوق العصر - جاري التوجيه...</title>
+    <script>
+        // التوجيه فقط إذا لم نكن بالفعل في صفحة index.php
+        if (!window.location.pathname.endsWith('index.php')) {
+            var currentHash = window.location.hash;
+            window.location.href = 'index.php' + currentHash;
+        }
+    </script>
 <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0"
   }
 }
 </script>
-<script>
-  // التوجيه الذكي مع الحفاظ على الرابط (Hash)
-  var currentHash = window.location.hash;
-  window.location.href = 'index.php' + currentHash;
-</script>
+</head>
+<body style="background: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
+    <p>جاري تحميل المتجر...</p>
+</body>
+</html>

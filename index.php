@@ -1,7 +1,7 @@
 
 <?php
 /**
- * سوق العصر - المحرك الذكي v4.0 (Mobile APK Optimized)
+ * سوق العصر - المحرك الذكي v4.1 (Mobile APK Optimized)
  */
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -23,6 +23,8 @@ header('Content-Type: text/html; charset=utf-8');
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
+    <!-- External Libraries -->
+    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="importmap">
@@ -39,59 +41,31 @@ header('Content-Type: text/html; charset=utf-8');
     
     <style>
         :root { --primary: #10b981; }
-        * { 
-            font-family: 'Cairo', sans-serif; 
-            -webkit-tap-highlight-color: transparent; 
-            letter-spacing: 0em !important; 
-            user-select: none; /* يمنع التحديد المزعج في تطبيقات الجوال */
-        }
-        body { 
-            background: #f8fafc; 
-            margin: 0; 
-            overflow-x: hidden;
-            overscroll-behavior-y: contain; /* Pull-to-refresh control */
-        }
-        
+        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body { background: #f8fafc; margin: 0; overflow-x: hidden; }
         #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 99999; transition: opacity 0.5s; }
         .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(40px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
         .animate-slideUp { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-        /* Mobile specific hacks */
-        @media (max-width: 768px) {
-            .container { padding-left: 1rem; padding-right: 1rem; }
-            input, select, textarea { font-size: 16px !important; } /* يمنع زوم iOS المزعج */
-        }
-
-        /* Hide scrollbar for Chrome, Safari and Opera */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        #error-display { display: none; padding: 20px; color: #e11d48; text-align: center; font-weight: bold; background: #fff1f2; border: 2px solid #fda4af; border-radius: 20px; margin: 20px; }
     </style>
 </head>
 <body>
     <div id="initial-loader">
         <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">سوق العصر - فاقوس</p>
+        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">سوق العصر - جاري التحميل...</p>
+        <div id="error-display"></div>
     </div>
     <div id="root"></div>
 
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
-
-        // تسجيل Service Worker للأندرويد
-        if ('serviceWorker' in navigator) {
-          window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js').then(reg => {
-              console.log('SW Registered');
-            }).catch(err => console.log('SW Failed', err));
-          });
-        }
 
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
@@ -109,7 +83,7 @@ header('Content-Type: text/html; charset=utf-8');
                     }
                 } catch (e) {}
             }
-            throw new Error(`File not found: ${url}`);
+            throw new Error(`تعذر العثور على الملف: ${url}`);
         }
 
         async function getTranspiledUrl(filePath) {
@@ -132,10 +106,7 @@ header('Content-Type: text/html; charset=utf-8');
                 }
 
                 const transformed = Babel.transform(code, {
-                    presets: [
-                        'react',
-                        ['typescript', { isTSX: true, allExtensions: true }]
-                    ],
+                    presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
                     filename: finalUrl,
                 }).code;
 
@@ -160,11 +131,13 @@ header('Content-Type: text/html; charset=utf-8');
                 document.getElementById('initial-loader').style.opacity = '0';
                 setTimeout(() => document.getElementById('initial-loader').remove(), 500);
             } catch (err) {
-                console.error("Critical Start Error:", err);
+                console.error("Critical Load Error:", err);
+                const errorDisplay = document.getElementById('error-display');
                 const loaderText = document.getElementById('loader-text');
-                if (loaderText) {
-                    loaderText.style.color = 'red';
-                    loaderText.innerHTML = `حدث خطأ في تشغيل التطبيق.`;
+                if (errorDisplay) {
+                    errorDisplay.style.display = 'block';
+                    errorDisplay.innerHTML = `حدث خطأ تقني: <br/> ${err.message}`;
+                    if (loaderText) loaderText.style.display = 'none';
                 }
             }
         }

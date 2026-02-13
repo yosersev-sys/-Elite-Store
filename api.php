@@ -1,7 +1,8 @@
+
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v6.5 - ميزة استرداد الفواتير وإدارة المرتجعات
+ * نظام الإدارة المطور v6.7 - معالجة كافة طلبات لوحة التحكم
  */
 session_start();
 error_reporting(E_ALL); 
@@ -23,6 +24,10 @@ function sendRes($data) {
 function sendErr($msg, $code = 400) {
     http_response_code($code);
     sendRes(['status' => 'error', 'message' => $msg]);
+}
+
+function isAdmin() {
+    return ($_SESSION['user']['role'] ?? '') === 'admin';
 }
 
 function initDatabase($pdo) {
@@ -54,6 +59,63 @@ try {
             sendRes($products);
             break;
 
+        case 'add_product':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, wholesalePrice, categoryId, images, stockQuantity, unit, barcode, createdAt, seoSettings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $input['id'], $input['name'], $input['description'], (float)$input['price'], (float)$input['wholesalePrice'], 
+                $input['categoryId'], json_encode($input['images']), (int)$input['stockQuantity'], $input['unit'], 
+                $input['barcode'] ?? '', $input['createdAt'], json_encode($input['seoSettings'] ?? null)
+            ]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'update_product':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, wholesalePrice=?, categoryId=?, images=?, stockQuantity=?, unit=?, barcode=?, seoSettings=? WHERE id=?");
+            $stmt->execute([
+                $input['name'], $input['description'], (float)$input['price'], (float)$input['wholesalePrice'], 
+                $input['categoryId'], json_encode($input['images']), (int)$input['stockQuantity'], $input['unit'], 
+                $input['barcode'] ?? '', json_encode($input['seoSettings'] ?? null), $input['id']
+            ]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_product':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $id = $_GET['id'] ?? $input['id'] ?? '';
+            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
+            $stmt->execute([$id]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'get_categories':
+            $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC");
+            sendRes($stmt->fetchAll() ?: []);
+            break;
+
+        case 'add_category':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("INSERT INTO categories (id, name, image, isActive, sortOrder) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$input['id'], $input['name'], $input['image'] ?? '', (int)($input['isActive'] ?? 1), (int)($input['sortOrder'] ?? 0)]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'update_category':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("UPDATE categories SET name=?, image=?, isActive=?, sortOrder=? WHERE id=?");
+            $stmt->execute([$input['name'], $input['image'] ?? '', (int)($input['isActive'] ?? 1), (int)($input['sortOrder'] ?? 0), $input['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_category':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $id = $_GET['id'] ?? $input['id'] ?? '';
+            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+            $stmt->execute([$id]);
+            sendRes(['status' => 'success']);
+            break;
+
         case 'save_order':
             $pdo->beginTransaction();
             try {
@@ -61,6 +123,7 @@ try {
                 $phone = $input['phone'] ?? '00000000000';
                 $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, createdAt, userId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$input['id'], $customerName, $phone, $input['city'] ?? 'فاقوس', $input['address'] ?? '', (float)($input['subtotal'] ?? $input['total']), (float)$input['total'], json_encode($input['items']), $input['paymentMethod'], 'completed', $input['createdAt'], $input['userId'] ?? null]);
+                
                 $updateStock = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?");
                 foreach ($input['items'] as $item) { 
                     $updateStock->execute([$item['quantity'], $item['quantity'], $item['id']]); 
@@ -71,30 +134,28 @@ try {
             break;
 
         case 'return_order':
-            if (($_SESSION['user']['role'] ?? '') !== 'admin') sendErr('غير مصرح لك', 403);
+            if (!isAdmin()) sendErr('غير مصرح', 403);
             $orderId = $input['id'] ?? '';
-            if (!$orderId) sendErr('رقم الطلب مطلوب');
             $pdo->beginTransaction();
             try {
                 $stmt = $pdo->prepare("SELECT items, status FROM orders WHERE id = ?");
                 $stmt->execute([$orderId]);
                 $order = $stmt->fetch();
-                if (!$order) throw new Exception('الطلب غير موجود');
-                if ($order['status'] === 'cancelled') throw new Exception('هذا الطلب مسترد بالفعل');
+                if (!$order || $order['status'] === 'cancelled') throw new Exception('طلب غير صالح أو مسترد مسبقاً');
+                
                 $items = json_decode($order['items'], true);
                 $updateProduct = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?");
                 foreach ($items as $item) {
                     $updateProduct->execute([$item['quantity'], $item['quantity'], $item['id']]);
                 }
-                $updateOrder = $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?");
-                $updateOrder->execute([$orderId]);
+                $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?")->execute([$orderId]);
                 $pdo->commit();
-                sendRes(['status' => 'success', 'message' => 'تم استرداد الفاتورة بنجاح']);
+                sendRes(['status' => 'success']);
             } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
             break;
 
         case 'get_orders':
-            $isAdmin = ($_SESSION['user']['role'] ?? '') === 'admin';
+            $isAdmin = isAdmin();
             if ($isAdmin) { $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); } 
             else if (isset($_SESSION['user']['phone'])) { $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? OR phone = ? ORDER BY createdAt DESC"); $stmt->execute([$_SESSION['user']['id'], $_SESSION['user']['phone']]); }
             else { sendRes([]); }
@@ -107,6 +168,13 @@ try {
             sendRes($orders);
             break;
 
+        case 'update_order_payment':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
+            $stmt->execute([$input['paymentMethod'], $input['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
         case 'login':
             if (!isset($input['phone'], $input['password'])) sendErr('بيانات ناقصة');
             $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ?");
@@ -116,14 +184,14 @@ try {
                 $userData = ['id' => $user['id'], 'name' => $user['name'], 'phone' => $user['phone'], 'role' => $user['role']];
                 $_SESSION['user'] = $userData;
                 sendRes(['status' => 'success', 'user' => $userData]);
-            } else { sendErr('بيانات غير صحيحة'); }
+            } else { sendErr('بيانات الدخول غير صحيحة'); }
             break;
 
         case 'get_current_user': sendRes($_SESSION['user'] ?? null); break;
         case 'logout': session_destroy(); sendRes(['status' => 'success']); break;
         case 'get_admin_phone': $stmt = $pdo->query("SELECT phone FROM users WHERE role = 'admin' LIMIT 1"); $admin = $stmt->fetch(); sendRes(['phone' => $admin['phone'] ?? '201026034170']); break;
-        
-        default: sendErr('Unknown action');
+
+        default: sendErr('Unknown action: ' . $action);
     }
 } catch (Exception $e) { sendErr($e->getMessage(), 500); }
 ?>
