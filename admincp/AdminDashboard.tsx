@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Category, Order, User } from '../types';
 import { ApiService } from '../services/api';
@@ -33,6 +32,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
@@ -105,6 +105,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return matchesSearch && matchesPayment && matchesDate;
     });
   }, [orders, orderSearch, paymentFilter, startDate, endDate]);
+
+  // منطق تصفية الأعضاء وحساب نشاطهم
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => 
+      u.name.toLowerCase().includes(memberSearch.toLowerCase()) || 
+      u.phone.includes(memberSearch)
+    ).map(u => {
+      const userOrders = orders.filter(o => o.userId === u.id || o.phone === u.phone);
+      const totalSpent = userOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+      return {
+        ...u,
+        orderCount: userOrders.length,
+        totalSpent: totalSpent
+      };
+    });
+  }, [users, memberSearch, orders]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -618,44 +634,125 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {activeTab === 'members' && (
-          <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden animate-fadeIn">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/30">
-               <h3 className="text-xl font-black text-slate-800">الأعضاء المسجلين</h3>
-               <p className="text-slate-400 text-xs font-bold mt-1">عرض كافة العملاء والمديرين المسجلين في النظام</p>
+          <div className="space-y-6 animate-fadeIn">
+            {/* إحصائيات الأعضاء */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center gap-4">
+                 <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl font-black">👥</div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي المسجلين</p>
+                   <p className="text-xl font-black text-slate-800">{users.length} عضو</p>
+                 </div>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center gap-4">
+                 <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl font-black">⭐</div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">العملاء النشطين</p>
+                   <p className="text-xl font-black text-slate-800">{users.filter(u => orders.some(o => o.userId === u.id || o.phone === u.phone)).length} عضو</p>
+                 </div>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center gap-4">
+                 <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-xl font-black">👑</div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">فريق الإدارة</p>
+                   <p className="text-xl font-black text-slate-800">{users.filter(u => u.role === 'admin').length} مدير</p>
+                 </div>
+              </div>
             </div>
-            <table className="w-full text-right">
-              <thead>
-                <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
-                  <th className="px-8 py-6">الاسم</th>
-                  <th className="px-8 py-6">رقم الجوال</th>
-                  <th className="px-8 py-6">الرتبة</th>
-                  <th className="px-8 py-6">تاريخ التسجيل</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50/50 transition">
-                    <td className="px-8 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-xs uppercase">
-                          {u.name[0]}
-                        </div>
-                        <span className="font-black text-slate-800 text-sm">{u.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-4 font-bold text-slate-500 text-sm" dir="ltr">{u.phone}</td>
-                    <td className="px-8 py-4">
-                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black ${u.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
-                        {u.role === 'admin' ? 'مدير' : 'عميل'}
-                      </span>
-                    </td>
-                    <td className="px-8 py-4 text-xs text-slate-400 font-bold">
-                      {new Date(u.createdAt).toLocaleDateString('ar-EG')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+            {/* شريط البحث */}
+            <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
+               <div className="relative">
+                 <input 
+                   type="text" 
+                   placeholder="ابحث عن عضو بالاسم أو رقم الجوال..." 
+                   value={memberSearch}
+                   onChange={e => setMemberSearch(e.target.value)}
+                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-12 py-4 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm transition-all"
+                 />
+                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl opacity-30">🔍</span>
+                 {memberSearch && (
+                   <button onClick={() => setMemberSearch('')} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500 font-black text-xs hover:underline">مسح</button>
+                 )}
+               </div>
+            </div>
+
+            {/* قائمة الأعضاء */}
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+              <div className="overflow-x-auto no-scrollbar">
+                <table className="w-full text-right min-w-[800px]">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
+                      <th className="px-8 py-6">العضو</th>
+                      <th className="px-8 py-6">رقم الجوال</th>
+                      <th className="px-8 py-6 text-center">النشاط</th>
+                      <th className="px-8 py-6 text-center">إجمالي المشتريات</th>
+                      <th className="px-8 py-6 text-center">التواصل</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-8 py-20 text-center">
+                          <p className="text-slate-400 font-black">لا يوجد أعضاء يطابقون بحثك</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map(u => (
+                        <tr key={u.id} className="hover:bg-slate-50/50 transition group">
+                          <td className="px-8 py-5">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black shadow-sm ${u.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                                {u.name[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                   <span className="font-black text-slate-800 text-sm">{u.name}</span>
+                                   {u.role === 'admin' && <span className="text-[8px] bg-purple-600 text-white px-1.5 py-0.5 rounded-md font-black uppercase">مدير</span>}
+                                </div>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">مسجل منذ: {new Date(u.createdAt).toLocaleDateString('ar-EG')}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-8 py-5">
+                            <span className="font-bold text-slate-600 text-sm" dir="ltr">{u.phone}</span>
+                          </td>
+                          <td className="px-8 py-5 text-center">
+                            <div className="inline-flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                               <span className="text-xs font-black text-slate-700">{u.orderCount}</span>
+                               <span className="text-[10px] font-bold text-slate-400">طلبات</span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-5 text-center">
+                            <span className={`font-black text-sm ${u.totalSpent > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                              {u.totalSpent.toLocaleString()} <small className="text-[9px]">ج.م</small>
+                            </span>
+                          </td>
+                          <td className="px-8 py-5">
+                            <div className="flex justify-center gap-2">
+                              <button 
+                                onClick={() => window.open(`https://wa.me/${u.phone.startsWith('0') ? '2'+u.phone : u.phone}`, '_blank')}
+                                className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition shadow-sm group/btn relative"
+                              >
+                                <span className="text-lg">💬</span>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[8px] font-black rounded opacity-0 group-hover/btn:opacity-100 transition whitespace-nowrap">واتساب</div>
+                              </button>
+                              <button 
+                                onClick={() => { setOrderSearch(u.phone); setActiveTab('orders'); }}
+                                className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition shadow-sm group/btn relative"
+                              >
+                                <span className="text-lg">🛍️</span>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-[8px] font-black rounded opacity-0 group-hover/btn:opacity-100 transition whitespace-nowrap">عرض الطلبات</div>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
