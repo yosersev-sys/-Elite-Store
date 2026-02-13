@@ -134,6 +134,12 @@ const App: React.FC = () => {
   }, [currentUser?.id, currentUser?.role]);
 
   const onNavigateAction = (v: View) => {
+    // إذا حاول المستخدم الدخول لصفحة الملف الشخصي وهو غير مسجل، نظهر له نافذة الدخول
+    if ((v === 'profile' || v === 'my-orders') && !currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
+
     setView(v);
     if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
        if (!window.location.hash.includes('admincp')) window.location.hash = '#/admincp';
@@ -174,7 +180,7 @@ const App: React.FC = () => {
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc] pb-24 md:pb-0">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] pb-20 md:pb-0">
       {notification && (
         <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
       )}
@@ -217,7 +223,7 @@ const App: React.FC = () => {
         />
       )}
 
-      <main className={`flex-grow container mx-auto px-4 ${isAdminView ? 'pt-6 pb-6' : 'pt-24 md:pt-32 pb-6'}`}>
+      <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4 pb-4' : 'pt-16 md:pt-32 pb-4'}`}>
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
