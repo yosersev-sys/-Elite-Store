@@ -42,7 +42,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   useEffect(() => {
     const productId = product?.id || null;
     
-    // إذا تغير المنتج (أو انتقلنا من إضافة إلى تعديل أو العكس) نقوم بالتهيئة
     if (productId !== lastProductId.current || !isInitialized.current) {
       if (product) {
         setFormData({
@@ -58,7 +57,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         });
         if (product.seoSettings) setSeoData(product.seoSettings);
       } else {
-        // وضع الإضافة: تصفير الحقول فقط إذا لم نكن قد بدأنا العمل بالفعل
         setFormData({
           name: '', description: '', price: '', wholesalePrice: '', 
           categoryId: categories[0]?.id || '', stockQuantity: '0', 
@@ -69,9 +67,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       isInitialized.current = true;
       lastProductId.current = productId;
     }
-  }, [product]); // نعتمد فقط على تغيير المنتج وليس الأقسام
+  }, [product]);
 
-  // تحديث القسم الافتراضي فقط إذا كان فارغاً وتوفرت الأقسام
   useEffect(() => {
     if (!formData.categoryId && categories.length > 0) {
       setFormData(prev => ({ ...prev, categoryId: categories[0].id }));
@@ -120,6 +117,12 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     }
   };
 
+  const generateRandomBarcode = () => {
+    // توليد باركود مكون من 13 رقماً (مثل EAN-13)
+    const random = Math.floor(Math.random() * 9000000000000) + 1000000000000;
+    setFormData(prev => ({ ...prev, barcode: random.toString() }));
+  };
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.images.length === 0) {
@@ -147,7 +150,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4 animate-fadeIn pb-24">
-      {/* الترويسة */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">
@@ -162,7 +164,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
       <form onSubmit={handleFormSubmit} className="space-y-8">
         
-        {/* معرض الصور */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
@@ -201,7 +202,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        {/* بيانات المنتج */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
           <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
             <span className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">📝</span>
@@ -235,7 +235,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 disabled={isLoadingAi}
                 className="absolute left-4 bottom-4 bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black shadow-lg hover:bg-emerald-600 transition disabled:opacity-50 flex items-center gap-2"
               >
-                {isLoadingAi ? 'جاري التفكير...' : '✨ كتابة ذكية (AI)'}
+                {isLoadingAi ? 'جاري التفكير...' : '✨ كتابة ذكي (AI)'}
               </button>
             </div>
 
@@ -251,15 +251,31 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               </select>
             </div>
 
+            {/* حقل الباركود المطور */}
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الباركود (SKU)</label>
-              <input 
-                value={formData.barcode} 
-                onChange={e => setFormData({...formData, barcode: e.target.value})} 
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition text-left shadow-inner" 
-                dir="ltr"
-                placeholder="628xxxxxxxx"
-              />
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الباركود / SKU</label>
+              <div className="relative group">
+                <input 
+                  value={formData.barcode} 
+                  onChange={e => setFormData({...formData, barcode: e.target.value.replace(/[^0-9a-zA-Z]/g, '')})} 
+                  className="w-full pl-12 pr-28 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-400 font-black transition text-left shadow-inner tracking-widest font-mono text-blue-600" 
+                  dir="ltr"
+                  placeholder="628XXXXXXXXXX"
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                </div>
+                <button 
+                  type="button"
+                  onClick={generateRandomBarcode}
+                  className="absolute right-2 top-2 bottom-2 px-4 bg-blue-50 text-blue-600 rounded-xl text-[9px] font-black hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-95 border border-blue-100"
+                >
+                  توليد عشوائي ⚡
+                </button>
+              </div>
+              <p className="text-[8px] text-slate-400 font-bold mr-2 uppercase">يفضل استخدام باركود المصنع أو توليد واحد فريد للمتجر</p>
             </div>
           </div>
         </section>
