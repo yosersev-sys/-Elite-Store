@@ -52,6 +52,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     );
   }, [products, adminSearch]);
 
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
@@ -200,6 +202,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                  <button onClick={onOpenAddForm} className="flex-grow bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">+ إضافة منتج جديد</button>
               </div>
             </div>
+            
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
               <table className="w-full text-right">
                 <thead>
@@ -216,6 +219,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ))}
                 </tbody>
               </table>
+              
+              {/* Pagination Controls - أدوات التنقل بين الصفحات */}
+              {totalPages > 1 && (
+                <div className="p-6 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
+                  <div className="text-xs font-bold text-slate-400">
+                    عرض {paginatedProducts.length} من أصل {filteredProducts.length} منتج
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      className="px-4 py-2 bg-white border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                    >
+                      السابق
+                    </button>
+                    <div className="bg-white px-4 py-2 rounded-xl border font-black text-xs text-emerald-600">
+                      صفحة {currentPage} من {totalPages}
+                    </div>
+                    <button 
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      className="px-4 py-2 bg-white border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                    >
+                      التالي
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -235,7 +266,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {activeTab === 'orders' && (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {/* بار الفلاتر المتقدم للطلبات */}
             <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 animate-slideDown">
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
