@@ -69,7 +69,6 @@ header('Content-Type: text/html; charset=utf-8');
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
-        import { HashRouter } from 'react-router-dom';
 
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
@@ -136,11 +135,8 @@ header('Content-Type: text/html; charset=utf-8');
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(
-                    React.createElement(HashRouter, null, 
-                        React.createElement(App, null)
-                    )
-                );
+                // إزالة HashRouter المسبب للتعارض
+                root.render(React.createElement(App));
 
                 document.getElementById('initial-loader').style.opacity = '0';
                 setTimeout(() => document.getElementById('initial-loader').remove(), 500);

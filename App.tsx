@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Product, CartItem, Category, Order, User } from './types.ts';
 import Header from './components/Header.tsx';
 import StoreView from './components/StoreView.tsx';
@@ -36,16 +35,26 @@ const App: React.FC = () => {
     setNotification({ message, type });
   };
 
-  const handleRouteLogic = (user: User | null) => {
+  // دالة ذكية للتعامل مع الروابط (Hash Routing)
+  const syncViewWithHash = useCallback((user: User | null) => {
     const hash = window.location.hash;
-    if (hash === '#/admincp') {
+    if (hash.includes('admincp')) {
       if (user && user.role === 'admin') {
-        setView('admin');
+        // إذا كان مديراً، نوجهه للوحة التحكم إلا إذا كان في صفحة فرعية
+        if (view !== 'admin' && view !== 'admin-form' && view !== 'admin-invoice') {
+           setView('admin');
+        }
       } else {
+        // إذا لم يكن مسجلاً أو ليس مديراً، نوجهه لصفحة الدخول
         setView('admin-auth');
       }
+    } else {
+      // إذا مسح الهاش، نرجعه للمتجر إذا كان في صفحات الإدارة
+      if (view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice') {
+        setView('store');
+      }
     }
-  };
+  }, [view]);
 
   const loadData = async () => {
     try {
@@ -63,8 +72,8 @@ const App: React.FC = () => {
         setOrders(fetchedOrders || []);
       }
       
-      // التوجيه بناءً على الرابط بعد تحميل بيانات المستخدم
-      handleRouteLogic(user);
+      // المزامنة فور تحميل البيانات
+      syncViewWithHash(user);
 
     } catch (err) {
       console.error("Data loading error:", err);
@@ -76,33 +85,25 @@ const App: React.FC = () => {
   useEffect(() => { 
     loadData(); 
 
+    // الاستماع لتغيرات الرابط
     const handleHashChange = () => {
-      // نستخدم حالة المستخدم الحالية مباشرة
-      const hash = window.location.hash;
-      if (hash === '#/admincp') {
-        if (currentUser && currentUser.role === 'admin') {
-          setView('admin');
-        } else {
-          setView('admin-auth');
-        }
-      } else if (view === 'admin' || view === 'admin-auth') {
-        // إذا مسح الهاش يدوياً نرجعه للمتجر
-        setView('store');
-      }
+      syncViewWithHash(currentUser);
     };
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [currentUser]);
+  }, [currentUser, syncViewWithHash]);
 
   const onNavigateAction = (v: View) => {
     setView(v);
+    // تحديث الرابط في المتصفح بناءً على العرض المختار
     if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
-       if (window.location.hash !== '#/admincp') {
+       if (!window.location.hash.includes('admincp')) {
           window.location.hash = '#/admincp';
        }
     } else {
-       if (window.location.hash === '#/admincp') {
+       if (window.location.hash.includes('admincp')) {
+         // إزالة الهاش عند العودة للمتجر
          window.history.pushState("", document.title, window.location.pathname + window.location.search);
        }
     }

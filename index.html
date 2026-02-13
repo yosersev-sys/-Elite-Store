@@ -9,5 +9,5 @@
   }
 }
 </script>
-<!-- تم استبدال هذا الملف بـ index.php للعمل بشكل أفضل مع السيرفر -->
-<script>window.location.href = 'index.php';</script>
+<!-- ضمان نقل الرابط (hash) عند التحويل -->
+<script>window.location.href = 'index.php' + window.location.hash;</script>
