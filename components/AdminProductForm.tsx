@@ -19,6 +19,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     name: '',
     description: '',
     price: '',
+    // Added wholesalePrice to formData state
+    wholesalePrice: '',
     categoryId: '',
     stockQuantity: '0',
     // Added unit to formData state
@@ -41,6 +43,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         name: product.name,
         description: product.description,
         price: product.price.toString(),
+        // Initialize wholesalePrice from product or default to 0
+        wholesalePrice: (product.wholesalePrice || 0).toString(),
         categoryId: product.categoryId,
         stockQuantity: (product.stockQuantity || 0).toString(),
         // Set unit from product
@@ -52,8 +56,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       if (product.seoSettings) setSeoData(product.seoSettings);
     } else {
       setFormData({
-        name: '', description: '', price: '', categoryId: categories[0]?.id || '', 
-        // Initial unit value
+        name: '', description: '', price: '', wholesalePrice: '', categoryId: categories[0]?.id || '', 
+        // Initial values
         stockQuantity: '10', unit: 'piece', sizes: '', colors: '', images: [] 
       });
     }
@@ -100,12 +104,14 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     e.preventDefault();
     if (formData.images.length === 0) return alert('يرجى إضافة صورة واحدة على الأقل');
 
-    // Include required 'unit' property in productData to fix Type error
+    // Include required 'unit' and 'wholesalePrice' properties in productData to fix Type error
     const productData: Product = {
       id: product ? product.id : Date.now().toString(),
       name: formData.name,
       description: formData.description,
-      price: parseFloat(formData.price),
+      price: parseFloat(formData.price) || 0,
+      // Added missing wholesalePrice field to comply with Product interface
+      wholesalePrice: parseFloat(formData.wholesalePrice) || 0,
       categoryId: formData.categoryId,
       stockQuantity: parseInt(formData.stockQuantity) || 0,
       unit: formData.unit,
@@ -169,8 +175,13 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+            {/* Added input field for Wholesale Price as required by the Product interface */}
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500 mr-2">السعر (ر.س)</label>
+              <label className="text-sm font-bold text-slate-500 mr-2">سعر الجملة (ر.س)</label>
+              <input required type="number" value={formData.wholesalePrice} onChange={e => setFormData({...formData, wholesalePrice: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="0.00" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">سعر البيع (ر.س)</label>
               <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="0.00" />
             </div>
             {/* Added unit selection UI to sync with interface requirements */}

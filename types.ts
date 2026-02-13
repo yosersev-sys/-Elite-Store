@@ -24,13 +24,14 @@ export interface Product {
   id: string;
   name: string;
   description: string;
-  price: number;
+  price: number; // سعر البيع
+  wholesalePrice: number; // سعر الجملة
   categoryId: string;
   images: string[];
   sizes?: string[]; 
   colors?: string[]; 
   stockQuantity: number;
-  unit: 'piece' | 'kg' | 'gram'; // الوحدة الجديدة
+  unit: 'piece' | 'kg' | 'gram';
   barcode?: string;
   createdAt: number;
   salesCount?: number;
