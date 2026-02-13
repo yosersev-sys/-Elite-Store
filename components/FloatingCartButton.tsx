@@ -11,7 +11,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ count, onClick,
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-8 right-8 z-50 group md:bottom-12 md:right-12">
+    <div className="hidden md:block fixed bottom-12 right-12 z-50 group">
       {/* التلميح (Tooltip) */}
       <div className="absolute bottom-full right-0 mb-4 px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-2xl">
         عرض سلة المشتريات 🛒
