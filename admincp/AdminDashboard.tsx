@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, Category, Order } from '../types';
-import { ApiService } from '../services/api';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -14,7 +13,7 @@ interface AdminDashboardProps {
   onAddCategory: (category: Category) => void;
   onUpdateCategory: (category: Category) => void;
   onDeleteCategory: (id: string) => void;
-  onUpdateOrder?: (order: Order) => void;
+  onViewOrder: (order: Order) => void; // الحقل الجديد
   soundEnabled: boolean;
   onToggleSound: () => void;
 }
@@ -24,7 +23,7 @@ type AdminTab = 'stats' | 'products' | 'categories' | 'orders';
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, categories, orders, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
   onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory,
-  soundEnabled, onToggleSound
+  onViewOrder, soundEnabled, onToggleSound
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
@@ -206,7 +205,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <p className="font-bold text-slate-700 text-xs">{new Date(order.createdAt).toLocaleDateString('ar-SA')}</p>
                     </div>
                   </div>
-                  <button onClick={() => window.location.hash = '#/order-success/' + order.id} className="bg-slate-100 px-6 py-2 rounded-xl font-bold text-xs hover:bg-slate-200 transition">تفاصيل الفاتورة</button>
+                  <button 
+                    onClick={() => onViewOrder(order)} 
+                    className="bg-slate-100 px-6 py-2 rounded-xl font-bold text-xs hover:bg-slate-200 transition"
+                  >
+                    تفاصيل الفاتورة
+                  </button>
                 </div>
               ))}
               {orders.length === 0 && <div className="text-center py-20 text-slate-400 font-bold">لا يوجد طلبات حالياً</div>}

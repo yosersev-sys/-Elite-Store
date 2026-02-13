@@ -235,6 +235,10 @@ const App: React.FC = () => {
                 const success = await ApiService.deleteCategory(id); 
                 if (success) { showNotify('تم حذف القسم بنجاح'); loadData(); }
             }}
+            onViewOrder={(order) => {
+              setLastCreatedOrder(order);
+              onNavigateAction('order-success');
+            }}
             soundEnabled={soundEnabled}
             onToggleSound={() => setSoundEnabled(!soundEnabled)}
           />
@@ -298,6 +302,7 @@ const App: React.FC = () => {
         {view === 'checkout' && (
           <CheckoutView 
             cart={cart}
+            currentUser={currentUser}
             onBack={() => onNavigateAction('cart')}
             onPlaceOrder={async (details) => {
               const totalAmount = cart.reduce((s, i) => s + (i.price * i.quantity), 0);

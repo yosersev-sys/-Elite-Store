@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
-import { CartItem } from '../types';
+import React, { useState, useEffect } from 'react';
+import { CartItem, User } from '../types';
 
 interface CheckoutViewProps {
   cart: CartItem[];
+  currentUser: User | null;
   onPlaceOrder: (details: any) => void;
   onBack: () => void;
 }
@@ -14,7 +15,7 @@ interface FormErrors {
   address?: string;
 }
 
-const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack }) => {
+const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceOrder, onBack }) => {
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -22,6 +23,17 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // التعبئة التلقائية عند التحميل أو عند تغير المستخدم
+  useEffect(() => {
+    if (currentUser) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: currentUser.name || '',
+        phone: currentUser.phone || '',
+      }));
+    }
+  }, [currentUser]);
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
@@ -55,7 +67,6 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, onPlaceOrder, onBack 
 
   const handleConfirmOrder = () => {
     if (validate()) {
-      // إرسال البيانات مع قيم افتراضية للمدينة وطريقة الدفع للحفاظ على توافق النظام
       onPlaceOrder({
         ...formData,
         city: 'فاقوس',
