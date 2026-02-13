@@ -226,7 +226,7 @@ const App: React.FC = () => {
             cart={cart} 
             onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
             onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
-            onCheckout={() => currentUser ? onNavigateAction('checkout') : setShowAuthModal(true)}
+            onCheckout={() => onNavigateAction('checkout')}
             onContinueShopping={() => onNavigateAction('store')}
           />
         )}
@@ -254,7 +254,7 @@ const App: React.FC = () => {
                 total: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
                 subtotal: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
                 createdAt: Date.now(),
-                status: 'completed', // الحالة دائماً مكتملة فور الإرسال
+                status: 'completed',
                 userId: currentUser?.id
               };
               await ApiService.saveOrder(newOrder);
