@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User } from './types.ts';
 import Header from './components/Header.tsx';
@@ -15,8 +16,8 @@ import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import { ApiService } from './services/api.ts';
+import { WhatsAppService } from './services/whatsappService.ts';
 
-// رابط صوت التنبيه
 const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const App: React.FC = () => {
@@ -75,7 +76,6 @@ const App: React.FC = () => {
       if (!isSilent) setIsLoading(true);
       
       const user = await ApiService.getCurrentUser();
-      // تحديث المستخدم فقط إذا تغيرت حالته لتجنب دورات إعادة التصيير غير الضرورية
       setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
       
       const fetchedProducts = await ApiService.getProducts();
@@ -275,6 +275,8 @@ const App: React.FC = () => {
               if (success) {
                 setLastCreatedOrder(order);
                 showNotify('تم إصدار الفاتورة بنجاح');
+                // إرسال نسخة واتساب تلقائياً
+                WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                 await loadData();
                 onNavigateAction('order-success');
               } else {
@@ -333,6 +335,8 @@ const App: React.FC = () => {
                 setLastCreatedOrder(newOrder);
                 setCart([]);
                 showNotify('تم إرسال طلبك بنجاح');
+                // إرسال إشعار للمدير عبر واتساب
+                WhatsAppService.sendOrderNotification(newOrder);
                 onNavigateAction('order-success');
                 loadData();
               } else {
