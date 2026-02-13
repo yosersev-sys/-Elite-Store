@@ -14,6 +14,7 @@ import AuthView from './components/AuthView.tsx';
 import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import FloatingCartButton from './components/FloatingCartButton.tsx';
+import FloatingQuickInvoiceButton from './components/FloatingQuickInvoiceButton.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
@@ -281,7 +282,6 @@ const App: React.FC = () => {
             initialCustomerName={currentUser ? currentUser.name : 'عميل زائر'}
             initialPhone={currentUser ? currentUser.phone : ''}
             onSubmit={async (order) => {
-              // ربط الطلب بالمستخدم الحالي إذا كان مسجلاً
               if (currentUser) {
                 order.userId = currentUser.id;
               }
@@ -384,11 +384,17 @@ const App: React.FC = () => {
 
       {/* الأزرار العائمة */}
       {!isAdminView && (
-        <FloatingCartButton 
-          count={cart.length} 
-          onClick={() => onNavigateAction('cart')} 
-          isVisible={view !== 'cart' && view !== 'checkout'}
-        />
+        <>
+          <FloatingCartButton 
+            count={cart.length} 
+            onClick={() => onNavigateAction('cart')} 
+            isVisible={view !== 'cart' && view !== 'checkout'}
+          />
+          <FloatingQuickInvoiceButton 
+            currentView={view}
+            onNavigate={onNavigateAction}
+          />
+        </>
       )}
 
       {currentUser?.role === 'admin' && view !== 'admin' && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
