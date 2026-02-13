@@ -15,6 +15,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const [isLoadingSeo, setIsLoadingSeo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // لمنع إعادة التهيئة عند التحديثات الدورية في الخلفية
+  const isInitialized = useRef(false);
+  const lastProductId = useRef<string | null>(null);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -34,29 +38,45 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
+  // تهيئة البيانات فقط عند تغيير المنتج المختار أو عند الفتح لأول مرة
   useEffect(() => {
-    if (product) {
-      setFormData({
-        name: product.name || '',
-        description: product.description || '',
-        price: product.price?.toString() || '',
-        wholesalePrice: product.wholesalePrice?.toString() || '',
-        categoryId: product.categoryId || (categories[0]?.id || ''),
-        stockQuantity: (product.stockQuantity || 0).toString(),
-        unit: product.unit || 'piece',
-        barcode: product.barcode || '',
-        images: product.images || []
-      });
-      if (product.seoSettings) setSeoData(product.seoSettings);
-    } else {
-      setFormData({
-        name: '', description: '', price: '', wholesalePrice: '', 
-        categoryId: categories[0]?.id || '', stockQuantity: '0', 
-        unit: 'piece', barcode: '', images: []
-      });
-      setSeoData({ metaTitle: '', metaDescription: '', metaKeywords: '', slug: '' });
+    const productId = product?.id || null;
+    
+    // إذا تغير المنتج (أو انتقلنا من إضافة إلى تعديل أو العكس) نقوم بالتهيئة
+    if (productId !== lastProductId.current || !isInitialized.current) {
+      if (product) {
+        setFormData({
+          name: product.name || '',
+          description: product.description || '',
+          price: product.price?.toString() || '',
+          wholesalePrice: product.wholesalePrice?.toString() || '',
+          categoryId: product.categoryId || (categories[0]?.id || ''),
+          stockQuantity: (product.stockQuantity || 0).toString(),
+          unit: product.unit || 'piece',
+          barcode: product.barcode || '',
+          images: product.images || []
+        });
+        if (product.seoSettings) setSeoData(product.seoSettings);
+      } else {
+        // وضع الإضافة: تصفير الحقول فقط إذا لم نكن قد بدأنا العمل بالفعل
+        setFormData({
+          name: '', description: '', price: '', wholesalePrice: '', 
+          categoryId: categories[0]?.id || '', stockQuantity: '0', 
+          unit: 'piece', barcode: '', images: []
+        });
+        setSeoData({ metaTitle: '', metaDescription: '', metaKeywords: '', slug: '' });
+      }
+      isInitialized.current = true;
+      lastProductId.current = productId;
     }
-  }, [product, categories]);
+  }, [product]); // نعتمد فقط على تغيير المنتج وليس الأقسام
+
+  // تحديث القسم الافتراضي فقط إذا كان فارغاً وتوفرت الأقسام
+  useEffect(() => {
+    if (!formData.categoryId && categories.length > 0) {
+      setFormData(prev => ({ ...prev, categoryId: categories[0].id }));
+    }
+  }, [categories, formData.categoryId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -142,7 +162,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
       <form onSubmit={handleFormSubmit} className="space-y-8">
         
-        {/* قسم الصور - المعاد بناؤه */}
+        {/* معرض الصور */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
@@ -181,7 +201,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        {/* المعلومات الأساسية */}
+        {/* بيانات المنتج */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
           <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
             <span className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">📝</span>
@@ -244,7 +264,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        {/* الأسعار والمخزون */}
+        {/* الأسعار والمخازن */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
           <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
             <span className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">💰</span>
@@ -311,7 +331,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        {/* تحسين محركات البحث */}
+        {/* SEO الذكي */}
         <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
