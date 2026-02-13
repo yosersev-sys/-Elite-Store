@@ -28,6 +28,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
   
+  // نظام ترقيم الصفحات
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
   // لنموذج إضافة/تعديل القسم
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [catFormData, setCatFormData] = useState<Category>({
@@ -36,6 +40,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // تصفية المنتجات بناءً على البحث
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => 
+      p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
+      (p.barcode && p.barcode.includes(adminSearch))
+    );
+  }, [products, adminSearch]);
+
+  // تقسيم المنتجات المفلترة إلى صفحات
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProducts, currentPage]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+  // إعادة ضبط الصفحة عند البحث أو تغيير التبويب
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [adminSearch, activeTab]);
 
   const criticalStockProducts = useMemo(() => {
     return products.filter(p => p.stockQuantity < 5 && p.stockQuantity >= 0);
@@ -59,13 +84,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       criticalCount: criticalStockProducts.length
     };
   }, [products, orders, criticalStockProducts]);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => 
-      p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
-      (p.barcode && p.barcode.includes(adminSearch))
-    );
-  }, [products, adminSearch]);
 
   const handleEditCategory = (cat: Category) => {
     setCatFormData(cat);
@@ -192,7 +210,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {filteredProducts.map(p => {
+                      {paginatedProducts.map(p => {
                         const margin = p.price - (p.wholesalePrice || 0);
                         const isCritical = p.stockQuantity < 5;
                         return (
@@ -225,9 +243,52 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </tr>
                         );
                       })}
+                      {paginatedProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-20 text-center text-slate-400 font-bold">لا توجد منتجات مطابقة للبحث</td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
+
+                {/* شريط ترقيم الصفحات - التحديث الجديد */}
+                {totalPages > 1 && (
+                  <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                      عرض {Math.min(filteredProducts.length, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(filteredProducts.length, currentPage * itemsPerPage)} من إجمالي {filteredProducts.length} منتج
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 transition disabled:opacity-30 disabled:hover:bg-white"
+                      >
+                        السابق
+                      </button>
+                      
+                      <div className="flex items-center gap-1">
+                        {[...Array(totalPages)].map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i + 1)}
+                            className={`w-8 h-8 rounded-xl text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:bg-slate-100'}`}
+                          >
+                            {i + 1}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button 
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 transition disabled:opacity-30 disabled:hover:bg-white"
+                      >
+                        التالي
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
