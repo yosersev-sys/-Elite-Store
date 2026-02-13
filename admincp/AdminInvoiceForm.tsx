@@ -58,12 +58,12 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
   // التعامل مع الباركود: يتم التنفيذ فقط إذا كان هناك نص حقيقي في البحث
   useEffect(() => {
     const trimmedQuery = searchQuery.trim();
-    if (!trimmedQuery) return; // منع الزيادة التلقائية عند فراغ الحقل
+    if (!trimmedQuery) return; 
 
     const exactMatch = products.find(p => p.barcode && p.barcode === trimmedQuery);
     if (exactMatch) {
       addItemToInvoice(exactMatch);
-      setSearchQuery(''); // مسح الحقل فوراً لمنع التكرار
+      setSearchQuery(''); 
       if (searchInputRef.current) searchInputRef.current.focus();
     }
   }, [searchQuery, products]);
@@ -100,7 +100,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
     const newOrder: Order = {
       id: 'INV-' + Date.now().toString().slice(-6),
       customerName: customerInfo.name,
-      phone: customerInfo.phone,
+      phone: customerInfo.phone || '00000000000',
       city: customerInfo.city,
       address: customerInfo.address,
       items: invoiceItems,
@@ -250,25 +250,20 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ products, onSubmit,
         {/* عمود بيانات العميل والملخص */}
         <div className="lg:col-span-4 space-y-8">
            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
-              <h3 className="font-black text-slate-800 text-xl border-b pb-4 border-slate-50">بيانات الفاتورة</h3>
+              <h3 className="font-black text-slate-800 text-xl border-b pb-4 border-slate-50 text-center">بيانات العميل</h3>
               
               <div className="space-y-4">
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">اسم المشتري</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم الجوال (مطلوب للبحث/التواصل)</label>
                     <input 
-                      value={customerInfo.name}
-                      onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
-                    />
-                 </div>
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم الهاتف (اختياري)</label>
-                    <input 
+                      required
+                      type="tel"
                       value={customerInfo.phone}
                       onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
                       placeholder="01xxxxxxxxx"
-                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-center tracking-widest"
                     />
+                    <p className="text-[9px] text-slate-400 text-center font-bold">سيتم تسجيل الفاتورة تلقائياً باسم: <span className="text-emerald-600">عميل نقدي</span></p>
                  </div>
               </div>
 
