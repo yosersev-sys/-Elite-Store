@@ -254,15 +254,6 @@ const App: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
-        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-black text-emerald-600 italic">سوق العصر - فاقوس</p>
-      </div>
-    );
-  }
-
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
 
   return (

@@ -44,24 +44,17 @@ header('Content-Type: text/html; charset=utf-8');
         :root { --primary: #10b981; }
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 99999; transition: opacity 0.5s; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
         .animate-slideUp { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        #error-display { display: none; padding: 20px; color: #e11d48; text-align: center; font-weight: bold; background: #fff1f2; border: 2px solid #fda4af; border-radius: 20px; margin: 20px; }
+        #error-display { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px; color: #e11d48; text-align: center; font-weight: bold; background: #fff1f2; border: 2px solid #fda4af; border-radius: 20px; z-index: 9999; display: none; }
     </style>
 </head>
 <body>
-    <div id="initial-loader">
-        <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">سوق العصر - جاري التحميل...</p>
-        <div id="error-display"></div>
-    </div>
+    <div id="error-display"></div>
     <div id="root"></div>
 
     <script type="module">
@@ -131,17 +124,12 @@ header('Content-Type: text/html; charset=utf-8');
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
                 root.render(React.createElement(App));
-
-                document.getElementById('initial-loader').style.opacity = '0';
-                setTimeout(() => document.getElementById('initial-loader').remove(), 500);
             } catch (err) {
                 console.error("Critical Load Error:", err);
                 const errorDisplay = document.getElementById('error-display');
-                const loaderText = document.getElementById('loader-text');
                 if (errorDisplay) {
                     errorDisplay.style.display = 'block';
-                    errorDisplay.innerHTML = `حدث خطأ تقني: <br/> ${err.message}`;
-                    if (loaderText) loaderText.style.display = 'none';
+                    errorDisplay.innerHTML = `حدث خطأ تقني في تحميل المتجر: <br/> ${err.message}`;
                 }
             }
         }
