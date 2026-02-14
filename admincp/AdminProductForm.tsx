@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings } from '../types';
-import { generateProductDescription, generateSeoData } from '../services/geminiService';
+import { generateProductDescription, generateSeoData, generateProductImage } from '../services/geminiService';
 import BarcodeScanner from '../components/BarcodeScanner';
 
 interface AdminProductFormProps {
@@ -13,6 +13,7 @@ interface AdminProductFormProps {
 const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, onSubmit, onCancel }) => {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [isLoadingSeo, setIsLoadingSeo] = useState(false);
+  const [isGeneratingImg, setIsGeneratingImg] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,6 +101,25 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const handleGenerateAiImage = async () => {
+    if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً لتوليد صورة مناسبة');
+    
+    setIsGeneratingImg(true);
+    try {
+      const catName = categories.find(c => c.id === formData.categoryId)?.name || 'Product';
+      const imageUrl = await generateProductImage(formData.name, catName);
+      if (imageUrl) {
+        setFormData(prev => ({ ...prev, images: [...prev.images, imageUrl] }));
+      } else {
+        alert('عذراً، لم نتمكن من توليد الصورة حالياً. يرجى المحاولة مرة أخرى.');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بخدمة الذكاء الاصطناعي');
+    } finally {
+      setIsGeneratingImg(false);
+    }
   };
 
   const generateRandomBarcode = () => {
@@ -231,10 +251,30 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                   {index === 0 && <div className="absolute bottom-0 inset-x-0 bg-indigo-600 text-white text-[10px] text-center py-1 font-bold">الرئيسية</div>}
                 </div>
               ))}
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 hover:bg-indigo-50 transition">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                <span className="text-[10px] font-bold">إضافة صورة</span>
+              
+              <button 
+                type="button" 
+                onClick={() => fileInputRef.current?.click()} 
+                className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 hover:bg-indigo-50 transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                <span className="text-[10px] font-bold">رفع صور</span>
               </button>
+
+              <button 
+                type="button" 
+                onClick={handleGenerateAiImage}
+                disabled={isGeneratingImg}
+                className="aspect-square rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/30 flex flex-col items-center justify-center gap-2 text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition group disabled:opacity-50"
+              >
+                {isGeneratingImg ? (
+                  <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-6 h-6 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-7.714 2.143L11 21l-2.286-6.857L1 12l7.714-2.143L11 3z" /></svg>
+                )}
+                <span className="text-[9px] font-black text-center px-2">{isGeneratingImg ? 'جاري التوليد...' : 'توليد بالذكاء الاصطناعي'}</span>
+              </button>
+
               <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
             </div>
           </div>
