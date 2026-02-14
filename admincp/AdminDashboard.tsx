@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Category, Order, User } from '../types';
 import { ApiService } from '../services/api';
 import { WhatsAppService } from '../services/whatsappService';
+import { generateSeoData } from '../services/geminiService';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -43,7 +44,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cash' | 'delayed'>('all');
 
   // فلتر التقارير
-  const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]); // أول الشهر الحالي
+  const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]); 
   const [reportEnd, setReportEnd] = useState(new Date().toISOString().split('T')[0]);
 
   const [isEditingCategory, setIsEditingCategory] = useState(false);
@@ -69,7 +70,57 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
+  // إعدادات SEO للمتجر
+  const [storeSeo, setStoreSeo] = useState({
+    store_meta_title: '',
+    store_meta_description: '',
+    store_meta_keywords: ''
+  });
+  const [isLoadingSeoSettings, setIsLoadingSeoSettings] = useState(false);
+  const [isSavingSeo, setIsSavingSeo] = useState(false);
+  const [isGeneratingSeoAi, setIsGeneratingSeoAi] = useState(false);
+
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'settings') {
+      const fetchSettings = async () => {
+        setIsLoadingSeoSettings(true);
+        const settings = await ApiService.getStoreSettings();
+        setStoreSeo({
+          store_meta_title: settings.store_meta_title || '',
+          store_meta_description: settings.store_meta_description || '',
+          store_meta_keywords: settings.store_meta_keywords || ''
+        });
+        setIsLoadingSeoSettings(false);
+      };
+      fetchSettings();
+    }
+  }, [activeTab]);
+
+  const handleSaveSeo = async () => {
+    setIsSavingSeo(true);
+    const success = await ApiService.updateStoreSettings(storeSeo);
+    if (success) alert('تم حفظ إعدادات SEO بنجاح ✅');
+    else alert('فشل حفظ الإعدادات');
+    setIsSavingSeo(false);
+  };
+
+  const handleGenerateStoreSeoAi = async () => {
+    setIsGeneratingSeoAi(true);
+    const result = await generateSeoData(
+      "سوق العصر - فاقوس", 
+      "أول وأكبر متجر إلكتروني في مدينة فاقوس يوفر الخضروات، الفواكه، ومنتجات السوبر ماركت الطازجة مع توصيل سريع."
+    );
+    if (result) {
+      setStoreSeo({
+        store_meta_title: result.metaTitle,
+        store_meta_description: result.metaDescription,
+        store_meta_keywords: result.metaKeywords
+      });
+    }
+    setIsGeneratingSeoAi(false);
+  };
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -1092,7 +1143,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {activeTab === 'settings' && (
-          <div className="max-w-2xl mx-auto py-8 animate-fadeIn">
+          <div className="max-w-4xl mx-auto py-8 space-y-10 animate-fadeIn">
+            {/* Account Settings */}
             <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-emerald-100">
                <div className="flex items-center gap-4 border-b pb-6 mb-8">
                   <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl">👤</div>
@@ -1103,25 +1155,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                </div>
 
                <form onSubmit={handleUpdateProfile} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الاسم الكامل</label>
-                    <input 
-                      type="text"
-                      value={profileData.name}
-                      onChange={e => setProfileData({...profileData, name: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الاسم الكامل</label>
+                      <input 
+                        type="text"
+                        value={profileData.name}
+                        onChange={e => setProfileData({...profileData, name: e.target.value})}
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال (اسم المستخدم الجديد)</label>
-                    <input 
-                      type="tel"
-                      value={profileData.phone}
-                      onChange={e => setProfileData({...profileData, phone: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner text-left"
-                      dir="ltr"
-                    />
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال (اسم المستخدم الجديد)</label>
+                      <input 
+                        type="tel"
+                        value={profileData.phone}
+                        onChange={e => setProfileData({...profileData, phone: e.target.value})}
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner text-left"
+                        dir="ltr"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -1150,7 +1204,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     disabled={isUpdatingProfile}
                     className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl hover:bg-emerald-600 transition shadow-lg active:scale-95 disabled:opacity-50 mt-4"
                   >
-                    {isUpdatingProfile ? 'جاري الحفظ...' : 'حفظ التغييرات ✨'}
+                    {isUpdatingProfile ? 'جاري الحفظ...' : 'حفظ تغييرات الحساب ✨'}
                   </button>
                </form>
 
@@ -1162,6 +1216,89 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     تسجيل الخروج 👋
                   </button>
                </div>
+            </div>
+
+            {/* Store SEO Settings */}
+            <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-emerald-100">
+               <div className="flex items-center justify-between border-b pb-6 mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl">🌐</div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">إعدادات تحسين محركات البحث (SEO)</h3>
+                      <p className="text-slate-400 text-xs font-bold">تحسين ظهور متجر سوق العصر في نتائج جوجل</p>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={handleGenerateStoreSeoAi} 
+                    disabled={isGeneratingSeoAi}
+                    className="bg-emerald-500 text-white px-5 py-2.5 rounded-2xl font-black text-[10px] hover:bg-emerald-600 transition shadow-lg shadow-emerald-100 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isGeneratingSeoAi ? 'جاري التوليد...' : '✨ توليد ذكي للمتجر'}
+                  </button>
+               </div>
+
+               {isLoadingSeoSettings ? (
+                 <div className="py-10 text-center">
+                   <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                   <p className="font-bold text-slate-400">جاري تحميل الإعدادات...</p>
+                 </div>
+               ) : (
+                 <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase mr-2 flex justify-between">
+                        عنوان المتجر (Site Title)
+                        <span className="text-slate-300">{storeSeo.store_meta_title.length}/60 حرف</span>
+                      </label>
+                      <input 
+                        value={storeSeo.store_meta_title}
+                        onChange={e => setStoreSeo({...storeSeo, store_meta_title: e.target.value})}
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                        placeholder="سوق العصر - أول متجر إلكتروني في فاقوس"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase mr-2 flex justify-between">
+                        وصف المتجر (Site Meta Description)
+                        <span className="text-slate-300">{storeSeo.store_meta_description.length}/160 حرف</span>
+                      </label>
+                      <textarea 
+                        value={storeSeo.store_meta_description}
+                        onChange={e => setStoreSeo({...storeSeo, store_meta_description: e.target.value})}
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner min-h-[120px] resize-none"
+                        placeholder="تسوق الآن من سوق العصر، الخيار الأول لأهالي فاقوس للحصول على أفضل المنتجات الطازجة..."
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الكلمات المفتاحية (Site Keywords)</label>
+                      <input 
+                        value={storeSeo.store_meta_keywords}
+                        onChange={e => setStoreSeo({...storeSeo, store_meta_keywords: e.target.value})}
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition shadow-inner"
+                        placeholder="فاقوس، متجر إلكتروني، خضروات، سوبر ماركت، توصيل"
+                      />
+                    </div>
+
+                    <button 
+                      onClick={handleSaveSeo}
+                      disabled={isSavingSeo}
+                      className="w-full bg-emerald-600 text-white py-5 rounded-[2rem] font-black text-xl hover:bg-slate-900 transition shadow-lg active:scale-95 disabled:opacity-50 mt-4"
+                    >
+                      {isSavingSeo ? 'جاري الحفظ...' : 'حفظ إعدادات SEO 🌐'}
+                    </button>
+                    
+                    <div className="p-6 bg-blue-50 rounded-[2rem] border border-blue-100">
+                       <h4 className="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2 flex items-center gap-2">معاينة نتيجة البحث (Google Store Preview)</h4>
+                       <div className="space-y-1">
+                          <p className="text-xs text-blue-500">https://soqalasr.com</p>
+                          <p className="text-xl text-blue-800 font-bold hover:underline cursor-pointer">{storeSeo.store_meta_title || 'سوق العصر - فاقوس'}</p>
+                          <p className="text-sm text-slate-600 leading-relaxed line-clamp-2">{storeSeo.store_meta_description || 'تسوق أونلاين بكل سهولة من هاتفك الأندرويد في مدينة فاقوس...'}</p>
+                       </div>
+                    </div>
+                 </div>
+               )}
             </div>
           </div>
         )}

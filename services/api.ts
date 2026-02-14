@@ -137,5 +137,17 @@ export const ApiService = {
       body: JSON.stringify({ id, paymentMethod })
     });
     return result?.status === 'success';
+  },
+
+  async getStoreSettings(): Promise<Record<string, string>> {
+    return await safeFetch('get_store_settings') || {};
+  },
+
+  async updateStoreSettings(settings: Record<string, string>): Promise<boolean> {
+    const result = await safeFetch('update_store_settings', {
+      method: 'POST',
+      body: JSON.stringify(settings)
+    });
+    return result?.status === 'success';
   }
 };
