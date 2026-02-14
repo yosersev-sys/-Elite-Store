@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings } from '../types';
-import { generateProductDescription, generateSeoData, generateProductImage } from '../services/geminiService';
 import BarcodeScanner from '../components/BarcodeScanner';
 
 interface AdminProductFormProps {
@@ -11,9 +10,6 @@ interface AdminProductFormProps {
 }
 
 const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, onSubmit, onCancel }) => {
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
-  const [isLoadingSeo, setIsLoadingSeo] = useState(false);
-  const [isGeneratingImg, setIsGeneratingImg] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,6 +70,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     initialSetupDone.current = true;
   }, [product, categories.length]);
 
+  // توليد الرابط (Slug) تلقائياً من الاسم (وظيفة برمجية بسيطة وليست ذكاء اصطناعي)
   useEffect(() => {
     if (!isSlugManuallyEdited.current && formData.name) {
       const generatedSlug = formData.name
@@ -100,66 +97,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     });
   };
 
-  const handleGenerateAiImage = async () => {
-    const cleanedName = formData.name.trim();
-    if (!cleanedName) return alert('يرجى إدخال اسم المنتج أولاً لتحليله وتوليد صورة له');
-    
-    setIsGeneratingImg(true);
-    try {
-      const catName = categories.find(c => c.id === formData.categoryId)?.name || 'General Product';
-      const imageUrl = await generateProductImage(cleanedName, catName);
-      
-      if (imageUrl) {
-        setFormData(prev => ({ ...prev, images: [...prev.images, imageUrl] }));
-      } else {
-        alert('تعذر التوليد. الأسباب المحتملة:\n1. مفتاح الـ API غير صالح أو انتهى رصيده.\n2. اسم المنتج قد يحتوي على كلمات محظورة في فلاتر الأمان.\n3. ضعف في اتصال الإنترنت.');
-      }
-    } catch (err) {
-      console.error("UI Error:", err);
-      alert('حدث خطأ غير متوقع في نظام التوليد.');
-    } finally {
-      setIsGeneratingImg(false);
-    }
-  };
-
   const generateRandomBarcode = () => {
     const random = Math.floor(Math.random() * 9000000000000) + 1000000000000;
     setFormData(prev => ({ ...prev, barcode: random.toString() }));
-  };
-
-  const handleAiDescription = async () => {
-    if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً');
-    setIsLoadingAi(true);
-    try {
-      const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
-      const desc = await generateProductDescription(formData.name, catName);
-      setFormData(prev => ({ ...prev, description: desc }));
-    } catch (err) {
-      alert('حدث خطأ أثناء الاتصال بالذكاء الاصطناعي');
-    } finally {
-      setIsLoadingAi(false);
-    }
-  };
-
-  const handleAiSeo = async () => {
-    if (!formData.name || !formData.description) {
-      return alert('يرجى إدخال الاسم والوصف أولاً لتوليد بيانات SEO دقيقة');
-    }
-    
-    setIsLoadingSeo(true);
-    try {
-      const data = await generateSeoData(formData.name, formData.description);
-      if (data) {
-        setSeoData(data);
-        isSlugManuallyEdited.current = true;
-      } else {
-        alert('لم نتمكن من الحصول على رد صحيح من الذكاء الاصطناعي، يرجى المحاولة مرة أخرى.');
-      }
-    } catch (err) {
-      alert('خطأ في الاتصال بالسيرفر');
-    } finally {
-      setIsLoadingSeo(false);
-    }
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -218,9 +158,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       <div className="flex items-center justify-between mb-10">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-            {product ? 'تعديل بيانات المنتج' : 'إضافة منتج احترافي'}
+            {product ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد'}
           </h2>
-          <p className="text-slate-500 mt-2 font-medium">قم بإعداد المنتج وتجهيزه لمحركات البحث العالمية</p>
+          <p className="text-slate-500 mt-2 font-medium">قم بتعبئة بيانات المنتج بدقة لضمان أفضل تجربة تسوق</p>
         </div>
         <button 
           type="button"
@@ -257,20 +197,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                 <span className="text-[10px] font-bold">رفع صور</span>
-              </button>
-
-              <button 
-                type="button" 
-                onClick={handleGenerateAiImage}
-                disabled={isGeneratingImg}
-                className="aspect-square rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/30 flex flex-col items-center justify-center gap-2 text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition group disabled:opacity-50"
-              >
-                {isGeneratingImg ? (
-                  <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <svg className="w-6 h-6 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-7.714 2.143L11 21l-2.286-6.857L1 12l7.714-2.143L11 3z" /></svg>
-                )}
-                <span className="text-[9px] font-black text-center px-2">{isGeneratingImg ? 'تحليل وتوليد...' : 'توليد بالذكاء الاصطناعي'}</span>
               </button>
 
               <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
@@ -330,12 +256,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <label className="text-sm font-bold text-slate-500 mr-2">الكمية المتوفرة في المخزون</label>
               <input required type="number" min="0" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="مثال: 50" />
             </div>
-            <div className="space-y-2 relative md:col-span-2">
+            <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-bold text-slate-500 mr-2">الوصف</label>
-              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition min-h-[150px] resize-none" placeholder="اكتب وصفاً جذاباً..." />
-              <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="absolute left-4 bottom-4 text-[10px] font-black bg-indigo-600 text-white px-3 py-1.5 rounded-xl hover:bg-slate-900 transition disabled:opacity-50">
-                {isLoadingAi ? 'جاري التوليد...' : 'وصف ذكي ✨'}
-              </button>
+              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition min-h-[150px] resize-none" placeholder="اكتب وصفاً جذاباً يشرح مميزات المنتج..." />
             </div>
           </div>
         </section>
@@ -346,9 +269,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-sm">02</span>
               تحسين محركات البحث (SEO)
             </h3>
-            <button type="button" onClick={handleAiSeo} disabled={isLoadingSeo} className="text-xs font-black bg-emerald-500 text-white px-5 py-2.5 rounded-2xl hover:bg-emerald-600 transition shadow-lg shadow-emerald-100 disabled:opacity-50">
-              {isLoadingSeo ? 'جاري التحليل...' : 'توليد SEO ذكي ✨'}
-            </button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -407,7 +327,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 </h4>
                 <p className="text-[14px] text-[#4d5156] leading-relaxed line-clamp-2">
                   <span className="text-slate-500">{new Date().toLocaleDateString('ar-SA')} — </span>
-                  {seoData.metaDescription || 'هذا الوصف سيظهر للعملاء عند بحثهم عن المنتج في محرك بحث جوجل، تأكد من كتابته بشكل جذاب لزيادة النقرات.'}
+                  {seoData.metaDescription || 'هذا الوصف سيظهر للعملاء عند بحثهم عن المنتج في محرك بحث جوجل.'}
                 </p>
               </div>
             </div>
