@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CartItem, User } from '../types';
 
@@ -151,7 +150,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
              <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center text-xl">🚚</div>
              <div>
                 <p className="font-black text-emerald-800 text-sm">توصيل سريع داخل فاقوس</p>
-                <p className="text-emerald-600 text-[10px] font-bold">يصلك طلبك في أسرع وقت ممكن بمجرد التأكيد.</p>
+                <p className="text-emerald-600 text-[10px] font-bold">يصلك طلبك في 30 دقيقة بمجرد التأكيد.</p>
              </div>
           </div>
         </div>
