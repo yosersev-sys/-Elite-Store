@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { Order } from '../types';
 
@@ -52,20 +51,19 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
 
   return (
     <div className="max-w-md mx-auto py-8 px-4 animate-fadeIn print:m-0 print:p-0">
-      {/* ستايلات مخصصة للطباعة الحرارية 5سم */}
+      {/* ستايلات مخصصة للطباعة الحرارية 5سم وإخفاء الهيدر/الفوتر */}
       <style>{`
         @media print {
           @page {
             size: 58mm auto;
             margin: 0;
           }
-          body {
-            background: white;
-            margin: 0;
-            padding: 0;
-            -webkit-print-color-adjust: exact;
+          /* إخفاء هيدر وفوتر المتصفح الافتراضي (التاريخ، الرابط، إلخ) */
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
           }
-          .no-print {
+          header, footer, nav, .no-print {
             display: none !important;
           }
           .thermal-invoice {
@@ -74,10 +72,12 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
+            background: white !important;
           }
           .thermal-invoice * {
             font-size: 9pt !important;
             color: black !important;
+            background: transparent !important;
           }
           .thermal-invoice h1 {
             font-size: 14pt !important;

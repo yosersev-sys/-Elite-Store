@@ -268,7 +268,9 @@ const App: React.FC = () => {
   return (
     <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-32 md:pb-0'}`}>
       {notification && (
-        <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
+        <div className="no-print">
+          <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
+        </div>
       )}
 
       {view === 'admin-auth' && (!currentUser || currentUser.role !== 'admin') && (
@@ -296,20 +298,22 @@ const App: React.FC = () => {
       )}
 
       {!isAdminView && (
-        <Header 
-          cartCount={cart.length} 
-          wishlistCount={wishlist.length} 
-          categories={categories}
-          currentUser={currentUser}
-          onNavigate={onNavigateAction}
-          onLoginClick={() => setShowAuthModal(true)}
-          onLogout={handleLogout}
-          onSearch={setSearchQuery} 
-          onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
-        />
+        <div className="no-print">
+          <Header 
+            cartCount={cart.length} 
+            wishlistCount={wishlist.length} 
+            categories={categories}
+            currentUser={currentUser}
+            onNavigate={onNavigateAction}
+            onLoginClick={() => setShowAuthModal(true)}
+            onLogout={handleLogout}
+            onSearch={setSearchQuery} 
+            onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
+          />
+        </div>
       )}
 
-      <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4' : 'pt-16 md:pt-32'}`}>
+      <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4' : 'pt-16 md:pt-32'} ${view === 'order-success' ? 'print-full-width' : ''}`}>
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
@@ -475,7 +479,7 @@ const App: React.FC = () => {
       </main>
 
       {!isAdminView && (
-        <>
+        <div className="no-print">
           <FloatingCartButton 
             count={cart.length} 
             onClick={() => onNavigateAction('cart')} 
@@ -485,13 +489,17 @@ const App: React.FC = () => {
             currentView={view}
             onNavigate={onNavigateAction}
           />
-        </>
+        </div>
       )}
 
-      {currentUser?.role === 'admin' && view !== 'admin' && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
+      {currentUser?.role === 'admin' && view !== 'admin' && (
+        <div className="no-print">
+          <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
+        </div>
+      )}
 
       {!isAdminView && (
-        <>
+        <div className="no-print">
           <MobileNav 
             currentView={view} 
             cartCount={cart.length} 
@@ -506,7 +514,7 @@ const App: React.FC = () => {
             </div>
             <p className="text-slate-500 text-[10px] uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
           </footer>
-        </>
+        </div>
       )}
       
       <style>{`
@@ -517,6 +525,23 @@ const App: React.FC = () => {
         }
         .animate-ping-once {
           animation: ping-once 0.5s ease-out;
+        }
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          body {
+            background: white !important;
+          }
+          main {
+            padding-top: 0 !important;
+            margin: 0 !important;
+          }
+          .print-full-width {
+            max-width: 100% !important;
+            width: 100% !important;
+            padding: 0 !important;
+          }
         }
       `}</style>
     </div>
