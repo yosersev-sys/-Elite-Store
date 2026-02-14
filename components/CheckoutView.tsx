@@ -149,8 +149,8 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
           <div className="bg-emerald-50 p-6 rounded-[2rem] border border-emerald-100 flex items-center gap-4">
              <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center text-xl">🚚</div>
              <div>
-                <p className="font-black text-emerald-800 text-sm">توصيل سريع داخل فاقوس</p>
-                <p className="text-emerald-600 text-[10px] font-bold">يصلك طلبك في 30 دقيقة بمجرد التأكيد.</p>
+                <p className="font-black text-emerald-800 text-sm">توصيل سريع لجميع انحاء فاقوس - شرقية</p>
+                <p className="text-emerald-600 text-[10px] font-bold">يصلك طلبك في أسرع وقت ممكن بمجرد التأكيد.</p>
              </div>
           </div>
         </div>
