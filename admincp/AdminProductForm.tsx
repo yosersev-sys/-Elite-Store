@@ -42,7 +42,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
   // تهيئة البيانات مرة واحدة فقط عند التحميل أو تغيير المنتج المقصود
   useEffect(() => {
-    // إذا كان المنتج موجوداً (تعديل) أو تم التهيئة مسبقاً، لا تقم بالمسح
     if (isInitialized.current && !product) return;
 
     if (product) {
@@ -64,7 +63,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         isSlugManuallyEdited.current = true;
       }
     } else {
-      // حالة إضافة منتج جديد - نعطي قيم افتراضية فقط إذا لم تكن موجودة
       setFormData(prev => ({
         ...prev,
         categoryId: prev.categoryId || categories[0]?.id || '',
@@ -73,7 +71,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       }));
     }
     isInitialized.current = true;
-  }, [product, categories.length]); // نعتمد على طول المصفوفة وليس المرجع لتجنب التحديثات الوهمية
+  }, [product, categories.length]);
 
   // تحديث الـ Slug تلقائياً ليتطابق مع الاسم
   useEffect(() => {
@@ -110,21 +108,36 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const handleAiDescription = async () => {
     if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً');
     setIsLoadingAi(true);
-    const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
-    const desc = await generateProductDescription(formData.name, catName);
-    setFormData(prev => ({ ...prev, description: desc }));
-    setIsLoadingAi(false);
+    try {
+      const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
+      const desc = await generateProductDescription(formData.name, catName);
+      setFormData(prev => ({ ...prev, description: desc }));
+    } catch (err) {
+      alert('حدث خطأ أثناء توليد الوصف');
+    } finally {
+      setIsLoadingAi(false);
+    }
   };
 
   const handleAiSeo = async () => {
-    if (!formData.name || !formData.description) return alert('يرجى إدخال الاسم والوصف أولاً لتوليد بيانات SEO دقيقة');
-    setIsLoadingSeo(true);
-    const data = await generateSeoData(formData.name, formData.description);
-    if (data) {
-      setSeoData(data);
-      isSlugManuallyEdited.current = true;
+    if (!formData.name || !formData.description) {
+      return alert('يرجى إدخال الاسم والوصف أولاً لتوليد بيانات SEO دقيقة');
     }
-    setIsLoadingSeo(false);
+    
+    setIsLoadingSeo(true);
+    try {
+      const data = await generateSeoData(formData.name, formData.description);
+      if (data) {
+        setSeoData(data);
+        isSlugManuallyEdited.current = true;
+      } else {
+        alert('فشل الذكاء الاصطناعي في توليد البيانات. يرجى المحاولة مرة أخرى أو الكتابة يدوياً.');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالذكاء الاصطناعي');
+    } finally {
+      setIsLoadingSeo(false);
+    }
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {

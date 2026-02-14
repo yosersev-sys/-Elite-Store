@@ -4,14 +4,12 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
   try {
-    // Fix: Always use new instance before making an API call
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `قم بكتابة وصف تسويقي جذاب ومختصر باللغة العربية لمنتج يسمى "${productName}" في قسم "${category}". ركز على الفوائد والجودة.`,
       config: { temperature: 0.7 }
     });
-    // Fix: Access response.text property directly
     return response.text || "فشل في إنشاء الوصف.";
   } catch (error) {
     console.error("Error generating description:", error);
@@ -21,12 +19,11 @@ export const generateProductDescription = async (productName: string, category: 
 
 export const generateSeoData = async (productName: string, description: string) => {
   try {
-    // Fix: Always use new instance before making an API call
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `بناءً على المنتج "${productName}" والوصف "${description}"، قم بتوليد بيانات SEO باللغة العربية. 
-      أريد عنوان Meta (أقل من 60 حرف)، وصف Meta (أقل من 160 حرف)، وقائمة كلمات مفتاحية مفصولة بفواصل.`,
+      أريد عنوان Meta (أقل من 60 حرف)، وصف Meta (أقل من 160 حرف)، وقائمة كلمات مفتاحية مفصولة بفواصل، ورابط (slug) مناسب بالإنجليزية أو العربية.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -35,17 +32,20 @@ export const generateSeoData = async (productName: string, description: string) 
             metaTitle: { type: Type.STRING },
             metaDescription: { type: Type.STRING },
             metaKeywords: { type: Type.STRING },
-            slug: { type: Type.STRING, description: "URL friendly slug in English" }
+            slug: { type: Type.STRING, description: "URL friendly slug" }
           },
           required: ["metaTitle", "metaDescription", "metaKeywords", "slug"]
         }
       }
     });
     
-    // Fix: Access response.text property directly and handle potential undefined
-    const text = response.text;
+    let text = response.text;
     if (!text) return null;
-    return JSON.parse(text);
+
+    // تنظيف النص من علامات الـ Markdown الخاصة بالـ JSON إذا وجدت
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    return JSON.parse(cleanJson);
   } catch (error) {
     console.error("SEO AI Error:", error);
     return null;
