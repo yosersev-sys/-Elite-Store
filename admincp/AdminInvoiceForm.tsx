@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Order, CartItem } from '../types';
+import BarcodeScanner from '../components/BarcodeScanner';
 
 interface AdminInvoiceFormProps {
   products: Product[];
@@ -23,6 +24,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -119,8 +121,15 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     onSubmit(newOrder);
   };
 
+  const handleScanResult = (code: string) => {
+    setSearchQuery(code);
+    setShowScanner(false);
+  };
+
   return (
     <div className="max-w-7xl mx-auto py-4 md:py-8 px-2 md:px-4 animate-fadeIn">
+      {showScanner && <BarcodeScanner onScan={handleScanResult} onClose={() => setShowScanner(false)} />}
+      
       {/* Cancel Confirmation Modal */}
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
@@ -199,14 +208,26 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           <div className="bg-white p-4 md:p-10 rounded-[1.5rem] md:rounded-[3rem] shadow-xl border border-slate-50">
             <div className="relative mb-6 md:mb-10">
                <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-2 md:mr-4 mb-1.5 block tracking-widest">البحث عن منتج (اسم أو باركود)</label>
-               <input 
-                 ref={searchInputRef}
-                 type="text" 
-                 placeholder="ابحث هنا..." 
-                 value={searchQuery}
-                 onChange={(e) => setSearchQuery(e.target.value)}
-                 className="w-full px-4 md:px-8 py-3.5 md:py-5 bg-slate-50 rounded-xl md:rounded-3xl outline-none focus:ring-4 focus:ring-emerald-50/20 font-black text-sm md:text-lg border-2 border-transparent focus:border-emerald-500 transition-all shadow-inner"
-               />
+               <div className="relative group">
+                 <input 
+                   ref={searchInputRef}
+                   type="text" 
+                   placeholder="ابحث هنا..." 
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                   className="w-full px-4 md:px-8 py-3.5 md:py-5 pr-12 md:pr-16 bg-slate-50 rounded-xl md:rounded-3xl outline-none focus:ring-4 focus:ring-emerald-50/20 font-black text-sm md:text-lg border-2 border-transparent focus:border-emerald-500 transition-all shadow-inner"
+                 />
+                 <button 
+                  onClick={() => setShowScanner(true)}
+                  className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 bg-emerald-600 text-white p-2.5 md:p-3.5 rounded-xl md:rounded-2xl shadow-lg hover:bg-slate-900 transition-all"
+                  title="فتح الكاميرا لمسح المنتج"
+                 >
+                   <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                   </svg>
+                 </button>
+               </div>
                
                {searchQuery.trim() && filteredProducts.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-2 md:mt-4 bg-white border border-slate-100 rounded-[1rem] md:rounded-[2rem] shadow-2xl z-50 overflow-hidden animate-slideUp">

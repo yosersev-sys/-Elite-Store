@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Category, User } from '../types';
+import BarcodeScanner from './BarcodeScanner';
 
 interface HeaderProps {
   cartCount: number;
@@ -21,6 +21,8 @@ const Header: React.FC<HeaderProps> = ({
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [searchVal, setSearchVal] = useState('');
   const lastScrollY = useRef(0);
 
   useEffect(() => {
@@ -46,8 +48,16 @@ const Header: React.FC<HeaderProps> = ({
     };
   }, []);
 
+  const handleScanResult = (code: string) => {
+    setSearchVal(code);
+    onSearch(code);
+    setShowScanner(false);
+  };
+
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'} ${scrolled ? 'py-1 md:py-2' : 'py-2 md:py-4'}`}>
+      {showScanner && <BarcodeScanner onScan={handleScanResult} onClose={() => setShowScanner(false)} />}
+      
       <div className="container mx-auto px-2 md:px-4">
         <div className="bg-white border border-slate-100 rounded-[1.5rem] md:rounded-[2rem] px-2 md:px-6 py-1.5 md:py-3 flex items-center justify-between gap-2 shadow-lg shadow-emerald-900/5">
           
@@ -66,16 +76,27 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="flex-grow max-w-lg min-w-0">
-            <div className="relative group">
+            <div className="relative group flex items-center">
               <input 
                 type="text" 
-                placeholder="ابحث..." 
-                onChange={(e) => onSearch(e.target.value)}
+                placeholder="ابحث بالاسم أو الباركود..." 
+                value={searchVal}
+                onChange={(e) => { setSearchVal(e.target.value); onSearch(e.target.value); }}
                 className="w-full bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl py-1.5 md:py-3 px-7 md:px-10 outline-none focus:ring-4 focus:ring-emerald-500/20 focus:bg-white transition-all font-bold text-[10px] md:text-sm"
               />
               <svg className="absolute right-2 top-2 md:right-3.5 md:top-3.5 h-3.5 w-3.5 md:h-5 md:w-5 text-slate-300 group-focus-within:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
+              <button 
+                onClick={() => setShowScanner(true)}
+                className="absolute left-2 md:left-3 bg-emerald-100 p-1 md:p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-600 hover:text-white transition-colors"
+                title="مسح باركود"
+              >
+                <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
             </div>
           </div>
 
