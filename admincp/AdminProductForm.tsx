@@ -102,21 +102,25 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
   const handleGenerateAiImage = async () => {
     const cleanedName = formData.name.trim();
-    if (!cleanedName) return alert('يرجى إدخال اسم المنتج أولاً لتوليد صورة مناسبة');
+    if (!cleanedName) return alert('يرجى إدخال اسم المنتج أولاً لتحليله وتوليد صورة له');
     
     setIsGeneratingImg(true);
     try {
       const catName = categories.find(c => c.id === formData.categoryId)?.name || 'General Product';
+      
+      // إبلاغ المستخدم بأن العملية تمر بمراحل ذكية
+      console.log("Starting Dual-AI Image Pipeline...");
+      
       const imageUrl = await generateProductImage(cleanedName, catName);
       
       if (imageUrl) {
         setFormData(prev => ({ ...prev, images: [...prev.images, imageUrl] }));
       } else {
-        alert('عذراً، تعذر توليد الصورة. قد يكون الاسم غير واضح أو هناك ضغط على الخدمة. حاول تبسيط اسم المنتج.');
+        alert('فشل توليد الصورة. قد يكون هناك قيود أمان على هذا النوع من المنتجات أو ضعف في الاتصال بالذكاء الاصطناعي. يرجى المحاولة لاحقاً.');
       }
     } catch (err) {
-      console.error("UI Generator Error:", err);
-      alert('حدث خطأ فني أثناء محاولة الاتصال بالذكاء الاصطناعي.');
+      console.error("Critical Image UI Error:", err);
+      alert('حدث خطأ فني غير متوقع. يرجى التأكد من صلاحية مفتاح الـ API الخاص بك.');
     } finally {
       setIsGeneratingImg(false);
     }
@@ -270,7 +274,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 ) : (
                   <svg className="w-6 h-6 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-7.714 2.143L11 21l-2.286-6.857L1 12l7.714-2.143L11 3z" /></svg>
                 )}
-                <span className="text-[9px] font-black text-center px-2">{isGeneratingImg ? 'جاري التوليد...' : 'توليد بالذكاء الاصطناعي'}</span>
+                <span className="text-[9px] font-black text-center px-2">{isGeneratingImg ? 'تحليل وتوليد...' : 'توليد بالذكاء الاصطناعي'}</span>
               </button>
 
               <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />

@@ -74,16 +74,25 @@ export const generateSeoData = async (productName: string, description: string) 
 
 export const generateProductImage = async (productName: string, category: string): Promise<string | null> => {
   try {
-    // التأكد من تهيئة Instance جديد عند كل طلب لضمان تحديث الـ API Key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    // برومبت محسن وأكثر بساطة لتجنب الرفض
-    const prompt = `Professional product photo of ${productName} (${category}), clean white studio background, high resolution, 4k, realistic lighting, sharp focus, professional ecommerce photography.`;
-    
+
+    // المرحلة الأولى: تحويل اسم المنتج العربي إلى برومبت إنجليزي بصري دقيق
+    const promptOptimizer = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Translate this Arabic product to a professional English visual description for image generation. 
+      Product: "${productName}" in category "${category}". 
+      Output ONLY a single paragraph describing the product visually in high detail, for a commercial studio photoshoot, white background. 
+      Do not include brand names or prices.`
+    });
+
+    const optimizedPrompt = promptOptimizer.text?.trim() || `Professional studio photo of ${productName}, white background, 4k`;
+    console.log("Optimized Image Prompt:", optimizedPrompt);
+
+    // المرحلة الثانية: توليد الصورة باستخدام البرومبت المحسن
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: prompt }],
+        parts: [{ text: optimizedPrompt }],
       },
       config: {
         imageConfig: {
@@ -93,7 +102,7 @@ export const generateProductImage = async (productName: string, category: string
     });
 
     if (!response.candidates || response.candidates.length === 0) {
-      console.warn("No candidates returned from Image AI");
+      console.warn("Image AI returned no results.");
       return null;
     }
 
@@ -104,10 +113,9 @@ export const generateProductImage = async (productName: string, category: string
       }
     }
     
-    console.warn("Image part not found in response");
     return null;
   } catch (error) {
-    console.error("Critical Image Generation Error:", error);
+    console.error("Error during AI Image pipeline:", error);
     return null;
   }
 };
