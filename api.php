@@ -1,7 +1,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v6.8 - معالجة كافة طلبات لوحة التحكم
+ * نظام الإدارة المطور v6.9 - معالجة كافة طلبات لوحة التحكم والإعدادات
  */
 session_start();
 error_reporting(E_ALL); 
@@ -34,6 +34,8 @@ function initDatabase($pdo) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), wholesalePrice DECIMAL(10,2) DEFAULT 0, categoryId VARCHAR(50), images LONGTEXT, sizes TEXT, colors TEXT, stockQuantity INT DEFAULT 0, unit VARCHAR(20) DEFAULT 'piece', createdAt BIGINT, salesCount INT DEFAULT 0, seoSettings TEXT, barcode VARCHAR(100))");
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), city VARCHAR(100), address TEXT, total DECIMAL(10,2), subtotal DECIMAL(10,2), items LONGTEXT, paymentMethod VARCHAR(50), status VARCHAR(20), createdAt BIGINT, userId VARCHAR(50))");
+    // جدول الإعدادات العامة للمتجر
+    $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
 }
 
 $action = $_GET['action'] ?? '';
@@ -215,6 +217,25 @@ try {
         case 'get_current_user': sendRes($_SESSION['user'] ?? null); break;
         case 'logout': session_destroy(); sendRes(['status' => 'success']); break;
         case 'get_admin_phone': $stmt = $pdo->query("SELECT phone FROM users WHERE role = 'admin' LIMIT 1"); $admin = $stmt->fetch(); sendRes(['phone' => $admin['phone'] ?? '201026034170']); break;
+
+        case 'get_store_settings':
+            $stmt = $pdo->query("SELECT * FROM settings");
+            $settings = $stmt->fetchAll();
+            $result = [];
+            foreach ($settings as $row) {
+                $result[$row['setting_key']] = $row['setting_value'];
+            }
+            sendRes($result);
+            break;
+
+        case 'update_store_settings':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            foreach ($input as $key => $value) {
+                $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+                $stmt->execute([$key, $value, $value]);
+            }
+            sendRes(['status' => 'success']);
+            break;
 
         default: sendErr('Unknown action: ' . $action);
     }
