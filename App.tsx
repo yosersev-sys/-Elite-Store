@@ -56,6 +56,54 @@ const App: React.FC = () => {
     setNotification({ message, type });
   };
 
+  const triggerFlyAnimation = (startRect: DOMRect, imageUrl: string) => {
+    const flyEl = document.createElement('div');
+    flyEl.style.position = 'fixed';
+    flyEl.style.left = `${startRect.left}px`;
+    flyEl.style.top = `${startRect.top}px`;
+    flyEl.style.width = `${startRect.width}px`;
+    flyEl.style.height = `${startRect.height}px`;
+    flyEl.style.backgroundImage = `url(${imageUrl})`;
+    flyEl.style.backgroundSize = 'cover';
+    flyEl.style.backgroundPosition = 'center';
+    flyEl.style.borderRadius = '20px';
+    flyEl.style.zIndex = '9999';
+    flyEl.style.pointerEvents = 'none';
+    flyEl.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+    flyEl.style.transition = 'all 0.8s cubic-bezier(0.42, 0, 0.58, 1)';
+    document.body.appendChild(flyEl);
+
+    // البحث عن زر السلة لتحديد الهدف
+    const cartBtn = document.getElementById('floating-cart-btn') || document.querySelector('.mobile-cart-btn');
+    let tx = window.innerWidth - 80;
+    let ty = window.innerHeight - 80;
+
+    if (cartBtn) {
+      const rect = cartBtn.getBoundingClientRect();
+      tx = rect.left + rect.width / 2;
+      ty = rect.top + rect.height / 2;
+    }
+
+    requestAnimationFrame(() => {
+      flyEl.style.left = `${tx}px`;
+      flyEl.style.top = `${ty}px`;
+      flyEl.style.width = '20px';
+      flyEl.style.height = '20px';
+      flyEl.style.opacity = '0';
+      flyEl.style.transform = 'scale(0.1) rotate(720deg)';
+    });
+
+    setTimeout(() => flyEl.remove(), 800);
+  };
+
+  const addToCart = (product: Product, startRect?: DOMRect) => {
+    if (startRect && product.images[0]) {
+      triggerFlyAnimation(startRect, product.images[0]);
+    }
+    setCart(prev => [...prev, { ...product, quantity: 1 }]);
+    showNotify('تمت الإضافة للسلة');
+  };
+
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled) return;
     if (!audioRef.current) {
@@ -233,7 +281,7 @@ const App: React.FC = () => {
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
-            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => { setCart([...cart, {...p, quantity: 1}]); showNotify('تمت الإضافة للسلة'); }} 
+            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={addToCart} 
             onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
             wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
@@ -326,7 +374,7 @@ const App: React.FC = () => {
           <ProductDetailsView 
             product={selectedProduct}
             categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-            onAddToCart={(p) => { setCart([...cart, {...p, quantity: 1}]); showNotify('تمت الإضافة للسلة'); }}
+            onAddToCart={(p, s, c, rect) => addToCart(p, rect)}
             onBack={() => onNavigateAction('store')}
             isFavorite={wishlist.includes(selectedProduct.id)}
             onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}

@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Product } from '../types';
 
 interface ProductCardProps {
   product: Product;
   category: string;
-  onAddToCart: () => void;
+  onAddToCart: (product: Product, rect?: DOMRect) => void;
   onView: () => void;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
@@ -15,13 +15,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
   product, category, onAddToCart, onView, isFavorite = false, onToggleFavorite
 }) => {
   const [isAdded, setIsAdded] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isAdded) return;
     
     setIsAdded(true);
-    onAddToCart();
+    
+    // التقاط موقع الصورة لبدء أنيميشن الطيران
+    const rect = imageRef.current?.getBoundingClientRect();
+    onAddToCart(product, rect);
     
     setTimeout(() => {
       setIsAdded(false);
@@ -39,6 +43,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       {/* منطقة الصورة */}
       <div className="relative aspect-[4/5] overflow-hidden bg-slate-50 cursor-pointer" onClick={onView}>
         <img 
+          ref={imageRef}
           src={product.images[0]} 
           alt={product.name}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"

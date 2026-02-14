@@ -27,7 +27,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentView, cartCount, onNavigat
         onClick={() => onNavigate('my-orders')} 
       />
 
-      <div className="relative -mt-10" onClick={onCartClick}>
+      <div className="relative -mt-10 mobile-cart-btn" onClick={onCartClick}>
         <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-2xl transition-all border-4 border-white ${currentView === 'cart' ? 'bg-emerald-600' : 'bg-slate-900'}`}>
           🛒
         </div>

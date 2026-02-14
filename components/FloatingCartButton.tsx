@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface FloatingCartButtonProps {
@@ -19,6 +20,7 @@ const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({ count, onClick,
 
       {/* الزر الرئيسي */}
       <button
+        id="floating-cart-btn"
         onClick={onClick}
         className="relative w-16 h-16 bg-emerald-600 text-white rounded-full shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex items-center justify-center hover:bg-slate-900 transition-all duration-500 transform hover:scale-110 active:scale-90 border-4 border-white overflow-visible"
       >

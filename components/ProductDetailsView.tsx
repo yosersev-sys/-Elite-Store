@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Product } from '../types';
 
 interface ProductDetailsViewProps {
   product: Product;
   categoryName: string;
-  onAddToCart: (product: Product, size?: string, color?: string) => void;
+  onAddToCart: (product: Product, size?: string, color?: string, rect?: DOMRect) => void;
   onBack: () => void;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
@@ -20,6 +20,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   onToggleFavorite
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const mainImageRef = useRef<HTMLImageElement>(null);
   
   // Safe Access for properties
   const images = Array.isArray(product?.images) ? product.images : [];
@@ -33,6 +34,11 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
   const isOutOfStock = (product.stockQuantity || 0) <= 0;
   const isLowStock = (product.stockQuantity || 0) > 0 && (product.stockQuantity || 0) < 5;
+
+  const handleAddClick = () => {
+    const rect = mainImageRef.current?.getBoundingClientRect();
+    onAddToCart(product, selectedSize, selectedColor, rect);
+  };
 
   return (
     <div className="animate-fadeIn max-w-6xl mx-auto py-8 px-4">
@@ -53,6 +59,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
             <div className="relative aspect-square overflow-hidden rounded-[2.5rem] shadow-lg bg-white">
               {images.length > 0 ? (
                 <img 
+                  ref={mainImageRef}
                   key={activeImageIndex}
                   src={images[activeImageIndex]} 
                   alt={product.name} 
@@ -163,7 +170,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
               <div className="pt-8 flex gap-4">
                 <button 
                   disabled={isOutOfStock}
-                  onClick={() => onAddToCart(product, selectedSize, selectedColor)}
+                  onClick={handleAddClick}
                   className={`flex-grow py-5 px-8 rounded-2xl font-black text-xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-4 ${
                     isOutOfStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' : 'bg-gray-900 text-white hover:bg-indigo-600'
                   }`}
