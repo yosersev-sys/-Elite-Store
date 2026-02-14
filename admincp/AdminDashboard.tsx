@@ -164,14 +164,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [orders, orderSearch, paymentFilter, startDate, endDate]);
 
-  // منطق الترقيم للطلبات والمنتجات
+  const filteredUsersList = useMemo(() => {
+    return users.filter(u => 
+      u.name.toLowerCase().includes(memberSearch.toLowerCase()) || 
+      u.phone.includes(memberSearch)
+    ).map(u => {
+      const userOrders = orders.filter(o => o.userId === u.id || o.phone === u.phone);
+      const totalSpent = userOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+      return {
+        ...u,
+        orderCount: userOrders.length,
+        totalSpent: totalSpent
+      };
+    });
+  }, [users, memberSearch, orders]);
+
+  // منطق الترقيم الشامل
   const paginatedItems = useMemo(() => {
-    const list = activeTab === 'products' ? filteredProducts : filteredOrders;
+    let list: any[] = [];
+    if (activeTab === 'products') list = filteredProducts;
+    else if (activeTab === 'orders') list = filteredOrders;
+    else if (activeTab === 'members') list = filteredUsersList;
+    
     const startIndex = (currentPage - 1) * itemsPerPage;
     return list.slice(startIndex, startIndex + itemsPerPage);
-  }, [activeTab, filteredProducts, filteredOrders, currentPage]);
+  }, [activeTab, filteredProducts, filteredOrders, filteredUsersList, currentPage]);
 
-  const currentTotalCount = activeTab === 'products' ? filteredProducts.length : filteredOrders.length;
+  const currentTotalCount = useMemo(() => {
+    if (activeTab === 'products') return filteredProducts.length;
+    if (activeTab === 'orders') return filteredOrders.length;
+    if (activeTab === 'members') return filteredUsersList.length;
+    return 0;
+  }, [activeTab, filteredProducts, filteredOrders, filteredUsersList]);
+
   const totalPages = Math.ceil(currentTotalCount / itemsPerPage);
 
   const profitStats = useMemo(() => {
@@ -222,24 +247,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
   }, [orders, reportStart, reportEnd, categories]);
 
-  const filteredUsersList = useMemo(() => {
-    return users.filter(u => 
-      u.name.toLowerCase().includes(memberSearch.toLowerCase()) || 
-      u.phone.includes(memberSearch)
-    ).map(u => {
-      const userOrders = orders.filter(o => o.userId === u.id || o.phone === u.phone);
-      const totalSpent = userOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-      return {
-        ...u,
-        orderCount: userOrders.length,
-        totalSpent: totalSpent
-      };
-    });
-  }, [users, memberSearch, orders]);
-
+  // إعادة ضبط الصفحة عند تغيير أي فلتر
   useEffect(() => {
     setCurrentPage(1);
-  }, [adminSearch, orderSearch, paymentFilter, startDate, endDate, activeTab, stockFilter]);
+  }, [adminSearch, orderSearch, memberSearch, paymentFilter, startDate, endDate, activeTab, stockFilter]);
 
   const criticalStockProducts = useMemo(() => {
     return products.filter(p => p.stockQuantity < 5 && p.stockQuantity >= 0);
@@ -543,7 +554,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-center">
-                <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full md:w-80 px-6 py-3 bg-white border rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm shadow-sm" />
+                <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full md:w-80 px-6 py-3 bg-white border rounded-2xl outline-none focus:ring-2 focus:ring-emerald-50 font-bold text-sm shadow-sm" />
                 {stockFilter === 'critical' && (
                   <button 
                     onClick={() => setStockFilter('all')}
@@ -1107,14 +1118,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {filteredUsersList.length === 0 ? (
+                    {paginatedItems.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="px-8 py-20 text-center">
                           <p className="text-slate-400 font-black">لا يوجد أعضاء يطابقون بحثك</p>
                         </td>
                       </tr>
                     ) : (
-                      filteredUsersList.map(u => (
+                      (paginatedItems as any[]).map(u => (
                         <tr key={u.id} className="hover:bg-slate-50/50 transition group">
                           <td className="px-8 py-5">
                             <div className="flex items-center gap-4">
@@ -1175,6 +1186,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tbody>
                 </table>
               </div>
+
+              {/* نظام الترقيم للأعضاء */}
+              {totalPages > 1 && (
+                <div className="p-6 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
+                  <div className="text-xs font-bold text-slate-400">
+                    عرض {paginatedItems.length} من أصل {currentTotalCount} عضو
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      className="px-4 py-2 bg-white border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                    >
+                      السابق
+                    </button>
+                    <div className="bg-white px-4 py-2 rounded-xl border font-black text-xs text-emerald-600">
+                      صفحة {currentPage} من {totalPages}
+                    </div>
+                    <button 
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      className="px-4 py-2 bg-white border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                    >
+                      التالي
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1366,7 +1405,7 @@ const StatCard = ({ title, value, icon, color, highlight = false, onClick }: any
     <div className={`${color} text-4xl mb-4 group-hover:scale-110 transition-transform`}>{icon}</div>
     <p className="text-[10px] font-black text-slate-400 uppercase mr-1">{title}</p>
     <p className={`text-2xl font-black ${highlight ? 'text-orange-600' : 'text-slate-800'}`}>{value}</p>
-    {onClick && <div className="mt-2 text-[8px] font-black text-slate-300 group-hover:text-emerald-500 transition-colors">اضغط للتفاصيل 🔍</div>}
+    {onClick && <div className="mt-2 text-[8px] font-black text-slate-300 group-hover:text-emerald-50 transition-colors">اضغط للتفاصيل 🔍</div>}
   </div>
 );
 
