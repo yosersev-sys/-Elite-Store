@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ApiService } from '../services/api.ts';
 import { User } from '../types.ts';
@@ -11,9 +10,25 @@ interface AdminAuthViewProps {
 const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  // استعادة البيانات المحفوظة للمدير
+  useEffect(() => {
+    const savedPhone = localStorage.getItem('souq_admin_phone');
+    const savedPass = localStorage.getItem('souq_admin_pass');
+    if (savedPhone && savedPass) {
+      try {
+        setPhone(savedPhone);
+        setPassword(atob(savedPass));
+        setRememberMe(true);
+      } catch (e) {
+        console.error("Error loading admin credentials");
+      }
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +39,14 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
       const res = await ApiService.login(phone, password);
       if (res && res.status === 'success' && res.user) {
         if (res.user.role === 'admin') {
+          // حفظ البيانات إذا تم اختيار "تذكرني"
+          if (rememberMe) {
+            localStorage.setItem('souq_admin_phone', phone);
+            localStorage.setItem('souq_admin_pass', btoa(password));
+          } else {
+            localStorage.removeItem('souq_admin_phone');
+            localStorage.removeItem('souq_admin_pass');
+          }
           onSuccess(res.user);
         } else {
           setError('عذراً، هذا الحساب لا يمتلك صلاحيات المدير.');
@@ -96,7 +119,7 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
                   onInput={handlePasswordInput}
                   value={password}
                   className="w-full bg-slate-800/50 border border-slate-700 px-6 py-4 pl-12 rounded-2xl text-white outline-none focus:border-emerald-500 transition-all font-bold placeholder:text-right"
-                  placeholder="Password (English Only)"
+                  placeholder="كلمة المرور"
                 />
                 <button 
                   type="button"
@@ -115,6 +138,17 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
                   )}
                 </button>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 px-2">
+               <input 
+                  type="checkbox" 
+                  id="admin-remember" 
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-5 h-5 accent-emerald-600 cursor-pointer"
+               />
+               <label htmlFor="admin-remember" className="text-xs font-black text-slate-400 cursor-pointer select-none">حفظ بيانات الدخول للإدارة</label>
             </div>
 
             <button 

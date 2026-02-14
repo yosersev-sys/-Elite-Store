@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ApiService } from '../services/api.ts';
 import { User } from '../types.ts';
@@ -12,14 +11,30 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     password: '',
   });
 
-  // تأثير قفل التمرير
+  // تعبئة البيانات المحفوظة عند التحميل
   useEffect(() => {
+    const savedPhone = localStorage.getItem('souq_user_phone');
+    const savedPass = localStorage.getItem('souq_user_pass');
+    if (savedPhone && savedPass) {
+      try {
+        setFormData(prev => ({
+          ...prev,
+          phone: savedPhone,
+          password: atob(savedPass) // فك التشفير البسيط
+        }));
+        setRememberMe(true);
+      } catch (e) {
+        console.error("Error loading saved credentials");
+      }
+    }
+
     const originalStyle = window.getComputedStyle(document.body).overflow;
     const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
     
@@ -40,7 +55,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
 
   const handlePasswordInput = (e: React.FormEvent<HTMLInputElement>) => {
     const input = e.currentTarget;
-    // منع الحروف العربية وأي حروف غير إنجليزية/أرقام/رموز
     input.value = input.value.replace(/[\u0600-\u06FF]/g, '');
     setFormData({ ...formData, password: input.value });
   };
@@ -60,11 +74,18 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
         : await ApiService.register(formData.name, formData.phone, formData.password);
 
       if (res && res.status === 'success' && res.user) {
-        // منع المدير من الدخول عبر هذه الواجهة
         if (res.user.role === 'admin') {
           alert('هذا الحساب مخصص للإدارة فقط. يرجى تسجيل الدخول من خلال لوحة التحكم الخاصة بالمديرين.');
-          await ApiService.logout(); // تسجيل الخروج لمسح الجلسة
+          await ApiService.logout();
         } else {
+          // حفظ البيانات إذا تم اختيار "تذكرني"
+          if (rememberMe) {
+            localStorage.setItem('souq_user_phone', formData.phone);
+            localStorage.setItem('souq_user_pass', btoa(formData.password));
+          } else {
+            localStorage.removeItem('souq_user_phone');
+            localStorage.removeItem('souq_user_pass');
+          }
           onSuccess(res.user);
         }
       } else {
@@ -87,8 +108,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
 
       <div className="relative w-full max-w-[420px] bg-white/95 rounded-[3rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.4)] border border-white/20 overflow-hidden animate-slideUp z-10">
         <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
-
+        
         <button 
           onClick={onClose}
           type="button"
@@ -159,7 +179,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
                 lang="en"
                 onInput={handlePasswordInput}
                 className="w-full pr-12 pl-12 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-emerald-500/20 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all font-bold text-sm placeholder:text-right"
-                placeholder="كلمة المرور (English Only)"
+                placeholder="كلمة المرور"
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
               />
@@ -179,6 +199,17 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
                   </svg>
                 )}
               </button>
+            </div>
+
+            <div className="flex items-center gap-2 px-2">
+               <input 
+                  type="checkbox" 
+                  id="user-remember" 
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-5 h-5 accent-emerald-600 cursor-pointer"
+               />
+               <label htmlFor="user-remember" className="text-xs font-black text-slate-500 cursor-pointer select-none">تذكر بياناتي للدخول السريع</label>
             </div>
 
             <button

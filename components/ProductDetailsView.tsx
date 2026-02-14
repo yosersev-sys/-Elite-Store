@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Product } from '../types';
 
@@ -20,9 +19,9 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   onToggleFavorite
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [copyFeedback, setCopyFeedback] = useState(false);
   const mainImageRef = useRef<HTMLImageElement>(null);
   
-  // Safe Access for properties
   const images = Array.isArray(product?.images) ? product.images : [];
   const sizes = Array.isArray(product?.sizes) ? product.sizes : [];
   const colors = Array.isArray(product?.colors) ? product.colors : [];
@@ -40,8 +39,36 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     onAddToCart(product, selectedSize, selectedColor, rect);
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: product.name,
+      text: `شاهد هذا المنتج الرائع "${product.name}" على سوق العصر!`,
+      url: window.location.href, // الرابط الحالي للمنتج
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: Copy to clipboard
+        await navigator.clipboard.writeText(window.location.href);
+        setCopyFeedback(true);
+        setTimeout(() => setCopyFeedback(false), 2000);
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+    }
+  };
+
   return (
     <div className="animate-fadeIn max-w-6xl mx-auto py-8 px-4">
+      {/* Feedback Toast for Clipboard */}
+      {copyFeedback && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-2xl animate-slideDown">
+          تم نسخ رابط المنتج! 🔗
+        </div>
+      )}
+
       <button 
         onClick={onBack}
         className="flex items-center gap-2 text-gray-500 hover:text-indigo-600 transition mb-8 font-bold"
@@ -77,14 +104,28 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                 </div>
               )}
 
-              <button 
-                onClick={() => onToggleFavorite(product.id)}
-                className={`absolute top-6 left-6 z-10 p-4 rounded-2xl shadow-xl backdrop-blur-md transition-all active:scale-90 ${isFavorite ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-400 hover:text-red-500'}`}
-              >
-                <svg className="w-6 h-6" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </button>
+              {/* Floating Action Buttons on Image */}
+              <div className="absolute top-6 left-6 z-10 flex flex-col gap-3">
+                <button 
+                  onClick={() => onToggleFavorite(product.id)}
+                  className={`p-4 rounded-2xl shadow-xl backdrop-blur-md transition-all active:scale-90 ${isFavorite ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-400 hover:text-red-500'}`}
+                  title="أضف للمفضلة"
+                >
+                  <svg className="w-6 h-6" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </button>
+                
+                <button 
+                  onClick={handleShare}
+                  className="p-4 rounded-2xl shadow-xl backdrop-blur-md bg-white/90 text-slate-600 hover:text-emerald-600 transition-all active:scale-90"
+                  title="مشاركة المنتج"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                </button>
+              </div>
             </div>
             
             {images.length > 1 && (
@@ -104,23 +145,34 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
 
           <div className="p-10 lg:p-16 flex flex-col justify-center">
             <div className="space-y-8">
-              <div>
-                <span className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-full text-xs font-black uppercase mb-4 inline-block tracking-widest">
-                  {categoryName}
-                </span>
-                <h1 className="text-4xl lg:text-5xl font-black text-gray-900 leading-tight">
-                  {product.name}
-                </h1>
-                
-                {isLowStock && (
-                  <div className="mt-4 flex items-center gap-2 text-orange-600 bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100 animate-pulse">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm font-bold">عجل! تبقى فقط {product.stockQuantity} قطع في المخزون.</span>
-                  </div>
-                )}
+              <div className="flex justify-between items-start gap-4">
+                <div>
+                  <span className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-full text-xs font-black uppercase mb-4 inline-block tracking-widest">
+                    {categoryName}
+                  </span>
+                  <h1 className="text-4xl lg:text-5xl font-black text-gray-900 leading-tight">
+                    {product.name}
+                  </h1>
+                </div>
+                {/* Secondary Share Button (Mobile friendly) */}
+                <button 
+                  onClick={handleShare}
+                  className="lg:hidden p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                </button>
               </div>
+              
+              {isLowStock && (
+                <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100 animate-pulse">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-bold">عجل! تبقى فقط {product.stockQuantity} قطع في المخزون.</span>
+                </div>
+              )}
 
               <div className="flex items-baseline gap-4 py-4 border-y border-gray-100">
                 <span className="text-5xl font-black text-indigo-600">
