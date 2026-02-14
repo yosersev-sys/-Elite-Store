@@ -36,5 +36,9 @@
       "form_factor": "narrow",
       "label": "عرض تفاصيل المنتجات"
     }
+  ],
+  "categories": [
+    "food",
+    "shopping"
   ]
 }
