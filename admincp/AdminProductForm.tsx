@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, Category, SeoSettings } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
+
+interface LibraryImage {
+  url: string;
+  productName: string;
+}
 
 interface AdminProductFormProps {
   product: Product | null;
@@ -14,8 +19,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
-  const [libraryImages, setLibraryImages] = useState<string[]>([]);
+  const [libraryImages, setLibraryImages] = useState<LibraryImage[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -89,17 +95,27 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
   const handleOpenLibrary = async () => {
     setShowLibrary(true);
+    setLibrarySearch('');
     if (libraryImages.length === 0) {
       setIsLoadingLibrary(true);
-      const images = await ApiService.getAllImages();
-      setLibraryImages(images || []);
+      const images = await ApiService.getAllImages() as any;
+      // التأكد من أن البيانات تأتي بالتنسيق الجديد {url, productName}
+      setLibraryImages(Array.isArray(images) ? images : []);
       setIsLoadingLibrary(false);
     }
   };
 
-  const selectFromLibrary = (img: string) => {
-    if (!formData.images.includes(img)) {
-      setFormData(prev => ({ ...prev, images: [...prev.images, img] }));
+  const filteredLibrary = useMemo(() => {
+    if (!librarySearch.trim()) return libraryImages;
+    const q = librarySearch.toLowerCase();
+    return libraryImages.filter(img => 
+      img.productName.toLowerCase().includes(q)
+    );
+  }, [libraryImages, librarySearch]);
+
+  const selectFromLibrary = (url: string) => {
+    if (!formData.images.includes(url)) {
+      setFormData(prev => ({ ...prev, images: [...prev.images, url] }));
     }
     setShowLibrary(false);
   };
@@ -155,37 +171,61 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       {showLibrary && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md animate-fadeIn" onClick={() => setShowLibrary(false)}></div>
-          <div className="relative bg-white w-full max-w-4xl h-[80vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-slideUp">
-            <div className="p-8 border-b flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر 🖼️</h3>
-                <p className="text-slate-400 font-bold text-xs">اختر من الصور التي تم استخدامها مسبقاً في المنتجات</p>
+          <div className="relative bg-white w-full max-w-5xl h-[85vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-slideUp">
+            <div className="p-8 border-b space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر 🖼️</h3>
+                  <p className="text-slate-400 font-bold text-xs">يمكنك البحث عن الصور بواسطة اسم المنتج الذي استخدمت فيه سابقاً</p>
+                </div>
+                <button onClick={() => setShowLibrary(false)} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white transition">✕</button>
               </div>
-              <button onClick={() => setShowLibrary(false)} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white transition">✕</button>
+              
+              {/* شريط البحث في المكتبة */}
+              <div className="relative group">
+                <input 
+                  type="text" 
+                  placeholder="ابحث عن صورة باسم المنتج (مثال: طماطم، ساعة...)" 
+                  value={librarySearch}
+                  onChange={e => setLibrarySearch(e.target.value)}
+                  className="w-full px-12 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl outline-none font-bold transition shadow-inner"
+                  autoFocus
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl opacity-30">🔍</span>
+                {librarySearch && (
+                  <button onClick={() => setLibrarySearch('')} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500 font-black text-xs hover:underline">مسح</button>
+                )}
+              </div>
             </div>
             
-            <div className="flex-grow p-8 overflow-y-auto no-scrollbar">
+            <div className="flex-grow p-8 overflow-y-auto no-scrollbar bg-slate-50/50">
               {isLoadingLibrary ? (
                 <div className="h-full flex flex-col items-center justify-center gap-4">
                   <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                   <p className="font-black text-emerald-600">جاري جلب الصور من السيرفر...</p>
                 </div>
-              ) : libraryImages.length === 0 ? (
+              ) : filteredLibrary.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300">
                   <span className="text-6xl mb-4">📂</span>
-                  <p className="font-black">لا توجد صور مخزنة بعد.</p>
+                  <p className="font-black">لا توجد صور تطابق بحثك حالياً.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {libraryImages.map((img, idx) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  {filteredLibrary.map((item, idx) => (
                     <div 
                       key={idx} 
-                      onClick={() => selectFromLibrary(img)}
-                      className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer border-2 border-transparent hover:border-emerald-500 transition-all shadow-sm"
+                      onClick={() => selectFromLibrary(item.url)}
+                      className="group relative bg-white aspect-square rounded-[2rem] overflow-hidden cursor-pointer border-2 border-transparent hover:border-emerald-500 transition-all shadow-sm hover:shadow-xl"
                     >
-                      <img src={img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
-                      <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/20 flex items-center justify-center transition-all">
-                        <span className="bg-white text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black shadow-lg opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all">اختيار الصورة</span>
+                      <img src={item.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                      
+                      {/* معلومات المنتج أسفل الصورة */}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <p className="text-white text-[9px] font-black line-clamp-1">{item.productName}</p>
+                      </div>
+
+                      <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/10 flex items-center justify-center transition-all">
+                        <span className="bg-white text-emerald-600 px-3 py-1.5 rounded-full text-[10px] font-black shadow-lg opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all">اختيار الصورة</span>
                       </div>
                     </div>
                   ))}
@@ -193,7 +233,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               )}
             </div>
             
-            <div className="p-6 bg-slate-50 border-t flex justify-center">
+            <div className="p-6 bg-white border-t flex justify-between items-center">
+              <p className="text-slate-400 text-xs font-bold">تم العثور على {filteredLibrary.length} صورة</p>
               <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg hover:bg-emerald-700 active:scale-95 transition">
                 رفع صورة جديدة من جهازك 📤
               </button>
@@ -205,7 +246,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
-          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
+          <div className="relative bg-white w-full max-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
             <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
             <h3 className="text-2xl font-black text-slate-800 mb-2">هل أنت متأكد؟</h3>
             <p className="text-slate-500 font-bold text-sm mb-8 leading-relaxed">سيتم فقدان جميع التعديلات التي قمت بها. لا يمكنك التراجع عن هذا الإجراء.</p>
@@ -227,9 +268,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-10">
+      <div className="flex items-center justify-between mb-10 px-2">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tight">
+          <h2 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">
             {product ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد'}
           </h2>
           <p className="text-slate-500 mt-2 font-medium">قم بتعبئة بيانات المنتج بدقة لضمان أفضل تجربة تسوق</p>
@@ -237,16 +278,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         <button 
           type="button"
           onClick={() => setShowCancelConfirm(true)} 
-          className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition shadow-sm"
+          className="bg-white border-2 border-slate-100 text-slate-500 px-4 py-2 md:px-8 md:py-3 rounded-xl md:rounded-2xl font-bold hover:bg-slate-50 transition shadow-sm text-xs md:text-sm"
         >
           إلغاء
         </button>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-10">
-        <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 space-y-10">
+        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 space-y-10">
           <div className="space-y-6">
-            <h3 className="text-xl font-black text-indigo-600 flex items-center gap-3">
+            <h3 className="text-lg md:text-xl font-black text-indigo-600 flex items-center gap-3">
               <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-sm">01</span>
               المعلومات الأساسية والمعرض
             </h3>
@@ -344,9 +385,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 space-y-10">
+        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 space-y-10">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">
+            <h3 className="text-lg md:text-xl font-black text-emerald-600 flex items-center gap-3">
               <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-sm">02</span>
               تحسين محركات البحث (SEO)
             </h3>
@@ -415,7 +456,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:bg-indigo-600 transition-all duration-500 transform hover:-translate-y-2 active:scale-95">
+        <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-xl md:text-2xl shadow-2xl hover:bg-indigo-600 transition-all duration-500 transform hover:-translate-y-2 active:scale-95">
           {product ? 'حفظ كافة التغييرات' : 'نشر المنتج الآن 🚀'}
         </button>
       </form>

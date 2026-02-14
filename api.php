@@ -1,7 +1,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v7.0 - معالجة كافة طلبات لوحة التحكم والمكتبة
+ * نظام الإدارة المطور v7.1 - دعم البحث في مكتبة الصور
  */
 session_start();
 error_reporting(E_ALL); 
@@ -61,18 +61,25 @@ try {
 
         case 'get_all_images':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->query("SELECT images FROM products");
+            // جلب اسم المنتج مع الصور لتمكين البحث
+            $stmt = $pdo->query("SELECT name, images FROM products");
             $rows = $stmt->fetchAll();
-            $allImages = [];
+            $library = [];
+            $seenUrls = [];
             foreach ($rows as $row) {
+                $productName = $row['name'];
                 $imgs = json_decode($row['images'] ?? '[]', true) ?: [];
                 foreach ($imgs as $img) {
-                    if ($img && !in_array($img, $allImages)) {
-                        $allImages[] = $img;
+                    if ($img && !isset($seenUrls[$img])) {
+                        $library[] = [
+                            'url' => $img,
+                            'productName' => $productName
+                        ];
+                        $seenUrls[$img] = true;
                     }
                 }
             }
-            sendRes($allImages);
+            sendRes($library);
             break;
 
         case 'admin_update_user':
