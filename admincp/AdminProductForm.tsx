@@ -36,10 +36,15 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
-  // Track if the slug has been manually edited by the user
+  // لمنع إعادة التعيين المتكررة
+  const isInitialized = useRef(false);
   const isSlugManuallyEdited = useRef(false);
 
+  // تهيئة البيانات مرة واحدة فقط عند التحميل أو تغيير المنتج المقصود
   useEffect(() => {
+    // إذا كان المنتج موجوداً (تعديل) أو تم التهيئة مسبقاً، لا تقم بالمسح
+    if (isInitialized.current && !product) return;
+
     if (product) {
       setFormData({
         name: product.name,
@@ -59,13 +64,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         isSlugManuallyEdited.current = true;
       }
     } else {
-      setFormData({
-        name: '', description: '', price: '', wholesalePrice: '', categoryId: categories[0]?.id || '', 
-        stockQuantity: '10', barcode: '', unit: 'piece', sizes: '', colors: '', images: [] 
-      });
-      isSlugManuallyEdited.current = false;
+      // حالة إضافة منتج جديد - نعطي قيم افتراضية فقط إذا لم تكن موجودة
+      setFormData(prev => ({
+        ...prev,
+        categoryId: prev.categoryId || categories[0]?.id || '',
+        stockQuantity: prev.stockQuantity === '0' ? '10' : prev.stockQuantity,
+        unit: prev.unit || 'piece'
+      }));
     }
-  }, [product, categories]);
+    isInitialized.current = true;
+  }, [product, categories.length]); // نعتمد على طول المصفوفة وليس المرجع لتجنب التحديثات الوهمية
 
   // تحديث الـ Slug تلقائياً ليتطابق مع الاسم
   useEffect(() => {
@@ -73,8 +81,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       const generatedSlug = formData.name
         .trim()
         .toLowerCase()
-        .replace(/\s+/g, '-') // استبدال المسافات بشرطات
-        .replace(/[^\u0600-\u06FFa-zA-Z0-9-]/g, ''); // السماح بالحروف العربية والإنجليزية والأرقام والشرطات فقط
+        .replace(/\s+/g, '-') 
+        .replace(/[^\u0600-\u06FFa-zA-Z0-9-]/g, ''); 
       
       setSeoData(prev => ({ ...prev, slug: generatedSlug }));
     }
