@@ -22,6 +22,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     wholesalePrice: '',
     categoryId: '',
     stockQuantity: '0',
+    barcode: '',
     unit: 'piece' as 'piece' | 'kg' | 'gram', 
     sizes: '',
     colors: '',
@@ -44,6 +45,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         wholesalePrice: (product.wholesalePrice || 0).toString(),
         categoryId: product.categoryId,
         stockQuantity: (product.stockQuantity || 0).toString(),
+        barcode: product.barcode || '',
         unit: product.unit || 'piece', 
         sizes: product.sizes?.join(', ') || '',
         colors: product.colors?.join(', ') || '',
@@ -53,7 +55,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     } else {
       setFormData({
         name: '', description: '', price: '', wholesalePrice: '', categoryId: categories[0]?.id || '', 
-        stockQuantity: '10', unit: 'piece', sizes: '', colors: '', images: [] 
+        stockQuantity: '10', barcode: '', unit: 'piece', sizes: '', colors: '', images: [] 
       });
     }
   }, [product, categories]);
@@ -76,6 +78,11 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const generateRandomBarcode = () => {
+    const random = Math.floor(Math.random() * 9000000000000) + 1000000000000;
+    setFormData(prev => ({ ...prev, barcode: random.toString() }));
   };
 
   const handleAiDescription = async () => {
@@ -107,6 +114,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       wholesalePrice: parseFloat(formData.wholesalePrice) || 0,
       categoryId: formData.categoryId,
       stockQuantity: parseInt(formData.stockQuantity) || 0,
+      barcode: formData.barcode,
       unit: formData.unit,
       sizes: formData.sizes ? formData.sizes.split(',').map(s => s.trim()).filter(s => s !== '') : undefined,
       colors: formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(c => c !== '') : undefined,
@@ -193,6 +201,13 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">اسم المنتج</label>
               <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="مثال: ساعة ذكية الترا" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">الباركود (رقم المنتج)</label>
+              <div className="relative">
+                <input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="628xxxxxxxx" />
+                <button type="button" onClick={generateRandomBarcode} className="absolute left-2 top-2 bg-slate-200 px-3 py-2 rounded-xl text-[10px] font-black hover:bg-slate-300 transition">توليد تلقائي</button>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">التصنيف</label>
