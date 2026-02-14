@@ -18,6 +18,7 @@ import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
 import MobileNav from './components/MobileNav.tsx';
+import PullToRefresh from './components/PullToRefresh.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
@@ -266,285 +267,287 @@ const App: React.FC = () => {
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
 
   return (
-    <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-32 md:pb-0'}`}>
-      {notification && (
-        <div className="no-print">
-          <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
-        </div>
-      )}
+    <PullToRefresh onRefresh={() => loadData(true)}>
+      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-32 md:pb-0'}`}>
+        {notification && (
+          <div className="no-print">
+            <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
+          </div>
+        )}
 
-      {view === 'admin-auth' && (!currentUser || currentUser.role !== 'admin') && (
-        <AdminAuthView 
-          onSuccess={(user) => {
-            setCurrentUser(user);
-            showNotify('تم الدخول كمدير بنجاح');
-            onNavigateAction('admin');
-            loadData();
-          }}
-          onClose={() => onNavigateAction('store')}
-        />
-      )}
-
-      {showAuthModal && (
-        <AuthView 
-          onClose={() => setShowAuthModal(false)}
-          onSuccess={(user) => { 
-            setCurrentUser(user); 
-            showNotify(`أهلاً بك يا ${user.name}`); 
-            setShowAuthModal(false);
-            loadData();
-          }} 
-        />
-      )}
-
-      {!isAdminView && (
-        <div className="no-print">
-          <Header 
-            cartCount={cart.length} 
-            wishlistCount={wishlist.length} 
-            categories={categories}
-            currentUser={currentUser}
-            onNavigate={onNavigateAction}
-            onLoginClick={() => setShowAuthModal(true)}
-            onLogout={handleLogout}
-            onSearch={setSearchQuery} 
-            onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
+        {view === 'admin-auth' && (!currentUser || currentUser.role !== 'admin') && (
+          <AdminAuthView 
+            onSuccess={(user) => {
+              setCurrentUser(user);
+              showNotify('تم الدخول كمدير بنجاح');
+              onNavigateAction('admin');
+              loadData();
+            }}
+            onClose={() => onNavigateAction('store')}
           />
-        </div>
-      )}
+        )}
 
-      <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4' : 'pt-16 md:pt-32'} ${view === 'order-success' ? 'print-full-width' : ''}`}>
-        {view === 'store' && (
-          <StoreView 
-            products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
-            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={addToCart} 
-            onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
-            wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+        {showAuthModal && (
+          <AuthView 
+            onClose={() => setShowAuthModal(false)}
+            onSuccess={(user) => { 
+              setCurrentUser(user); 
+              showNotify(`أهلاً بك يا ${user.name}`); 
+              setShowAuthModal(false);
+              loadData();
+            }} 
           />
+        )}
+
+        {!isAdminView && (
+          <div className="no-print">
+            <Header 
+              cartCount={cart.length} 
+              wishlistCount={wishlist.length} 
+              categories={categories}
+              currentUser={currentUser}
+              onNavigate={onNavigateAction}
+              onLoginClick={() => setShowAuthModal(true)}
+              onLogout={handleLogout}
+              onSearch={setSearchQuery} 
+              onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
+            />
+          </div>
+        )}
+
+        <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4' : 'pt-16 md:pt-32'} ${view === 'order-success' ? 'print-full-width' : ''}`}>
+          {view === 'store' && (
+            <StoreView 
+              products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
+              onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={addToCart} 
+              onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
+              wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+            />
+          )}
+          
+          {view === 'admin' && currentUser?.role === 'admin' && (
+            <AdminDashboard 
+              products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
+              onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
+              onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
+              onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
+              onDeleteProduct={async (id) => { 
+                  const success = await ApiService.deleteProduct(id); 
+                  if (success) { showNotify('تم حذف المنتج بنجاح'); loadData(); }
+              }}
+              onAddCategory={async (c) => { 
+                  const success = await ApiService.addCategory(c); 
+                  if (success) { showNotify('تم إضافة القسم بنجاح'); loadData(); }
+              }}
+              onUpdateCategory={async (c) => { 
+                  const success = await ApiService.updateCategory(c); 
+                  if (success) { showNotify('تم تحديث القسم بنجاح'); loadData(); }
+              }}
+              onDeleteCategory={async (id) => { 
+                  const success = await ApiService.deleteCategory(id); 
+                  if (success) { showNotify('تم حذف القسم بنجاح'); loadData(); }
+              }}
+              onViewOrder={(order) => {
+                setLastCreatedOrder(order);
+                onNavigateAction('order-success');
+              }}
+              onUpdateOrderPayment={handleUpdateOrderPayment}
+              soundEnabled={soundEnabled}
+              onToggleSound={() => setSoundEnabled(!soundEnabled)}
+              onLogout={handleLogout}
+            />
+          )}
+
+          {view === 'admin-form' && (
+            <AdminProductForm 
+              product={selectedProduct} categories={categories} 
+              onSubmit={async (p) => {
+                const isEdit = products.some(prod => prod.id === p.id);
+                const success = isEdit ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
+                if (success) {
+                  showNotify('تم حفظ البيانات بنجاح! ✨');
+                  await loadData();
+                  onNavigateAction('admin');
+                }
+              }}
+              onCancel={() => onNavigateAction('admin')}
+            />
+          )}
+
+          {(view === 'admin-invoice' || view === 'quick-invoice') && (
+            <AdminInvoiceForm 
+              products={products}
+              initialCustomerName={currentUser ? currentUser.name : 'عميل زائر'}
+              initialPhone={currentUser ? currentUser.phone : ''}
+              onSubmit={async (order) => {
+                if (currentUser) {
+                  order.userId = currentUser.id;
+                }
+                const success = await ApiService.saveOrder(order);
+                if (success) {
+                  setLastCreatedOrder(order);
+                  showNotify('تم إرسال الطلب بنجاح');
+                  WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                  await loadData();
+                  onNavigateAction('order-success');
+                } else {
+                  showNotify('فشل حفظ الطلب', 'error');
+                }
+              }}
+              onCancel={() => onNavigateAction(view === 'admin-invoice' ? 'admin' : 'store')}
+            />
+          )}
+
+          {view === 'cart' && (
+            <CartView 
+              cart={cart} 
+              onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
+              onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
+              onCheckout={() => onNavigateAction('checkout')}
+              onContinueShopping={() => onNavigateAction('store')}
+            />
+          )}
+
+          {view === 'product-details' && selectedProduct && (
+            <ProductDetailsView 
+              product={selectedProduct}
+              categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
+              onAddToCart={(p, s, c, rect) => addToCart(p, rect)}
+              onBack={() => onNavigateAction('store')}
+              isFavorite={wishlist.includes(selectedProduct.id)}
+              onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+            />
+          )}
+
+          {view === 'checkout' && (
+            <CheckoutView 
+              cart={cart}
+              currentUser={currentUser}
+              onBack={() => onNavigateAction('cart')}
+              onPlaceOrder={async (details) => {
+                const totalAmount = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+                const newOrder: Order = {
+                  id: 'ORD-' + Date.now().toString().slice(-6),
+                  customerName: details.fullName,
+                  phone: details.phone,
+                  city: details.city,
+                  address: details.address,
+                  items: cart,
+                  total: totalAmount,
+                  subtotal: totalAmount,
+                  createdAt: Date.now(),
+                  status: 'completed',
+                  paymentMethod: details.paymentMethod || 'عند الاستلام',
+                  userId: currentUser?.id || null
+                };
+                
+                const success = await ApiService.saveOrder(newOrder);
+                if (success) {
+                  setLastCreatedOrder(newOrder);
+                  setCart([]);
+                  showNotify('تم إرسال طلبك بنجاح');
+                  WhatsAppService.sendOrderNotification(newOrder, adminPhone);
+                  onNavigateAction('order-success');
+                  loadData();
+                } else {
+                  showNotify('عذراً، حدث خطأ أثناء إرسال الطلب', 'error');
+                }
+              }}
+            />
+          )}
+
+          {view === 'my-orders' && (
+            <MyOrdersView 
+              orders={orders} 
+              onViewDetails={(order) => {
+                setLastCreatedOrder(order);
+                onNavigateAction('order-success');
+              }}
+              onBack={() => onNavigateAction('store')}
+            />
+          )}
+
+          {view === 'profile' && currentUser && (
+            <ProfileView 
+              currentUser={currentUser} 
+              onSuccess={handleLogout} 
+              onBack={() => onNavigateAction('store')} 
+            />
+          )}
+
+          {view === 'order-success' && lastCreatedOrder && (
+            <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('store')} />
+          )}
+        </main>
+
+        {!isAdminView && (
+          <div className="no-print">
+            <FloatingCartButton 
+              count={cart.length} 
+              onClick={() => onNavigateAction('cart')} 
+              isVisible={view !== 'cart' && view !== 'checkout'}
+            />
+            <FloatingQuickInvoiceButton 
+              currentView={view}
+              onNavigate={onNavigateAction}
+            />
+          </div>
+        )}
+
+        {currentUser?.role === 'admin' && view !== 'admin' && (
+          <div className="no-print">
+            <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
+          </div>
+        )}
+
+        {!isAdminView && (
+          <div className="no-print">
+            <MobileNav 
+              currentView={view} 
+              cartCount={cart.length} 
+              onNavigate={onNavigateAction} 
+              onCartClick={() => onNavigateAction('cart')}
+              isAdmin={currentUser?.role === 'admin'}
+            />
+            <footer className="hidden md:block bg-slate-900 text-white py-12 text-center">
+              <div className="flex flex-col items-center gap-2 mb-4">
+                <h2 className="text-xl font-black">سوق العصر</h2>
+                <p className="text-emerald-500 text-[10px] font-black uppercase">فاقوس - الشرقية</p>
+              </div>
+              <p className="text-slate-500 text-[10px] uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+            </footer>
+          </div>
         )}
         
-        {view === 'admin' && currentUser?.role === 'admin' && (
-          <AdminDashboard 
-            products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
-            onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
-            onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
-            onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
-            onDeleteProduct={async (id) => { 
-                const success = await ApiService.deleteProduct(id); 
-                if (success) { showNotify('تم حذف المنتج بنجاح'); loadData(); }
-            }}
-            onAddCategory={async (c) => { 
-                const success = await ApiService.addCategory(c); 
-                if (success) { showNotify('تم إضافة القسم بنجاح'); loadData(); }
-            }}
-            onUpdateCategory={async (c) => { 
-                const success = await ApiService.updateCategory(c); 
-                if (success) { showNotify('تم تحديث القسم بنجاح'); loadData(); }
-            }}
-            onDeleteCategory={async (id) => { 
-                const success = await ApiService.deleteCategory(id); 
-                if (success) { showNotify('تم حذف القسم بنجاح'); loadData(); }
-            }}
-            onViewOrder={(order) => {
-              setLastCreatedOrder(order);
-              onNavigateAction('order-success');
-            }}
-            onUpdateOrderPayment={handleUpdateOrderPayment}
-            soundEnabled={soundEnabled}
-            onToggleSound={() => setSoundEnabled(!soundEnabled)}
-            onLogout={handleLogout}
-          />
-        )}
-
-        {view === 'admin-form' && (
-          <AdminProductForm 
-            product={selectedProduct} categories={categories} 
-            onSubmit={async (p) => {
-               const isEdit = products.some(prod => prod.id === p.id);
-               const success = isEdit ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
-               if (success) {
-                 showNotify('تم حفظ البيانات بنجاح! ✨');
-                 await loadData();
-                 onNavigateAction('admin');
-               }
-            }}
-            onCancel={() => onNavigateAction('admin')}
-          />
-        )}
-
-        {(view === 'admin-invoice' || view === 'quick-invoice') && (
-          <AdminInvoiceForm 
-            products={products}
-            initialCustomerName={currentUser ? currentUser.name : 'عميل زائر'}
-            initialPhone={currentUser ? currentUser.phone : ''}
-            onSubmit={async (order) => {
-              if (currentUser) {
-                order.userId = currentUser.id;
-              }
-              const success = await ApiService.saveOrder(order);
-              if (success) {
-                setLastCreatedOrder(order);
-                showNotify('تم إرسال الطلب بنجاح');
-                WhatsAppService.sendInvoiceToCustomer(order, order.phone);
-                await loadData();
-                onNavigateAction('order-success');
-              } else {
-                showNotify('فشل حفظ الطلب', 'error');
-              }
-            }}
-            onCancel={() => onNavigateAction(view === 'admin-invoice' ? 'admin' : 'store')}
-          />
-        )}
-
-        {view === 'cart' && (
-          <CartView 
-            cart={cart} 
-            onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
-            onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
-            onCheckout={() => onNavigateAction('checkout')}
-            onContinueShopping={() => onNavigateAction('store')}
-          />
-        )}
-
-        {view === 'product-details' && selectedProduct && (
-          <ProductDetailsView 
-            product={selectedProduct}
-            categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-            onAddToCart={(p, s, c, rect) => addToCart(p, rect)}
-            onBack={() => onNavigateAction('store')}
-            isFavorite={wishlist.includes(selectedProduct.id)}
-            onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-          />
-        )}
-
-        {view === 'checkout' && (
-          <CheckoutView 
-            cart={cart}
-            currentUser={currentUser}
-            onBack={() => onNavigateAction('cart')}
-            onPlaceOrder={async (details) => {
-              const totalAmount = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-              const newOrder: Order = {
-                id: 'ORD-' + Date.now().toString().slice(-6),
-                customerName: details.fullName,
-                phone: details.phone,
-                city: details.city,
-                address: details.address,
-                items: cart,
-                total: totalAmount,
-                subtotal: totalAmount,
-                createdAt: Date.now(),
-                status: 'completed',
-                paymentMethod: details.paymentMethod || 'عند الاستلام',
-                userId: currentUser?.id || null
-              };
-              
-              const success = await ApiService.saveOrder(newOrder);
-              if (success) {
-                setLastCreatedOrder(newOrder);
-                setCart([]);
-                showNotify('تم إرسال طلبك بنجاح');
-                WhatsAppService.sendOrderNotification(newOrder, adminPhone);
-                onNavigateAction('order-success');
-                loadData();
-              } else {
-                showNotify('عذراً، حدث خطأ أثناء إرسال الطلب', 'error');
-              }
-            }}
-          />
-        )}
-
-        {view === 'my-orders' && (
-          <MyOrdersView 
-            orders={orders} 
-            onViewDetails={(order) => {
-              setLastCreatedOrder(order);
-              onNavigateAction('order-success');
-            }}
-            onBack={() => onNavigateAction('store')}
-          />
-        )}
-
-        {view === 'profile' && currentUser && (
-          <ProfileView 
-            currentUser={currentUser} 
-            onSuccess={handleLogout} 
-            onBack={() => onNavigateAction('store')} 
-          />
-        )}
-
-        {view === 'order-success' && lastCreatedOrder && (
-          <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('store')} />
-        )}
-      </main>
-
-      {!isAdminView && (
-        <div className="no-print">
-          <FloatingCartButton 
-            count={cart.length} 
-            onClick={() => onNavigateAction('cart')} 
-            isVisible={view !== 'cart' && view !== 'checkout'}
-          />
-          <FloatingQuickInvoiceButton 
-            currentView={view}
-            onNavigate={onNavigateAction}
-          />
-        </div>
-      )}
-
-      {currentUser?.role === 'admin' && view !== 'admin' && (
-        <div className="no-print">
-          <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
-        </div>
-      )}
-
-      {!isAdminView && (
-        <div className="no-print">
-          <MobileNav 
-            currentView={view} 
-            cartCount={cart.length} 
-            onNavigate={onNavigateAction} 
-            onCartClick={() => onNavigateAction('cart')}
-            isAdmin={currentUser?.role === 'admin'}
-          />
-          <footer className="hidden md:block bg-slate-900 text-white py-12 text-center">
-            <div className="flex flex-col items-center gap-2 mb-4">
-              <h2 className="text-xl font-black">سوق العصر</h2>
-              <p className="text-emerald-500 text-[10px] font-black uppercase">فاقوس - الشرقية</p>
-            </div>
-            <p className="text-slate-500 text-[10px] uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
-          </footer>
-        </div>
-      )}
-      
-      <style>{`
-        @keyframes ping-once {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.3); }
-          100% { transform: scale(1); }
-        }
-        .animate-ping-once {
-          animation: ping-once 0.5s ease-out;
-        }
-        @media print {
-          .no-print {
-            display: none !important;
+        <style>{`
+          @keyframes ping-once {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
           }
-          body {
-            background: white !important;
+          .animate-ping-once {
+            animation: ping-once 0.5s ease-out;
           }
-          main {
-            padding-top: 0 !important;
-            margin: 0 !important;
+          @media print {
+            .no-print {
+              display: none !important;
+            }
+            body {
+              background: white !important;
+            }
+            main {
+              padding-top: 0 !important;
+              margin: 0 !important;
+            }
+            .print-full-width {
+              max-width: 100% !important;
+              width: 100% !important;
+              padding: 0 !important;
+            }
           }
-          .print-full-width {
-            max-width: 100% !important;
-            width: 100% !important;
-            padding: 0 !important;
-          }
-        }
-      `}</style>
-    </div>
+        `}</style>
+      </div>
+    </PullToRefresh>
   );
 };
 
