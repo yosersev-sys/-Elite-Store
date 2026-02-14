@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User } from './types.ts';
 import Header from './components/Header.tsx';
@@ -39,8 +38,23 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [wishlist, setWishlist] = useState<string[]>([]);
+  
+  // تهيئة السلة من التخزين المحلي
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('souq_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  // تهيئة المفضلة من التخزين المحلي
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('souq_wishlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -51,6 +65,16 @@ const App: React.FC = () => {
   const prevOrdersCount = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // حفظ السلة تلقائياً عند أي تغيير
+  useEffect(() => {
+    localStorage.setItem('souq_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  // حفظ المفضلة تلقائياً عند أي تغيير
+  useEffect(() => {
+    localStorage.setItem('souq_wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
@@ -75,7 +99,6 @@ const App: React.FC = () => {
 
     const cartBtn = document.getElementById('floating-cart-btn') || document.querySelector('.mobile-cart-btn');
     
-    // تأخير بسيط لضمان رندر العنصر قبل بدء الحركة
     setTimeout(() => {
       let tx = window.innerWidth - 80;
       let ty = window.innerHeight - 80;
@@ -96,7 +119,6 @@ const App: React.FC = () => {
 
     setTimeout(() => {
       flyEl.remove();
-      // إضافة تأثير "نبضة" لزر السلة عند وصول المنتج
       if (cartBtn) {
         cartBtn.classList.add('animate-ping-once');
         setTimeout(() => cartBtn.classList.remove('animate-ping-once'), 500);
@@ -108,7 +130,13 @@ const App: React.FC = () => {
     if (startRect && product.images && product.images[0]) {
       triggerFlyAnimation(startRect, product.images[0]);
     }
-    setCart(prev => [...prev, { ...product, quantity: 1 }]);
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + 1} : item);
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
     showNotify('تمت الإضافة للسلة');
   };
 

@@ -38,13 +38,13 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
-  // لمنع إعادة التعيين المتكررة
-  const isInitialized = useRef(false);
+  // التحكم في حالة التهيئة لمنع المسح التلقائي
+  const initialSetupDone = useRef(false);
   const isSlugManuallyEdited = useRef(false);
 
-  // تهيئة البيانات مرة واحدة فقط عند التحميل أو تغيير المنتج المقصود
   useEffect(() => {
-    if (isInitialized.current && !product) return;
+    // لا تقم بالتهيئة إلا إذا تغير المنتج المختار أو في المرة الأولى فقط
+    if (initialSetupDone.current && !product) return;
 
     if (product) {
       setFormData({
@@ -72,7 +72,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         unit: prev.unit || 'piece'
       }));
     }
-    isInitialized.current = true;
+    initialSetupDone.current = true;
   }, [product, categories.length]);
 
   // تحديث الـ Slug تلقائياً ليتطابق مع الاسم
@@ -115,7 +115,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       const desc = await generateProductDescription(formData.name, catName);
       setFormData(prev => ({ ...prev, description: desc }));
     } catch (err) {
-      alert('حدث خطأ أثناء توليد الوصف');
+      alert('حدث خطأ أثناء الاتصال بالذكاء الاصطناعي');
     } finally {
       setIsLoadingAi(false);
     }
@@ -133,10 +133,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         setSeoData(data);
         isSlugManuallyEdited.current = true;
       } else {
-        alert('فشل الذكاء الاصطناعي في توليد البيانات. يرجى المحاولة مرة أخرى أو الكتابة يدوياً.');
+        alert('لم نتمكن من الحصول على رد صحيح من الذكاء الاصطناعي، يرجى المحاولة مرة أخرى.');
       }
     } catch (err) {
-      alert('خطأ في الاتصال بالذكاء الاصطناعي');
+      alert('خطأ في الاتصال بالسيرفر');
     } finally {
       setIsLoadingSeo(false);
     }
