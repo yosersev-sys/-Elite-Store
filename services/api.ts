@@ -3,6 +3,7 @@ import { Product, Category, Order, User } from '../types.ts';
 const API_URL = 'api.php';
 const OFFLINE_ORDERS_KEY = 'souq_offline_orders';
 const PRODUCTS_CACHE_KEY = 'souq_products_cache';
+const USER_CACHE_KEY = 'souq_user_profile';
 
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
@@ -11,17 +12,27 @@ const safeFetch = async (action: string, options?: RequestInit) => {
       ...options,
       headers: { 'Accept': 'application/json', ...options?.headers },
     });
+    if (!response.ok) throw new Error('Network response was not ok');
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error("API Fetch Error:", error);
+    console.error(`API Fetch Error (${action}):`, error);
     return null;
   }
 };
 
 export const ApiService = {
   async getCurrentUser(): Promise<User | null> {
-    return await safeFetch('get_current_user');
+    const user = await safeFetch('get_current_user');
+    
+    if (user) {
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+      return user;
+    }
+
+    // إذا كنا أوفلاين، نسحب بيانات المستخدم من الذاكرة المحلية
+    const cachedUser = localStorage.getItem(USER_CACHE_KEY);
+    return cachedUser ? JSON.parse(cachedUser) : null;
   },
 
   async getAdminPhone(): Promise<{phone: string} | null> {
@@ -29,28 +40,46 @@ export const ApiService = {
   },
 
   async login(phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
-    return await safeFetch('login', {
+    const result = await safeFetch('login', {
       method: 'POST',
       body: JSON.stringify({ phone, password })
     });
+    
+    if (result?.status === 'success' && result.user) {
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user));
+    }
+    
+    return result;
   },
 
   async register(name: string, phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
-    return await safeFetch('register', {
+    const result = await safeFetch('register', {
       method: 'POST',
       body: JSON.stringify({ name, phone, password })
     });
+    
+    if (result?.status === 'success' && result.user) {
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user));
+    }
+    
+    return result;
   },
 
   async logout(): Promise<void> {
+    localStorage.removeItem(USER_CACHE_KEY);
     await safeFetch('logout');
   },
 
   async updateProfile(data: { name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
-    return await safeFetch('update_profile', {
+    const result = await safeFetch('update_profile', {
       method: 'POST',
       body: JSON.stringify(data)
     });
+    if (result?.status === 'success') {
+      const user = await this.getCurrentUser();
+      if (user) localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    }
+    return result;
   },
 
   async adminUpdateUser(data: { id: string, name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
@@ -60,17 +89,14 @@ export const ApiService = {
     });
   },
 
-  // جلب المنتجات مع دعم الكاش للأوفلاين
   async getProducts(): Promise<Product[]> {
     const products = await safeFetch('get_products');
     
     if (products) {
-      // تحديث النسخة الاحتياطية في الجهاز
       localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(products));
       return products;
     }
 
-    // إذا فشل الإنترنت، نسحب آخر نسخة محفوظة في الجهاز
     const cached = localStorage.getItem(PRODUCTS_CACHE_KEY);
     return cached ? JSON.parse(cached) : [];
   },
@@ -108,6 +134,7 @@ export const ApiService = {
   },
 
   async saveOrder(order: Order): Promise<boolean> {
+    // محاولة الحفظ على السيرفر أولاً
     const result = await safeFetch('save_order', {
       method: 'POST',
       body: JSON.stringify(order)
@@ -117,8 +144,12 @@ export const ApiService = {
       return true;
     }
 
-    const currentUser = await this.getCurrentUser();
+    // إذا فشل الاتصال بالسيرفر، نتحقق من صلاحية المدير محلياً
+    const cachedUser = localStorage.getItem(USER_CACHE_KEY);
+    const currentUser = cachedUser ? JSON.parse(cachedUser) : null;
+    
     if (currentUser?.role === 'admin') {
+      console.log("Saving order to offline queue...");
       this.queueOfflineOrder(order);
       return true;
     }
@@ -128,13 +159,17 @@ export const ApiService = {
 
   queueOfflineOrder(order: Order) {
     const orders = this.getOfflineOrders();
-    orders.push(order);
-    localStorage.setItem(OFFLINE_ORDERS_KEY, JSON.stringify(orders));
+    // تجنب تكرار الفاتورة إذا تم الضغط مرتين
+    if (!orders.some(o => o.id === order.id)) {
+      orders.push(order);
+      localStorage.setItem(OFFLINE_ORDERS_KEY, JSON.stringify(orders));
+    }
   },
 
   getOfflineOrders(): Order[] {
     try {
-      return JSON.parse(localStorage.getItem(OFFLINE_ORDERS_KEY) || '[]');
+      const orders = localStorage.getItem(OFFLINE_ORDERS_KEY);
+      return orders ? JSON.parse(orders) : [];
     } catch { return []; }
   },
 
