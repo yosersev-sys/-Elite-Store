@@ -2,6 +2,7 @@ import { Product, Category, Order, User } from '../types.ts';
 
 const API_URL = 'api.php';
 const OFFLINE_ORDERS_KEY = 'souq_offline_orders';
+const PRODUCTS_CACHE_KEY = 'souq_products_cache';
 
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
@@ -59,8 +60,19 @@ export const ApiService = {
     });
   },
 
+  // جلب المنتجات مع دعم الكاش للأوفلاين
   async getProducts(): Promise<Product[]> {
-    return await safeFetch('get_products') || [];
+    const products = await safeFetch('get_products');
+    
+    if (products) {
+      // تحديث النسخة الاحتياطية في الجهاز
+      localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(products));
+      return products;
+    }
+
+    // إذا فشل الإنترنت، نسحب آخر نسخة محفوظة في الجهاز
+    const cached = localStorage.getItem(PRODUCTS_CACHE_KEY);
+    return cached ? JSON.parse(cached) : [];
   },
 
   async getAllImages(): Promise<string[]> {
@@ -95,9 +107,7 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  // نظام حفظ الطلبات المطور ليدعم وضع الأوفلاين
   async saveOrder(order: Order): Promise<boolean> {
-    // محاولة الإرسال للسيرفر أولاً
     const result = await safeFetch('save_order', {
       method: 'POST',
       body: JSON.stringify(order)
@@ -107,11 +117,10 @@ export const ApiService = {
       return true;
     }
 
-    // إذا فشل الإرسال (بسبب الإنترنت غالباً)، نحفظها محلياً إذا كان المستخدم مديراً
     const currentUser = await this.getCurrentUser();
     if (currentUser?.role === 'admin') {
       this.queueOfflineOrder(order);
-      return true; // نرجع true لأننا حفظناها في قائمة الانتظار
+      return true;
     }
 
     return false;

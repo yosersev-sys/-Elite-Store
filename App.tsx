@@ -65,6 +65,19 @@ const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // تسجيل الـ Service Worker للعمل أوفلاين
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(reg => {
+          console.log('SW Registered!', reg.scope);
+        }).catch(err => {
+          console.log('SW Registration Failed!', err);
+        });
+      });
+    }
+  }, []);
+
   // مراقبة الاتصال للمزامنة
   useEffect(() => {
     const handleOnline = async () => {
