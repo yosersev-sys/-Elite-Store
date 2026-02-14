@@ -36,6 +36,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
+  // Track if the slug has been manually edited by the user
+  const isSlugManuallyEdited = useRef(false);
+
   useEffect(() => {
     if (product) {
       setFormData({
@@ -51,20 +54,31 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         colors: product.colors?.join(', ') || '',
         images: product.images || []
       });
-      if (product.seoSettings) setSeoData(product.seoSettings);
+      if (product.seoSettings) {
+        setSeoData(product.seoSettings);
+        isSlugManuallyEdited.current = true;
+      }
     } else {
       setFormData({
         name: '', description: '', price: '', wholesalePrice: '', categoryId: categories[0]?.id || '', 
         stockQuantity: '10', barcode: '', unit: 'piece', sizes: '', colors: '', images: [] 
       });
+      isSlugManuallyEdited.current = false;
     }
   }, [product, categories]);
 
+  // تحديث الـ Slug تلقائياً ليتطابق مع الاسم
   useEffect(() => {
-    if (!product && formData.name && !seoData.slug) {
-      setSeoData(prev => ({ ...prev, slug: formData.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') }));
+    if (!isSlugManuallyEdited.current && formData.name) {
+      const generatedSlug = formData.name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-') // استبدال المسافات بشرطات
+        .replace(/[^\u0600-\u06FFa-zA-Z0-9-]/g, ''); // السماح بالحروف العربية والإنجليزية والأرقام والشرطات فقط
+      
+      setSeoData(prev => ({ ...prev, slug: generatedSlug }));
     }
-  }, [formData.name, product]);
+  }, [formData.name]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -98,7 +112,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     if (!formData.name || !formData.description) return alert('يرجى إدخال الاسم والوصف أولاً لتوليد بيانات SEO دقيقة');
     setIsLoadingSeo(true);
     const data = await generateSeoData(formData.name, formData.description);
-    if (data) setSeoData(data);
+    if (data) {
+      setSeoData(data);
+      isSlugManuallyEdited.current = true;
+    }
     setIsLoadingSeo(false);
   };
 
@@ -278,8 +295,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-500">Slug (رابط المنتج)</label>
                 <div className="flex items-center bg-slate-50 rounded-2xl px-6 border-2 border-transparent focus-within:border-emerald-300 transition">
-                  <span className="text-slate-400 text-xs font-medium">elite-store.com/p/</span>
-                  <input value={seoData.slug} onChange={e => setSeoData({...seoData, slug: e.target.value})} className="flex-grow py-4 bg-transparent outline-none text-emerald-700 font-bold" placeholder="product-url-name" />
+                  <span className="text-slate-400 text-xs font-medium">soqelasr.com/p/</span>
+                  <input 
+                    value={seoData.slug} 
+                    onChange={e => {
+                      setSeoData({...seoData, slug: e.target.value});
+                      isSlugManuallyEdited.current = true;
+                    }} 
+                    className="flex-grow py-4 bg-transparent outline-none text-emerald-700 font-bold" 
+                    placeholder="رابط-المنتج" 
+                  />
                 </div>
               </div>
 
@@ -303,11 +328,11 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <label className="text-sm font-bold text-slate-500">معاينة نتيجة البحث (Google Preview)</label>
               <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm space-y-2 max-w-lg">
                 <div className="flex items-center gap-2 text-[12px] text-slate-500">
-                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold">E</div>
-                  <span>Elite Store › p › {seoData.slug || '...'}</span>
+                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold">S</div>
+                  <span dir="ltr">soqelasr.com › p › {seoData.slug || '...'}</span>
                 </div>
                 <h4 className="text-[20px] text-[#1a0dab] hover:underline cursor-pointer font-medium leading-tight">
-                  {seoData.metaTitle || (formData.name ? `${formData.name} | متجر النخبة` : 'عنوان المنتج يظهر هنا')}
+                  {seoData.metaTitle || (formData.name ? `${formData.name} | سوق العصر` : 'عنوان المنتج يظهر هنا')}
                 </h4>
                 <p className="text-[14px] text-[#4d5156] leading-relaxed line-clamp-2">
                   <span className="text-slate-500">{new Date().toLocaleDateString('ar-SA')} — </span>
