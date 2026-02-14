@@ -57,7 +57,7 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // تم التعديل ليكون false افتراضياً
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
   const prevOrdersCount = useRef<number>(0);
@@ -98,13 +98,11 @@ const App: React.FC = () => {
     setTimeout(() => {
       let tx = window.innerWidth - 80;
       let ty = window.innerHeight - 80;
-
       if (cartBtn) {
         const rect = cartBtn.getBoundingClientRect();
         tx = rect.left + rect.width / 2;
         ty = rect.top + rect.height / 2;
       }
-
       flyEl.style.left = `${tx}px`;
       flyEl.style.top = `${ty}px`;
       flyEl.style.width = '20px';
@@ -161,16 +159,16 @@ const App: React.FC = () => {
     try {
       if (!isSilent) setIsLoading(true);
       
-      const user = await ApiService.getCurrentUser();
-      setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
-      
-      const adminInfo = await ApiService.getAdminPhone();
-      if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
+      const [user, adminInfo, fetchedProducts, fetchedCats] = await Promise.all([
+        ApiService.getCurrentUser(),
+        ApiService.getAdminPhone(),
+        ApiService.getProducts(),
+        ApiService.getCategories()
+      ]);
 
-      const fetchedProducts = await ApiService.getProducts();
+      setCurrentUser(user);
+      if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
       setProducts(fetchedProducts || []);
-      
-      const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
       
       if (user) {
@@ -180,28 +178,23 @@ const App: React.FC = () => {
         if (user.role === 'admin') {
           const fetchedUsers = await ApiService.getUsers();
           setUsers(fetchedUsers || []);
-
           if (isSilent && newOrdersList.length > prevOrdersCount.current && prevOrdersCount.current > 0) {
             playNotificationSound();
             showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
           }
         }
-        
         setOrders(newOrdersList);
         prevOrdersCount.current = newOrdersList.length;
       }
-
       if (!isSilent) syncViewWithHash(user);
     } catch (err) {
       console.error("Data loading error:", err);
     } finally {
-      if (!isSilent) setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
-  useEffect(() => { 
-    loadData(); 
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
     const handleHashChange = () => syncViewWithHash(currentUser);
@@ -212,9 +205,7 @@ const App: React.FC = () => {
   useEffect(() => {
     let interval: any;
     if (currentUser?.role === 'admin') {
-      interval = setInterval(() => {
-        loadData(true); 
-      }, 20000);
+      interval = setInterval(() => { loadData(true); }, 30000);
     }
     return () => clearInterval(interval);
   }, [currentUser?.id, currentUser?.role]);
@@ -224,7 +215,6 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
-
     setView(v);
     if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
        if (!window.location.hash.includes('admincp')) window.location.hash = '#/admincp';
@@ -365,9 +355,7 @@ const App: React.FC = () => {
             initialCustomerName={currentUser ? currentUser.name : 'عميل زائر'}
             initialPhone={currentUser ? currentUser.phone : ''}
             onSubmit={async (order) => {
-              if (currentUser) {
-                order.userId = currentUser.id;
-              }
+              if (currentUser) order.userId = currentUser.id;
               const success = await ApiService.saveOrder(order);
               if (success) {
                 setLastCreatedOrder(order);
@@ -467,15 +455,8 @@ const App: React.FC = () => {
 
       {!isAdminView && (
         <>
-          <FloatingCartButton 
-            count={cart.length} 
-            onClick={() => onNavigateAction('cart')} 
-            isVisible={view !== 'cart' && view !== 'checkout'}
-          />
-          <FloatingQuickInvoiceButton 
-            currentView={view}
-            onNavigate={onNavigateAction}
-          />
+          <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={view !== 'cart' && view !== 'checkout'} />
+          <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
         </>
       )}
 
@@ -483,13 +464,7 @@ const App: React.FC = () => {
 
       {!isAdminView && (
         <>
-          <MobileNav 
-            currentView={view} 
-            cartCount={cart.length} 
-            onNavigate={onNavigateAction} 
-            onCartClick={() => onNavigateAction('cart')}
-            isAdmin={currentUser?.role === 'admin'}
-          />
+          <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigateAction} onCartClick={() => onNavigateAction('cart')} isAdmin={currentUser?.role === 'admin'} />
           <footer className="hidden md:block bg-slate-900 text-white py-12 text-center">
             <div className="flex flex-col items-center gap-2 mb-4">
               <h2 className="text-xl font-black">سوق العصر</h2>
@@ -499,17 +474,6 @@ const App: React.FC = () => {
           </footer>
         </>
       )}
-      
-      <style>{`
-        @keyframes ping-once {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.3); }
-          100% { transform: scale(1); }
-        }
-        .animate-ping-once {
-          animation: ping-once 0.5s ease-out;
-        }
-      `}</style>
     </div>
   );
 };

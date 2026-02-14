@@ -61,7 +61,6 @@ header('Content-Type: text/html; charset=utf-8');
         import React from 'react';
         import ReactDOM from 'react-dom/client';
 
-        // تعريف الكائن process لمنع ReferenceError في المتصفح
         window.process = window.process || { env: {} };
 
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
@@ -80,40 +79,36 @@ header('Content-Type: text/html; charset=utf-8');
                     }
                 } catch (e) {}
             }
-            throw new Error(`تعذر العثور على الملف: ${url}`);
+            throw new Error(`File not found: ${url}`);
         }
 
         async function getTranspiledUrl(filePath) {
             const absolutePath = new URL(filePath, BASE_URL).href;
             if (blobCache.has(absolutePath)) return blobCache.get(absolutePath);
 
-            try {
-                const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
-                let code = rawCode;
+            const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
+            let code = rawCode;
 
-                const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
-                const matches = [...code.matchAll(importRegex)];
-                
-                for (const match of matches) {
-                    const relativePath = match[1];
-                    const fullImportPath = new URL(relativePath, finalUrl).href;
-                    const depBlobUrl = await getTranspiledUrl(fullImportPath);
-                    code = code.split(`'${relativePath}'`).join(`'${depBlobUrl}'`);
-                    code = code.split(`"${relativePath}"`).join(`"${depBlobUrl}"`);
-                }
-
-                const transformed = Babel.transform(code, {
-                    presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
-                    filename: finalUrl,
-                }).code;
-
-                const blob = new Blob([transformed], { type: 'application/javascript' });
-                const blobUrl = URL.createObjectURL(blob);
-                blobCache.set(absolutePath, blobUrl);
-                return blobUrl;
-            } catch (err) {
-                throw err;
+            const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
+            const matches = [...code.matchAll(importRegex)];
+            
+            for (const match of matches) {
+                const relativePath = match[1];
+                const fullImportPath = new URL(relativePath, finalUrl).href;
+                const depBlobUrl = await getTranspiledUrl(fullImportPath);
+                code = code.split(`'${relativePath}'`).join(`'${depBlobUrl}'`);
+                code = code.split(`"${relativePath}"`).join(`"${depBlobUrl}"`);
             }
+
+            const transformed = Babel.transform(code, {
+                presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
+                filename: finalUrl,
+            }).code;
+
+            const blob = new Blob([transformed], { type: 'application/javascript' });
+            const blobUrl = URL.createObjectURL(blob);
+            blobCache.set(absolutePath, blobUrl);
+            return blobUrl;
         }
 
         async function startApp() {
@@ -121,7 +116,6 @@ header('Content-Type: text/html; charset=utf-8');
                 const appBlobUrl = await getTranspiledUrl('App.tsx');
                 const module = await import(appBlobUrl);
                 const App = module.default;
-
                 const root = ReactDOM.createRoot(document.getElementById('root'));
                 root.render(React.createElement(App));
             } catch (err) {
@@ -129,7 +123,7 @@ header('Content-Type: text/html; charset=utf-8');
                 const errorDisplay = document.getElementById('error-display');
                 if (errorDisplay) {
                     errorDisplay.style.display = 'block';
-                    errorDisplay.innerHTML = `حدث خطأ تقني في تحميل المتجر: <br/> ${err.message}`;
+                    errorDisplay.innerHTML = `خطأ في تحميل المتجر: <br/> ${err.message}`;
                 }
             }
         }
