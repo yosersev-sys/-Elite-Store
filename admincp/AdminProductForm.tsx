@@ -12,12 +12,9 @@ interface AdminProductFormProps {
 const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, onSubmit, onCancel }) => {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [isLoadingSeo, setIsLoadingSeo] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // لمنع إعادة التهيئة عند التحديثات الدورية في الخلفية
-  const isInitialized = useRef(false);
-  const lastProductId = useRef<string | null>(null);
-
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -25,8 +22,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     wholesalePrice: '',
     categoryId: '',
     stockQuantity: '0',
-    unit: 'piece' as 'piece' | 'kg' | 'gram',
-    barcode: '',
+    unit: 'piece' as 'piece' | 'kg' | 'gram', 
+    sizes: '',
+    colors: '',
     images: [] as string[]
   });
 
@@ -37,47 +35,38 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
-  // تهيئة البيانات فقط عند تغيير المنتج المختار أو عند الفتح لأول مرة
   useEffect(() => {
-    const productId = product?.id || null;
-    
-    if (productId !== lastProductId.current || !isInitialized.current) {
-      if (product) {
-        setFormData({
-          name: product.name || '',
-          description: product.description || '',
-          price: product.price?.toString() || '',
-          wholesalePrice: product.wholesalePrice?.toString() || '',
-          categoryId: product.categoryId || (categories[0]?.id || ''),
-          stockQuantity: (product.stockQuantity || 0).toString(),
-          unit: product.unit || 'piece',
-          barcode: product.barcode || '',
-          images: product.images || []
-        });
-        if (product.seoSettings) setSeoData(product.seoSettings);
-      } else {
-        setFormData({
-          name: '', description: '', price: '', wholesalePrice: '', 
-          categoryId: categories[0]?.id || '', stockQuantity: '0', 
-          unit: 'piece', barcode: '', images: []
-        });
-        setSeoData({ metaTitle: '', metaDescription: '', metaKeywords: '', slug: '' });
-      }
-      isInitialized.current = true;
-      lastProductId.current = productId;
+    if (product) {
+      setFormData({
+        name: product.name,
+        description: product.description,
+        price: product.price.toString(),
+        wholesalePrice: (product.wholesalePrice || 0).toString(),
+        categoryId: product.categoryId,
+        stockQuantity: (product.stockQuantity || 0).toString(),
+        unit: product.unit || 'piece', 
+        sizes: product.sizes?.join(', ') || '',
+        colors: product.colors?.join(', ') || '',
+        images: product.images || []
+      });
+      if (product.seoSettings) setSeoData(product.seoSettings);
+    } else {
+      setFormData({
+        name: '', description: '', price: '', wholesalePrice: '', categoryId: categories[0]?.id || '', 
+        stockQuantity: '10', unit: 'piece', sizes: '', colors: '', images: [] 
+      });
     }
-  }, [product]);
+  }, [product, categories]);
 
   useEffect(() => {
-    if (!formData.categoryId && categories.length > 0) {
-      setFormData(prev => ({ ...prev, categoryId: categories[0].id }));
+    if (!product && formData.name && !seoData.slug) {
+      setSeoData(prev => ({ ...prev, slug: formData.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') }));
     }
-  }, [categories, formData.categoryId]);
+  }, [formData.name, product]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    
     Array.from(files).forEach((file: File) => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -92,45 +81,26 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const handleAiDescription = async () => {
     if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً');
     setIsLoadingAi(true);
-    try {
-      const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
-      const desc = await generateProductDescription(formData.name, catName);
-      setFormData(prev => ({ ...prev, description: desc }));
-    } catch (err) {
-      alert('خطأ في الاتصال بالذكاء الاصطناعي');
-    } finally {
-      setIsLoadingAi(false);
-    }
+    const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
+    const desc = await generateProductDescription(formData.name, catName);
+    setFormData(prev => ({ ...prev, description: desc }));
+    setIsLoadingAi(false);
   };
 
   const handleAiSeo = async () => {
-    if (!formData.name || !formData.description) return alert('يرجى إدخال الاسم والوصف أولاً');
+    if (!formData.name || !formData.description) return alert('يرجى إدخال الاسم والوصف أولاً لتوليد بيانات SEO دقيقة');
     setIsLoadingSeo(true);
-    try {
-      const data = await generateSeoData(formData.name, formData.description);
-      if (data) setSeoData(data);
-    } catch (err) {
-      alert('خطأ أثناء توليد بيانات SEO');
-    } finally {
-      setIsLoadingSeo(false);
-    }
-  };
-
-  const generateRandomBarcode = () => {
-    // توليد باركود مكون من 13 رقماً (مثل EAN-13)
-    const random = Math.floor(Math.random() * 9000000000000) + 1000000000000;
-    setFormData(prev => ({ ...prev, barcode: random.toString() }));
+    const data = await generateSeoData(formData.name, formData.description);
+    if (data) setSeoData(data);
+    setIsLoadingSeo(false);
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.images.length === 0) {
-      alert('⚠️ يرجى إضافة صورة واحدة على الأقل للمنتج');
-      return;
-    }
+    if (formData.images.length === 0) return alert('يرجى إضافة صورة واحدة على الأقل');
 
     const productData: Product = {
-      id: product ? product.id : 'p_' + Date.now(),
+      id: product ? product.id : Date.now().toString(),
       name: formData.name,
       description: formData.description,
       price: parseFloat(formData.price) || 0,
@@ -138,7 +108,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       categoryId: formData.categoryId,
       stockQuantity: parseInt(formData.stockQuantity) || 0,
       unit: formData.unit,
-      barcode: formData.barcode,
+      sizes: formData.sizes ? formData.sizes.split(',').map(s => s.trim()).filter(s => s !== '') : undefined,
+      colors: formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(c => c !== '') : undefined,
       images: formData.images,
       createdAt: product ? product.createdAt : Date.now(),
       salesCount: product ? product.salesCount : 0,
@@ -148,277 +119,192 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   };
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 animate-fadeIn pb-24">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+    <div className="max-w-5xl mx-auto py-8 px-4 animate-fadeIn pb-20">
+      {/* Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
+          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
+            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">هل أنت متأكد؟</h3>
+            <p className="text-slate-500 font-bold text-sm mb-8 leading-relaxed">سيتم فقدان جميع التعديلات التي قمت بها. لا يمكنك التراجع عن هذا الإجراء.</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={onCancel}
+                className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm hover:bg-rose-600 transition shadow-lg active:scale-95"
+              >
+                نعم، إلغاء
+              </button>
+              <button 
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition active:scale-95"
+              >
+                تراجع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-10">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight">
-            {product ? 'تعديل المنتج' : 'إضافة منتج جديد'}
+            {product ? 'تعديل بيانات المنتج' : 'إضافة منتج احترافي'}
           </h2>
-          <p className="text-emerald-600 font-bold mt-1 uppercase tracking-widest text-xs">إدارة مخزون سوق العصر</p>
+          <p className="text-slate-500 mt-2 font-medium">قم بإعداد المنتج وتجهيزه لمحركات البحث العالمية</p>
         </div>
-        <button type="button" onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-black hover:bg-rose-50 hover:text-rose-500 transition">
+        <button 
+          type="button"
+          onClick={() => setShowCancelConfirm(true)} 
+          className="bg-white border-2 border-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition shadow-sm"
+        >
           إلغاء
         </button>
       </div>
 
-      <form onSubmit={handleFormSubmit} className="space-y-8">
+      <form onSubmit={handleFormSubmit} className="space-y-10">
         
-        <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-              <span className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">🖼️</span>
-              معرض الصور
+        <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 space-y-10">
+          <div className="space-y-6">
+            <h3 className="text-xl font-black text-indigo-600 flex items-center gap-3">
+              <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-sm">01</span>
+              المعلومات الأساسية والمعرض
             </h3>
-            <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-widest">الصورة الأولى هي الرئيسية</span>
-          </div>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-6">
-            {formData.images.map((img, index) => (
-              <div key={index} className="relative aspect-square rounded-[2rem] overflow-hidden group border-4 border-slate-50 shadow-md">
-                <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                <button 
-                  type="button" 
-                  onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, i) => i !== index)}))}
-                  className="absolute inset-0 bg-rose-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-black"
-                >
-                  حذف الصورة
-                </button>
-                {index === 0 && <div className="absolute top-2 right-2 bg-emerald-500 text-white text-[8px] px-2 py-1 rounded-full font-black uppercase">الأساسية</div>}
-              </div>
-            ))}
             
-            <button 
-              type="button" 
-              onClick={() => fileInputRef.current?.click()}
-              className="aspect-square rounded-[2rem] border-4 border-dashed border-slate-100 flex flex-col items-center justify-center gap-3 text-slate-300 hover:border-emerald-300 hover:text-emerald-500 hover:bg-emerald-50 transition-all group"
-            >
-              <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
-                 <span className="text-2xl">➕</span>
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-widest">إضافة صورة</span>
-            </button>
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+              {formData.images.map((img, index) => (
+                <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group border-2 border-slate-50 shadow-sm">
+                  <img src={img} className="w-full h-full object-cover" alt="" />
+                  <button type="button" onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, i) => i !== index)}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-lg">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                  {index === 0 && <div className="absolute bottom-0 inset-x-0 bg-indigo-600 text-white text-[10px] text-center py-1 font-bold">الرئيسية</div>}
+                </div>
+              ))}
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 hover:bg-indigo-50 transition">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                <span className="text-[10px] font-bold">إضافة صورة</span>
+              </button>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
+            </div>
           </div>
-        </section>
-
-        <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
-          <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-            <span className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">📝</span>
-            بيانات المنتج
-          </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">اسم المنتج التجاري</label>
-              <input 
-                required 
-                value={formData.name} 
-                onChange={e => setFormData({...formData, name: e.target.value})} 
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition shadow-inner"
-                placeholder="مثال: زيت زيتون بكر ممتاز 1لتر"
-              />
-            </div>
-
-            <div className="space-y-2 relative md:col-span-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">وصف المنتج التسويقي</label>
-              <textarea 
-                required 
-                value={formData.description} 
-                onChange={e => setFormData({...formData, description: e.target.value})} 
-                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition min-h-[150px] resize-none shadow-inner"
-                placeholder="اكتب ما يميز منتجك..."
-              />
-              <button 
-                type="button" 
-                onClick={handleAiDescription} 
-                disabled={isLoadingAi}
-                className="absolute left-4 bottom-4 bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black shadow-lg hover:bg-emerald-600 transition disabled:opacity-50 flex items-center gap-2"
-              >
-                {isLoadingAi ? 'جاري التفكير...' : '✨ كتابة ذكي (AI)'}
-              </button>
-            </div>
-
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">القسم الرئيسي</label>
-              <select 
-                required 
-                value={formData.categoryId} 
-                onChange={e => setFormData({...formData, categoryId: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition cursor-pointer shadow-inner"
-              >
+              <label className="text-sm font-bold text-slate-500 mr-2">اسم المنتج</label>
+              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="مثال: ساعة ذكية الترا" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">التصنيف</label>
+              <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition">
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-
-            {/* حقل الباركود المطور */}
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الباركود / SKU</label>
-              <div className="relative group">
-                <input 
-                  value={formData.barcode} 
-                  onChange={e => setFormData({...formData, barcode: e.target.value.replace(/[^0-9a-zA-Z]/g, '')})} 
-                  className="w-full pl-12 pr-28 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-400 font-black transition text-left shadow-inner tracking-widest font-mono text-blue-600" 
-                  dir="ltr"
-                  placeholder="628XXXXXXXXXX"
-                />
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                </div>
-                <button 
-                  type="button"
-                  onClick={generateRandomBarcode}
-                  className="absolute right-2 top-2 bottom-2 px-4 bg-blue-50 text-blue-600 rounded-xl text-[9px] font-black hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-95 border border-blue-100"
-                >
-                  توليد عشوائي ⚡
-                </button>
-              </div>
-              <p className="text-[8px] text-slate-400 font-bold mr-2 uppercase">يفضل استخدام باركود المصنع أو توليد واحد فريد للمتجر</p>
+              <label className="text-sm font-bold text-slate-500 mr-2">سعر الجملة (ج.م)</label>
+              <input required type="number" value={formData.wholesalePrice} onChange={e => setFormData({...formData, wholesalePrice: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="0.00" />
             </div>
-          </div>
-        </section>
-
-        {/* الأسعار والمخازن */}
-        <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
-          <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-            <span className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">💰</span>
-            الأسعار والمخازن
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">تكلفة الشراء (جملة)</label>
-              <div className="relative">
-                <input 
-                  required type="number" step="0.01"
-                  value={formData.wholesalePrice} 
-                  onChange={e => setFormData({...formData, wholesalePrice: e.target.value})}
-                  className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition shadow-inner"
-                  placeholder="0.00"
-                />
-                <span className="absolute left-6 top-4 text-xs font-black text-slate-300">ج.م</span>
-              </div>
+              <label className="text-sm font-bold text-slate-500 mr-2">سعر البيع (ج.م)</label>
+              <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="0.00" />
             </div>
-
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">سعر البيع للجمهور</label>
-              <div className="relative">
-                <input 
-                  required type="number" step="0.01"
-                  value={formData.price} 
-                  onChange={e => setFormData({...formData, price: e.target.value})}
-                  className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition shadow-inner"
-                  placeholder="0.00"
-                />
-                <span className="absolute left-6 top-4 text-xs font-black text-emerald-500">ج.م</span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">وحدة القياس</label>
+              <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
               <div className="flex gap-2">
-                {(['piece', 'kg', 'gram'] as const).map(u => (
+                {(['piece', 'kg', 'gram'] as const).map((u) => (
                   <button
                     key={u}
                     type="button"
                     onClick={() => setFormData({...formData, unit: u})}
-                    className={`flex-grow py-4 rounded-2xl font-black text-[10px] transition-all border-2 ${formData.unit === u ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-400 hover:border-emerald-200'}`}
+                    className={`flex-grow py-4 rounded-2xl font-black text-sm transition-all border-2 ${formData.unit === u ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-white hover:border-indigo-100'}`}
                   >
                     {u === 'piece' ? 'بالقطعة' : u === 'kg' ? 'بالكيلو' : 'بالجرام'}
                   </button>
                 ))}
               </div>
             </div>
-
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الكمية الحالية</label>
-              <input 
-                required type="number"
-                value={formData.stockQuantity} 
-                onChange={e => setFormData({...formData, stockQuantity: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-emerald-400 font-bold transition shadow-inner"
-              />
-              {parseInt(formData.stockQuantity) < 5 && parseInt(formData.stockQuantity) > 0 && (
-                <p className="text-[9px] text-amber-600 font-black mr-2">⚠️ تنبيه: الكمية منخفضة جداً</p>
-              )}
+              <label className="text-sm font-bold text-slate-500 mr-2">الكمية المتوفرة في المخزون</label>
+              <input required type="number" min="0" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="مثال: 50" />
+            </div>
+            <div className="space-y-2 relative md:col-span-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">الوصف</label>
+              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition min-h-[150px] resize-none" placeholder="اكتب وصفاً جذاباً..." />
+              <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="absolute left-4 bottom-4 text-[10px] font-black bg-indigo-600 text-white px-3 py-1.5 rounded-xl hover:bg-slate-900 transition disabled:opacity-50">
+                {isLoadingAi ? 'جاري التوليد...' : 'وصف ذكي ✨'}
+              </button>
             </div>
           </div>
         </section>
 
-        {/* SEO الذكي */}
-        <section className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
+        <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 space-y-10">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-              <span className="w-10 h-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center">🚀</span>
-              SEO الذكي
+            <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">
+              <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-sm">02</span>
+              تحسين محركات البحث (SEO)
             </h3>
-            <button 
-              type="button" 
-              onClick={handleAiSeo} 
-              disabled={isLoadingSeo}
-              className="bg-emerald-500 text-white px-5 py-2 rounded-xl text-[10px] font-black shadow-lg hover:bg-emerald-600 transition disabled:opacity-50"
-            >
-              {isLoadingSeo ? 'جاري التحليل...' : 'توليد بيانات SEO ✨'}
+            <button type="button" onClick={handleAiSeo} disabled={isLoadingSeo} className="text-xs font-black bg-emerald-500 text-white px-5 py-2.5 rounded-2xl hover:bg-emerald-600 transition shadow-lg shadow-emerald-100 disabled:opacity-50">
+              {isLoadingSeo ? 'جاري التحليل...' : 'توليد SEO ذكي ✨'}
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">عنوان الصفحة (Meta Title)</label>
-                <input 
-                  value={seoData.metaTitle} 
-                  onChange={e => setSeoData({...seoData, metaTitle: e.target.value})}
-                  className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition shadow-inner"
-                />
+                <label className="text-sm font-bold text-slate-500 flex justify-between">
+                  Meta Title (عنوان البحث)
+                  <span className={`text-[10px] ${seoData.metaTitle.length > 60 ? 'text-red-500' : 'text-slate-400'}`}>
+                    {seoData.metaTitle.length}/60 حرف
+                  </span>
+                </label>
+                <input value={seoData.metaTitle} onChange={e => setSeoData({...seoData, metaTitle: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-300 transition" placeholder="العنوان الذي يظهر في جوجل" />
               </div>
+
               <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الرابط الصديق (Slug)</label>
-                <div className="flex items-center bg-slate-50 rounded-2xl px-6 border-2 border-transparent focus-within:border-emerald-300 transition shadow-inner">
-                  <span className="text-slate-400 text-xs font-medium">soqelasr.com/p/</span>
-                  <input 
-                    value={seoData.slug} 
-                    onChange={e => setSeoData({...seoData, slug: e.target.value})}
-                    className="flex-grow py-4 bg-transparent outline-none font-bold text-left text-purple-700"
-                    dir="ltr"
-                  />
+                <label className="text-sm font-bold text-slate-500">Slug (رابط المنتج)</label>
+                <div className="flex items-center bg-slate-50 rounded-2xl px-6 border-2 border-transparent focus-within:border-emerald-300 transition">
+                  <span className="text-slate-400 text-xs font-medium">elite-store.com/p/</span>
+                  <input value={seoData.slug} onChange={e => setSeoData({...seoData, slug: e.target.value})} className="flex-grow py-4 bg-transparent outline-none text-emerald-700 font-bold" placeholder="product-url-name" />
                 </div>
               </div>
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">وصف البحث (Meta Description)</label>
-                <textarea 
-                  value={seoData.metaDescription} 
-                  onChange={e => setSeoData({...seoData, metaDescription: e.target.value})}
-                  className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition h-24 resize-none shadow-inner"
-                />
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 flex justify-between">
+                  Meta Description (وصف البحث)
+                  <span className={`text-[10px] ${seoData.metaDescription.length > 160 ? 'text-red-500' : 'text-slate-400'}`}>
+                    {seoData.metaDescription.length}/160 حرف
+                  </span>
+                </label>
+                <textarea value={seoData.metaDescription} onChange={e => setSeoData({...seoData, metaDescription: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-300 transition min-h-[120px] resize-none" placeholder="وصف مخلص يظهر أسفل العنوان في جوجل..." />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500">Keywords (كلمات مفتاحية - مفصولة بفاصلة)</label>
+                <input value={seoData.metaKeywords} onChange={e => setSeoData({...seoData, metaKeywords: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-300 transition" placeholder="مثال: ساعة، ذكية، تقنية، عروض" />
               </div>
             </div>
 
             <div className="space-y-6">
-              <label className="text-xs font-black text-slate-500 uppercase tracking-widest mr-2">معاينة نتيجة البحث (Google Preview)</label>
-              <div className="bg-white border border-slate-200 p-8 rounded-[2.5rem] shadow-sm space-y-2">
+              <label className="text-sm font-bold text-slate-500">معاينة نتيجة البحث (Google Preview)</label>
+              <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm space-y-2 max-w-lg">
                 <div className="flex items-center gap-2 text-[12px] text-slate-500">
-                  <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center text-[8px] font-black text-emerald-600">S</div>
-                  <span>سوق العصر › p › {seoData.slug || '...'}</span>
+                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold">E</div>
+                  <span>Elite Store › p › {seoData.slug || '...'}</span>
                 </div>
                 <h4 className="text-[20px] text-[#1a0dab] hover:underline cursor-pointer font-medium leading-tight">
-                  {seoData.metaTitle || (formData.name ? `${formData.name} | سوق العصر` : 'عنوان المنتج يظهر هنا')}
+                  {seoData.metaTitle || (formData.name ? `${formData.name} | متجر النخبة` : 'عنوان المنتج يظهر هنا')}
                 </h4>
                 <p className="text-[14px] text-[#4d5156] leading-relaxed line-clamp-2">
-                  <span className="text-slate-500">{new Date().toLocaleDateString('ar-EG')} — </span>
-                  {seoData.metaDescription || 'هذا الوصف سيظهر للعملاء عند بحثهم عن المنتج في محرك بحث جوجل.'}
+                  <span className="text-slate-500">{new Date().toLocaleDateString('ar-SA')} — </span>
+                  {seoData.metaDescription || 'هذا الوصف سيظهر للعملاء عند بحثهم عن المنتج في محرك بحث جوجل، تأكد من كتابته بشكل جذاب لزيادة النقرات.'}
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        <button 
-          type="submit" 
-          className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:bg-emerald-600 transition-all active:scale-95"
-        >
-          {product ? 'تحديث بيانات المنتج' : 'نشر المنتج في المتجر 🚀'}
+        <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:bg-indigo-600 transition-all duration-500 transform hover:-translate-y-2 active:scale-95">
+          {product ? 'حفظ كافة التغييرات' : 'نشر المنتج الآن 🚀'}
         </button>
       </form>
     </div>

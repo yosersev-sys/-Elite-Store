@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Order, CartItem } from '../types';
 
@@ -23,10 +22,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Focus search on desktop, but maybe not on mobile to prevent keyboard pop-up immediately
     if (window.innerWidth > 768) {
       searchInputRef.current?.focus();
     }
@@ -101,7 +100,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
   const handleFinalSubmit = () => {
     if (invoiceItems.length === 0) return alert('يرجى إضافة منتجات للفاتورة');
-    if (!customerInfo.phone) return alert('يرجى إدخال رقم الهاتف لمتابعة الطلب');
+    if (!customerInfo.phone) return alert('يرجى إدخل رقم الهاتف لمتابعة الطلب');
     
     const newOrder: Order = {
       id: 'INV-' + Date.now().toString().slice(-6),
@@ -122,7 +121,33 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto py-4 md:py-8 px-2 md:px-4 animate-fadeIn">
-      {/* معاينة الفاتورة */}
+      {/* Cancel Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
+          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
+            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">هل تريد الإلغاء؟</h3>
+            <p className="text-slate-500 font-bold text-sm mb-8 leading-relaxed">سيتم مسح جميع الأصناف المضافة للفاتورة الحالية.</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={onCancel}
+                className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm hover:bg-rose-600 transition shadow-lg active:scale-95"
+              >
+                نعم، إلغاء
+              </button>
+              <button 
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition active:scale-95"
+              >
+                تراجع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
       {showPreview && (
         <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowPreview(false)}></div>
@@ -160,7 +185,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           <h2 className="text-xl md:text-4xl font-black text-slate-900 tracking-tight">إنشاء طلب سريع</h2>
           <p className="text-emerald-600 font-black text-[8px] md:text-[10px] uppercase mt-0.5 tracking-widest">سوق العصر - نظام الكاشير</p>
         </div>
-        <button onClick={onCancel} className="bg-white border-2 border-slate-100 px-4 py-1.5 md:px-8 md:py-3 rounded-xl md:rounded-2xl font-black text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition text-[10px] md:text-xs">إلغاء</button>
+        <button 
+          type="button"
+          onClick={() => setShowCancelConfirm(true)} 
+          className="bg-white border-2 border-slate-100 px-4 py-1.5 md:px-8 md:py-3 rounded-xl md:rounded-2xl font-black text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition text-[10px] md:text-xs"
+        >
+          إلغاء
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 items-start">
