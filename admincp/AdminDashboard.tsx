@@ -485,6 +485,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
              {soundEnabled ? '🔔 منبه مفعل' : '🔕 منبه صامت'}
            </button>
            <button onClick={() => window.location.hash = ''} className="w-full text-slate-400 hover:text-white font-bold text-sm transition">المتجر 🏪</button>
+           <button 
+             onClick={onLogout} 
+             className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white px-4 py-3 rounded-xl font-black text-xs transition-all border border-rose-500/20"
+           >
+             تسجيل الخروج 👋
+           </button>
         </div>
       </aside>
 
