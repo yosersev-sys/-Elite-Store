@@ -11,6 +11,9 @@ import CheckoutView from './components/CheckoutView.tsx';
 import OrderSuccessView from './components/OrderSuccessView.tsx';
 import AuthView from './components/AuthView.tsx';
 import AdminAuthView from './components/AdminAuthView.tsx';
+import FloatingAdminButton from './components/FloatingAdminButton.tsx';
+import FloatingCartButton from './components/FloatingCartButton.tsx';
+import FloatingQuickInvoiceButton from './components/FloatingQuickInvoiceButton.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
@@ -221,6 +224,17 @@ const App: React.FC = () => {
         
         {view === 'admin-auth' && <AdminAuthView onSuccess={(u) => { setCurrentUser(u); onNavigateAction('admin'); loadData(); }} onClose={() => onNavigateAction('store')} />}
       </main>
+
+      {/* استعادة الأزرار العائمة */}
+      {!isAdminView && (
+        <>
+          <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={view !== 'cart'} />
+          <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
+          {currentUser?.role === 'admin' && (
+            <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
+          )}
+        </>
+      )}
 
       {!isAdminView && (
         <MobileNav 
