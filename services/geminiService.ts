@@ -74,9 +74,15 @@ export const generateSeoData = async (productName: string, description: string) 
 
 export const generateProductImage = async (productName: string, category: string): Promise<string | null> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.error("API Key is missing from process.env");
+      return null;
+    }
 
-    // المرحلة 1: تحويل الاسم لوصف إنجليزي بسيط جداً (لتجنب تعقيد الترجمة)
+    const ai = new GoogleGenAI({ apiKey });
+
+    // المرحلة 1: تحسين الوصف
     const translationResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Describe this item in 3 simple English words for a product photo: "${productName}"`
@@ -85,9 +91,7 @@ export const generateProductImage = async (productName: string, category: string
     const simpleEnglishName = translationResponse.text?.trim() || productName;
     const finalPrompt = `A high-quality professional commercial studio photo of ${simpleEnglishName} on a solid white background, 4k resolution, perfect lighting.`;
 
-    console.log("Generating Image with Prompt:", finalPrompt);
-
-    // المرحلة 2: توليد الصورة مع إعدادات أمان منخفضة لتجنب الحظر الخاطئ
+    // المرحلة 2: توليد الصورة
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: [{ parts: [{ text: finalPrompt }] }],
@@ -95,7 +99,6 @@ export const generateProductImage = async (productName: string, category: string
         imageConfig: {
           aspectRatio: "1:1"
         },
-        // إضافة إعدادات الأمان للسماح بتوليد المحتوى بمرونة
         safetySettings: [
           { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
           { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -106,7 +109,6 @@ export const generateProductImage = async (productName: string, category: string
     });
 
     if (!response.candidates || response.candidates.length === 0) {
-      console.error("AI Error: No candidates returned. This usually means the prompt was blocked by safety filters.");
       return null;
     }
 
@@ -117,13 +119,9 @@ export const generateProductImage = async (productName: string, category: string
       }
     }
     
-    console.error("AI Error: Image data (inlineData) not found in parts.");
     return null;
   } catch (error: any) {
     console.error("AI Image Pipeline Failed:", error);
-    if (error.message?.includes("API key not valid")) {
-      console.error("CRITICAL: Your API Key is invalid or missing!");
-    }
     return null;
   }
 };

@@ -21,7 +21,6 @@ header('Content-Type: text/html; charset=utf-8');
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="https://soqelasr.com/shopping-bag512.png">
 
-    <script>window.process = { env: { API_KEY: "" } };</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
