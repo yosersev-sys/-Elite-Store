@@ -76,33 +76,37 @@ export const generateProductImage = async (productName: string, category: string
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    // المرحلة الأولى: تحويل اسم المنتج العربي إلى برومبت إنجليزي بصري دقيق
-    const promptOptimizer = await ai.models.generateContent({
+    // المرحلة 1: تحويل الاسم لوصف إنجليزي بسيط جداً (لتجنب تعقيد الترجمة)
+    const translationResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Translate this Arabic product to a professional English visual description for image generation. 
-      Product: "${productName}" in category "${category}". 
-      Output ONLY a single paragraph describing the product visually in high detail, for a commercial studio photoshoot, white background. 
-      Do not include brand names or prices.`
+      contents: `Describe this item in 3 simple English words for a product photo: "${productName}"`
     });
+    
+    const simpleEnglishName = translationResponse.text?.trim() || productName;
+    const finalPrompt = `A high-quality professional commercial studio photo of ${simpleEnglishName} on a solid white background, 4k resolution, perfect lighting.`;
 
-    const optimizedPrompt = promptOptimizer.text?.trim() || `Professional studio photo of ${productName}, white background, 4k`;
-    console.log("Optimized Image Prompt:", optimizedPrompt);
+    console.log("Generating Image with Prompt:", finalPrompt);
 
-    // المرحلة الثانية: توليد الصورة باستخدام البرومبت المحسن
+    // المرحلة 2: توليد الصورة مع إعدادات أمان منخفضة لتجنب الحظر الخاطئ
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: optimizedPrompt }],
-      },
+      contents: [{ parts: [{ text: finalPrompt }] }],
       config: {
         imageConfig: {
           aspectRatio: "1:1"
-        }
+        },
+        // إضافة إعدادات الأمان للسماح بتوليد المحتوى بمرونة
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+        ]
       }
     });
 
     if (!response.candidates || response.candidates.length === 0) {
-      console.warn("Image AI returned no results.");
+      console.error("AI Error: No candidates returned. This usually means the prompt was blocked by safety filters.");
       return null;
     }
 
@@ -113,9 +117,13 @@ export const generateProductImage = async (productName: string, category: string
       }
     }
     
+    console.error("AI Error: Image data (inlineData) not found in parts.");
     return null;
-  } catch (error) {
-    console.error("Error during AI Image pipeline:", error);
+  } catch (error: any) {
+    console.error("AI Image Pipeline Failed:", error);
+    if (error.message?.includes("API key not valid")) {
+      console.error("CRITICAL: Your API Key is invalid or missing!");
+    }
     return null;
   }
 };

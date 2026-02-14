@@ -107,20 +107,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setIsGeneratingImg(true);
     try {
       const catName = categories.find(c => c.id === formData.categoryId)?.name || 'General Product';
-      
-      // إبلاغ المستخدم بأن العملية تمر بمراحل ذكية
-      console.log("Starting Dual-AI Image Pipeline...");
-      
       const imageUrl = await generateProductImage(cleanedName, catName);
       
       if (imageUrl) {
         setFormData(prev => ({ ...prev, images: [...prev.images, imageUrl] }));
       } else {
-        alert('فشل توليد الصورة. قد يكون هناك قيود أمان على هذا النوع من المنتجات أو ضعف في الاتصال بالذكاء الاصطناعي. يرجى المحاولة لاحقاً.');
+        alert('تعذر التوليد. الأسباب المحتملة:\n1. مفتاح الـ API غير صالح أو انتهى رصيده.\n2. اسم المنتج قد يحتوي على كلمات محظورة في فلاتر الأمان.\n3. ضعف في اتصال الإنترنت.');
       }
     } catch (err) {
-      console.error("Critical Image UI Error:", err);
-      alert('حدث خطأ فني غير متوقع. يرجى التأكد من صلاحية مفتاح الـ API الخاص بك.');
+      console.error("UI Error:", err);
+      alert('حدث خطأ غير متوقع في نظام التوليد.');
     } finally {
       setIsGeneratingImg(false);
     }
