@@ -21,6 +21,8 @@ import MobileNav from './components/MobileNav.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
+const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
+
 const App: React.FC = () => {
   const getInitialView = (): View => {
     const hash = window.location.hash;
@@ -31,25 +33,35 @@ const App: React.FC = () => {
   const [view, setView] = useState<View>(getInitialView());
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [adminPhone, setAdminPhone] = useState('201026034170'); 
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(false); // لا تحجب الشاشة أبداً عند الفتح
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  
   const [cart, setCart] = useState<CartItem[]>(() => {
-    try { return JSON.parse(localStorage.getItem('souq_cart') || '[]'); } catch { return []; }
+    try {
+      const saved = localStorage.getItem('souq_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
+
   const [wishlist, setWishlist] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('souq_wishlist') || '[]'); } catch { return []; }
+    try {
+      const saved = localStorage.getItem('souq_wishlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
+  const prevOrdersCount = useRef<number>(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   useEffect(() => {
@@ -60,51 +72,196 @@ const App: React.FC = () => {
     localStorage.setItem('souq_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
-  const loadData = async (isSilent = false) => {
-    try {
-      if (!isSilent) setIsLoading(false); // تأكد أنها false دائماً لضمان السرعة
-      
-      const [user, adminInfo, fetchedProducts, fetchedCats] = await Promise.all([
-        ApiService.getCurrentUser(),
-        ApiService.getAdminPhone(),
-        ApiService.getProducts(),
-        ApiService.getCategories()
-      ]);
+  const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+  };
 
-      setCurrentUser(user);
+  const triggerFlyAnimation = (startRect: DOMRect, imageUrl: string) => {
+    const flyEl = document.createElement('div');
+    flyEl.style.position = 'fixed';
+    flyEl.style.left = `${startRect.left}px`;
+    flyEl.style.top = `${startRect.top}px`;
+    flyEl.style.width = `${startRect.width}px`;
+    flyEl.style.height = `${startRect.height}px`;
+    flyEl.style.backgroundImage = `url(${imageUrl})`;
+    flyEl.style.backgroundSize = 'cover';
+    flyEl.style.backgroundPosition = 'center';
+    flyEl.style.borderRadius = '20px';
+    flyEl.style.zIndex = '9999';
+    flyEl.style.pointerEvents = 'none';
+    flyEl.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+    flyEl.style.transition = 'all 0.8s cubic-bezier(0.42, 0, 0.58, 1)';
+    document.body.appendChild(flyEl);
+
+    const cartBtn = document.getElementById('floating-cart-btn') || document.querySelector('.mobile-cart-btn');
+    
+    setTimeout(() => {
+      let tx = window.innerWidth - 80;
+      let ty = window.innerHeight - 80;
+
+      if (cartBtn) {
+        const rect = cartBtn.getBoundingClientRect();
+        tx = rect.left + rect.width / 2;
+        ty = rect.top + rect.height / 2;
+      }
+
+      flyEl.style.left = `${tx}px`;
+      flyEl.style.top = `${ty}px`;
+      flyEl.style.width = '20px';
+      flyEl.style.height = '20px';
+      flyEl.style.opacity = '0';
+      flyEl.style.transform = 'scale(0.1) rotate(720deg)';
+    }, 10);
+
+    setTimeout(() => {
+      flyEl.remove();
+      if (cartBtn) {
+        cartBtn.classList.add('animate-ping-once');
+        setTimeout(() => cartBtn.classList.remove('animate-ping-once'), 500);
+      }
+    }, 800);
+  };
+
+  const addToCart = (product: Product, startRect?: DOMRect) => {
+    if (startRect && product.images && product.images[0]) {
+      triggerFlyAnimation(startRect, product.images[0]);
+    }
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + 1} : item);
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+    showNotify('تمت الإضافة للسلة');
+  };
+
+  const playNotificationSound = useCallback(() => {
+    if (!soundEnabled) return;
+    if (!audioRef.current) {
+      audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
+    }
+    audioRef.current.play().catch(() => {});
+  }, [soundEnabled]);
+
+  const syncViewWithHash = useCallback((user: User | null) => {
+    const hash = window.location.hash;
+    if (hash.includes('admincp')) {
+      if (user && user.role === 'admin') {
+        setView(prev => (prev === 'admin' || prev === 'admin-form' || prev === 'admin-invoice') ? prev : 'admin');
+      } else {
+        setView('admin-auth');
+      }
+    } else {
+      setView(prev => (prev === 'admin' || prev === 'admin-auth' || prev === 'admin-form' || prev === 'admin-invoice') ? 'store' : prev);
+    }
+  }, []);
+
+  const loadData = async (isSilent: boolean = false) => {
+    try {
+      if (!isSilent) setIsLoading(true);
+      
+      const user = await ApiService.getCurrentUser();
+      setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
+      
+      const adminInfo = await ApiService.getAdminPhone();
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
+
+      const fetchedProducts = await ApiService.getProducts();
       setProducts(fetchedProducts || []);
+      
+      const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
       
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
-        setOrders(fetchedOrders || []);
+        const newOrdersList = fetchedOrders || [];
+        
         if (user.role === 'admin') {
           const fetchedUsers = await ApiService.getUsers();
           setUsers(fetchedUsers || []);
+
+          if (isSilent && newOrdersList.length > prevOrdersCount.current && prevOrdersCount.current > 0) {
+            playNotificationSound();
+            showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
+          }
         }
+        
+        setOrders(newOrdersList);
+        prevOrdersCount.current = newOrdersList.length;
       }
+
+      if (!isSilent) syncViewWithHash(user);
     } catch (err) {
-      console.error("Fetch error:", err);
+      console.error("Data loading error:", err);
+    } finally {
+      if (!isSilent) setIsLoading(false);
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData(); 
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => syncViewWithHash(currentUser);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [currentUser, syncViewWithHash]);
+
+  useEffect(() => {
+    let interval: any;
+    if (currentUser?.role === 'admin') {
+      interval = setInterval(() => {
+        loadData(true); 
+      }, 20000);
+    }
+    return () => clearInterval(interval);
+  }, [currentUser?.id, currentUser?.role]);
 
   const onNavigateAction = (v: View) => {
     if ((v === 'profile' || v === 'my-orders') && !currentUser) {
       setShowAuthModal(true);
       return;
     }
+
     setView(v);
+    if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
+       if (!window.location.hash.includes('admincp')) window.location.hash = '#/admincp';
+    } else {
+       if (window.location.hash.includes('admincp')) window.history.pushState("", document.title, window.location.pathname + window.location.search);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleLogout = async () => {
     await ApiService.logout();
     setCurrentUser(null);
+    setOrders([]);
+    setUsers([]);
+    prevOrdersCount.current = 0;
+    showNotify('تم تسجيل الخروج بنجاح');
     onNavigateAction('store');
   };
+
+  const handleUpdateOrderPayment = async (id: string, paymentMethod: string) => {
+    const success = await ApiService.updateOrderPayment(id, paymentMethod);
+    if (success) {
+      showNotify('تم تحديث حالة الدفع بنجاح');
+      loadData(true);
+    } else {
+      showNotify('فشل تحديث حالة الدفع', 'error');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-black text-emerald-600 italic">سوق العصر - فاقوس</p>
+      </div>
+    );
+  }
 
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
 
@@ -114,20 +271,49 @@ const App: React.FC = () => {
         <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
       )}
 
-      {!isAdminView && (
-        <Header 
-          cartCount={cart.length} wishlistCount={wishlist.length} categories={categories}
-          currentUser={currentUser} onNavigate={onNavigateAction}
-          onLoginClick={() => setShowAuthModal(true)} onLogout={handleLogout}
-          onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
+      {view === 'admin-auth' && (!currentUser || currentUser.role !== 'admin') && (
+        <AdminAuthView 
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            showNotify('تم الدخول كمدير بنجاح');
+            onNavigateAction('admin');
+            loadData();
+          }}
+          onClose={() => onNavigateAction('store')}
         />
       )}
 
-      <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4' : 'pt-20 md:pt-32'}`}>
+      {showAuthModal && (
+        <AuthView 
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={(user) => { 
+            setCurrentUser(user); 
+            showNotify(`أهلاً بك يا ${user.name}`); 
+            setShowAuthModal(false);
+            loadData();
+          }} 
+        />
+      )}
+
+      {!isAdminView && (
+        <Header 
+          cartCount={cart.length} 
+          wishlistCount={wishlist.length} 
+          categories={categories}
+          currentUser={currentUser}
+          onNavigate={onNavigateAction}
+          onLoginClick={() => setShowAuthModal(true)}
+          onLogout={handleLogout}
+          onSearch={setSearchQuery} 
+          onCategorySelect={(id) => { setSelectedCategoryId(id); if(view !== 'store') onNavigateAction('store'); }}
+        />
+      )}
+
+      <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4' : 'pt-16 md:pt-32'}`}>
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
-            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])} 
+            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={addToCart} 
             onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
             wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
@@ -139,43 +325,200 @@ const App: React.FC = () => {
             onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
             onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
             onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
-            onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); loadData(true); }}
-            onAddCategory={async (c) => { await ApiService.addCategory(c); loadData(true); }}
-            onUpdateCategory={async (c) => { await ApiService.updateCategory(c); loadData(true); }}
-            onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); loadData(true); }}
-            onViewOrder={(order) => { setLastCreatedOrder(order); onNavigateAction('order-success'); }}
-            onUpdateOrderPayment={async (id, m) => { await ApiService.updateOrderPayment(id, m); loadData(true); }}
-            soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)}
+            onDeleteProduct={async (id) => { 
+                const success = await ApiService.deleteProduct(id); 
+                if (success) { showNotify('تم حذف المنتج بنجاح'); loadData(); }
+            }}
+            onAddCategory={async (c) => { 
+                const success = await ApiService.addCategory(c); 
+                if (success) { showNotify('تم إضافة القسم بنجاح'); loadData(); }
+            }}
+            onUpdateCategory={async (c) => { 
+                const success = await ApiService.updateCategory(c); 
+                if (success) { showNotify('تم تحديث القسم بنجاح'); loadData(); }
+            }}
+            onDeleteCategory={async (id) => { 
+                const success = await ApiService.deleteCategory(id); 
+                if (success) { showNotify('تم حذف القسم بنجاح'); loadData(); }
+            }}
+            onViewOrder={(order) => {
+              setLastCreatedOrder(order);
+              onNavigateAction('order-success');
+            }}
+            onUpdateOrderPayment={handleUpdateOrderPayment}
+            soundEnabled={soundEnabled}
+            onToggleSound={() => setSoundEnabled(!soundEnabled)}
             onLogout={handleLogout}
+          />
+        )}
+
+        {view === 'admin-form' && (
+          <AdminProductForm 
+            product={selectedProduct} categories={categories} 
+            onSubmit={async (p) => {
+               const isEdit = products.some(prod => prod.id === p.id);
+               const success = isEdit ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
+               if (success) {
+                 showNotify('تم حفظ البيانات بنجاح! ✨');
+                 await loadData();
+                 onNavigateAction('admin');
+               }
+            }}
+            onCancel={() => onNavigateAction('admin')}
+          />
+        )}
+
+        {(view === 'admin-invoice' || view === 'quick-invoice') && (
+          <AdminInvoiceForm 
+            products={products}
+            initialCustomerName={currentUser ? currentUser.name : 'عميل زائر'}
+            initialPhone={currentUser ? currentUser.phone : ''}
+            onSubmit={async (order) => {
+              if (currentUser) {
+                order.userId = currentUser.id;
+              }
+              const success = await ApiService.saveOrder(order);
+              if (success) {
+                setLastCreatedOrder(order);
+                showNotify('تم إرسال الطلب بنجاح');
+                WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                await loadData();
+                onNavigateAction('order-success');
+              } else {
+                showNotify('فشل حفظ الطلب', 'error');
+              }
+            }}
+            onCancel={() => onNavigateAction(view === 'admin-invoice' ? 'admin' : 'store')}
           />
         )}
 
         {view === 'cart' && (
           <CartView 
-            cart={cart} onUpdateQuantity={(id, d) => setCart(cart.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
-            onRemove={(id) => setCart(cart.filter(i => i.id !== id))}
-            onCheckout={() => onNavigateAction('checkout')} onContinueShopping={() => onNavigateAction('store')}
+            cart={cart} 
+            onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
+            onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
+            onCheckout={() => onNavigateAction('checkout')}
+            onContinueShopping={() => onNavigateAction('store')}
           />
         )}
 
         {view === 'product-details' && selectedProduct && (
           <ProductDetailsView 
-            product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-            onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])} onBack={() => onNavigateAction('store')}
-            isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+            product={selectedProduct}
+            categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
+            onAddToCart={(p, s, c, rect) => addToCart(p, rect)}
+            onBack={() => onNavigateAction('store')}
+            isFavorite={wishlist.includes(selectedProduct.id)}
+            onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
         )}
-        
-        {/* ... بقية الواجهات يتم استدعاؤها بنفس النمط ... */}
+
+        {view === 'checkout' && (
+          <CheckoutView 
+            cart={cart}
+            currentUser={currentUser}
+            onBack={() => onNavigateAction('cart')}
+            onPlaceOrder={async (details) => {
+              const totalAmount = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+              const newOrder: Order = {
+                id: 'ORD-' + Date.now().toString().slice(-6),
+                customerName: details.fullName,
+                phone: details.phone,
+                city: details.city,
+                address: details.address,
+                items: cart,
+                total: totalAmount,
+                subtotal: totalAmount,
+                createdAt: Date.now(),
+                status: 'completed',
+                paymentMethod: details.paymentMethod || 'عند الاستلام',
+                userId: currentUser?.id || null
+              };
+              
+              const success = await ApiService.saveOrder(newOrder);
+              if (success) {
+                setLastCreatedOrder(newOrder);
+                setCart([]);
+                showNotify('تم إرسال طلبك بنجاح');
+                WhatsAppService.sendOrderNotification(newOrder, adminPhone);
+                onNavigateAction('order-success');
+                loadData();
+              } else {
+                showNotify('عذراً، حدث خطأ أثناء إرسال الطلب', 'error');
+              }
+            }}
+          />
+        )}
+
+        {view === 'my-orders' && (
+          <MyOrdersView 
+            orders={orders} 
+            onViewDetails={(order) => {
+              setLastCreatedOrder(order);
+              onNavigateAction('order-success');
+            }}
+            onBack={() => onNavigateAction('store')}
+          />
+        )}
+
+        {view === 'profile' && currentUser && (
+          <ProfileView 
+            currentUser={currentUser} 
+            onSuccess={handleLogout} 
+            onBack={() => onNavigateAction('store')} 
+          />
+        )}
+
+        {view === 'order-success' && lastCreatedOrder && (
+          <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('store')} />
+        )}
       </main>
 
       {!isAdminView && (
-        <MobileNav 
-          currentView={view} cartCount={cart.length} 
-          onNavigate={onNavigateAction} onCartClick={() => onNavigateAction('cart')} 
-          isAdmin={currentUser?.role === 'admin'} 
-        />
+        <>
+          <FloatingCartButton 
+            count={cart.length} 
+            onClick={() => onNavigateAction('cart')} 
+            isVisible={view !== 'cart' && view !== 'checkout'}
+          />
+          <FloatingQuickInvoiceButton 
+            currentView={view}
+            onNavigate={onNavigateAction}
+          />
+        </>
       )}
+
+      {currentUser?.role === 'admin' && view !== 'admin' && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
+
+      {!isAdminView && (
+        <>
+          <MobileNav 
+            currentView={view} 
+            cartCount={cart.length} 
+            onNavigate={onNavigateAction} 
+            onCartClick={() => onNavigateAction('cart')}
+            isAdmin={currentUser?.role === 'admin'}
+          />
+          <footer className="hidden md:block bg-slate-900 text-white py-12 text-center">
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <h2 className="text-xl font-black">سوق العصر</h2>
+              <p className="text-emerald-500 text-[10px] font-black uppercase">فاقوس - الشرقية</p>
+            </div>
+            <p className="text-slate-500 text-[10px] uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+          </footer>
+        </>
+      )}
+      
+      <style>{`
+        @keyframes ping-once {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.3); }
+          100% { transform: scale(1); }
+        }
+        .animate-ping-once {
+          animation: ping-once 0.5s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
