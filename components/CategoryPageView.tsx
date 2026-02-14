@@ -6,7 +6,7 @@ import ProductCard from './ProductCard';
 interface CategoryPageViewProps {
   category: Category;
   products: Product[];
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, rect?: DOMRect) => void;
   onViewProduct: (product: Product) => void;
   wishlist: string[];
   onToggleFavorite: (id: string) => void;
@@ -25,7 +25,6 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
   const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high'>('newest');
   const productsGridRef = useRef<HTMLDivElement>(null);
 
-  // دالة مخصصة للتمرير البطيء والناعم
   const slowScrollTo = (targetY: number, duration: number) => {
     const startY = window.pageYOffset;
     const diff = targetY - startY;
@@ -35,35 +34,25 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
       if (!start) start = timestamp;
       const progress = timestamp - start;
       const percent = Math.min(progress / duration, 1);
-      
-      // معادلة Ease-in-out لتجربة أكثر نعومة
       const ease = percent < 0.5 
         ? 2 * percent * percent 
         : -1 + (4 - 2 * percent) * percent;
 
       window.scrollTo(0, startY + diff * ease);
-
-      if (progress < duration) {
-        window.requestAnimationFrame(step);
-      }
+      if (progress < duration) window.requestAnimationFrame(step);
     };
-
     window.requestAnimationFrame(step);
   };
 
   useEffect(() => {
-    // ننتظر قليلاً حتى تكتمل أنيميشن دخول الصفحة (Fade In)
     const timer = setTimeout(() => {
       if (productsGridRef.current) {
-        const headerOffset = 140; // المسافة تحت الهيدر الثابت
+        const headerOffset = 140;
         const elementPosition = productsGridRef.current.getBoundingClientRect().top;
         const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-
-        // تمرير بطيء يستغرق 1200ms
         slowScrollTo(offsetPosition, 1200);
       }
     }, 300);
-
     return () => clearTimeout(timer);
   }, [category.id]);
 
@@ -87,7 +76,6 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
 
   return (
     <div className="animate-fadeIn space-y-12 pb-20">
-      {/* 1. Header Section */}
       <section className={`relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] bg-gradient-to-br ${theme.gradient} p-8 md:p-20 text-white shadow-2xl`}>
         <div className="relative z-10 space-y-4 md:space-y-6">
           <button 
@@ -106,7 +94,6 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
       </section>
 
-      {/* 2. Controls & Filter Bar - نقطة بداية المنتجات */}
       <div 
         ref={productsGridRef}
         id="category-products-grid"
@@ -131,7 +118,6 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
         </div>
       </div>
 
-      {/* 3. Products Grid */}
       {categoryProducts.length > 0 ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
           {categoryProducts.map(product => (
@@ -139,7 +125,7 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
               key={product.id} 
               product={product} 
               category={category.name}
-              onAddToCart={() => onAddToCart(product)} 
+              onAddToCart={onAddToCart} 
               onView={() => onViewProduct(product)}
               isFavorite={wishlist.includes(product.id)}
               onToggleFavorite={() => onToggleFavorite(product.id)}

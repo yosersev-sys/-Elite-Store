@@ -73,31 +73,39 @@ const App: React.FC = () => {
     flyEl.style.transition = 'all 0.8s cubic-bezier(0.42, 0, 0.58, 1)';
     document.body.appendChild(flyEl);
 
-    // البحث عن زر السلة لتحديد الهدف
     const cartBtn = document.getElementById('floating-cart-btn') || document.querySelector('.mobile-cart-btn');
-    let tx = window.innerWidth - 80;
-    let ty = window.innerHeight - 80;
+    
+    // تأخير بسيط لضمان رندر العنصر قبل بدء الحركة
+    setTimeout(() => {
+      let tx = window.innerWidth - 80;
+      let ty = window.innerHeight - 80;
 
-    if (cartBtn) {
-      const rect = cartBtn.getBoundingClientRect();
-      tx = rect.left + rect.width / 2;
-      ty = rect.top + rect.height / 2;
-    }
+      if (cartBtn) {
+        const rect = cartBtn.getBoundingClientRect();
+        tx = rect.left + rect.width / 2;
+        ty = rect.top + rect.height / 2;
+      }
 
-    requestAnimationFrame(() => {
       flyEl.style.left = `${tx}px`;
       flyEl.style.top = `${ty}px`;
       flyEl.style.width = '20px';
       flyEl.style.height = '20px';
       flyEl.style.opacity = '0';
       flyEl.style.transform = 'scale(0.1) rotate(720deg)';
-    });
+    }, 10);
 
-    setTimeout(() => flyEl.remove(), 800);
+    setTimeout(() => {
+      flyEl.remove();
+      // إضافة تأثير "نبضة" لزر السلة عند وصول المنتج
+      if (cartBtn) {
+        cartBtn.classList.add('animate-ping-once');
+        setTimeout(() => cartBtn.classList.remove('animate-ping-once'), 500);
+      }
+    }, 800);
   };
 
   const addToCart = (product: Product, startRect?: DOMRect) => {
-    if (startRect && product.images[0]) {
+    if (startRect && product.images && product.images[0]) {
       triggerFlyAnimation(startRect, product.images[0]);
     }
     setCart(prev => [...prev, { ...product, quantity: 1 }]);
@@ -476,6 +484,17 @@ const App: React.FC = () => {
           </footer>
         </>
       )}
+      
+      <style>{`
+        @keyframes ping-once {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.3); }
+          100% { transform: scale(1); }
+        }
+        .animate-ping-once {
+          animation: ping-once 0.5s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

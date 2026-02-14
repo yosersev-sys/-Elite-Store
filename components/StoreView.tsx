@@ -13,7 +13,7 @@ interface StoreViewProps {
   onSearch: (query: string) => void;
   selectedCategoryId: string | 'all';
   onCategorySelect: (id: string | 'all') => void;
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, rect?: DOMRect) => void;
   onViewProduct: (product: Product) => void;
   wishlist: string[];
   onToggleFavorite: (id: string) => void;
@@ -34,15 +34,11 @@ const StoreView: React.FC<StoreViewProps> = ({
   const productsListRef = useRef<HTMLDivElement>(null);
   const [showFilters, setShowFilters] = useState(false);
   
-  // فلاتر السعر
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
 
-  // دالة مخصصة للتمرير البطيء جداً مع إظهار الهيدر
   const slowScrollTo = (targetY: number, duration: number) => {
-    // إرسال إشارة للهيدر ليظهر فوراً
     window.dispatchEvent(new CustomEvent('force-header-show'));
-
     const startY = window.pageYOffset;
     const diff = targetY - startY;
     let start: number | null = null;
@@ -76,7 +72,6 @@ const StoreView: React.FC<StoreViewProps> = ({
     }
   }, [selectedCategoryId, searchQuery]);
 
-  // منطق التصفية المطور ليشمل السعر والبحث
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -108,17 +103,14 @@ const StoreView: React.FC<StoreViewProps> = ({
 
   return (
     <div className="space-y-12 md:space-y-20 animate-fadeIn">
-      {/* السلايدر الرئيسي */}
       <Slider />
       
-      {/* شبكة اختيار الأقسام */}
       <CategorySection 
         categories={categories} 
         selectedCategoryId={selectedCategoryId} 
         onCategorySelect={onCategorySelect} 
       />
 
-      {/* منطقة عرض المنتجات */}
       <div className="space-y-8 md:space-y-12" id="products-list" ref={productsListRef}>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-t border-gray-100 pt-10 md:pt-16">
           <div className="space-y-1 md:space-y-2">
@@ -151,10 +143,8 @@ const StoreView: React.FC<StoreViewProps> = ({
           </div>
         </div>
 
-        {/* لوحة الفلاتر المتقدمة */}
         {showFilters && (
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-emerald-900/5 animate-slideDown grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase mr-2">بحث سريع</label>
               <div className="relative">
@@ -221,7 +211,7 @@ const StoreView: React.FC<StoreViewProps> = ({
               key={product.id} 
               product={product} 
               category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
-              onAddToCart={() => onAddToCart(product)} 
+              onAddToCart={onAddToCart} 
               onView={() => onViewProduct(product)}
               isFavorite={wishlist.includes(product.id)}
               onToggleFavorite={() => onToggleFavorite(product.id)}
