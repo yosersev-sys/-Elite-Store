@@ -29,7 +29,6 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(false); // تم التغيير لـ false لفتح الواجهة فوراً
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -52,7 +51,6 @@ const App: React.FC = () => {
 
   const loadData = async (isSilent = false) => {
     try {
-      // جلب البيانات الأساسية دفعة واحدة لتحسين الأداء
       const [user, adminInfo, fetchedProducts, fetchedCats] = await Promise.all([
         ApiService.getCurrentUser(),
         ApiService.getAdminPhone(),
@@ -80,10 +78,10 @@ const App: React.FC = () => {
 
   useEffect(() => { 
     loadData();
-    // تفعيل التزامن مع الهاش (URL) فقط بعد التحميل الأول
     const handleHash = () => {
       const hash = window.location.hash;
       if (hash.includes('admincp')) setView('admin-auth');
+      else if (view === 'admin-auth' || view === 'admin') setView('store');
     };
     handleHash();
     window.addEventListener('hashchange', handleHash);
@@ -126,26 +124,66 @@ const App: React.FC = () => {
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
-            onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => setCart([...cart, {...p, quantity: 1}])} 
+            onCategorySelect={(id) => setSelectedCategoryId(id)} 
+            onAddToCart={(p) => setCart(prev => [...prev, {...p, quantity: 1}])} 
             onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
             wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
         )}
-        {/* ... بقية الـ Views تعمل بنفس الطريقة ... */}
+        
         {view === 'admin' && currentUser?.role === 'admin' && (
           <AdminDashboard 
             products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
-            onOpenAddForm={() => setView('admin-form')} onOpenEditForm={(p) => { setSelectedProduct(p); setView('admin-form'); }}
-            onOpenInvoiceForm={() => setView('admin-invoice')} onDeleteProduct={(id) => { ApiService.deleteProduct(id); loadData(true); }}
-            onAddCategory={(c) => { ApiService.addCategory(c); loadData(true); }}
-            onUpdateCategory={(c) => { ApiService.updateCategory(c); loadData(true); }}
-            onDeleteCategory={(id) => { ApiService.deleteCategory(id); loadData(true); }}
-            onViewOrder={(order) => { setLastCreatedOrder(order); setView('order-success'); }}
-            onUpdateOrderPayment={(id, m) => { ApiService.updateOrderPayment(id, m); loadData(true); }}
+            onOpenAddForm={() => onNavigateAction('admin-form')} 
+            onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
+            onOpenInvoiceForm={() => onNavigateAction('admin-invoice')} 
+            onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); loadData(true); }}
+            onAddCategory={async (c) => { await ApiService.addCategory(c); loadData(true); }}
+            onUpdateCategory={async (c) => { await ApiService.updateCategory(c); loadData(true); }}
+            onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); loadData(true); }}
+            onViewOrder={(order) => { setLastCreatedOrder(order); onNavigateAction('order-success'); }}
+            onUpdateOrderPayment={async (id, m) => { await ApiService.updateOrderPayment(id, m); loadData(true); }}
             soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)}
             onLogout={handleLogout}
           />
         )}
+
+        {view === 'cart' && (
+          <CartView 
+            cart={cart} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
+            onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
+            onCheckout={() => onNavigateAction('checkout')} onContinueShopping={() => onNavigateAction('store')}
+          />
+        )}
+
+        {view === 'product-details' && selectedProduct && (
+          <ProductDetailsView 
+            product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
+            onAddToCart={(p) => setCart(prev => [...prev, {...p, quantity: 1}])} onBack={() => onNavigateAction('store')}
+            isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+          />
+        )}
+
+        {view === 'checkout' && (
+          <CheckoutView 
+            cart={cart} currentUser={currentUser} onBack={() => onNavigateAction('cart')}
+            onPlaceOrder={async (details) => {
+              const totalAmount = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+              const order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: details.fullName, phone: details.phone, city: 'فاقوس', address: details.address, items: cart, total: totalAmount, subtotal: totalAmount, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id || null };
+              const success = await ApiService.saveOrder(order as any);
+              if (success) { setLastCreatedOrder(order as any); setCart([]); onNavigateAction('order-success'); loadData(); }
+            }}
+          />
+        )}
+
+        {view === 'order-success' && lastCreatedOrder && (
+          <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('store')} />
+        )}
+
+        {view === 'profile' && currentUser && <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigateAction('store')} />}
+        {view === 'my-orders' && <MyOrdersView orders={orders} onViewDetails={(o) => { setLastCreatedOrder(o); onNavigateAction('order-success'); }} onBack={() => onNavigateAction('store')} />}
+        
+        {view === 'admin-auth' && <AdminAuthView onSuccess={(u) => { setCurrentUser(u); onNavigateAction('admin'); loadData(); }} onClose={() => onNavigateAction('store')} />}
       </main>
 
       {!isAdminView && (
