@@ -39,12 +39,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
-  // التحكم في حالة التهيئة لمنع المسح التلقائي
   const initialSetupDone = useRef(false);
   const isSlugManuallyEdited = useRef(false);
 
   useEffect(() => {
-    // لا تقم بالتهيئة إلا إذا تغير المنتج المختار أو في المرة الأولى فقط
     if (initialSetupDone.current && !product) return;
 
     if (product) {
@@ -76,7 +74,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     initialSetupDone.current = true;
   }, [product, categories.length]);
 
-  // تحديث الـ Slug تلقائياً ليتطابق مع الاسم
   useEffect(() => {
     if (!isSlugManuallyEdited.current && formData.name) {
       const generatedSlug = formData.name
@@ -104,19 +101,22 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   };
 
   const handleGenerateAiImage = async () => {
-    if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً لتوليد صورة مناسبة');
+    const cleanedName = formData.name.trim();
+    if (!cleanedName) return alert('يرجى إدخال اسم المنتج أولاً لتوليد صورة مناسبة');
     
     setIsGeneratingImg(true);
     try {
-      const catName = categories.find(c => c.id === formData.categoryId)?.name || 'Product';
-      const imageUrl = await generateProductImage(formData.name, catName);
+      const catName = categories.find(c => c.id === formData.categoryId)?.name || 'General Product';
+      const imageUrl = await generateProductImage(cleanedName, catName);
+      
       if (imageUrl) {
         setFormData(prev => ({ ...prev, images: [...prev.images, imageUrl] }));
       } else {
-        alert('عذراً، لم نتمكن من توليد الصورة حالياً. يرجى المحاولة مرة أخرى.');
+        alert('عذراً، تعذر توليد الصورة. قد يكون الاسم غير واضح أو هناك ضغط على الخدمة. حاول تبسيط اسم المنتج.');
       }
     } catch (err) {
-      alert('خطأ في الاتصال بخدمة الذكاء الاصطناعي');
+      console.error("UI Generator Error:", err);
+      alert('حدث خطأ فني أثناء محاولة الاتصال بالذكاء الاصطناعي.');
     } finally {
       setIsGeneratingImg(false);
     }
@@ -190,7 +190,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     <div className="max-w-5xl mx-auto py-8 px-4 animate-fadeIn pb-20">
       {showScanner && <BarcodeScanner onScan={(code) => { setFormData({...formData, barcode: code}); setShowScanner(false); }} onClose={() => setShowScanner(false)} />}
       
-      {/* Confirmation Modal */}
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
@@ -233,7 +232,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-10">
-        
         <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 space-y-10">
           <div className="space-y-6">
             <h3 className="text-xl font-black text-indigo-600 flex items-center gap-3">
