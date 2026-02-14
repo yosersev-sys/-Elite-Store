@@ -1,4 +1,3 @@
-
 import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { Product, Category } from '../types';
 import ProductCard from './ProductCard';
@@ -33,6 +32,7 @@ const StoreView: React.FC<StoreViewProps> = ({
 }) => {
   const productsListRef = useRef<HTMLDivElement>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(12); // الحالة الجديدة للتحكم في العدد
   
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
@@ -57,7 +57,10 @@ const StoreView: React.FC<StoreViewProps> = ({
     window.requestAnimationFrame(step);
   };
 
+  // إعادة ضبط العداد عند تغيير البحث أو القسم
   useEffect(() => {
+    setVisibleCount(12);
+    
     if (selectedCategoryId !== 'all' || searchQuery || minPrice || maxPrice) {
       const timer = setTimeout(() => {
         const element = document.getElementById('products-list');
@@ -70,7 +73,7 @@ const StoreView: React.FC<StoreViewProps> = ({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [selectedCategoryId, searchQuery]);
+  }, [selectedCategoryId, searchQuery, minPrice, maxPrice]);
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -87,6 +90,11 @@ const StoreView: React.FC<StoreViewProps> = ({
     });
   }, [products, searchQuery, selectedCategoryId, minPrice, maxPrice]);
 
+  // المنتجات التي سيتم عرضها فعلياً بناءً على العداد
+  const displayedProducts = useMemo(() => {
+    return filteredProducts.slice(0, visibleCount);
+  }, [filteredProducts, visibleCount]);
+
   const activeCategoryName = useMemo(() => {
     if (selectedCategoryId === 'all') return 'منتجاتنا الحصرية';
     return categories.find(c => c.id === selectedCategoryId)?.name || 'منتجات القسم';
@@ -97,6 +105,11 @@ const StoreView: React.FC<StoreViewProps> = ({
     setMinPrice('');
     maxPrice('');
     onSearch('');
+    setVisibleCount(12);
+  };
+
+  const loadMore = () => {
+    setVisibleCount(prev => prev + 12);
   };
 
   const hasActiveFilters = selectedCategoryId !== 'all' || minPrice !== '' || maxPrice !== '' || searchQuery !== '';
@@ -118,7 +131,7 @@ const StoreView: React.FC<StoreViewProps> = ({
                {searchQuery ? `نتائج البحث عن: ${searchQuery}` : activeCategoryName}
              </h2>
              <p className="text-gray-400 text-sm md:text-lg font-bold">
-               {filteredProducts.length} منتج متاح
+               عرض {displayedProducts.length} من أصل {filteredProducts.length} منتج
              </p>
           </div>
           
@@ -206,7 +219,7 @@ const StoreView: React.FC<StoreViewProps> = ({
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-10">
-          {filteredProducts.map(product => (
+          {displayedProducts.map(product => (
             <ProductCard 
               key={product.id} 
               product={product} 
@@ -218,6 +231,21 @@ const StoreView: React.FC<StoreViewProps> = ({
             />
           ))}
         </div>
+
+        {/* زر عرض المزيد */}
+        {filteredProducts.length > visibleCount && (
+          <div className="flex justify-center pt-8 md:pt-12">
+            <button 
+              onClick={loadMore}
+              className="group relative flex items-center gap-3 bg-white border-2 border-emerald-500 text-emerald-600 px-12 py-4 rounded-[2rem] font-black text-lg shadow-xl shadow-emerald-900/5 hover:bg-emerald-600 hover:text-white transition-all duration-300 active:scale-95"
+            >
+              <span>تحميل المزيد من المنتجات</span>
+              <svg className="w-6 h-6 transition-transform group-hover:translate-y-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {filteredProducts.length === 0 && (
           <div className="text-center py-20 md:py-32 bg-gray-50 rounded-[2rem] md:rounded-[3rem] border-2 border-dashed border-gray-200">
