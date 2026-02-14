@@ -25,12 +25,22 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [showPreview, setShowPreview] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const handleStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleStatus);
+    window.addEventListener('offline', handleStatus);
+    
     if (window.innerWidth > 768) {
       searchInputRef.current?.focus();
     }
+
+    return () => {
+      window.removeEventListener('online', handleStatus);
+      window.removeEventListener('offline', handleStatus);
+    };
   }, []);
 
   const filteredProducts = useMemo(() => {
@@ -43,7 +53,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   }, [products, searchQuery]);
 
   const addItemToInvoice = (product: Product) => {
-    if (product.stockQuantity <= 0) {
+    // في حالة الأوفلاين، نتجاوز فحص المخزن الدقيق لأنه قد يكون غير محدث
+    if (isOnline && product.stockQuantity <= 0) {
       alert('عذراً، هذا المنتج غير متوفر في المخزن حالياً!');
       return;
     }
@@ -51,7 +62,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     setInvoiceItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stockQuantity) {
+        if (isOnline && existing.quantity >= product.stockQuantity) {
           alert('وصلت للحد الأقصى المتاح في المخزن لهذا المنتج');
           return prev;
         }
@@ -80,7 +91,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       if (item.id === id) {
         const product = products.find(p => p.id === id);
         const newQty = Math.max(1, item.quantity + delta);
-        if (product && newQty > product.stockQuantity) {
+        if (isOnline && product && newQty > product.stockQuantity) {
           alert('الكمية المطلوبة غير متوفرة بالكامل في المخزن');
           return item;
         }
@@ -105,7 +116,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     if (!customerInfo.phone) return alert('يرجى إدخل رقم الهاتف لمتابعة الطلب');
     
     const newOrder: Order = {
-      id: 'INV-' + Date.now().toString().slice(-6),
+      id: (isOnline ? 'INV-' : 'OFF-') + Date.now().toString().slice(-6),
       customerName: customerInfo.name,
       phone: customerInfo.phone,
       city: customerInfo.city,
@@ -165,6 +176,12 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                 <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">🧾</div>
                 <h3 className="text-xl md:text-2xl font-black text-slate-800">تأكيد الطلب</h3>
                 
+                {!isOnline && (
+                  <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl text-orange-700 text-xs font-bold">
+                    سيتم حفظ الفاتورة محلياً ومزامنتها تلقائياً عند عودة الإنترنت 📡
+                  </div>
+                )}
+
                 <div className="bg-slate-50 p-4 md:p-6 rounded-2xl md:rounded-3xl space-y-2 md:space-y-3">
                    <div className="flex justify-between font-bold text-xs md:text-sm">
                       <span className="text-slate-400">العميل:</span>
@@ -181,7 +198,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                 </div>
 
                 <div className="flex gap-2 md:gap-3">
-                   <button onClick={handleFinalSubmit} className="flex-grow bg-emerald-600 text-white py-4 md:py-5 rounded-xl md:rounded-2xl font-black shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition active:scale-95 text-sm md:text-base">تأكيد الطلب</button>
+                   <button onClick={handleFinalSubmit} className={`flex-grow py-4 md:py-5 rounded-xl md:rounded-2xl font-black shadow-xl active:scale-95 text-sm md:text-base text-white ${isOnline ? 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700' : 'bg-orange-600 shadow-orange-100 hover:bg-orange-700'}`}>
+                     {isOnline ? 'تأكيد الطلب' : 'حفظ (أوفلاين)'}
+                   </button>
                    <button onClick={() => setShowPreview(false)} className="flex-grow bg-slate-100 text-slate-500 py-4 md:py-5 rounded-xl md:rounded-2xl font-black text-sm md:text-base">رجوع</button>
                 </div>
              </div>
@@ -190,9 +209,15 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       )}
 
       <div className="flex items-center justify-between mb-6 md:mb-10 px-2">
-        <div>
-          <h2 className="text-xl md:text-4xl font-black text-slate-900 tracking-tight">إنشاء طلب سريع</h2>
-          <p className="text-emerald-600 font-black text-[8px] md:text-[10px] uppercase mt-0.5 tracking-widest">سوق العصر - نظام الكاشير</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-xl md:text-4xl font-black text-slate-900 tracking-tight">إنشاء طلب سريع</h2>
+            <p className="text-emerald-600 font-black text-[8px] md:text-[10px] uppercase mt-0.5 tracking-widest">سوق العصر - نظام الكاشير</p>
+          </div>
+          <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 border shadow-sm transition-all ${isOnline ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-orange-50 border-orange-100 text-orange-600 animate-pulse'}`}>
+            <span className="w-2 h-2 rounded-full bg-current"></span>
+            <span className="text-[10px] font-black">{isOnline ? 'متصل بالإنترنت' : 'وضع الأوفلاين'}</span>
+          </div>
         </div>
         <button 
           type="button"
@@ -223,7 +248,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                   title="فتح الكاميرا لمسح المنتج"
                  >
                    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                    </svg>
                  </button>
@@ -369,9 +394,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                  <button 
                    disabled={invoiceItems.length === 0}
                    onClick={() => setShowPreview(true)}
-                   className="w-full bg-slate-900 text-white py-4 md:py-6 rounded-2xl md:rounded-3xl font-black text-sm md:text-xl shadow-2xl hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-40 disabled:grayscale"
+                   className={`w-full text-white py-4 md:py-6 rounded-2xl md:rounded-3xl font-black text-sm md:text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-40 disabled:grayscale ${isOnline ? 'bg-slate-900 hover:bg-emerald-600' : 'bg-orange-600 hover:bg-orange-700'}`}
                  >
-                    حفظ الطلب الفوري
+                    {isOnline ? 'حفظ الطلب الفوري' : 'حفظ الفاتورة (أوفلاين)'}
                  </button>
               </div>
            </div>

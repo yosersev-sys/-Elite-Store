@@ -65,6 +65,22 @@ const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // مراقبة الاتصال للمزامنة
+  useEffect(() => {
+    const handleOnline = async () => {
+      if (currentUser?.role === 'admin') {
+        const synced = await ApiService.syncOfflineOrders();
+        if (synced > 0) {
+          showNotify(`تمت مزامنة ${synced} فاتورة كانت في وضع الانتظار بنجاح! 📡`, 'success');
+          loadData(true);
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [currentUser?.role]);
+
   useEffect(() => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
@@ -386,8 +402,9 @@ const App: React.FC = () => {
                 const success = await ApiService.saveOrder(order);
                 if (success) {
                   setLastCreatedOrder(order);
-                  showNotify('تم إرسال الطلب بنجاح');
-                  WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                  const isOffline = order.id.startsWith('OFF-');
+                  showNotify(isOffline ? 'تم حفظ الطلب محلياً (أوفلاين)' : 'تم إرسال الطلب بنجاح');
+                  if (!isOffline) WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   await loadData();
                   onNavigateAction('order-success');
                 } else {

@@ -1,6 +1,7 @@
 import { Product, Category, Order, User } from '../types.ts';
 
 const API_URL = 'api.php';
+const OFFLINE_ORDERS_KEY = 'souq_offline_orders';
 
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
@@ -94,12 +95,67 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
+  // نظام حفظ الطلبات المطور ليدعم وضع الأوفلاين
   async saveOrder(order: Order): Promise<boolean> {
+    // محاولة الإرسال للسيرفر أولاً
     const result = await safeFetch('save_order', {
       method: 'POST',
       body: JSON.stringify(order)
     });
-    return result?.status === 'success';
+
+    if (result?.status === 'success') {
+      return true;
+    }
+
+    // إذا فشل الإرسال (بسبب الإنترنت غالباً)، نحفظها محلياً إذا كان المستخدم مديراً
+    const currentUser = await this.getCurrentUser();
+    if (currentUser?.role === 'admin') {
+      this.queueOfflineOrder(order);
+      return true; // نرجع true لأننا حفظناها في قائمة الانتظار
+    }
+
+    return false;
+  },
+
+  queueOfflineOrder(order: Order) {
+    const orders = this.getOfflineOrders();
+    orders.push(order);
+    localStorage.setItem(OFFLINE_ORDERS_KEY, JSON.stringify(orders));
+  },
+
+  getOfflineOrders(): Order[] {
+    try {
+      return JSON.parse(localStorage.getItem(OFFLINE_ORDERS_KEY) || '[]');
+    } catch { return []; }
+  },
+
+  async syncOfflineOrders(): Promise<number> {
+    const orders = this.getOfflineOrders();
+    if (orders.length === 0) return 0;
+
+    let successCount = 0;
+    const remainingOrders: Order[] = [];
+
+    for (const order of orders) {
+      try {
+        const response = await fetch(`${API_URL}?action=save_order`, {
+          method: 'POST',
+          body: JSON.stringify(order),
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+        if (result?.status === 'success') {
+          successCount++;
+        } else {
+          remainingOrders.push(order);
+        }
+      } catch {
+        remainingOrders.push(order);
+      }
+    }
+
+    localStorage.setItem(OFFLINE_ORDERS_KEY, JSON.stringify(remainingOrders));
+    return successCount;
   },
 
   async returnOrder(id: string): Promise<{status: string, message?: string}> {

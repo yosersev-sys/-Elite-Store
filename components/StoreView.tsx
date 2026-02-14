@@ -103,7 +103,8 @@ const StoreView: React.FC<StoreViewProps> = ({
   const resetFilters = () => {
     onCategorySelect('all');
     setMinPrice('');
-    maxPrice('');
+    // Fix: use setMaxPrice setter instead of maxPrice string variable
+    setMaxPrice('');
     onSearch('');
     setVisibleCount(12);
   };
@@ -166,7 +167,7 @@ const StoreView: React.FC<StoreViewProps> = ({
                   placeholder="ابحث عن اسم المنتج..." 
                   value={searchQuery}
                   onChange={(e) => onSearch(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm pr-10"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-50 font-bold text-sm pr-10"
                 />
                 <span className="absolute right-3 top-3 text-slate-300">🔍</span>
               </div>
@@ -180,7 +181,7 @@ const StoreView: React.FC<StoreViewProps> = ({
                   placeholder="من" 
                   value={minPrice}
                   onChange={(e) => setMinPrice(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-emerald-50 font-bold text-sm text-center"
                 />
                 <span className="text-slate-300">-</span>
                 <input 
@@ -188,7 +189,7 @@ const StoreView: React.FC<StoreViewProps> = ({
                   placeholder="إلى" 
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-emerald-50 font-bold text-sm text-center"
                 />
               </div>
             </div>
@@ -198,7 +199,7 @@ const StoreView: React.FC<StoreViewProps> = ({
               <select 
                 value={selectedCategoryId}
                 onChange={(e) => onCategorySelect(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 font-black text-sm text-slate-700 cursor-pointer appearance-none"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-50 font-black text-sm text-slate-700 cursor-pointer appearance-none"
               >
                 <option value="all">كل الأقسام</option>
                 {categories.map(cat => (
