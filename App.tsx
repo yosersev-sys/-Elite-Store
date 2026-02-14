@@ -39,7 +39,6 @@ const App: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   
-  // تهيئة السلة من التخزين المحلي
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('souq_cart');
@@ -47,7 +46,6 @@ const App: React.FC = () => {
     } catch { return []; }
   });
 
-  // تهيئة المفضلة من التخزين المحلي
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('souq_wishlist');
@@ -66,12 +64,10 @@ const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // حفظ السلة تلقائياً عند أي تغيير
   useEffect(() => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // حفظ المفضلة تلقائياً عند أي تغيير
   useEffect(() => {
     localStorage.setItem('souq_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
@@ -270,7 +266,7 @@ const App: React.FC = () => {
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc] pb-20 md:pb-0">
+    <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-32 md:pb-0'}`}>
       {notification && (
         <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
       )}
@@ -313,7 +309,7 @@ const App: React.FC = () => {
         />
       )}
 
-      <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4 pb-4' : 'pt-16 md:pt-32 pb-4'}`}>
+      <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4' : 'pt-16 md:pt-32'}`}>
         {view === 'store' && (
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
