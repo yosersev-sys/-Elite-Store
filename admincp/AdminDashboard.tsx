@@ -49,7 +49,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     id: '', name: '', image: '', isActive: true, sortOrder: 0
   });
 
-  const [isProcessingReturn, setIsProcessingReturn] = useState(false);
   const [storeSeo, setStoreSeo] = useState({
     store_meta_title: '',
     store_meta_description: '',
@@ -185,7 +184,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleReturnOrder = async (id: string) => {
     if (!confirm('تأكيد استرداد الفاتورة؟ سيتم إعادة الكميات للمخزن.')) return;
-    setIsProcessingReturn(true);
     await ApiService.returnOrder(id);
     window.location.reload();
   };
@@ -194,8 +192,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!catFormData.name.trim()) return;
     const existing = categories.find(c => c.id === catFormData.id);
     if (existing) onUpdateCategory(catFormData);
-    else onAddCategory(catFormData);
+    else onAddCategory({ ...catFormData, id: 'cat_' + Date.now() });
     setIsEditingCategory(false);
+  };
+
+  // وظائف تعريف القسم المفقودة التي كانت تسبب العطل
+  const handleAddCategoryClick = () => {
+    setCatFormData({ id: '', name: '', image: '', isActive: true, sortOrder: 0 });
+    setIsEditingCategory(true);
+  };
+
+  const handleEditCategory = (cat: Category) => {
+    setCatFormData(cat);
+    setIsEditingCategory(true);
   };
 
   return (
@@ -342,8 +351,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="bg-white p-6 rounded-3xl border-2 border-emerald-100 shadow-xl space-y-4 animate-slideDown">
                 <h4 className="font-black text-slate-800">{catFormData.id ? 'تعديل القسم' : 'إضافة قسم جديد'}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input type="text" placeholder="اسم القسم" value={catFormData.name} onChange={e => setCatFormData({...catFormData, name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 rounded-xl outline-none font-bold border" />
-                  <input type="text" placeholder="رابط الصورة" value={catFormData.image || ''} onChange={e => setCatFormData({...catFormData, image: e.target.value})} className="w-full px-4 py-3 bg-slate-50 rounded-xl outline-none font-bold border" />
+                  <input type="text" placeholder="اسم القسم" value={catFormData.name} onChange={e => setCatFormData({...catFormData, name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 rounded-xl outline-none font-bold border focus:border-emerald-500" />
+                  <input type="text" placeholder="رابط الصورة" value={catFormData.image || ''} onChange={e => setCatFormData({...catFormData, image: e.target.value})} className="w-full px-4 py-3 bg-slate-50 rounded-xl outline-none font-bold border focus:border-emerald-500" />
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleSaveCategory} className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-black text-xs">حفظ</button>
@@ -353,7 +362,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-800">الأقسام</h3>
-              <button onClick={() => { setCatFormData({ id: '', name: '', image: '', isActive: true, sortOrder: 0 }); setIsEditingCategory(true); }} className="bg-emerald-600 text-white px-6 py-2.5 rounded-2xl font-black text-xs shadow-lg">+ إضافة قسم</button>
+              <button onClick={handleAddCategoryClick} className="bg-emerald-600 text-white px-6 py-2.5 rounded-2xl font-black text-xs shadow-lg">+ إضافة قسم</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {categories.map(cat => (
@@ -363,7 +372,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <p className="font-black text-slate-800 text-sm">{cat.name}</p>
                    </div>
                    <div className="flex gap-1">
-                      <button onClick={() => { setCatFormData(cat); setIsEditingCategory(true); }} className="p-2 text-blue-500 bg-blue-50 rounded-lg text-xs">✎</button>
+                      <button onClick={() => handleEditCategory(cat)} className="p-2 text-blue-500 bg-blue-50 rounded-lg text-xs">✎</button>
                       <button onClick={() => onDeleteCategory(cat.id)} className="p-2 text-rose-500 bg-rose-50 rounded-lg text-xs">🗑</button>
                    </div>
                 </div>
@@ -402,69 +411,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <p className="text-4xl font-black tracking-tighter">{profitStats.profit.toLocaleString()} <small className="text-sm">ج.م</small></p>
               </div>
             </div>
-            
-            <p className="text-center text-slate-400 text-xs font-bold italic">تم حساب الربح بناءً على {profitStats.orderCount} طلبية ناجحة في هذه الفترة.</p>
           </div>
         )}
 
         {activeTab === 'settings' && (
           <div className="space-y-8 animate-fadeIn">
-            {/* SEO Settings Section */}
             <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-sm border border-slate-100 space-y-10">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black text-indigo-600 flex items-center gap-3">
-                  <span className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-lg">🌍</span>
-                  إعدادات المتجر (SEO)
-                </h3>
-                <button onClick={handleGenerateStoreSeoAi} disabled={isGeneratingSeoAi} className="text-[10px] font-black bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-lg hover:bg-slate-900 transition disabled:opacity-50">
+                <h3 className="text-xl font-black text-indigo-600 flex items-center gap-3">إعدادات المتجر (SEO)</h3>
+                <button onClick={handleGenerateStoreSeoAi} disabled={isGeneratingSeoAi} className="text-[10px] font-black bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-lg disabled:opacity-50">
                    {isGeneratingSeoAi ? 'جاري التوليد...' : 'توليد ذكي ✨'}
                 </button>
               </div>
-
               <div className="grid grid-cols-1 gap-8">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-400 mr-2">عنوان المتجر (Meta Title)</label>
-                  <input value={storeSeo.store_meta_title} onChange={e => setStoreSeo({...storeSeo, store_meta_title: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="سوق العصر - أول سوق إلكتروني في فاقوس" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-400 mr-2">وصف المتجر (Meta Description)</label>
-                  <textarea value={storeSeo.store_meta_description} onChange={e => setStoreSeo({...storeSeo, store_meta_description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition min-h-[100px] resize-none" placeholder="تطبيق فاقوس الأول للتسوق..." />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-400 mr-2">الكلمات المفتاحية</label>
-                  <input value={storeSeo.store_meta_keywords} onChange={e => setStoreSeo({...storeSeo, store_meta_keywords: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="فاقوس، تسوق، خضروات، عروض..." />
-                </div>
-                <button onClick={handleSaveSeo} disabled={isSavingSeo} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-emerald-600 transition active:scale-95 disabled:opacity-50">
-                   {isSavingSeo ? 'جاري الحفظ...' : 'حفظ إعدادات المتجر 💾'}
-                </button>
+                <input value={storeSeo.store_meta_title} onChange={e => setStoreSeo({...storeSeo, store_meta_title: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="عنوان المتجر" />
+                <textarea value={storeSeo.store_meta_description} onChange={e => setStoreSeo({...storeSeo, store_meta_description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition min-h-[100px] resize-none" placeholder="وصف المتجر" />
+                <input value={storeSeo.store_meta_keywords} onChange={e => setStoreSeo({...storeSeo, store_meta_keywords: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="الكلمات المفتاحية" />
+                <button onClick={handleSaveSeo} disabled={isSavingSeo} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-lg shadow-xl disabled:opacity-50">حفظ الإعدادات 💾</button>
               </div>
             </section>
 
-            {/* Admin Profile Section */}
             <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-sm border border-slate-100 space-y-10">
-              <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">
-                <span className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-lg">👤</span>
-                ملفي الشخصي كمدير
-              </h3>
+              <h3 className="text-xl font-black text-emerald-600">ملفي الشخصي كمدير</h3>
               <form onSubmit={handleUpdateProfile} className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                   <label className="text-sm font-bold text-slate-400 mr-2">اسم المدير</label>
-                   <input required value={profileData.name} onChange={e => setProfileData({...profileData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border transition focus:border-emerald-500" />
+                <input required value={profileData.name} onChange={e => setProfileData({...profileData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border focus:border-emerald-500" placeholder="الاسم" />
+                <input required value={profileData.phone} onChange={e => setProfileData({...profileData, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border focus:border-emerald-500 text-left" dir="ltr" placeholder="الهاتف" />
+                <div className="relative md:col-span-2">
+                   <input type={showPass ? "text" : "password"} value={profileData.password} onChange={e => setProfileData({...profileData, password: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border focus:border-emerald-500" placeholder="كلمة المرور الجديدة (اتركها فارغة لعدم التغيير)" />
+                   <button type="button" onClick={() => setShowPass(!showPass)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{showPass ? '🙈' : '👁️'}</button>
                 </div>
-                <div className="space-y-2">
-                   <label className="text-sm font-bold text-slate-400 mr-2">رقم الجوال (للدخول)</label>
-                   <input required value={profileData.phone} onChange={e => setProfileData({...profileData, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border transition focus:border-emerald-500 text-left" dir="ltr" />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                   <label className="text-sm font-bold text-slate-400 mr-2">كلمة المرور الجديدة</label>
-                   <div className="relative">
-                      <input type={showPass ? "text" : "password"} value={profileData.password} onChange={e => setProfileData({...profileData, password: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border transition focus:border-emerald-500" placeholder="اتركها فارغة إذا لا تريد تغييرها" />
-                      <button type="button" onClick={() => setShowPass(!showPass)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{showPass ? '🙈' : '👁️'}</button>
-                   </div>
-                </div>
-                <button type="submit" disabled={isUpdatingProfile} className="w-full md:col-span-2 bg-emerald-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-emerald-100 hover:bg-slate-900 transition active:scale-95">
-                   {isUpdatingProfile ? 'جاري التحديث...' : 'تحديث بياناتي 💾'}
-                </button>
+                <button type="submit" disabled={isUpdatingProfile} className="w-full md:col-span-2 bg-emerald-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl disabled:opacity-50">تحديث بياناتي 💾</button>
               </form>
             </section>
           </div>
@@ -481,7 +457,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {(paginatedItems as any[]).map(u => (
                         <tr key={u.id} className="hover:bg-slate-50 transition text-sm">
                           <td className="px-6 py-4 font-black text-slate-800">{u.name} <p className="text-[10px] text-slate-400 font-bold">{u.phone}</p></td>
-                          <td className="px-6 py-4 font-black text-emerald-600">{u.totalSpent.toLocaleString()} <small>ج.م</small><p className="text-[9px] text-slate-400 font-black uppercase">من خلال {u.orderCount} طلبيات</p></td>
+                          <td className="px-6 py-4 font-black text-emerald-600">{u.totalSpent.toLocaleString()} <small>ج.م</small></td>
                           <td className="px-6 py-4 flex gap-2"><button onClick={() => window.open(`https://wa.me/2${u.phone}`, '_blank')} className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition">💬 واتساب</button></td>
                         </tr>
                       ))}
