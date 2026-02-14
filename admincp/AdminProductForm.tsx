@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
+import { ApiService } from '../services/api';
 
 interface AdminProductFormProps {
   product: Product | null;
@@ -12,6 +13,10 @@ interface AdminProductFormProps {
 const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, onSubmit, onCancel }) => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryImages, setLibraryImages] = useState<string[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
@@ -70,7 +75,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     initialSetupDone.current = true;
   }, [product, categories.length]);
 
-  // توليد الرابط (Slug) تلقائياً من الاسم (وظيفة برمجية بسيطة وليست ذكاء اصطناعي)
   useEffect(() => {
     if (!isSlugManuallyEdited.current && formData.name) {
       const generatedSlug = formData.name
@@ -82,6 +86,23 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       setSeoData(prev => ({ ...prev, slug: generatedSlug }));
     }
   }, [formData.name]);
+
+  const handleOpenLibrary = async () => {
+    setShowLibrary(true);
+    if (libraryImages.length === 0) {
+      setIsLoadingLibrary(true);
+      const images = await ApiService.getAllImages();
+      setLibraryImages(images || []);
+      setIsLoadingLibrary(false);
+    }
+  };
+
+  const selectFromLibrary = (img: string) => {
+    if (!formData.images.includes(img)) {
+      setFormData(prev => ({ ...prev, images: [...prev.images, img] }));
+    }
+    setShowLibrary(false);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -130,6 +151,57 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     <div className="max-w-5xl mx-auto py-8 px-4 animate-fadeIn pb-20">
       {showScanner && <BarcodeScanner onScan={(code) => { setFormData({...formData, barcode: code}); setShowScanner(false); }} onClose={() => setShowScanner(false)} />}
       
+      {/* Image Library Modal */}
+      {showLibrary && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md animate-fadeIn" onClick={() => setShowLibrary(false)}></div>
+          <div className="relative bg-white w-full max-w-4xl h-[80vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-slideUp">
+            <div className="p-8 border-b flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر 🖼️</h3>
+                <p className="text-slate-400 font-bold text-xs">اختر من الصور التي تم استخدامها مسبقاً في المنتجات</p>
+              </div>
+              <button onClick={() => setShowLibrary(false)} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white transition">✕</button>
+            </div>
+            
+            <div className="flex-grow p-8 overflow-y-auto no-scrollbar">
+              {isLoadingLibrary ? (
+                <div className="h-full flex flex-col items-center justify-center gap-4">
+                  <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="font-black text-emerald-600">جاري جلب الصور من السيرفر...</p>
+                </div>
+              ) : libraryImages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                  <span className="text-6xl mb-4">📂</span>
+                  <p className="font-black">لا توجد صور مخزنة بعد.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {libraryImages.map((img, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => selectFromLibrary(img)}
+                      className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer border-2 border-transparent hover:border-emerald-500 transition-all shadow-sm"
+                    >
+                      <img src={img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                      <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/20 flex items-center justify-center transition-all">
+                        <span className="bg-white text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black shadow-lg opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all">اختيار الصورة</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 bg-slate-50 border-t flex justify-center">
+              <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg hover:bg-emerald-700 active:scale-95 transition">
+                رفع صورة جديدة من جهازك 📤
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
@@ -190,6 +262,15 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 </div>
               ))}
               
+              <button 
+                type="button" 
+                onClick={handleOpenLibrary} 
+                className="aspect-square rounded-2xl border-2 border-emerald-100 bg-emerald-50/30 flex flex-col items-center justify-center gap-2 text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition shadow-inner"
+              >
+                <span className="text-2xl">🖼️</span>
+                <span className="text-[10px] font-black">اختيار من المكتبة</span>
+              </button>
+
               <button 
                 type="button" 
                 onClick={() => fileInputRef.current?.click()} 

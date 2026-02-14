@@ -62,6 +62,10 @@ export const ApiService = {
     return await safeFetch('get_products') || [];
   },
 
+  async getAllImages(): Promise<string[]> {
+    return await safeFetch('get_all_images') || [];
+  },
+
   async getCategories(): Promise<Category[]> {
     return await safeFetch('get_categories') || [];
   },

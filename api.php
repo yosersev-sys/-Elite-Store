@@ -1,7 +1,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr
- * نظام الإدارة المطور v6.9 - معالجة كافة طلبات لوحة التحكم والإعدادات
+ * نظام الإدارة المطور v7.0 - معالجة كافة طلبات لوحة التحكم والمكتبة
  */
 session_start();
 error_reporting(E_ALL); 
@@ -34,7 +34,6 @@ function initDatabase($pdo) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), wholesalePrice DECIMAL(10,2) DEFAULT 0, categoryId VARCHAR(50), images LONGTEXT, sizes TEXT, colors TEXT, stockQuantity INT DEFAULT 0, unit VARCHAR(20) DEFAULT 'piece', createdAt BIGINT, salesCount INT DEFAULT 0, seoSettings TEXT, barcode VARCHAR(100))");
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), city VARCHAR(100), address TEXT, total DECIMAL(10,2), subtotal DECIMAL(10,2), items LONGTEXT, paymentMethod VARCHAR(50), status VARCHAR(20), createdAt BIGINT, userId VARCHAR(50))");
-    // جدول الإعدادات العامة للمتجر
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
 }
 
@@ -58,6 +57,22 @@ try {
                 $p['stockQuantity'] = (int)$p['stockQuantity'];
             }
             sendRes($products);
+            break;
+
+        case 'get_all_images':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->query("SELECT images FROM products");
+            $rows = $stmt->fetchAll();
+            $allImages = [];
+            foreach ($rows as $row) {
+                $imgs = json_decode($row['images'] ?? '[]', true) ?: [];
+                foreach ($imgs as $img) {
+                    if ($img && !in_array($img, $allImages)) {
+                        $allImages[] = $img;
+                    }
+                }
+            }
+            sendRes($allImages);
             break;
 
         case 'admin_update_user':
