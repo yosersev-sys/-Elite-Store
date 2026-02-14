@@ -1,5 +1,5 @@
-
 {
+  "id": "soqelasr0100",
   "name": "سوق العصر - فاقوس",
   "short_name": "سوق العصر",
   "description": "اول سوق الكتروني في فاقوس - تسوق أونلاين بكل سهولة.",
@@ -19,6 +19,22 @@
       "src": "https://soqelasr.com/shopping-bag512.png",
       "sizes": "512x512",
       "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://soqelasr.com/image1.jpg",
+      "sizes": "1080x1920",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "الواجهة الرئيسية للمتجر"
+    },
+    {
+      "src": "https://soqelasr.com/image3.jpg",
+      "sizes": "1080x1920",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "عرض تفاصيل المنتجات"
     }
   ]
 }
