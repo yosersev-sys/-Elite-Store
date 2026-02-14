@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View } from '../types';
 
@@ -12,11 +11,11 @@ const FloatingQuickInvoiceButton: React.FC<FloatingQuickInvoiceButtonProps> = ({
   if (currentView === 'quick-invoice' || currentView === 'admin' || currentView === 'admin-invoice') return null;
 
   return (
-    <div className="hidden lg:block fixed bottom-32 left-8 z-50 group">
+    <div className="hidden md:block fixed bottom-32 right-12 z-50 group">
       {/* التلميح (Tooltip) */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-2xl">
+      <div className="absolute bottom-full right-0 mb-4 px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-2xl">
         إنشاء فاتورة سريعة 🧾
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900"></div>
+        <div className="absolute top-full right-6 border-8 border-transparent border-t-slate-900"></div>
       </div>
 
       {/* الزر الرئيسي */}
