@@ -35,7 +35,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [adminSearch, setAdminSearch] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [stockFilter, setStockFilter] = useState<'all' | 'critical'>('all');
   const itemsPerPage = 10;
   
   const [orderSearch, setOrderSearch] = useState('');
@@ -122,6 +121,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsGeneratingSeoAi(false);
   };
 
+  const [stockFilter, setStockFilter] = useState<'all' | 'critical'>('all');
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
@@ -130,13 +130,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return matchesSearch && matchesStock;
     });
   }, [products, adminSearch, stockFilter]);
-
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-
-  const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredProducts, currentPage]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
@@ -170,6 +163,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return matchesSearch && matchesPayment && matchesDate;
     });
   }, [orders, orderSearch, paymentFilter, startDate, endDate]);
+
+  // منطق الترقيم للطلبات والمنتجات
+  const paginatedItems = useMemo(() => {
+    const list = activeTab === 'products' ? filteredProducts : filteredOrders;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return list.slice(startIndex, startIndex + itemsPerPage);
+  }, [activeTab, filteredProducts, filteredOrders, currentPage]);
+
+  const currentTotalCount = activeTab === 'products' ? filteredProducts.length : filteredOrders.length;
+  const totalPages = Math.ceil(currentTotalCount / itemsPerPage);
 
   const profitStats = useMemo(() => {
     const start = new Date(reportStart);
@@ -236,7 +239,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [adminSearch, activeTab, stockFilter]);
+  }, [adminSearch, orderSearch, paymentFilter, startDate, endDate, activeTab, stockFilter]);
 
   const criticalStockProducts = useMemo(() => {
     return products.filter(p => p.stockQuantity < 5 && p.stockQuantity >= 0);
@@ -561,7 +564,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase border-b"><th className="px-8 py-6">المنتج</th><th className="px-8 py-6">السعر</th><th className="px-8 py-6">المخزون</th><th className="px-8 py-6">الإجراء</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {paginatedProducts.length === 0 ? (
+                  {paginatedItems.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-8 py-20 text-center">
                         <div className="text-4xl mb-4">📦</div>
@@ -569,7 +572,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    paginatedProducts.map(p => (
+                    (paginatedItems as Product[]).map(p => (
                       <tr key={p.id} className="hover:bg-slate-50 transition">
                         <td className="px-8 py-4 flex items-center gap-4"><img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover" /><div><p className="font-black text-sm">{p.name}</p><p className="text-[9px] text-slate-400">{p.barcode || 'بدون كود'}</p></div></td>
                         <td className="px-8 py-4 font-black text-emerald-600 text-sm">{p.price} ج.م</td>
@@ -584,7 +587,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {totalPages > 1 && (
                 <div className="p-6 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
                   <div className="text-xs font-bold text-slate-400">
-                    عرض {paginatedProducts.length} من أصل {filteredProducts.length} منتج
+                    عرض {paginatedItems.length} من أصل {currentTotalCount} نتيجة
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
@@ -795,14 +798,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="space-y-4">
-              {filteredOrders.length === 0 ? (
+              {paginatedItems.length === 0 ? (
                  <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100">
                     <div className="text-4xl mb-4">🔍</div>
                     <p className="text-slate-400 font-black">لا توجد طلبات تطابق معايير البحث الحالية</p>
                     <button onClick={resetOrderFilters} className="mt-4 text-emerald-600 font-bold text-xs underline">عرض كل الطلبات</button>
                  </div>
               ) : (
-                filteredOrders.map(order => {
+                (paginatedItems as Order[]).map(order => {
                   const paymentMethod = order.paymentMethod || 'غير محدد';
                   const isDelayed = paymentMethod.includes('آجل');
                   const isCancelled = order.status === 'cancelled';
@@ -880,6 +883,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 })
               )}
             </div>
+
+            {/* نظام الترقيم للطلبات */}
+            {totalPages > 1 && (
+              <div className="p-6 bg-white rounded-[2rem] border border-slate-100 flex items-center justify-between shadow-sm mt-4">
+                <div className="text-xs font-bold text-slate-400">
+                  عرض {paginatedItems.length} من أصل {currentTotalCount} طلب
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="px-4 py-2 bg-slate-50 border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                  >
+                    السابق
+                  </button>
+                  <div className="bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 font-black text-xs text-emerald-600">
+                    صفحة {currentPage} من {totalPages}
+                  </div>
+                  <button 
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className="px-4 py-2 bg-slate-50 border rounded-xl font-black text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                  >
+                    التالي
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1298,7 +1329,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="p-6 bg-blue-50 rounded-[2rem] border border-blue-100">
                        <h4 className="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2 flex items-center gap-2">معاينة نتيجة البحث (Google Store Preview)</h4>
                        <div className="space-y-1">
-                          <p className="text-xs text-blue-500">https://soqalasr.com</p>
+                          <p className="text-xs text-blue-500">https://soqelasr.com</p>
                           <p className="text-xl text-blue-800 font-bold hover:underline cursor-pointer">{storeSeo.store_meta_title || 'سوق العصر - فاقوس'}</p>
                           <p className="text-sm text-slate-600 leading-relaxed line-clamp-2">{storeSeo.store_meta_description || 'تسوق أونلاين بكل سهولة من هاتفك الأندرويد في مدينة فاقوس...'}</p>
                        </div>
