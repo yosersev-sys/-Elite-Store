@@ -24,7 +24,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
         scale: 3, // دقة عالية للمشاركة
         useCORS: true,
         backgroundColor: '#ffffff',
-        width: 300, // عرض ثابت للصورة يشبه الورق الحراري
+        width: 250, // عرض الصورة الملتقطة يناسب 5سم تقريباً
       });
       canvas.toBlob(async (blob: Blob | null) => {
         if (!blob) return;
@@ -55,86 +55,87 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
       <style>{`
         @media print {
           @page {
-            size: 58mm auto;
+            size: 50mm auto;
             margin: 0;
           }
           /* إخفاء هيدر وفوتر المتصفح الافتراضي (التاريخ، الرابط، إلخ) */
           html, body {
             margin: 0 !important;
             padding: 0 !important;
+            width: 50mm !important;
           }
           header, footer, nav, .no-print {
             display: none !important;
           }
           .thermal-invoice {
-            width: 58mm !important;
-            padding: 2mm !important;
+            width: 50mm !important;
+            padding: 1mm !important;
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
             background: white !important;
           }
           .thermal-invoice * {
-            font-size: 9pt !important;
+            font-size: 8pt !important;
             color: black !important;
             background: transparent !important;
+            line-height: 1.2 !important;
           }
           .thermal-invoice h1 {
-            font-size: 14pt !important;
+            font-size: 12pt !important;
+          }
+          .thermal-invoice .item-name {
+            max-width: 30mm !important;
+            overflow: hidden;
           }
         }
       `}</style>
 
-      {/* حاوية الفاتورة - مصممة لتكون ضيقة */}
+      {/* حاوية الفاتورة - مصممة لتكون 5 سم */}
       <div 
         ref={invoiceRef} 
-        className="thermal-invoice bg-white border border-gray-200 shadow-lg mx-auto overflow-hidden p-6 md:p-8"
-        style={{ width: '100%', maxWidth: '320px', fontFamily: 'Courier, monospace' }}
+        className="thermal-invoice bg-white border border-gray-200 shadow-lg mx-auto overflow-hidden p-4 md:p-6"
+        style={{ width: '100%', maxWidth: '280px', fontFamily: 'Courier, monospace' }}
       >
         {/* رأس الفاتورة */}
-        <div className="text-center border-b-2 border-dashed border-gray-300 pb-4 mb-4">
-          <h1 className="text-2xl font-black text-slate-900 mb-1">سوق العصر</h1>
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter">فاقوس - أول سوق إلكتروني</p>
-          <div className="mt-2 text-[11px] font-bold text-slate-800">
-            فاتورة مبيعات #{order.id}
+        <div className="text-center border-b-2 border-dashed border-gray-300 pb-3 mb-3">
+          <h1 className="text-xl font-black text-slate-900 mb-1">سوق العصر</h1>
+          <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">فاقوس - أول سوق إلكتروني</p>
+          <div className="mt-2 text-[10px] font-bold text-slate-800">
+            رقم الفاتورة: {order.id}
           </div>
         </div>
 
         {/* بيانات العميل والتاريخ */}
-        <div className="space-y-1 mb-4 text-[12px]">
+        <div className="space-y-1 mb-3 text-[11px]">
           <div className="flex justify-between">
             <span className="text-gray-400">التاريخ:</span>
             <span className="font-bold">{new Date(order.createdAt).toLocaleDateString('ar-EG')}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-400">العميل:</span>
-            <span className="font-bold truncate max-w-[120px]">{order.customerName}</span>
+            <span className="font-bold truncate max-w-[100px]">{order.customerName}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-400">الهاتف:</span>
             <span className="font-bold">{order.phone}</span>
           </div>
-          {order.address && (
-            <div className="text-[10px] text-gray-500 leading-tight mt-1 text-center">
-              {order.address}
-            </div>
-          )}
         </div>
 
-        {/* جدول الأصناف (مبسط للعرض الضيق) */}
-        <div className="border-t-2 border-dashed border-gray-300 pt-3 mb-4">
-          <div className="flex justify-between text-[10px] font-black text-gray-400 mb-2 px-1 uppercase">
+        {/* جدول الأصناف */}
+        <div className="border-t-2 border-dashed border-gray-300 pt-2 mb-3">
+          <div className="flex justify-between text-[9px] font-black text-gray-400 mb-2 px-1 uppercase">
             <span>الصنف</span>
             <span>الإجمالي</span>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {order.items.map((item, idx) => (
-              <div key={idx} className="text-[12px]">
+              <div key={idx} className="text-[11px]">
                 <div className="flex justify-between font-bold text-slate-800">
-                  <span className="truncate pr-2">{item.name}</span>
+                  <span className="item-name truncate pr-1">{item.name}</span>
                   <span>{(item.price * item.quantity).toFixed(2)}</span>
                 </div>
-                <div className="text-[10px] text-gray-400">
+                <div className="text-[9px] text-gray-400">
                   {item.quantity} {item.unit === 'kg' ? 'كجم' : item.unit === 'gram' ? 'جم' : 'ق'} × {item.price.toFixed(2)}
                 </div>
               </div>
@@ -143,29 +144,23 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
         </div>
 
         {/* ملخص الحساب */}
-        <div className="border-t-2 border-dashed border-gray-300 pt-3 space-y-1">
-          <div className="flex justify-between text-[13px]">
+        <div className="border-t-2 border-dashed border-gray-300 pt-2 space-y-1">
+          <div className="flex justify-between text-[11px]">
             <span className="font-bold">المجموع:</span>
-            <span>{order.total.toFixed(2)} ج.م</span>
+            <span>{order.total.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-[13px]">
-            <span className="font-bold">التوصيل:</span>
-            <span className="text-emerald-600">0.00</span>
-          </div>
-          <div className="flex justify-between text-lg font-black pt-2 border-t border-gray-100">
+          <div className="flex justify-between text-[13px] font-black pt-1 border-t border-gray-100">
             <span>الإجمالي:</span>
             <span className="text-emerald-700">{order.total.toFixed(2)} ج.م</span>
           </div>
-          <div className="text-center pt-2 text-[10px] font-bold text-gray-400 italic">
-            طريقة الدفع: {order.paymentMethod}
+          <div className="text-center pt-2 text-[9px] font-bold text-gray-400 italic">
+            طريقة الدفع: {order.paymentMethod.split(' ')[0]}
           </div>
         </div>
 
         {/* التذييل */}
-        <div className="mt-6 text-center border-t-2 border-dashed border-gray-300 pt-4">
-          <div className="bg-slate-50 py-2 px-2 rounded-lg mb-2">
-            <p className="text-[10px] font-black text-slate-800">شكراً لزيارتكم! نرجو أن نراكم قريباً</p>
-          </div>
+        <div className="mt-4 text-center border-t-2 border-dashed border-gray-300 pt-3">
+          <p className="text-[9px] font-black text-slate-800 mb-1">شكراً لزيارتكم!</p>
           <p className="text-[8px] text-gray-400">souqalasr.com</p>
         </div>
       </div>
@@ -176,7 +171,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
           onClick={handlePrint} 
           className="flex items-center justify-center gap-2 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition active:scale-95 shadow-xl"
         >
-          <span>🖨️</span> طباعة كاشير
+          <span>🖨️</span> طباعة (5 سم)
         </button>
         <button 
           onClick={handleShareScreenshot} 
