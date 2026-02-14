@@ -1,4 +1,3 @@
-
 <?php
 /**
  * سوق العصر - المحرك الذكي v4.1 (Mobile APK Optimized)
@@ -12,12 +11,15 @@ header('Content-Type: text/html; charset=utf-8');
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>سوق العصر - اول سوق الكتروني في فاقوس</title>
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://soqelasr.com/shopping-bag512.png">
+    
     <!-- PWA & Android Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#10b981">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3737/3737372.png">
+    <link rel="apple-touch-icon" href="https://soqelasr.com/shopping-bag512.png">
 
     <script>window.process = { env: { API_KEY: "" } };</script>
     <script src="https://cdn.tailwindcss.com"></script>
