@@ -68,6 +68,9 @@ header('Content-Type: text/html; charset=utf-8');
         import React from 'react';
         import ReactDOM from 'react-dom/client';
 
+        // تعريف الكائن process لمنع ReferenceError في المتصفح
+        window.process = window.process || { env: {} };
+
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
 

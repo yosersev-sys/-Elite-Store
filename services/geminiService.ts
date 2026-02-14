@@ -74,22 +74,20 @@ export const generateSeoData = async (productName: string, description: string) 
 
 export const generateProductImage = async (productName: string, category: string): Promise<string | null> => {
   try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      console.error("API Key is missing from process.env");
-      return null;
-    }
+    // استخدام التهيئة المباشرة المطلوبة من التوجيهات
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    const ai = new GoogleGenAI({ apiKey });
-
-    // المرحلة 1: تحسين الوصف
+    // المرحلة 1: تحويل الاسم لوصف إنجليزي بسيط جداً (لتجنب تعقيد الترجمة وفلاتر الأمان)
+    console.log("Optimizing prompt for product:", productName);
     const translationResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Describe this item in 3 simple English words for a product photo: "${productName}"`
+      contents: `Respond with only 2-3 English words describing this Arabic item for a clean product photo: "${productName}"`
     });
     
     const simpleEnglishName = translationResponse.text?.trim() || productName;
-    const finalPrompt = `A high-quality professional commercial studio photo of ${simpleEnglishName} on a solid white background, 4k resolution, perfect lighting.`;
+    const finalPrompt = `Professional commercial studio product photo of ${simpleEnglishName}, solid white background, high resolution, 4k, bright studio lighting.`;
+
+    console.log("Final Generated Prompt:", finalPrompt);
 
     // المرحلة 2: توليد الصورة
     const response = await ai.models.generateContent({
@@ -109,16 +107,19 @@ export const generateProductImage = async (productName: string, category: string
     });
 
     if (!response.candidates || response.candidates.length === 0) {
+      console.warn("AI returned no candidates. Possibly blocked.");
       return null;
     }
 
     const parts = response.candidates[0].content.parts;
     for (const part of parts) {
       if (part.inlineData) {
+        console.log("Image generation successful!");
         return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
     
+    console.warn("No inlineData found in response parts.");
     return null;
   } catch (error: any) {
     console.error("AI Image Pipeline Failed:", error);
