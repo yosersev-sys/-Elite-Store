@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings } from '../types';
 import { generateProductDescription, generateSeoData } from '../services/geminiService';
@@ -364,31 +363,53 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">عنوان الصفحة (Meta Title)</label>
-              <input 
-                value={seoData.metaTitle} 
-                onChange={e => setSeoData({...seoData, metaTitle: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition shadow-inner"
-              />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">عنوان الصفحة (Meta Title)</label>
+                <input 
+                  value={seoData.metaTitle} 
+                  onChange={e => setSeoData({...seoData, metaTitle: e.target.value})}
+                  className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition shadow-inner"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الرابط الصديق (Slug)</label>
+                <div className="flex items-center bg-slate-50 rounded-2xl px-6 border-2 border-transparent focus-within:border-emerald-300 transition shadow-inner">
+                  <span className="text-slate-400 text-xs font-medium">soqelasr.com/p/</span>
+                  <input 
+                    value={seoData.slug} 
+                    onChange={e => setSeoData({...seoData, slug: e.target.value})}
+                    className="flex-grow py-4 bg-transparent outline-none font-bold text-left text-purple-700"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-2 space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">وصف البحث (Meta Description)</label>
+                <textarea 
+                  value={seoData.metaDescription} 
+                  onChange={e => setSeoData({...seoData, metaDescription: e.target.value})}
+                  className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition h-24 resize-none shadow-inner"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">الرابط الصديق (Slug)</label>
-              <input 
-                value={seoData.slug} 
-                onChange={e => setSeoData({...seoData, slug: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition text-left shadow-inner"
-                dir="ltr"
-              />
-            </div>
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">وصف البحث (Meta Description)</label>
-              <textarea 
-                value={seoData.metaDescription} 
-                onChange={e => setSeoData({...seoData, metaDescription: e.target.value})}
-                className="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:bg-white focus:border-purple-400 font-bold transition h-24 resize-none shadow-inner"
-              />
+
+            <div className="space-y-6">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-widest mr-2">معاينة نتيجة البحث (Google Preview)</label>
+              <div className="bg-white border border-slate-200 p-8 rounded-[2.5rem] shadow-sm space-y-2">
+                <div className="flex items-center gap-2 text-[12px] text-slate-500">
+                  <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center text-[8px] font-black text-emerald-600">S</div>
+                  <span>سوق العصر › p › {seoData.slug || '...'}</span>
+                </div>
+                <h4 className="text-[20px] text-[#1a0dab] hover:underline cursor-pointer font-medium leading-tight">
+                  {seoData.metaTitle || (formData.name ? `${formData.name} | سوق العصر` : 'عنوان المنتج يظهر هنا')}
+                </h4>
+                <p className="text-[14px] text-[#4d5156] leading-relaxed line-clamp-2">
+                  <span className="text-slate-500">{new Date().toLocaleDateString('ar-EG')} — </span>
+                  {seoData.metaDescription || 'هذا الوصف سيظهر للعملاء عند بحثهم عن المنتج في محرك بحث جوجل.'}
+                </p>
+              </div>
             </div>
           </div>
         </section>

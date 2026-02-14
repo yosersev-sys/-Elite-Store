@@ -1,4 +1,3 @@
-
 <?php
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -7,7 +6,7 @@ header('Content-Type: text/html; charset=utf-8');
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>إدارة المنتجات | متجر النخبة</title>
+    <title>إدارة المنتجات | سوق العصر</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -59,7 +58,7 @@ header('Content-Type: text/html; charset=utf-8');
                 price: '',
                 categoryId: '',
                 stockQuantity: '10',
-                barcode: '', // الحقل الجديد
+                barcode: '', 
                 images: [],
                 sizes: '',
                 colors: '',
@@ -179,7 +178,7 @@ header('Content-Type: text/html; charset=utf-8');
                     <div className="flex justify-between items-center mb-10">
                         <div>
                             <h1 className="text-3xl font-black text-slate-900">{editMode ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h1>
-                            <p className="text-indigo-600 font-bold text-sm tracking-wider uppercase">Faqous Markets - Admin</p>
+                            <p className="text-emerald-600 font-bold text-sm tracking-wider uppercase">سوق العصر - الإدارة</p>
                         </div>
                         <a href="index.php?v=admin" className="px-6 py-2 bg-white border rounded-xl font-bold text-slate-500 hover:bg-slate-50">إلغاء</a>
                     </div>
@@ -188,7 +187,7 @@ header('Content-Type: text/html; charset=utf-8');
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-400">اسم المنتج</label>
-                                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500" />
+                                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500" />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-400">الباركود (رقم المنتج)</label>
@@ -204,7 +203,7 @@ header('Content-Type: text/html; charset=utf-8');
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-400">السعر (ر.س)</label>
+                                <label className="text-sm font-bold text-slate-400">السعر (ج.م)</label>
                                 <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500" />
                             </div>
                             <div className="space-y-2">
@@ -216,7 +215,7 @@ header('Content-Type: text/html; charset=utf-8');
                         <div className="space-y-2 relative">
                             <label className="text-sm font-bold text-slate-400">الوصف</label>
                             <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none min-h-[150px] focus:ring-2 focus:ring-indigo-500" />
-                            <button type="button" onClick={generateDescription} disabled={isLoadingAi} className="absolute left-4 bottom-4 bg-indigo-600 text-white text-[11px] px-4 py-2 rounded-xl shadow-lg">
+                            <button type="button" onClick={generateDescription} disabled={isLoadingAi} className="absolute left-4 bottom-4 bg-emerald-600 text-white text-[11px] px-4 py-2 rounded-xl shadow-lg">
                                 {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي (AI)'}
                             </button>
                         </div>
@@ -230,7 +229,7 @@ header('Content-Type: text/html; charset=utf-8');
                                         <button type="button" onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, idx) => idx !== i)}))} className="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-lg">✕</button>
                                     </div>
                                 ))}
-                                <button type="button" onClick={() => fileInputRef.current.click()} className="w-24 h-24 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-300 hover:border-indigo-500 hover:text-indigo-500 transition">
+                                <button type="button" onClick={() => fileInputRef.current.click()} className="w-24 h-24 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-300 hover:border-emerald-500 hover:text-emerald-500 transition">
                                     <span className="text-2xl">+</span>
                                     <span className="text-[10px] font-bold">رفع صور</span>
                                 </button>
@@ -238,7 +237,7 @@ header('Content-Type: text/html; charset=utf-8');
                             </div>
                         </div>
 
-                        <button type="submit" disabled={isSaving} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl shadow-2xl hover:bg-indigo-600 transition active:scale-95">
+                        <button type="submit" disabled={isSaving} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-xl shadow-2xl hover:bg-emerald-600 transition active:scale-95">
                             {isSaving ? 'جاري الحفظ...' : (editMode ? 'حفظ التعديلات 💾' : 'نشر المنتج الآن 🚀')}
                         </button>
                     </form>
