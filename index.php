@@ -1,6 +1,6 @@
 <?php
 /**
- * سوق العصر - محرك التشغيل فائق السرعة v5.2 (Smart Module Resolver)
+ * سوق العصر - محرك التشغيل فائق السرعة v5.3 (Stable & Turbo)
  */
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -23,7 +23,6 @@ header('Content-Type: text/html; charset=utf-8');
         .skeleton-header { height: 70px; background: white; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
         .skeleton-logo { width: 100px; height: 30px; background: #f1f5f9; border-radius: 8px; }
         .skeleton-search { flex-grow: 1; max-width: 500px; height: 40px; background: #f1f5f9; border-radius: 12px; margin: 0 15px; }
-        .skeleton-banner { width: 100%; height: 200px; background: #e2e8f0; border-radius: 30px; margin-bottom: 30px; }
         .skeleton-card { background: white; border-radius: 20px; aspect-ratio: 4/5; padding: 12px; border: 1px solid #f1f5f9; }
         
         @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
@@ -54,7 +53,6 @@ header('Content-Type: text/html; charset=utf-8');
             <div class="w-8 h-8 bg-slate-100 rounded-full"></div>
         </div>
         <div class="container mx-auto px-4 pt-24">
-            <div class="skeleton-banner"></div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="skeleton-card"></div><div class="skeleton-card"></div>
                 <div class="skeleton-card"></div><div class="skeleton-card"></div>
@@ -67,9 +65,9 @@ header('Content-Type: text/html; charset=utf-8');
         import React from 'react';
         import ReactDOM from 'react-dom/client';
 
-        window.process = { env: { API_KEY: "" } };
+        window.process = window.process || { env: { API_KEY: "" } };
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
-        const CACHE_PREFIX = 'souq_v5.2_';
+        const CACHE_PREFIX = 'souq_v5.3_';
 
         const blobCache = new Map();
 
@@ -77,28 +75,23 @@ header('Content-Type: text/html; charset=utf-8');
             const response = await fetch(url);
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
             const contentType = response.headers.get('Content-Type');
-            // التأكد من أننا لم نحمل صفحة HTML بالخطأ بسبب التوجيه في .htaccess
             if (contentType && contentType.includes('text/html')) {
-                throw new Error(`404: File not found at ${url}`);
+                throw new Error(`File Not Found: ${url}`);
             }
             return await response.text();
         }
 
-        async function transpileAndCache(path) {
+        async function resolveAndTranspile(path) {
             const urlObj = new URL(path, BASE_URL);
             let targetUrl = urlObj.href;
             
-            // آلية ذكية لتحديد الامتداد الصحيح (.ts أو .tsx)
             if (!targetUrl.endsWith('.ts') && !targetUrl.endsWith('.tsx')) {
+                // محاولة ذكية لمعرفة الامتداد الصحيح
                 try {
-                    // تجربة .ts أولاً (لأنه ملف التعريفات الأكثر عرضة للخطأ)
-                    const tsUrl = targetUrl + '.ts';
-                    const res = await fetch(tsUrl, { method: 'HEAD' });
-                    if (res.ok && !res.headers.get('Content-Type')?.includes('text/html')) {
-                        targetUrl = tsUrl;
-                    } else {
-                        targetUrl = targetUrl + '.tsx';
-                    }
+                    const tsCheck = await fetch(targetUrl + '.ts', { method: 'HEAD' });
+                    targetUrl = tsCheck.ok && !tsCheck.headers.get('Content-Type')?.includes('text/html') 
+                        ? targetUrl + '.ts' 
+                        : targetUrl + '.tsx';
                 } catch (e) {
                     targetUrl = targetUrl + '.tsx';
                 }
@@ -114,7 +107,6 @@ header('Content-Type: text/html; charset=utf-8');
                 code = cached;
             } else {
                 const rawCode = await getFileContent(targetUrl);
-                
                 let processedCode = rawCode;
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
                 const matches = [...rawCode.matchAll(importRegex)];
@@ -122,7 +114,7 @@ header('Content-Type: text/html; charset=utf-8');
                 for (const match of matches) {
                     const relativePath = match[1];
                     const absoluteImportPath = new URL(relativePath, targetUrl).href;
-                    const depBlobUrl = await transpileAndCache(absoluteImportPath);
+                    const depBlobUrl = await resolveAndTranspile(absoluteImportPath);
                     processedCode = processedCode.split(`'${relativePath}'`).join(`'${depBlobUrl}'`);
                     processedCode = processedCode.split(`"${relativePath}"`).join(`"${depBlobUrl}"`);
                 }
@@ -141,29 +133,27 @@ header('Content-Type: text/html; charset=utf-8');
             return blobUrl;
         }
 
-        async function start() {
+        async function init() {
             try {
-                // نبدأ دائماً بـ App.tsx
-                const appBlobUrl = await transpileAndCache('App.tsx');
+                const appBlobUrl = await resolveAndTranspile('App.tsx');
                 const module = await import(appBlobUrl);
-                const App = module.default;
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(React.createElement(App));
+                root.render(React.createElement(module.default));
             } catch (err) {
                 console.error("Critical Load Error:", err);
                 document.getElementById('instant-skeleton').innerHTML = `
                     <div class="p-10 text-center">
                         <div class="bg-rose-50 text-rose-500 p-6 rounded-[2rem] border border-rose-100 max-w-md mx-auto">
-                            <p class="font-black text-lg mb-2">حدث خطأ أثناء تحميل المتجر</p>
+                            <p class="font-black text-lg mb-2">فشل تحميل المتجر</p>
                             <code class="text-[10px] block mb-6 opacity-70">${err.message}</code>
-                            <button onclick="localStorage.clear(); location.reload();" class="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-sm active:scale-95 transition-transform">تحديث وتفريغ الذاكرة 🔄</button>
+                            <button onclick="localStorage.clear(); location.reload();" class="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-sm">إعادة المحاولة 🔄</button>
                         </div>
                     </div>
                 `;
             }
         }
 
-        start();
+        init();
     </script>
 </body>
 </html>

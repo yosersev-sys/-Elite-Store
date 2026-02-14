@@ -11,15 +11,11 @@ import CheckoutView from './components/CheckoutView.tsx';
 import OrderSuccessView from './components/OrderSuccessView.tsx';
 import AuthView from './components/AuthView.tsx';
 import AdminAuthView from './components/AdminAuthView.tsx';
-import FloatingAdminButton from './components/FloatingAdminButton.tsx';
-import FloatingCartButton from './components/FloatingCartButton.tsx';
-import FloatingQuickInvoiceButton from './components/FloatingQuickInvoiceButton.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
 import MobileNav from './components/MobileNav.tsx';
 import { ApiService } from './services/api.ts';
-import { WhatsAppService } from './services/whatsappService.ts';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('store');
@@ -72,7 +68,7 @@ const App: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error("Background data loading error:", err);
+      console.error("Data loading error:", err);
     }
   };
 
@@ -81,7 +77,6 @@ const App: React.FC = () => {
     const handleHash = () => {
       const hash = window.location.hash;
       if (hash.includes('admincp')) setView('admin-auth');
-      else if (view === 'admin-auth' || view === 'admin') setView('store');
     };
     handleHash();
     window.addEventListener('hashchange', handleHash);
@@ -103,12 +98,20 @@ const App: React.FC = () => {
     onNavigateAction('store');
   };
 
-  const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
+  const showNotification = (message: string, type: 'success' | 'error') => {
+    setNotification({ message, type });
+  };
+
+  const isAdminView = ['admin', 'admin-auth', 'admin-form', 'admin-invoice'].includes(view);
 
   return (
     <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-32 md:pb-0'}`}>
       {notification && (
         <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
+      )}
+
+      {showAuthModal && (
+        <AuthView onSuccess={(user) => { setCurrentUser(user); setShowAuthModal(false); loadData(); }} onClose={() => setShowAuthModal(false)} />
       )}
 
       {!isAdminView && (
@@ -125,7 +128,7 @@ const App: React.FC = () => {
           <StoreView 
             products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
             onCategorySelect={(id) => setSelectedCategoryId(id)} 
-            onAddToCart={(p) => setCart(prev => [...prev, {...p, quantity: 1}])} 
+            onAddToCart={(p) => { setCart(prev => [...prev, {...p, quantity: 1}]); showNotification('تمت الإضافة للسلة', 'success'); }} 
             onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
             wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
@@ -134,17 +137,49 @@ const App: React.FC = () => {
         {view === 'admin' && currentUser?.role === 'admin' && (
           <AdminDashboard 
             products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
-            onOpenAddForm={() => onNavigateAction('admin-form')} 
+            onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }} 
             onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
             onOpenInvoiceForm={() => onNavigateAction('admin-invoice')} 
-            onDeleteProduct={async (id) => { await ApiService.deleteProduct(id); loadData(true); }}
-            onAddCategory={async (c) => { await ApiService.addCategory(c); loadData(true); }}
-            onUpdateCategory={async (c) => { await ApiService.updateCategory(c); loadData(true); }}
-            onDeleteCategory={async (id) => { await ApiService.deleteCategory(id); loadData(true); }}
+            onDeleteProduct={async (id) => { if(confirm('حذف المنتج؟')){ await ApiService.deleteProduct(id); loadData(); } }}
+            onAddCategory={async (c) => { await ApiService.addCategory(c); loadData(); }}
+            onUpdateCategory={async (c) => { await ApiService.updateCategory(c); loadData(); }}
+            onDeleteCategory={async (id) => { if(confirm('حذف القسم؟')){ await ApiService.deleteCategory(id); loadData(); } }}
             onViewOrder={(order) => { setLastCreatedOrder(order); onNavigateAction('order-success'); }}
-            onUpdateOrderPayment={async (id, m) => { await ApiService.updateOrderPayment(id, m); loadData(true); }}
+            onUpdateOrderPayment={async (id, m) => { await ApiService.updateOrderPayment(id, m); loadData(); }}
             soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)}
             onLogout={handleLogout}
+          />
+        )}
+
+        {view === 'admin-form' && currentUser?.role === 'admin' && (
+          <AdminProductForm 
+            product={selectedProduct} categories={categories} 
+            onCancel={() => onNavigateAction('admin')}
+            onSubmit={async (p) => {
+              const success = selectedProduct ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
+              if(success) { showNotification('تم حفظ المنتج', 'success'); onNavigateAction('admin'); loadData(); }
+            }}
+          />
+        )}
+
+        {view === 'admin-invoice' && currentUser?.role === 'admin' && (
+          <AdminInvoiceForm 
+            products={products} onCancel={() => onNavigateAction('admin')}
+            onSubmit={async (order) => {
+              const success = await ApiService.saveOrder(order);
+              if(success) { setLastCreatedOrder(order); onNavigateAction('order-success'); loadData(); }
+            }}
+          />
+        )}
+
+        {view === 'quick-invoice' && (
+          <AdminInvoiceForm 
+            products={products} onCancel={() => onNavigateAction('store')}
+            initialCustomerName={currentUser?.name || 'عميل نقدي'} initialPhone={currentUser?.phone || ''}
+            onSubmit={async (order) => {
+              const success = await ApiService.saveOrder(order);
+              if(success) { setLastCreatedOrder(order); onNavigateAction('order-success'); loadData(); }
+            }}
           />
         )}
 
@@ -159,7 +194,8 @@ const App: React.FC = () => {
         {view === 'product-details' && selectedProduct && (
           <ProductDetailsView 
             product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-            onAddToCart={(p) => setCart(prev => [...prev, {...p, quantity: 1}])} onBack={() => onNavigateAction('store')}
+            onAddToCart={(p) => { setCart(prev => [...prev, {...p, quantity: 1}]); showNotification('تمت الإضافة للسلة', 'success'); }} 
+            onBack={() => onNavigateAction('store')}
             isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           />
         )}
