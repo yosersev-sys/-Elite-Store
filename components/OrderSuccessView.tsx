@@ -54,12 +54,10 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
       <style>{`
         @media print {
           @page {
-            /* تعريف المقاس بشكل صريح للمتصفح */
             size: 50mm auto;
             margin: 0;
           }
           html, body {
-            /* إلغاء أي هوامش أو أبعاد للنظام */
             margin: 0 !important;
             padding: 0 !important;
             width: 50mm !important;
@@ -68,7 +66,6 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          /* إخفاء كل شيء ماعدا الفاتورة */
           header, footer, nav, .no-print, button, .floating-btn {
             display: none !important;
             height: 0 !important;
@@ -76,7 +73,6 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             padding: 0 !important;
           }
           .thermal-invoice {
-            /* ضمان أن الفاتورة هي العنصر الوحيد وتأخذ العرض الكامل للورق الحراري */
             display: block !important;
             width: 50mm !important;
             max-width: 50mm !important;
@@ -92,6 +88,12 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             font-size: 8pt !important;
             line-height: 1.2 !important;
             color: #000 !important;
+          }
+          /* استثناء تكبير الرابط في الطباعة */
+          .thermal-invoice .store-link {
+            font-size: 11pt !important;
+            font-weight: 900 !important;
+            margin-top: 1mm !important;
           }
           .thermal-invoice h1 {
             font-size: 12pt !important;
@@ -173,8 +175,8 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
 
         {/* التذييل */}
         <div className="mt-4 text-center border-t-2 border-dashed border-gray-300 pt-3">
-          <p className="text-[9px] font-black text-slate-800 mb-1">شكراً لزيارتكم!</p>
-          <p className="text-[8px] text-gray-400">souqalasr.com</p>
+          <p className="text-[10px] font-black text-slate-800 mb-1">شكراً لزيارتكم!</p>
+          <p className="store-link text-[14px] text-emerald-600 font-black uppercase tracking-widest mt-1">souqalasr.com</p>
         </div>
       </div>
 
