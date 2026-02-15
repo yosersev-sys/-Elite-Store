@@ -24,7 +24,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const hasInitialized = useRef(false);
+  const prevProductIdRef = useRef<string | null>(null);
   
   const [newBatchQty, setNewBatchQty] = useState('');
   const [newBatchPrice, setNewBatchPrice] = useState('');
@@ -51,8 +51,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
+  // مزامنة البيانات عند فتح المنتج للتحرير
   useEffect(() => {
-    if (product && !hasInitialized.current) {
+    if (product && product.id !== prevProductIdRef.current) {
       setFormData({
         name: product.name || '',
         description: product.description || '',
@@ -67,8 +68,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         images: product.images || [],
         batches: product.batches || []
       });
-      if (product.seoSettings) setSeoData(product.seoSettings);
-      hasInitialized.current = true;
+      if (product.seoSettings) {
+        setSeoData(product.seoSettings);
+      }
+      prevProductIdRef.current = product.id;
     }
   }, [product]);
 
@@ -76,7 +79,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     if (!product && categories.length > 0 && formData.categoryId === '') {
       setFormData(prev => ({ ...prev, categoryId: categories[0].id }));
     }
-  }, [categories, product]);
+  }, [categories, product, formData.categoryId]);
 
   useEffect(() => {
     const total = formData.batches.reduce((sum, b) => sum + b.quantity, 0);
@@ -118,7 +121,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   };
 
   const handleGenerateBarcode = () => {
-    // توليد رقم عشوائي مكون من 13 رقماً (شبيه بـ EAN-13)
     const randomCode = Math.floor(Math.random() * 9000000000000) + 1000000000000;
     setFormData(prev => ({ ...prev, barcode: randomCode.toString() }));
   };
@@ -207,7 +209,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     <div className="max-w-6xl mx-auto py-8 px-4 animate-fadeIn pb-32">
       {showScanner && <BarcodeScanner onScan={(code) => setFormData({...formData, barcode: code})} onClose={() => setShowScanner(false)} />}
       
-      {/* نافذة تأكيد الإلغاء */}
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
