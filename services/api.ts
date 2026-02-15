@@ -1,3 +1,4 @@
+
 import { Product, Category, Order, User } from '../types.ts';
 
 const API_URL = 'api.php';
@@ -101,7 +102,7 @@ export const ApiService = {
     return cached ? JSON.parse(cached) : [];
   },
 
-  async getAllImages(): Promise<string[]> {
+  async getAllImages(): Promise<{url: string, productName: string}[]> {
     return await safeFetch('get_all_images') || [];
   },
 

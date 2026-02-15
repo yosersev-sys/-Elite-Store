@@ -15,7 +15,8 @@ interface AdminProductFormProps {
 const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, onSubmit, onCancel }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
-  const [libraryImages, setLibraryImages] = useState<string[]>([]);
+  const [libraryImages, setLibraryImages] = useState<{url: string, productName: string}[]>([]);
+  const [librarySearch, setLibrarySearch] = useState('');
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [isLoadingSeo, setIsLoadingSeo] = useState(false);
@@ -85,8 +86,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setShowLibrary(true);
     setIsLoadingLibrary(true);
     try {
-      const images = await ApiService.getAllImages();
-      setLibraryImages(images || []);
+      const items = await ApiService.getAllImages();
+      setLibraryImages(items || []);
     } catch (err) {
       console.error("Error loading library:", err);
       setLibraryImages([]);
@@ -94,6 +95,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       setIsLoadingLibrary(false);
     }
   };
+
+  const filteredLibrary = libraryImages.filter(img => 
+    img.productName.toLowerCase().includes(librarySearch.toLowerCase())
+  );
 
   const handleAiDescription = async () => {
     if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً');
@@ -176,14 +181,28 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     <div className="max-w-6xl mx-auto py-8 px-4 animate-fadeIn pb-32">
       {showScanner && <BarcodeScanner onScan={(code) => setFormData({...formData, barcode: code})} onClose={() => setShowScanner(false)} />}
       
-      {/* مكتبة الصور */}
+      {/* مكتبة الصور المحدثة مع البحث */}
       {showLibrary && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setShowLibrary(false)}></div>
-          <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl p-8 max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-               <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر 📸</h3>
-               <button onClick={() => setShowLibrary(false)} className="bg-slate-100 p-2 rounded-xl">✕</button>
+          <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl p-8 max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+               <div>
+                  <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر 📸</h3>
+                  <p className="text-slate-400 font-bold text-xs mt-1">ابحث عن صور المنتجات السابقة لاستخدامها</p>
+               </div>
+               <div className="relative flex-grow max-w-md">
+                 <input 
+                   type="text" 
+                   autoFocus
+                   placeholder="ابحث باسم المنتج (مثال: طماطم)..." 
+                   value={librarySearch}
+                   onChange={e => setLibrarySearch(e.target.value)}
+                   className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 font-bold text-sm shadow-inner"
+                 />
+                 <span className="absolute left-4 top-4 text-slate-300 text-lg">🔍</span>
+               </div>
+               <button onClick={() => setShowLibrary(false)} className="hidden md:block bg-slate-100 p-2 rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-500 transition">✕</button>
             </div>
             
             <div className="flex-grow overflow-y-auto no-scrollbar">
@@ -192,35 +211,40 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                    <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                    <p className="font-bold text-slate-400">جاري تجميع الصور من الأرشيف...</p>
                  </div>
-              ) : libraryImages.length === 0 ? (
+              ) : filteredLibrary.length === 0 ? (
                  <div className="flex flex-col items-center justify-center py-20 text-slate-300">
                     <span className="text-6xl mb-4">🖼️</span>
-                    <p className="font-bold">لا توجد صور في المكتبة حالياً</p>
-                    <p className="text-xs">قم برفع صور لمنتجاتك أولاً لتظهر هنا</p>
+                    <p className="font-bold">لا توجد صور تطابق بحثك حالياً</p>
+                    <p className="text-xs">جرب البحث بكلمة أخرى أو ارفع صورة جديدة</p>
                  </div>
               ) : (
-                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 p-2">
-                    {libraryImages.map((img, i) => (
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-2">
+                    {filteredLibrary.map((item, i) => (
                       <button 
                         key={i} 
                         type="button"
                         onClick={() => { 
-                          if (!formData.images.includes(img)) {
-                            setFormData(prev => ({...prev, images: [...prev.images, img]})); 
+                          if (!formData.images.includes(item.url)) {
+                            setFormData(prev => ({...prev, images: [...prev.images, item.url]})); 
                           }
                           setShowLibrary(false); 
+                          setLibrarySearch('');
                         }}
-                        className="aspect-square rounded-2xl overflow-hidden border-4 border-transparent hover:border-emerald-500 transition shadow-sm bg-slate-50"
+                        className="group relative aspect-square rounded-2xl overflow-hidden border-4 border-transparent hover:border-emerald-500 transition-all shadow-sm bg-slate-50"
                       >
-                        <img src={img} className="w-full h-full object-cover" loading="lazy" />
+                        <img src={item.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" loading="lazy" />
+                        <div className="absolute inset-x-0 bottom-0 bg-slate-900/60 backdrop-blur-sm p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <p className="text-[9px] text-white font-black truncate text-center">{item.productName}</p>
+                        </div>
                       </button>
                     ))}
                  </div>
               )}
             </div>
             
-            <div className="mt-6 pt-6 border-t border-slate-100 flex justify-end">
-               <button onClick={() => setShowLibrary(false)} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-xs">إغلاق</button>
+            <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">إجمالي المكتشف: {filteredLibrary.length} صورة</p>
+               <button onClick={() => setShowLibrary(false)} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-emerald-600 transition shadow-lg active:scale-95">إغلاق المكتبة</button>
             </div>
           </div>
         </div>

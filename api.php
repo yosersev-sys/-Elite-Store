@@ -62,19 +62,23 @@ try {
 
         case 'get_all_images':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->query("SELECT images FROM products");
+            $stmt = $pdo->query("SELECT name, images FROM products");
             $rows = $stmt->fetchAll();
-            $allImages = [];
+            $library = [];
             foreach ($rows as $row) {
                 $imgs = json_decode($row['images'] ?? '[]', true);
                 if (is_array($imgs)) {
                     foreach ($imgs as $img) {
-                        if (!empty($img)) $allImages[] = $img;
+                        if (!empty($img)) {
+                            $library[] = [
+                                'url' => $img,
+                                'productName' => $row['name']
+                            ];
+                        }
                     }
                 }
             }
-            // إرجاع مصفوفة فريدة من الصور لتجنب التكرار في المكتبة
-            sendRes(array_values(array_unique($allImages)));
+            sendRes($library);
             break;
 
         case 'add_product':
