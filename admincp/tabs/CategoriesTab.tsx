@@ -14,6 +14,8 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
   const [searchTerm, setSearchTerm] = useState('');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+  const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -22,9 +24,14 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
     isActive: true
   });
 
+  // ترتيب الأقسام بناءً على sortOrder قبل الفلترة
+  const sortedCategories = useMemo(() => {
+    return [...categories].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  }, [categories]);
+
   const filteredCategories = useMemo(() => {
-    return categories.filter(cat => cat.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [categories, searchTerm]);
+    return sortedCategories.filter(cat => cat.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [sortedCategories, searchTerm]);
 
   const openAddModal = () => {
     setEditingCategory(null);
@@ -79,6 +86,42 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
     return products.filter(p => p.categoryId === catId).length;
   };
 
+  // --- منطق السحب والإفلات ---
+  const handleDragStart = (index: number) => {
+    setDraggedItemIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedItemIndex === index) return;
+    setDragOverItemIndex(index);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedItemIndex === null || draggedItemIndex === dropIndex) {
+      setDraggedItemIndex(null);
+      setDragOverItemIndex(null);
+      return;
+    }
+
+    // إعادة ترتيب القائمة
+    const newItems = [...filteredCategories];
+    const [draggedItem] = newItems.splice(draggedItemIndex, 1);
+    newItems.splice(dropIndex, 0, draggedItem);
+
+    // تحديث الترتيب (sortOrder) لجميع الأقسام المتأثرة
+    newItems.forEach((item, idx) => {
+      const newSortOrder = idx + 1;
+      if (item.sortOrder !== newSortOrder) {
+        onUpdateCategory({ ...item, sortOrder: newSortOrder });
+      }
+    });
+
+    setDraggedItemIndex(null);
+    setDragOverItemIndex(null);
+  };
+
   return (
     <div className="space-y-8">
       {/* رأس الصفحة مع الإحصائيات والبحث */}
@@ -115,16 +158,38 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
         </div>
       </div>
 
-      {/* شبكة الأقسام */}
+      <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 flex items-center gap-3">
+        <span className="text-xl">↕️</span>
+        <p className="text-emerald-700 text-xs font-bold">يمكنك إعادة ترتيب الأقسام بسحب البطاقات وإفلاتها في المكان المطلوب.</p>
+      </div>
+
+      {/* شبكة الأقسام مع دعم السحب */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredCategories.map(cat => (
-          <div key={cat.id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 group overflow-hidden">
+        {filteredCategories.map((cat, index) => (
+          <div 
+            key={cat.id} 
+            draggable={!searchTerm} // تعطيل السحب عند البحث لتجنب تضارب الترتيب
+            onDragStart={() => handleDragStart(index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={(e) => handleDrop(e, index)}
+            onDragEnd={() => { setDraggedItemIndex(null); setDragOverItemIndex(null); }}
+            className={`bg-white rounded-[2.5rem] border-2 transition-all duration-300 group overflow-hidden relative cursor-move ${
+              draggedItemIndex === index ? 'opacity-40 scale-95 border-emerald-500' : 
+              dragOverItemIndex === index ? 'border-dashed border-emerald-400 scale-105' : 'border-slate-100 shadow-sm hover:shadow-xl'
+            }`}
+          >
             <div className="relative aspect-video bg-slate-50 overflow-hidden">
               {cat.image ? (
                 <img src={cat.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-4xl opacity-20">📦</div>
               )}
+              
+              {/* أيقونة مقبض السحب */}
+              <div className="absolute top-4 right-4 bg-white/80 backdrop-blur-md p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-slate-400 text-xs">⠿</span>
+              </div>
+
               <div className="absolute top-4 left-4">
                 <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter ${cat.isActive !== false ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
                   {cat.isActive !== false ? 'نشط ●' : 'مخفي ○'}
