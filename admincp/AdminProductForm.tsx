@@ -15,6 +15,7 @@ interface AdminProductFormProps {
 const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, onSubmit, onCancel }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [libraryImages, setLibraryImages] = useState<{url: string, productName: string}[]>([]);
   const [librarySearch, setLibrarySearch] = useState('');
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
@@ -34,7 +35,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     price: '',
     wholesalePrice: '',
     categoryId: '',
-    stockQuantity: '0', // جعلناها نصاً للتعامل السهل مع المدخلات
+    stockQuantity: '0',
     barcode: '',
     unit: 'piece' as 'piece' | 'kg' | 'gram', 
     sizes: '',
@@ -77,7 +78,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     }
   }, [categories, product]);
 
-  // تحديث إجمالي الكمية عند تغير الدفعات
   useEffect(() => {
     const total = formData.batches.reduce((sum, b) => sum + b.quantity, 0);
     setFormData(prev => ({ ...prev, stockQuantity: total.toString() }));
@@ -154,8 +154,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // فحص دقيق للبيانات
     const finalPrice = parseFloat(formData.price);
     const finalStock = parseFloat(formData.stockQuantity);
 
@@ -184,7 +182,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         salesCount: product ? product.salesCount : 0,
         seoSettings: seoData
       };
-      
       await onSubmit(productData);
     } catch (err) {
       console.error("Submit Error:", err);
@@ -204,6 +201,22 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     <div className="max-w-6xl mx-auto py-8 px-4 animate-fadeIn pb-32">
       {showScanner && <BarcodeScanner onScan={(code) => setFormData({...formData, barcode: code})} onClose={() => setShowScanner(false)} />}
       
+      {/* نافذة تأكيد الإلغاء */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
+          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
+            <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">تجاهل التغييرات؟</h3>
+            <p className="text-slate-500 font-bold text-sm mb-8 leading-relaxed">هل أنت متأكد من الخروج؟ سيتم حذف جميع البيانات التي قمت بإدخالها ولم يتم حفظها.</p>
+            <div className="flex gap-3">
+              <button onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg shadow-rose-100">نعم، خروج</button>
+              <button onClick={() => setShowCancelConfirm(false)} className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95">تراجع</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showLibrary && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setShowLibrary(false)}></div>
@@ -263,11 +276,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <h2 className="text-3xl font-black text-slate-900">{product ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h2>
           <p className="text-slate-400 font-bold mt-1 uppercase text-[10px]">إدارة المخزون والتسعير الذكي</p>
         </div>
-        <button type="button" onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-400 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition">إلغاء</button>
+        <button type="button" onClick={() => setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 text-slate-400 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition">إلغاء</button>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-10">
-        {/* قسم البيانات الأساسية */}
         <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -325,7 +337,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        {/* قسم المخزون FIFO */}
         <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-emerald-50 space-y-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <h3 className="text-xl font-black text-emerald-600">2. إدارة المخزون (FIFO)</h3>
@@ -385,7 +396,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        {/* قسم الوصف والذكاء الاصطناعي */}
         <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
            <div className="space-y-2 relative">
               <label className="text-sm font-bold text-slate-500 mr-2">وصف المنتج التسويقي</label>
