@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Order, CartItem } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
@@ -43,7 +44,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     };
   }, []);
 
-  // تحسين البحث ليعمل على المنتجات الممررة (والتي قد تكون مخبأة)
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
@@ -55,8 +55,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   }, [products, searchQuery]);
 
   const addItemToInvoice = (product: Product) => {
-    // في وضع الأوفلاين، نسمح بالإضافة حتى لو كان المخزون 0 (لأننا قد لا نملك أحدث كمية مخزون)
-    // ولكن في وضع الأونلاين، نلتزم بدقة المخزون.
     if (isOnline && product.stockQuantity <= 0) {
       alert('عذراً، هذا المنتج غير متوفر في المخزن حالياً!');
       return;
@@ -77,7 +75,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     });
   };
 
-  // معالجة البحث التلقائي بالباركود
   useEffect(() => {
     const q = searchQuery.trim();
     if (!q) return;
@@ -118,7 +115,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     if (invoiceItems.length === 0) return alert('يرجى إضافة منتجات للفاتورة');
     if (!customerInfo.phone) return alert('يرجى إدخال رقم الهاتف لمتابعة الطلب');
     
-    // إنشاء معرف فريد للطلب (OFF للطلبات المحلية)
     const orderId = (isOnline ? 'INV-' : 'OFF-') + Date.now().toString().slice(-8);
     
     const newOrder: Order = {
@@ -163,10 +159,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       )}
 
       {showPreview && (
-        <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowPreview(false)}></div>
-          <div className="bg-white rounded-t-[2rem] md:rounded-[2.5rem] w-full max-w-md shadow-2xl relative z-10 animate-slideUp overflow-hidden">
-             <div className="p-6 md:p-8 text-center space-y-4 md:space-y-6">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-6 overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setShowPreview(false)}></div>
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl relative z-10 animate-slideUp overflow-hidden max-h-[90vh] flex flex-col">
+             <div className="p-6 md:p-10 text-center space-y-4 md:space-y-6 overflow-y-auto no-scrollbar flex-grow">
                 <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">🧾</div>
                 <h3 className="text-xl md:text-2xl font-black text-slate-800">حفظ الفاتورة</h3>
                 
@@ -179,23 +175,28 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                 <div className="bg-slate-50 p-4 md:p-6 rounded-2xl md:rounded-3xl space-y-2 md:space-y-3">
                    <div className="flex justify-between font-bold text-xs md:text-sm">
                       <span className="text-slate-400">العميل:</span>
-                      <span className="text-slate-800">{customerInfo.name}</span>
+                      <span className="text-slate-800 truncate max-w-[150px]">{customerInfo.name}</span>
                    </div>
                    <div className="flex justify-between font-bold text-xs md:text-sm">
                       <span className="text-slate-400">الدفع:</span>
                       <span className={customerInfo.paymentMethod.includes('آجل') ? 'text-orange-600' : 'text-emerald-600'}>{customerInfo.paymentMethod}</span>
                    </div>
-                   <div className="flex justify-between text-xl md:text-2xl font-black pt-2 border-t border-slate-200">
+                   <div className="flex justify-between text-xl md:text-2xl font-black pt-4 mt-2 border-t border-slate-200">
                       <span className="text-slate-400">الإجمالي:</span>
-                      <span className="text-emerald-600">{total.toFixed(2)} ج.م</span>
+                      <span className="text-emerald-600">{total.toFixed(2)} <small className="text-[10px]">ج.م</small></span>
                    </div>
                 </div>
 
-                <div className="flex gap-2 md:gap-3">
-                   <button onClick={handleFinalSubmit} className={`flex-grow py-4 md:py-5 rounded-xl md:rounded-2xl font-black shadow-xl active:scale-95 text-sm md:text-base text-white ${isOnline ? 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700' : 'bg-orange-600 shadow-orange-100 hover:bg-orange-700'}`}>
-                     {isOnline ? 'إتمام الحفظ' : 'حفظ محلياً'}
+                <div className="flex flex-col gap-3 pt-2">
+                   <button 
+                    onClick={handleFinalSubmit} 
+                    className={`w-full py-4 md:py-5 rounded-2xl font-black shadow-xl active:scale-95 text-base text-white transition-all ${isOnline ? 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700' : 'bg-orange-600 shadow-orange-100 hover:bg-orange-700'}`}
+                   >
+                     {isOnline ? 'إتمام وحفظ الفاتورة' : 'حفظ محلياً (أوفلاين)'}
                    </button>
-                   <button onClick={() => setShowPreview(false)} className="flex-grow bg-slate-100 text-slate-500 py-4 md:py-5 rounded-xl md:rounded-2xl font-black text-sm md:text-base">تعديل</button>
+                   <button onClick={() => setShowPreview(false)} className="w-full bg-slate-100 text-slate-500 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition-colors">
+                     تعديل البيانات
+                   </button>
                 </div>
              </div>
           </div>
@@ -210,7 +211,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           </div>
           <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 border shadow-sm transition-all ${isOnline ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-orange-50 border-orange-100 text-orange-600 animate-pulse'}`}>
             <span className="w-2 h-2 rounded-full bg-current"></span>
-            <span className="text-[10px] font-black">{isOnline ? 'متصل' : 'أوفلاين (تخزين محلي)'}</span>
+            <span className="text-[10px] font-black">{isOnline ? 'متصل' : 'أوفلاين'}</span>
           </div>
         </div>
         <button type="button" onClick={() => setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 px-4 py-1.5 md:px-8 md:py-3 rounded-xl font-black text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition text-[10px] md:text-xs">إلغاء</button>
