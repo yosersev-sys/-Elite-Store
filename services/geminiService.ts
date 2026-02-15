@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 // وظيفة لاستخراج JSON من نص قد يحتوي على علامات Markdown أو نصوص تفسيرية
@@ -13,6 +14,12 @@ const extractJson = (text: string) => {
         const jsonOnly = text.substring(start, end + 1);
         return JSON.parse(jsonOnly);
       }
+      const startArr = text.indexOf('[');
+      const endArr = text.lastIndexOf(']');
+      if (startArr !== -1 && endArr !== -1) {
+        const jsonOnly = text.substring(startArr, endArr + 1);
+        return JSON.parse(jsonOnly);
+      }
     } catch (innerErr) {
       console.error("Failed to parse JSON even after extraction", innerErr);
     }
@@ -20,16 +27,49 @@ const extractJson = (text: string) => {
   }
 };
 
+export const parseUserShoppingList = async (userInput: string): Promise<{item: string, qty: number}[] | null> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `قم بتحليل قائمة المشتريات التالية المستلمة من العميل: "${userInput}". 
+      حولها إلى مصفوفة JSON تحتوي على كائنات بها:
+      - item: اسم المنتج (سلسلة نصية قصيرة)
+      - qty: الكمية المطلوبة (رقم، الافتراضي هو 1 إذا لم يذكر)
+      أريد JSON فقط بدون أي شرح. مثال للناتج: [{"item": "طماطم", "qty": 2}]`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              item: { type: Type.STRING },
+              qty: { type: Type.NUMBER }
+            },
+            required: ["item", "qty"]
+          }
+        }
+      }
+    });
+    
+    const text = response.text;
+    if (!text) return null;
+    return extractJson(text);
+  } catch (error) {
+    console.error("AI Parsing Error:", error);
+    return null;
+  }
+};
+
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
   try {
-    // Initializing Gemini client
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `قم بكتابة وصف تسويقي جذاب ومختصر باللغة العربية لمنتج يسمى "${productName}" في قسم "${category}". ركز على الفوائد والجودة وسرعة التوصيل في فاقوس.`,
       config: { temperature: 0.7 }
     });
-    // Correctly using .text property (not a method)
     return response.text || "فشل في إنشاء الوصف.";
   } catch (error) {
     console.error("Error generating description:", error);
@@ -39,7 +79,6 @@ export const generateProductDescription = async (productName: string, category: 
 
 export const generateSeoData = async (productName: string, description: string) => {
   try {
-    // Initializing Gemini client
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -65,10 +104,8 @@ export const generateSeoData = async (productName: string, description: string) 
       }
     });
     
-    // Correctly using .text property
     let text = response.text;
     if (!text) return null;
-
     return extractJson(text);
   } catch (error) {
     console.error("SEO AI Error:", error);
@@ -78,23 +115,15 @@ export const generateSeoData = async (productName: string, description: string) 
 
 export const generateProductImage = async (productName: string, category: string): Promise<string | null> => {
   try {
-    // استخدام التهيئة المباشرة المطلوبة من التوجيهات
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-    // المرحلة 1: تحويل الاسم لوصف إنجليزي بسيط جداً (لتجنب تعقيد الترجمة وفلاتر الأمان)
-    console.log("Optimizing prompt for product:", productName);
     const translationResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Respond with only 2-3 English words describing this Arabic item for a clean product photo: "${productName}"`
     });
     
-    // Correctly using .text property
     const simpleEnglishName = translationResponse.text?.trim() || productName;
     const finalPrompt = `Professional commercial studio product photo of ${simpleEnglishName}, solid white background, high resolution, 4k, bright studio lighting.`;
 
-    console.log("Final Generated Prompt:", finalPrompt);
-
-    // المرحلة 2: توليد الصورة
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: finalPrompt }] },
@@ -103,30 +132,20 @@ export const generateProductImage = async (productName: string, category: string
           aspectRatio: "1:1"
         }
       },
-      // safetySettings should be at top-level of the request, not inside config
       safetySettings: [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
       ]
-    } as any); // Cast to any because the SDK's simplified type might not list safetySettings at top level but the API supports it.
+    } as any);
 
-    if (!response.candidates || response.candidates.length === 0) {
-      console.warn("AI returned no candidates. Possibly blocked.");
-      return null;
-    }
+    if (!response.candidates || response.candidates.length === 0) return null;
 
     const parts = response.candidates[0].content.parts;
     for (const part of parts) {
-      // Find the image part, do not assume it is the first part.
-      if (part.inlineData) {
-        console.log("Image generation successful!");
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
-    
-    console.warn("No inlineData found in response parts.");
     return null;
   } catch (error: any) {
     console.error("AI Image Pipeline Failed:", error);

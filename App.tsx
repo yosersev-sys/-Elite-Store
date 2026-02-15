@@ -15,6 +15,7 @@ import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import FloatingCartButton from './components/FloatingCartButton.tsx';
 import FloatingQuickInvoiceButton from './components/FloatingQuickInvoiceButton.tsx';
+import AiAssistant from './components/AiAssistant.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
@@ -70,13 +71,11 @@ const App: React.FC = () => {
   const prevOrderIds = useRef<Set<string>>(new Set());
   const audioObj = useRef<HTMLAudioElement | null>(null);
   
-  // تعديل: الأولوية للتفعيل (Default is True)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     const saved = localStorage.getItem('sound_enabled');
     return saved === null ? true : saved === 'true';
   });
 
-  // تهيئة كائن الصوت
   useEffect(() => {
     if (!audioObj.current) {
       audioObj.current = new Audio(NOTIFICATION_SOUND_URL);
@@ -117,7 +116,6 @@ const App: React.FC = () => {
           const fetchedUsers = await ApiService.getUsers();
           setUsers(fetchedUsers || []);
           
-          // اكتشاف الطلبات الجديدة فعلياً (سواء كانت ORD- أو INV-)
           if (isSilent && prevOrderIds.current.size > 0) {
             const trulyNew = newOrdersList.filter(o => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
@@ -127,7 +125,6 @@ const App: React.FC = () => {
             }
           }
           
-          // تحديث قائمة الـ IDs المرجعية لضمان عدم تكرار التنبيه
           const newIds = new Set(newOrdersList.map(o => o.id));
           prevOrderIds.current = newIds;
         }
@@ -210,16 +207,20 @@ const App: React.FC = () => {
     onNavigateAction('store');
   };
 
-  const addToCart = (product: Product, startRect?: DOMRect) => {
+  const addToCart = (product: Product, qty: number = 1) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + 1} : item);
+        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + qty} : item);
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: qty }];
     });
-    showNotify('تمت الإضافة للسلة');
+    if (qty === 1) showNotify('تمت الإضافة للسلة');
   };
+
+  useEffect(() => {
+    localStorage.setItem('souq_cart', JSON.stringify(cart));
+  }, [cart]);
 
   const handleUpdateOrderPayment = async (id: string, paymentMethod: string) => {
     const success = await ApiService.updateOrderPayment(id, paymentMethod);
@@ -257,7 +258,6 @@ const App: React.FC = () => {
     <PullToRefresh onRefresh={() => loadData(true)}>
       <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-32 md:pb-0'}`}>
         
-        {/* نافذة الطلبات الجديدة للمدير - تظهر لجميع أنواع الطلبات */}
         {currentUser?.role === 'admin' && newOrdersForPopup.length > 0 && (
           <NewOrderPopup 
             orders={newOrdersForPopup} 
@@ -269,7 +269,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* نافذة طباعة الباركود للمنتج المحفوظ */}
         {productForBarcode && (
           <BarcodePrintPopup 
             product={productForBarcode} 
@@ -327,7 +326,7 @@ const App: React.FC = () => {
           {view === 'store' && (
             <StoreView 
               products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
-              onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={addToCart} 
+              onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => addToCart(p)} 
               onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }}
               wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
             />
@@ -376,7 +375,6 @@ const App: React.FC = () => {
                 if (success) {
                   showNotify('تم حفظ البيانات بنجاح! ✨');
                   await loadData(true);
-                  // تفعيل نافذة الباركود فوراً
                   setProductForBarcode(p);
                 } else {
                   showNotify('عذراً، فشل الاتصال بالسيرفر أو تكرار باركود', 'error');
@@ -401,7 +399,6 @@ const App: React.FC = () => {
                   
                   if (!isOffline) {
                     WhatsAppService.sendInvoiceToCustomer(order, order.phone);
-                    // إذا كان المستخدم هو من أنشأ الفاتورة السريعة، نرسل إشعار للمدير أيضاً
                     if (view === 'quick-invoice') {
                       WhatsAppService.sendOrderNotification(order, adminPhone);
                     }
@@ -431,7 +428,7 @@ const App: React.FC = () => {
             <ProductDetailsView 
               product={selectedProduct}
               categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-              onAddToCart={(p, s, c, rect) => addToCart(p, rect)}
+              onAddToCart={(p, s, c) => addToCart(p)}
               onBack={() => onNavigateAction('store')}
               isFavorite={wishlist.includes(selectedProduct.id)}
               onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
@@ -502,6 +499,7 @@ const App: React.FC = () => {
           <div className="no-print">
             <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={view !== 'cart' && view !== 'checkout'} />
             <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
+            <AiAssistant products={products} onAddToCart={addToCart} showNotification={showNotify} />
           </div>
         )}
 
