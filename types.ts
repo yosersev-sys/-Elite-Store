@@ -22,7 +22,8 @@ export interface Category {
   sortOrder?: number;
 }
 
-export interface ProductBatch {
+export interface StockBatch {
+  id: string;
   quantity: number;
   wholesalePrice: number;
   createdAt: number;
@@ -33,7 +34,7 @@ export interface Product {
   name: string;
   description: string;
   price: number; 
-  wholesalePrice: number; 
+  wholesalePrice: number; // السعر الافتراضي أو لآخر دفعة
   categoryId: string;
   images: string[];
   sizes?: string[]; 
@@ -44,7 +45,7 @@ export interface Product {
   createdAt: number;
   salesCount?: number;
   seoSettings?: SeoSettings;
-  batches?: ProductBatch[]; // نظام FIFO
+  batches?: StockBatch[]; // مصفوفة الدفعات الجديدة
 }
 
 export interface CartItem extends Product {
