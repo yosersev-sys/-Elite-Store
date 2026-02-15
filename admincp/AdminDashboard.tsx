@@ -45,7 +45,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
 
-  // حساب الأرباح (FIFO) - مع حماية ضد البيانات الفارغة
+  // حساب الأرباح (FIFO)
   const profitStats = useMemo(() => {
     try {
       const start = new Date(reportStart).setHours(0, 0, 0, 0);
@@ -65,7 +65,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
       return { revenue, cost, profit: revenue - cost };
     } catch (e) {
-      console.error("Profit stats error:", e);
       return { revenue: 0, cost: 0, profit: 0 };
     }
   }, [orders, reportStart, reportEnd]);
@@ -78,7 +77,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return { totalSales, lowStock: lowStockItems.length, totalOrders: (orders || []).length, totalProducts: (products || []).length };
   }, [products, orders]);
 
-  // تصفية المنتجات
+  // تصفية المنتجات (المخزن)
   const filteredProductsTable = useMemo(() => {
     return (products || []).filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || (p.barcode && p.barcode.includes(adminSearch));
@@ -86,6 +85,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return matchesSearch && matchesLowStock;
     });
   }, [products, adminSearch, showLowStockOnly]);
+
+  // تصفية الطلبات (الأرشيف)
+  const filteredOrdersTable = useMemo(() => {
+    const q = adminSearch.toLowerCase().trim();
+    if (!q) return orders || [];
+    return (orders || []).filter(o => {
+      if (!o) return false;
+      return (
+        o.id.toLowerCase().includes(q) ||
+        (o.customerName && o.customerName.toLowerCase().includes(q)) ||
+        (o.phone && o.phone.includes(q))
+      );
+    });
+  }, [orders, adminSearch]);
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[2.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
@@ -105,13 +118,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
         
         <nav className="space-y-2 flex-grow overflow-y-auto no-scrollbar">
-          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label="الإحصائيات" icon="📊" />
-          <AdminNavButton active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setShowLowStockOnly(false); }} label="المخزن" icon="📦" badge={generalStats.lowStock > 0 ? generalStats.lowStock : undefined} />
-          <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام" icon="🏷️" />
-          <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" />
-          <AdminNavButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} label="الأعضاء" icon="👥" />
-          <AdminNavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} label="الأرباح" icon="📈" />
-          <AdminNavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} label="الإعدادات" icon="🛠️" />
+          <AdminNavButton active={activeTab === 'stats'} onClick={() => { setActiveTab('stats'); setAdminSearch(''); }} label="الإحصائيات" icon="📊" />
+          <AdminNavButton active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setShowLowStockOnly(false); setAdminSearch(''); }} label="المخزن" icon="📦" badge={generalStats.lowStock > 0 ? generalStats.lowStock : undefined} />
+          <AdminNavButton active={activeTab === 'categories'} onClick={() => { setActiveTab('categories'); setAdminSearch(''); }} label="الأقسام" icon="🏷️" />
+          <AdminNavButton active={activeTab === 'orders'} onClick={() => { setActiveTab('orders'); setAdminSearch(''); }} label="الطلبات" icon="🛍️" />
+          <AdminNavButton active={activeTab === 'members'} onClick={() => { setActiveTab('members'); setAdminSearch(''); }} label="الأعضاء" icon="👥" />
+          <AdminNavButton active={activeTab === 'reports'} onClick={() => { setActiveTab('reports'); setAdminSearch(''); }} label="الأرباح" icon="📈" />
+          <AdminNavButton active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setAdminSearch(''); }} label="الإعدادات" icon="🛠️" />
         </nav>
 
         <button onClick={onLogout} className="mt-8 w-full bg-rose-500/10 text-rose-500 py-4 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all duration-300">تسجيل الخروج 👋</button>
@@ -244,10 +257,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* إدارة الطلبات - تم إصلاح خطر الصفحة البيضاء هنا */}
+        {/* إدارة الطلبات - تم إضافة شريط البحث هنا */}
         {activeTab === 'orders' && (
           <div className="space-y-8 animate-fadeIn">
-            <h3 className="text-3xl font-black text-slate-800">أرشيف الطلبات والمديونيات</h3>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h3 className="text-3xl font-black text-slate-800">أرشيف الطلبات والمديونيات</h3>
+              <div className="relative w-full md:w-80">
+                <input 
+                  type="text" 
+                  placeholder="بحث برقم الطلب، الاسم، أو الهاتف..." 
+                  value={adminSearch} 
+                  onChange={e => setAdminSearch(e.target.value)} 
+                  className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 shadow-sm font-bold" 
+                />
+                <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
+              </div>
+            </div>
+
             <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
               <table className="w-full text-right text-sm">
                 <thead>
@@ -259,9 +285,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {(orders || []).length > 0 ? (
-                    orders.map(o => {
-                      // فحص أمان للبيانات المفقودة
+                  {filteredOrdersTable.length > 0 ? (
+                    filteredOrdersTable.map(o => {
                       if (!o) return null;
                       const isCancelled = o.status === 'cancelled';
                       const paymentMethod = o.paymentMethod || 'نقدي';
@@ -274,6 +299,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <p className="font-black text-slate-700">#{o.id} - {o.customerName || 'عميل مجهول'}</p>
                               <p className="text-[10px] text-slate-400 font-bold mt-1">
                                 {o.createdAt ? new Date(o.createdAt).toLocaleString('ar-EG') : 'تاريخ غير معروف'}
+                                {o.phone ? ` • ${o.phone}` : ''}
                               </p>
                             </div>
                           </td>
@@ -320,7 +346,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     })
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">لا توجد طلبات مسجلة حالياً في الأرشيف</td>
+                      <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">لا توجد نتائج بحث تطابق استعلامك</td>
                     </tr>
                   )}
                 </tbody>
@@ -329,7 +355,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* بقية التبويبات مع حماية إضافية */}
+        {/* ... بقية التبويبات ... */}
         {activeTab === 'categories' && (
           <div className="space-y-10 animate-fadeIn">
             <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 max-w-2xl">
