@@ -22,6 +22,12 @@ export interface Category {
   sortOrder?: number;
 }
 
+export interface ProductBatch {
+  quantity: number;
+  wholesalePrice: number;
+  createdAt: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -38,12 +44,14 @@ export interface Product {
   createdAt: number;
   salesCount?: number;
   seoSettings?: SeoSettings;
+  batches?: ProductBatch[]; // نظام FIFO
 }
 
 export interface CartItem extends Product {
   quantity: number;
   selectedSize?: string;
   selectedColor?: string;
+  actualWholesalePrice?: number; // السعر الذي تم الحساب عليه فعلياً عند البيع
 }
 
 export interface Order {
