@@ -37,13 +37,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newCatName, setNewCatName] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   
-  // تواريخ التقارير
   const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]); 
   const [reportEnd, setReportEnd] = useState(new Date().toISOString().split('T')[0]);
 
-  // إدارة الأقسام
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
+
+  // نصوص العناوين حسب التبويب
+  const tabTitles: Record<AdminTab, string> = {
+    stats: 'نظرة عامة على النشاط',
+    products: 'إدارة مخزون الأصناف',
+    categories: 'إدارة أقسام المتجر',
+    orders: 'أرشيف الطلبات والديون',
+    members: 'إدارة شؤون الأعضاء',
+    reports: 'تقارير الأرباح المحاسبية',
+    settings: 'إعدادات النظام'
+  };
 
   // حساب الأرباح (FIFO)
   const profitStats = useMemo(() => {
@@ -69,7 +78,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   }, [orders, reportStart, reportEnd]);
 
-  // إحصائيات الصفحة الرئيسية
+  // إحصائيات عامة
   const generalStats = useMemo(() => {
     const activeOrders = (orders || []).filter(o => o && o.status !== 'cancelled');
     const totalSales = activeOrders.reduce((s, o) => s + Number(o.total || 0), 0);
@@ -77,7 +86,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return { totalSales, lowStock: lowStockItems.length, totalOrders: (orders || []).length, totalProducts: (products || []).length };
   }, [products, orders]);
 
-  // تصفية المنتجات (المخزن)
+  // تصفية المنتجات
   const filteredProductsTable = useMemo(() => {
     return (products || []).filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || (p.barcode && p.barcode.includes(adminSearch));
@@ -86,7 +95,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [products, adminSearch, showLowStockOnly]);
 
-  // تصفية الطلبات (الأرشيف)
+  // تصفية الطلبات
   const filteredOrdersTable = useMemo(() => {
     const q = adminSearch.toLowerCase().trim();
     if (!q) return orders || [];
@@ -132,20 +141,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       <main className="flex-grow p-6 md:p-12 bg-slate-50/50 overflow-y-auto no-scrollbar">
         
+        {/* رأس موحد يظهر في كل الصفحات */}
+        <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 animate-fadeIn">
+           <div>
+             <h3 className="text-3xl font-black text-slate-800 tracking-tight">{tabTitles[activeTab]}</h3>
+             <p className="text-slate-400 text-sm font-bold mt-1">سوق العصر - لوحة تحكم الإدارة v4.2</p>
+           </div>
+           
+           {/* أزرار العمليات السريعة - تظهر في كل الصفحات */}
+           <div className="flex gap-3 w-full md:w-auto">
+             <button 
+               onClick={onOpenInvoiceForm} 
+               className="flex-grow md:flex-initial bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-xs shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+             >
+               <span>🧾</span>
+               + فاتورة سريعة
+             </button>
+             <button 
+               onClick={onOpenAddForm} 
+               className="flex-grow md:flex-initial bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+             >
+               <span>📦</span>
+               + إضافة صنف
+             </button>
+           </div>
+        </div>
+
+        {/* محتوى التبويبات */}
+        
         {/* صفحة الإحصائيات */}
         {activeTab === 'stats' && (
           <div className="space-y-10 animate-fadeIn">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-               <div>
-                 <h3 className="text-3xl font-black text-slate-800 tracking-tight">نظرة عامة</h3>
-                 <p className="text-slate-400 text-sm font-bold mt-1">إليك تقرير سريع عن حالة المتجر اليوم</p>
-               </div>
-               <div className="flex gap-3">
-                 <button onClick={onOpenInvoiceForm} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-xs shadow-xl shadow-emerald-500/20 hover:scale-105 transition-all">+ فاتورة سريعة</button>
-                 <button onClick={onOpenAddForm} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs shadow-xl hover:scale-105 transition-all">+ إضافة صنف</button>
-               </div>
-            </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                <StatCard title="إجمالي المبيعات" value={`${generalStats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" />
                <StatCard title="إجمالي الطلبات" value={generalStats.totalOrders} icon="🧾" color="indigo" onClick={() => setActiveTab('orders')} />
@@ -197,12 +223,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* إدارة المخزن */}
         {activeTab === 'products' && (
           <div className="space-y-8 animate-fadeIn">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <h3 className="text-2xl font-black text-slate-800">
-                  {showLowStockOnly ? 'نواقص المخزن (تحتاج توريد)' : 'جرد المخزن الشامل'}
-                </h3>
-              </div>
+            <div className="flex flex-col md:flex-row justify-end items-center gap-4">
               <div className="relative w-full md:w-72">
                 <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3 text-sm outline-none focus:ring-4 focus:ring-emerald-500/10 shadow-sm" />
                 <span className="absolute left-4 top-3 text-slate-300">🔍</span>
@@ -257,11 +278,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* إدارة الطلبات - تم إضافة شريط البحث هنا */}
+        {/* إدارة الطلبات */}
         {activeTab === 'orders' && (
           <div className="space-y-8 animate-fadeIn">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h3 className="text-3xl font-black text-slate-800">أرشيف الطلبات والمديونيات</h3>
+            <div className="flex flex-col md:flex-row justify-end items-center gap-4">
               <div className="relative w-full md:w-80">
                 <input 
                   type="text" 
@@ -355,11 +375,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* ... بقية التبويبات ... */}
+        {/* إدارة الأقسام */}
         {activeTab === 'categories' && (
           <div className="space-y-10 animate-fadeIn">
             <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 max-w-2xl">
-              <h3 className="font-black mb-6 text-slate-800 text-xl">إضافة قسم تجاري</h3>
+              <h3 className="font-black mb-6 text-slate-800 text-xl">إضافة قسم تجاري جديد</h3>
               <div className="flex gap-4">
                 <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="مثال: بقالة جافة..." className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
                 <button onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName}); setNewCatName(''); } }} className="bg-emerald-600 text-white px-10 rounded-2xl font-black text-xs">إضافة</button>
@@ -391,9 +411,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
+        {/* إدارة المستخدمين */}
         {activeTab === 'members' && (
           <div className="space-y-8 animate-fadeIn">
-            <h3 className="text-3xl font-black text-slate-800">إدارة المستخدمين</h3>
             <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
               <table className="w-full text-right text-sm">
                 <thead>
@@ -425,10 +445,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
+        {/* التقارير والأرباح */}
         {activeTab === 'reports' && (
           <div className="space-y-10 animate-fadeIn">
             <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100">
-               <h3 className="font-black text-slate-800 text-2xl mb-8">مركز الأرباح المحاسبي (FIFO)</h3>
+               <h3 className="font-black text-slate-800 text-xl mb-8">فلترة النتائج المالية</h3>
                <div className="flex flex-col md:flex-row gap-6 items-end">
                   <div className="flex-grow space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">من تاريخ</label>
