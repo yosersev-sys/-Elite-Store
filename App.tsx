@@ -23,7 +23,8 @@ import PullToRefresh from './components/PullToRefresh.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
-const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
+// رابط صوت تنبيه أكثر وضوحاً وموثوقية
+const NOTIFICATION_SOUND_URL = 'https://raw.githubusercontent.com/shun-li/Ding-Sound/master/ding.mp3';
 
 const App: React.FC = () => {
   const getInitialView = (): View => {
@@ -62,67 +63,73 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
-  const prevOrdersCount = useRef<number>(0);
+  const prevOrdersCount = useRef<number>(-1); // نستخدم -1 لضمان عدم التنبيه عند أول تحميل
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-
-  // تسجيل الـ Service Worker
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then(reg => {
-          console.log('SW Registered!', reg.scope);
-        }).catch(err => {
-          console.log('SW Registration Failed!', err);
-        });
-      });
-    }
-  }, []);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    return localStorage.getItem('sound_enabled') !== 'false';
+  });
 
   useEffect(() => {
-    const handleOnline = async () => {
-      if (currentUser?.role === 'admin') {
-        const synced = await ApiService.syncOfflineOrders();
-        if (synced > 0) {
-          showNotify(`تمت مزامنة ${synced} فاتورة بنجاح! 📡`, 'success');
-          loadData(true);
-        }
-      }
-    };
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, [currentUser?.role]);
-
-  useEffect(() => {
-    localStorage.setItem('souq_cart', JSON.stringify(cart));
-  }, [cart]);
-
-  useEffect(() => {
-    localStorage.setItem('souq_wishlist', JSON.stringify(wishlist));
-  }, [wishlist]);
-
-  const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ message, type });
-  };
-
-  const addToCart = (product: Product, startRect?: DOMRect) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + 1} : item);
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
-    showNotify('تمت الإضافة للسلة');
-  };
+    localStorage.setItem('sound_enabled', soundEnabled.toString());
+  }, [soundEnabled]);
 
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled) return;
     if (!audioRef.current) {
       audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
     }
-    audioRef.current.play().catch(() => {});
+    audioRef.current.play().catch(e => console.warn("Audio play blocked by browser. Need user interaction first."));
   }, [soundEnabled]);
+
+  const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+  };
+
+  const loadData = async (isSilent: boolean = false) => {
+    try {
+      if (!isSilent) setIsLoading(true);
+      const user = await ApiService.getCurrentUser();
+      setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
+      
+      const adminInfo = await ApiService.getAdminPhone();
+      if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
+      
+      const fetchedProducts = await ApiService.getProducts();
+      setProducts(fetchedProducts || []);
+      
+      const fetchedCats = await ApiService.getCategories();
+      setCategories(fetchedCats || []);
+      
+      if (user) {
+        const fetchedOrders = await ApiService.getOrders();
+        const newOrdersList = fetchedOrders || [];
+        
+        if (user.role === 'admin') {
+          const fetchedUsers = await ApiService.getUsers();
+          setUsers(fetchedUsers || []);
+          
+          // اكتشاف الطلب الجديد (فقط إذا كان التحميل صامتاً والعدد زاد)
+          if (isSilent && prevOrdersCount.current !== -1 && newOrdersList.length > prevOrdersCount.current) {
+            playNotificationSound();
+            showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
+            // اهتزاز الموبايل إذا كان مدعوماً
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          }
+          
+          prevOrdersCount.current = newOrdersList.length;
+        }
+        setOrders(newOrdersList);
+      }
+      
+      if (!isSilent) syncViewWithHash(user);
+    } catch (err) {
+      console.error("Data loading error:", err);
+    } finally {
+      if (!isSilent) setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { loadData(); }, []);
 
   const syncViewWithHash = useCallback((user: User | null) => {
     const hash = window.location.hash;
@@ -137,41 +144,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const loadData = async (isSilent: boolean = false) => {
-    try {
-      if (!isSilent) setIsLoading(true);
-      const user = await ApiService.getCurrentUser();
-      setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
-      const adminInfo = await ApiService.getAdminPhone();
-      if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
-      const fetchedProducts = await ApiService.getProducts();
-      setProducts(fetchedProducts || []);
-      const fetchedCats = await ApiService.getCategories();
-      setCategories(fetchedCats || []);
-      if (user) {
-        const fetchedOrders = await ApiService.getOrders();
-        const newOrdersList = fetchedOrders || [];
-        if (user.role === 'admin') {
-          const fetchedUsers = await ApiService.getUsers();
-          setUsers(fetchedUsers || []);
-          if (isSilent && newOrdersList.length > prevOrdersCount.current && prevOrdersCount.current > 0) {
-            playNotificationSound();
-            showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
-          }
-        }
-        setOrders(newOrdersList);
-        prevOrdersCount.current = newOrdersList.length;
-      }
-      if (!isSilent) syncViewWithHash(user);
-    } catch (err) {
-      console.error("Data loading error:", err);
-    } finally {
-      if (!isSilent) setIsLoading(false);
-    }
-  };
-
-  useEffect(() => { loadData(); }, []);
-
   useEffect(() => {
     const handleHashChange = () => syncViewWithHash(currentUser);
     window.addEventListener('hashchange', handleHashChange);
@@ -181,7 +153,8 @@ const App: React.FC = () => {
   useEffect(() => {
     let interval: any;
     if (currentUser?.role === 'admin') {
-      interval = setInterval(() => { loadData(true); }, 20000);
+      // فحص كل 15 ثانية بدلاً من 20 لزيادة السرعة
+      interval = setInterval(() => { loadData(true); }, 15000);
     }
     return () => clearInterval(interval);
   }, [currentUser?.id, currentUser?.role]);
@@ -205,9 +178,20 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setOrders([]);
     setUsers([]);
-    prevOrdersCount.current = 0;
+    prevOrdersCount.current = -1;
     showNotify('تم تسجيل الخروج بنجاح');
     onNavigateAction('store');
+  };
+
+  const addToCart = (product: Product, startRect?: DOMRect) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + 1} : item);
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+    showNotify('تمت الإضافة للسلة');
   };
 
   const handleUpdateOrderPayment = async (id: string, paymentMethod: string) => {

@@ -30,7 +30,7 @@ type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 're
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, categories, orders, users, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
   onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory,
-  onViewOrder, onUpdateOrderPayment, onReturnOrder, onLogout
+  onViewOrder, onUpdateOrderPayment, onReturnOrder, soundEnabled, onToggleSound, onLogout
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
@@ -148,7 +148,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminNavButton active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setAdminSearch(''); }} label="الإعدادات" icon="🛠️" />
         </nav>
 
-        <button onClick={onLogout} className="mt-8 w-full bg-rose-500/10 text-rose-500 py-4 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all duration-300">تسجيل الخروج 👋</button>
+        {/* زر التنبيه الصوتي في الشريط الجانبي */}
+        <button 
+          onClick={onToggleSound} 
+          className={`mt-4 w-full flex items-center justify-between px-6 py-4 rounded-2xl font-black text-xs transition-all border ${soundEnabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}
+        >
+          <span>تنبيه الطلبات 🔔</span>
+          <span className={`px-2 py-0.5 rounded-lg text-[8px] ${soundEnabled ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-slate-500'}`}>
+            {soundEnabled ? 'مفعل' : 'صامت'}
+          </span>
+        </button>
+
+        <button onClick={onLogout} className="mt-4 w-full bg-rose-500/10 text-rose-500 py-4 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all duration-300">تسجيل الخروج 👋</button>
       </aside>
 
       <main className="flex-grow p-6 md:p-12 bg-slate-50/50 overflow-y-auto no-scrollbar">
