@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, Category, Order, User } from '../types';
 import { ApiService } from '../services/api';
 import { WhatsAppService } from '../services/whatsappService';
@@ -38,6 +38,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newCatName, setNewCatName] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   
+  // إعدادات الترقيم (Pagination)
+  const [orderPage, setOrderPage] = useState(1);
+  const ordersPerPage = 10;
+
   const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]); 
   const [reportEnd, setReportEnd] = useState(new Date().toISOString().split('T')[0]);
 
@@ -53,6 +57,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     reports: 'تقارير الأرباح المحاسبية',
     settings: 'إعدادات النظام'
   };
+
+  // تصفير الصفحة عند تغيير البحث
+  useEffect(() => {
+    setOrderPage(1);
+  }, [adminSearch]);
 
   const profitStats = useMemo(() => {
     try {
@@ -97,7 +106,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const filteredProductsTable = useMemo(() => {
     return (products || []).filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || (p.barcode && p.barcode.includes(adminSearch));
+      const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || (p.barcode && String(p.barcode).includes(adminSearch));
       const matchesLowStock = !showLowStockOnly || Number(p.stockQuantity || 0) < 5;
       return matchesSearch && matchesLowStock;
     });
@@ -116,6 +125,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       );
     });
   }, [orders, adminSearch]);
+
+  // تقسيم الطلبات للصفحات
+  const paginatedOrders = useMemo(() => {
+    const start = (orderPage - 1) * ordersPerPage;
+    return filteredOrdersTable.slice(start, start + ordersPerPage);
+  }, [filteredOrdersTable, orderPage]);
+
+  const totalOrderPages = Math.ceil(filteredOrdersTable.length / ordersPerPage);
 
   const filteredCategories = useMemo(() => {
     return (categories || []).filter(c => 
@@ -159,7 +176,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminNavButton active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setAdminSearch(''); }} label="الإعدادات" icon="🛠️" />
         </nav>
 
-        {/* زر التنبيه الصوتي - تم تحسينه ليكون أكثر بروزاً */}
         <div className="mt-4 p-4 bg-slate-800/50 rounded-3xl border border-slate-700/50">
           <p className="text-[9px] font-black text-slate-500 uppercase mb-2 mr-2">جرس التنبيه للطلبات</p>
           <button 
@@ -169,13 +185,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span className="flex items-center gap-2">
               {soundEnabled ? '🔔 مفعل' : '🔕 معطل'}
             </span>
-            <div className={`w-10 h-5 rounded-full relative transition-colors ${soundEnabled ? 'bg-emerald-500' : 'bg-slate-500'}`}>
-              <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${soundEnabled ? 'right-6' : 'right-1'}`}></div>
-            </div>
           </button>
-          {!soundEnabled && (
-            <p className="text-[8px] text-amber-500 font-bold mt-2 text-center">اضغط لتفعيل الصوت لضمان سماع الطلبات الجديدة</p>
-          )}
         </div>
 
         <button onClick={onLogout} className="mt-4 w-full bg-rose-500/10 text-rose-500 py-4 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all duration-300">تسجيل الخروج 👋</button>
@@ -186,7 +196,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 animate-fadeIn">
            <div>
              <h3 className="text-3xl font-black text-slate-800 tracking-tight">{tabTitles[activeTab]}</h3>
-             <p className="text-slate-400 text-sm font-bold mt-1">سوق العصر - لوحة تحكم الإدارة v4.2</p>
+             <p className="text-slate-400 text-sm font-bold mt-1">سوق العصر - لوحة تحكم الإدارة v4.3</p>
            </div>
            
            <div className="flex gap-3 w-full md:w-auto">
@@ -207,11 +217,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
            </div>
         </div>
 
-        {/* صفحة الإحصائيات */}
         {activeTab === 'stats' && (
           <div className="space-y-10 animate-fadeIn">
-            
-            {/* تنبيه مديونيات الآجل */}
             {generalStats.debtCount > 0 && (
               <div className="bg-orange-500 text-white p-6 md:p-8 rounded-[2.5rem] shadow-2xl shadow-orange-500/20 flex flex-col md:flex-row items-center justify-between gap-6 border-b-8 border-orange-700 animate-slideDown">
                 <div className="flex items-center gap-6">
@@ -225,7 +232,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onClick={() => { setAdminSearch('آجل'); setActiveTab('orders'); }}
                   className="bg-white text-orange-600 px-8 py-3.5 rounded-2xl font-black text-xs shadow-lg hover:bg-slate-900 hover:text-white transition-all active:scale-95 whitespace-nowrap"
                 >
-                  مراجعة وتحصيل الديون الآن ←
+                  تحصيل الديون الآن ←
                 </button>
               </div>
             )}
@@ -278,7 +285,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* إدارة المخزن */}
         {activeTab === 'products' && (
           <div className="space-y-8 animate-fadeIn">
             <div className="flex flex-col md:flex-row justify-end items-center gap-4">
@@ -294,7 +300,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <th className="px-8 py-5">المنتج</th>
                     <th className="px-8 py-5">المخزون</th>
                     <th className="px-8 py-5">السعر</th>
-                    <th className="px-8 py-5">دفعات FIFO</th>
                     <th className="px-8 py-5">الإجراء</th>
                   </tr>
                 </thead>
@@ -314,18 +319,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </td>
                       <td className="px-8 py-5 font-black text-emerald-600">{p.price} ج.م</td>
                       <td className="px-8 py-5">
-                         <div className="flex flex-wrap gap-1 max-w-[150px]">
-                           {(p.batches || []).filter(b => b.quantity > 0).map((b, i) => (
-                             <span key={i} className="text-[8px] bg-slate-50 text-slate-400 px-1.5 py-0.5 rounded border border-slate-100">
-                               {b.quantity} @ {b.wholesalePrice}
-                             </span>
-                           ))}
-                         </div>
-                      </td>
-                      <td className="px-8 py-5">
                         <div className="flex gap-2">
                           <button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-blue-50 rounded-xl">✎</button>
-                          <button onClick={() => { if(confirm('هل أنت متأكد من حذف المنتج نهائياً؟')) onDeleteProduct(p.id) }} className="p-2 text-rose-500 bg-rose-50 rounded-xl">🗑</button>
+                          <button onClick={() => { if(confirm('حذف المنتج نهائياً؟')) onDeleteProduct(p.id) }} className="p-2 text-rose-500 bg-rose-50 rounded-xl">🗑</button>
                         </div>
                       </td>
                     </tr>
@@ -336,158 +332,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* إدارة الأقسام */}
         {activeTab === 'categories' && (
           <div className="space-y-10 animate-fadeIn">
-            {/* إحصائيات سريعة للأقسام */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-               <div className="bg-white p-6 rounded-[2rem] border border-emerald-100 shadow-sm flex items-center gap-4">
-                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl">🏷️</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase">إجمالي الأقسام</p>
-                    <p className="text-2xl font-black text-slate-800">{categories.length}</p>
-                  </div>
-               </div>
-               <div className="bg-white p-6 rounded-[2rem] border border-blue-100 shadow-sm flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-xl">📦</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase">منتجات مصنفة</p>
-                    <p className="text-2xl font-black text-slate-800">{products.length}</p>
-                  </div>
-               </div>
-               <div className="bg-white p-6 rounded-[2rem] border border-amber-100 shadow-sm flex items-center gap-4">
-                  <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-xl">⚡</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase">أقسام نشطة</p>
-                    <p className="text-2xl font-black text-slate-800">{categories.filter(c => c.isActive !== false).length}</p>
-                  </div>
-               </div>
-            </div>
-
-            {/* أدوات التحكم: إضافة وبحث */}
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className="flex-grow bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-                <h3 className="font-black mb-6 text-slate-800 text-xl flex items-center gap-2"><span>✨</span> إضافة قسم جديد</h3>
-                <div className="flex gap-4">
-                  <input 
-                    value={newCatName} 
-                    onChange={e => setNewCatName(e.target.value)} 
-                    placeholder="مثال: بقالة جافة، أدوات منزلية..." 
-                    className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm border-2 border-transparent focus:border-emerald-400 transition-all" 
-                  />
-                  <button 
-                    onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName, isActive: true}); setNewCatName(''); } }} 
-                    className="bg-emerald-600 text-white px-10 rounded-2xl font-black text-xs hover:bg-slate-900 transition-all shadow-lg"
-                  >إضافة</button>
-                </div>
-              </div>
-
-              <div className="lg:w-80 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col justify-center">
-                <label className="text-[10px] font-black text-slate-400 uppercase mb-3 mr-2">بحث سريع بالأقسام</label>
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    placeholder="ابحث هنا..." 
-                    value={catSearch}
-                    onChange={e => setCatSearch(e.target.value)}
-                    className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm border-2 border-transparent focus:border-indigo-400 transition-all shadow-inner"
-                  />
-                  <span className="absolute left-4 top-4 text-slate-300">🔍</span>
-                </div>
+            <div className="flex-grow bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl">
+              <h3 className="font-black mb-6 text-slate-800 text-xl flex items-center gap-2"><span>✨</span> إضافة قسم جديد</h3>
+              <div className="flex gap-4">
+                <input 
+                  value={newCatName} 
+                  onChange={e => setNewCatName(e.target.value)} 
+                  placeholder="اسم القسم الجديد..." 
+                  className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" 
+                />
+                <button 
+                  onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName}); setNewCatName(''); } }} 
+                  className="bg-emerald-600 text-white px-10 rounded-2xl font-black"
+                >إضافة</button>
               </div>
             </div>
-
-            {/* شبكة الأقسام */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCategories.length > 0 ? (
-                filteredCategories.map(cat => {
-                  const meta = getCategoryMeta(cat.name);
-                  const itemsCount = (products || []).filter(p => p.categoryId === cat.id).length;
-                  
-                  return (
-                    <div key={cat.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-6 group hover:border-emerald-200 hover:shadow-xl transition-all relative overflow-hidden">
-                      <div className={`absolute top-0 right-0 w-24 h-24 ${meta.color} opacity-[0.03] rounded-bl-full`}></div>
-                      
-                      {editingCatId === cat.id ? (
-                        <div className="flex flex-col gap-4 flex-grow animate-fadeIn">
-                          <input 
-                            value={editingCatName} 
-                            onChange={e => setEditingCatName(e.target.value)} 
-                            className="w-full bg-slate-50 px-6 py-3 rounded-2xl outline-none font-bold border-2 border-emerald-400 shadow-inner"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <button onClick={() => { onUpdateCategory({id: cat.id, name: editingCatName}); setEditingCatId(null); }} className="flex-grow bg-emerald-600 text-white py-2.5 rounded-xl font-black text-xs shadow-md">حفظ التعديل</button>
-                            <button onClick={() => setEditingCatId(null)} className="px-4 bg-slate-100 text-slate-500 py-2.5 rounded-xl font-black text-xs">إلغاء</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-14 h-14 ${meta.color} bg-opacity-10 rounded-2xl flex items-center justify-center text-3xl shadow-sm group-hover:scale-110 transition-transform`}>
-                                {meta.icon}
-                              </div>
-                              <div>
-                                <p className="font-black text-slate-800 text-xl tracking-tight">{cat.name}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  <p className="text-[10px] text-slate-400 font-bold">يحتوي على {itemsCount} صنف</p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-6 border-t border-slate-50">
-                             <div className="flex gap-1">
-                                <button 
-                                  onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} 
-                                  className="p-3 text-blue-500 bg-blue-50 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-sm"
-                                  title="تعديل الاسم"
-                                >
-                                  ✎
-                                </button>
-                                <button 
-                                  onClick={() => { if(confirm(`هل أنت متأكد من حذف قسم "${cat.name}"؟ سيتم إلغاء تصنيف جميع المنتجات المرتبطة به.`)) onDeleteCategory(cat.id); }} 
-                                  className="p-3 text-rose-500 bg-rose-50 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                                  title="حذف القسم"
-                                >
-                                  🗑
-                                </button>
-                             </div>
-                             <button 
-                               onClick={() => { setAdminSearch(cat.id); setActiveTab('products'); }}
-                               className="text-[10px] font-black text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1"
-                             >
-                               إدارة الأصناف 📦
-                             </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                   <div className="text-6xl mb-4 opacity-10">📂</div>
-                   <p className="text-slate-300 font-black text-xl">لا توجد أقسام تطابق بحثك حالياً</p>
+              {categories.map(cat => (
+                <div key={cat.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 flex items-center justify-between group hover:shadow-xl transition-all">
+                  <div>
+                    <p className="font-black text-slate-800 text-xl">{cat.name}</p>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1">يحتوي على {products.filter(p => p.categoryId === cat.id).length} صنف</p>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => { if(confirm('حذف القسم؟')) onDeleteCategory(cat.id) }} className="p-3 bg-rose-50 text-rose-500 rounded-2xl">🗑</button>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
         )}
 
-        {/* إدارة الطلبات */}
+        {/* الطلبات مع نظام الترقيم (Pagination) */}
         {activeTab === 'orders' && (
           <div className="space-y-8 animate-fadeIn">
             <div className="flex flex-col md:flex-row justify-end items-center gap-4">
               <div className="relative w-full md:w-80">
                 <input 
                   type="text" 
-                  placeholder="بحث برقم الطلب، الاسم، أو الهاتف..." 
+                  placeholder="رقم الطلب، الاسم، أو الهاتف..." 
                   value={adminSearch} 
                   onChange={e => setAdminSearch(e.target.value)} 
-                  className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 shadow-sm font-bold" 
+                  className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none shadow-sm font-bold" 
                 />
                 <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
               </div>
@@ -504,8 +392,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredOrdersTable.length > 0 ? (
-                    filteredOrdersTable.map(o => {
+                  {paginatedOrders.length > 0 ? (
+                    paginatedOrders.map(o => {
                       if (!o) return null;
                       const isCancelled = o.status === 'cancelled';
                       const paymentMethod = o.paymentMethod || 'نقدي';
@@ -542,21 +430,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <td className="px-8 py-5">
                             <div className="flex items-center justify-center gap-2">
                                <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
-                               
-                               {isDebt && !isCancelled && (
-                                 <button 
-                                   onClick={() => WhatsAppService.sendDebtReminderToCustomer(o)}
-                                   className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm"
-                                   title="تذكير واتساب"
-                                 >📢</button>
-                               )}
-
                                {!isCancelled && (
-                                 <button 
-                                   onClick={() => onReturnOrder(o.id)}
-                                   className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                                   title="استرداد الفاتورة"
-                                 >↩️</button>
+                                 <button onClick={() => onReturnOrder(o.id)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="استرداد">↩️</button>
                                )}
                             </div>
                           </td>
@@ -564,17 +439,52 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       );
                     })
                   ) : (
-                    <tr>
-                      <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">لا توجد نتائج بحث تطابق استعلامك</td>
-                    </tr>
+                    <tr><td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">لا توجد طلبات</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
+
+            {/* أدوات التحكم بالصفحات (Pagination Controls) */}
+            {totalOrderPages > 1 && (
+              <div className="flex flex-col md:flex-row items-center justify-between px-8 py-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm gap-4">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  عرض الصفحة {orderPage} من أصل {totalOrderPages} صفحات
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    disabled={orderPage === 1}
+                    onClick={() => { setOrderPage(p => Math.max(1, p - 1)); window.scrollTo({top: 0, behavior: 'smooth'}); }}
+                    className="p-3 bg-slate-50 text-slate-400 rounded-xl disabled:opacity-30 hover:bg-emerald-50 hover:text-emerald-600 transition-all font-black text-xs"
+                  >
+                    السابق 🡒
+                  </button>
+                  
+                  <div className="flex gap-1">
+                    {Array.from({length: totalOrderPages}, (_, i) => i + 1).map(num => (
+                      <button 
+                        key={num}
+                        onClick={() => { setOrderPage(num); window.scrollTo({top: 0, behavior: 'smooth'}); }}
+                        className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${orderPage === num ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                      >
+                        {num}
+                      </button>
+                    )).slice(Math.max(0, orderPage - 3), Math.min(totalOrderPages, orderPage + 2))}
+                  </div>
+
+                  <button 
+                    disabled={orderPage === totalOrderPages}
+                    onClick={() => { setOrderPage(p => Math.min(totalOrderPages, p + 1)); window.scrollTo({top: 0, behavior: 'smooth'}); }}
+                    className="p-3 bg-slate-50 text-slate-400 rounded-xl disabled:opacity-30 hover:bg-emerald-50 hover:text-emerald-600 transition-all font-black text-xs"
+                  >
+                    🡐 التالي
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* إدارة المستخدمين */}
         {activeTab === 'members' && (
           <div className="space-y-8 animate-fadeIn">
             <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
@@ -584,21 +494,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <th className="px-8 py-5">الاسم</th>
                     <th className="px-8 py-5">رقم الموبايل</th>
                     <th className="px-8 py-5">الصلاحية</th>
-                    <th className="px-8 py-5">تاريخ الانضمام</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {(users || []).map(u => (
                     <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-8 py-5 font-bold text-slate-800">{u.name}</td>
-                      <td className="px-8 py-5 font-black text-slate-500 tracking-wider">{u.phone}</td>
+                      <td className="px-8 py-5 font-black text-slate-500">{u.phone}</td>
                       <td className="px-8 py-5">
                         <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
                           {u.role === 'admin' ? 'مدير' : 'عميل'}
                         </span>
-                      </td>
-                      <td className="px-8 py-5 text-[10px] font-bold text-slate-400 italic">
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar-EG') : '-'}
                       </td>
                     </tr>
                   ))}
@@ -608,7 +514,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* التقارير والأرباح */}
         {activeTab === 'reports' && (
           <div className="space-y-10 animate-fadeIn">
             <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100">
@@ -624,7 +529,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 text-center">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">إجمالي المبيعات</p>
