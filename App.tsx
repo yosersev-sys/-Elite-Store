@@ -25,7 +25,6 @@ import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
-// رابط صوت تنبيه عالي الوضوح
 const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const App: React.FC = () => {
@@ -69,14 +68,11 @@ const App: React.FC = () => {
   
   const prevOrderIds = useRef<Set<string>>(new Set());
   const audioObj = useRef<HTMLAudioElement | null>(null);
-  
-  // تعديل: الأولوية للتفعيل (Default is True)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     const saved = localStorage.getItem('sound_enabled');
     return saved === null ? true : saved === 'true';
   });
 
-  // تهيئة كائن الصوت
   useEffect(() => {
     if (!audioObj.current) {
       audioObj.current = new Audio(NOTIFICATION_SOUND_URL);
@@ -117,7 +113,6 @@ const App: React.FC = () => {
           const fetchedUsers = await ApiService.getUsers();
           setUsers(fetchedUsers || []);
           
-          // اكتشاف الطلبات الجديدة فعلياً (سواء كانت ORD- أو INV-)
           if (isSilent && prevOrderIds.current.size > 0) {
             const trulyNew = newOrdersList.filter(o => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
@@ -126,8 +121,6 @@ const App: React.FC = () => {
               if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             }
           }
-          
-          // تحديث قائمة الـ IDs المرجعية لضمان عدم تكرار التنبيه
           const newIds = new Set(newOrdersList.map(o => o.id));
           prevOrderIds.current = newIds;
         }
@@ -256,8 +249,6 @@ const App: React.FC = () => {
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
       <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-32 md:pb-0'}`}>
-        
-        {/* نافذة الطلبات الجديدة للمدير - تظهر لجميع أنواع الطلبات */}
         {currentUser?.role === 'admin' && newOrdersForPopup.length > 0 && (
           <NewOrderPopup 
             orders={newOrdersForPopup} 
@@ -268,21 +259,17 @@ const App: React.FC = () => {
             }}
           />
         )}
-
-        {/* نافذة طباعة الباركود للمنتج المحفوظ */}
         {productForBarcode && (
           <BarcodePrintPopup 
             product={productForBarcode} 
             onClose={() => { setProductForBarcode(null); onNavigateAction('admin'); }} 
           />
         )}
-
         {notification && (
           <div className="no-print">
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
           </div>
         )}
-
         {view === 'admin-auth' && (!currentUser || currentUser.role !== 'admin') && (
           <AdminAuthView 
             onSuccess={(user) => {
@@ -294,7 +281,6 @@ const App: React.FC = () => {
             onClose={() => onNavigateAction('store')}
           />
         )}
-
         {showAuthModal && (
           <AuthView 
             onClose={() => setShowAuthModal(false)}
@@ -306,7 +292,6 @@ const App: React.FC = () => {
             }} 
           />
         )}
-
         {!isAdminView && (
           <div className="no-print">
             <Header 
@@ -322,7 +307,6 @@ const App: React.FC = () => {
             />
           </div>
         )}
-
         <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4' : 'pt-16 md:pt-32'} ${view === 'order-success' ? 'print-full-width' : ''}`}>
           {view === 'store' && (
             <StoreView 
@@ -332,7 +316,6 @@ const App: React.FC = () => {
               wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
             />
           )}
-          
           {view === 'admin' && currentUser?.role === 'admin' && (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
@@ -361,12 +344,12 @@ const App: React.FC = () => {
               }}
               onUpdateOrderPayment={handleUpdateOrderPayment}
               onReturnOrder={handleReturnOrder}
+              onRefreshData={() => loadData(true)}
               soundEnabled={soundEnabled}
               onToggleSound={toggleSound}
               onLogout={handleLogout}
             />
           )}
-
           {view === 'admin-form' && (
             <AdminProductForm 
               product={selectedProduct} categories={categories} 
@@ -376,7 +359,6 @@ const App: React.FC = () => {
                 if (success) {
                   showNotify('تم حفظ البيانات بنجاح! ✨');
                   await loadData(true);
-                  // تفعيل نافذة الباركود فوراً
                   setProductForBarcode(p);
                 } else {
                   showNotify('عذراً، فشل الاتصال بالسيرفر أو تكرار باركود', 'error');
@@ -385,7 +367,6 @@ const App: React.FC = () => {
               onCancel={() => onNavigateAction('admin')}
             />
           )}
-
           {(view === 'admin-invoice' || view === 'quick-invoice') && (
             <AdminInvoiceForm 
               products={products}
@@ -398,15 +379,10 @@ const App: React.FC = () => {
                   setLastCreatedOrder(order);
                   const isOffline = order.id.startsWith('OFF-');
                   showNotify(isOffline ? 'تم حفظ الطلب محلياً (أوفلاين)' : 'تم إرسال الطلب بنجاح');
-                  
                   if (!isOffline) {
                     WhatsAppService.sendInvoiceToCustomer(order, order.phone);
-                    // إذا كان المستخدم هو من أنشأ الفاتورة السريعة، نرسل إشعار للمدير أيضاً
-                    if (view === 'quick-invoice') {
-                      WhatsAppService.sendOrderNotification(order, adminPhone);
-                    }
+                    if (view === 'quick-invoice') WhatsAppService.sendOrderNotification(order, adminPhone);
                   }
-                  
                   await loadData();
                   onNavigateAction('order-success');
                 } else {
@@ -416,7 +392,6 @@ const App: React.FC = () => {
               onCancel={() => onNavigateAction(view === 'admin-invoice' ? 'admin' : 'store')}
             />
           )}
-
           {view === 'cart' && (
             <CartView 
               cart={cart} 
@@ -426,7 +401,6 @@ const App: React.FC = () => {
               onContinueShopping={() => onNavigateAction('store')}
             />
           )}
-
           {view === 'product-details' && selectedProduct && (
             <ProductDetailsView 
               product={selectedProduct}
@@ -437,7 +411,6 @@ const App: React.FC = () => {
               onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
             />
           )}
-
           {view === 'checkout' && (
             <CheckoutView 
               cart={cart}
@@ -473,7 +446,6 @@ const App: React.FC = () => {
               }}
             />
           )}
-
           {view === 'my-orders' && (
             <MyOrdersView 
               orders={orders} 
@@ -484,7 +456,6 @@ const App: React.FC = () => {
               onBack={() => onNavigateAction('store')}
             />
           )}
-
           {view === 'profile' && currentUser && (
             <ProfileView 
               currentUser={currentUser} 
@@ -492,25 +463,21 @@ const App: React.FC = () => {
               onBack={() => onNavigateAction('store')} 
             />
           )}
-
           {view === 'order-success' && lastCreatedOrder && (
             <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('store')} />
           )}
         </main>
-
         {!isAdminView && (
           <div className="no-print">
             <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={view !== 'cart' && view !== 'checkout'} />
             <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
           </div>
         )}
-
         {currentUser?.role === 'admin' && view !== 'admin' && (
           <div className="no-print">
             <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
           </div>
         )}
-
         {!isAdminView && (
           <div className="no-print">
             <MobileNav 
@@ -520,13 +487,6 @@ const App: React.FC = () => {
               onCartClick={() => onNavigateAction('cart')}
               isAdmin={currentUser?.role === 'admin'}
             />
-            <footer className="hidden md:block bg-slate-900 text-white py-12 text-center">
-              <div className="flex flex-col items-center gap-2 mb-4">
-                <h2 className="text-xl font-black">سوق العصر</h2>
-                <p className="text-emerald-500 text-[10px] font-black uppercase">فاقوس - الشرقية</p>
-              </div>
-              <p className="text-slate-500 text-[10px] uppercase">&copy; {new Date().getFullYear()} جميع الحقوق محفوظة</p>
-            </footer>
           </div>
         )}
       </div>

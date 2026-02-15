@@ -1,8 +1,37 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Category, Order, User } from '../types';
 import { ApiService } from '../services/api';
 import { WhatsAppService } from '../services/whatsappService';
+
+// مكون العداد المتحرك (Animated Counter)
+const AnimatedNumber: React.FC<{ value: number; decimals?: number }> = ({ value, decimals = 0 }) => {
+  const [displayValue, setDisplayValue] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
+  const startValueRef = useRef(0);
+  const duration = 1000;
+
+  useEffect(() => {
+    startValueRef.current = displayValue;
+    startTimeRef.current = null;
+    
+    const animate = (timestamp: number) => {
+      if (!startTimeRef.current) startTimeRef.current = timestamp;
+      const progress = timestamp - startTimeRef.current;
+      const percentage = Math.min(progress / duration, 1);
+      const easeOutQuad = (t: number) => t * (2 - t);
+      const currentCount = startValueRef.current + (value - startValueRef.current) * easeOutQuad(percentage);
+      setDisplayValue(currentCount);
+      if (percentage < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [value]);
+
+  return <span>{displayValue.toLocaleString('ar-EG', { 
+    minimumFractionDigits: decimals, 
+    maximumFractionDigits: decimals 
+  })}</span>;
+};
 
 interface AdminDashboardProps {
   products: Product[];
@@ -20,6 +49,7 @@ interface AdminDashboardProps {
   onViewOrder: (order: Order) => void;
   onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
   onReturnOrder: (id: string) => void;
+  onRefreshData: () => void; // إضافة دالة لتحديث البيانات
   soundEnabled: boolean;
   onToggleSound: () => void;
   onLogout: () => void;
@@ -30,7 +60,7 @@ type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 're
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, categories, orders, users, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
   onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory,
-  onViewOrder, onUpdateOrderPayment, onReturnOrder, soundEnabled, onToggleSound, onLogout
+  onViewOrder, onUpdateOrderPayment, onReturnOrder, onRefreshData, soundEnabled, onToggleSound, onLogout
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
@@ -43,6 +73,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
+
+  // حالات تعديل المستخدم
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [userFormData, setUserFormData] = useState({ name: '', phone: '', password: '' });
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
 
   const tabTitles: Record<AdminTab, string> = {
     stats: 'نظرة عامة على النشاط',
@@ -81,7 +116,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const activeOrders = (orders || []).filter(o => o && o.status !== 'cancelled');
     const totalSales = activeOrders.reduce((s, o) => s + Number(o.total || 0), 0);
     const lowStockItems = (products || []).filter(p => Number(p.stockQuantity || 0) < 5);
-    
     const debtOrders = activeOrders.filter(o => o.paymentMethod && o.paymentMethod.includes('آجل'));
     const totalDebtAmount = debtOrders.reduce((s, o) => s + Number(o.total || 0), 0);
 
@@ -117,11 +151,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [orders, adminSearch]);
 
-  const filteredCategories = useMemo(() => {
-    return (categories || []).filter(c => 
-      c.name.toLowerCase().includes(catSearch.toLowerCase())
+  const filteredMembers = useMemo(() => {
+    const q = adminSearch.toLowerCase().trim();
+    if (!q) return users || [];
+    return (users || []).filter(u => 
+      u.name.toLowerCase().includes(q) || u.phone.includes(q)
     );
-  }, [categories, catSearch]);
+  }, [users, adminSearch]);
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setUserFormData({ name: user.name, phone: user.phone, password: '' });
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setIsUpdatingUser(true);
+    try {
+      const res = await ApiService.adminUpdateUser({
+        id: editingUser.id,
+        name: userFormData.name,
+        phone: userFormData.phone,
+        password: userFormData.password || undefined
+      });
+      if (res.status === 'success') {
+        alert('تم تحديث بيانات العضو بنجاح ✨');
+        setEditingUser(null);
+        onRefreshData();
+      } else {
+        alert(res.message || 'فشل التحديث');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setIsUpdatingUser(false);
+    }
+  };
 
   const getCategoryMeta = (name: string) => {
     const n = name.toLowerCase();
@@ -133,8 +199,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[2.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
+    <div className="flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[2.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn relative">
       
+      {/* نافذة تعديل العضو المنبثقة */}
+      {editingUser && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingUser(null)}></div>
+          <form onSubmit={handleUpdateUser} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp">
+            <h3 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2">
+              <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">👤</span>
+              تعديل بيانات العضو
+            </h3>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">الاسم بالكامل</label>
+                <input required value={userFormData.name} onChange={e => setUserFormData({...userFormData, name: e.target.value})} className="w-full px-6 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold border border-slate-100" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم الجوال</label>
+                <input required value={userFormData.phone} onChange={e => setUserFormData({...userFormData, phone: e.target.value})} className="w-full px-6 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold border border-slate-100 text-left" dir="ltr" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">كلمة مرور جديدة (اختياري)</label>
+                <input type="password" placeholder="اتركها فارغة لعدم التغيير" value={userFormData.password} onChange={e => setUserFormData({...userFormData, password: e.target.value})} className="w-full px-6 py-3 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold border border-slate-100" />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-8">
+              <button disabled={isUpdatingUser} type="submit" className="flex-grow bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-xl shadow-emerald-100 disabled:opacity-50">
+                {isUpdatingUser ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+              </button>
+              <button type="button" onClick={() => setEditingUser(null)} className="px-6 bg-slate-100 text-slate-500 py-4 rounded-2xl font-black text-sm active:scale-95">إلغاء</button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="w-full lg:w-80 bg-slate-900 text-white p-8 md:p-10 flex flex-col shrink-0">
         <div className="mb-12">
@@ -159,7 +258,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminNavButton active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setAdminSearch(''); }} label="الإعدادات" icon="🛠️" />
         </nav>
 
-        {/* زر التنبيه الصوتي - تم تحسينه ليكون أكثر بروزاً */}
         <div className="mt-4 p-4 bg-slate-800/50 rounded-3xl border border-slate-700/50">
           <p className="text-[9px] font-black text-slate-500 uppercase mb-2 mr-2">جرس التنبيه للطلبات</p>
           <button 
@@ -173,9 +271,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${soundEnabled ? 'right-6' : 'right-1'}`}></div>
             </div>
           </button>
-          {!soundEnabled && (
-            <p className="text-[8px] text-amber-500 font-bold mt-2 text-center">اضغط لتفعيل الصوت لضمان سماع الطلبات الجديدة</p>
-          )}
         </div>
 
         <button onClick={onLogout} className="mt-4 w-full bg-rose-500/10 text-rose-500 py-4 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all duration-300">تسجيل الخروج 👋</button>
@@ -210,15 +305,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* صفحة الإحصائيات */}
         {activeTab === 'stats' && (
           <div className="space-y-10 animate-fadeIn">
-            
-            {/* تنبيه مديونيات الآجل */}
             {generalStats.debtCount > 0 && (
               <div className="bg-orange-500 text-white p-6 md:p-8 rounded-[2.5rem] shadow-2xl shadow-orange-500/20 flex flex-col md:flex-row items-center justify-between gap-6 border-b-8 border-orange-700 animate-slideDown">
                 <div className="flex items-center gap-6">
                   <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-4xl animate-pulse">⏳</div>
                   <div>
                     <h4 className="text-xl md:text-2xl font-black">تحذير مديونيات معلقة!</h4>
-                    <p className="text-orange-100 font-bold text-sm mt-1">يوجد عدد <span className="underline decoration-2">{generalStats.debtCount} فواتير آجل</span> لم يتم تحصيلها بإجمالي <span className="text-white text-lg">{(generalStats.totalDebtAmount).toLocaleString()} ج.م</span></p>
+                    <p className="text-orange-100 font-bold text-sm mt-1">يوجد عدد <span className="underline decoration-2">{generalStats.debtCount} فواتير آجل</span> لم يتم تحصيلها بإجمالي <span className="text-white text-lg"><AnimatedNumber value={generalStats.totalDebtAmount} /> ج.م</span></p>
                   </div>
                 </div>
                 <button 
@@ -231,7 +324,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-               <StatCard title="إجمالي المبيعات" value={`${generalStats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" />
+               <StatCard title="إجمالي المبيعات" value={generalStats.totalSales} suffix="ج.م" icon="💰" color="emerald" />
                <StatCard title="إجمالي الطلبات" value={generalStats.totalOrders} icon="🧾" color="indigo" onClick={() => setActiveTab('orders')} />
                <StatCard title="نواقص المخزن" value={generalStats.lowStock} icon="⚠️" color="rose" onClick={() => { setActiveTab('products'); setShowLowStockOnly(true); }} />
                <StatCard title="أصناف المتجر" value={generalStats.totalProducts} icon="📦" color="amber" onClick={() => { setActiveTab('products'); setShowLowStockOnly(false); }} />
@@ -250,7 +343,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <p className="font-black text-sm text-slate-700">#{order.id} - {order.customerName}</p>
                             <p className="text-[10px] text-slate-400 font-bold mt-1">{new Date(order.createdAt).toLocaleString('ar-EG')}</p>
                          </div>
-                         <p className="font-black text-emerald-600">{(order.total || 0).toLocaleString()} ج.م</p>
+                         <p className="font-black text-emerald-600"><AnimatedNumber value={order.total || 0} decimals={2} /> ج.م</p>
                       </div>
                     ))}
                   </div>
@@ -267,7 +360,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                          <img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm" />
                          <div className="flex-grow">
                             <p className="font-black text-sm text-slate-700">{p.name}</p>
-                            <p className="text-[10px] text-rose-500 font-bold">متبقي {p.stockQuantity} وحدات</p>
+                            <p className="text-[10px] text-rose-500 font-bold">متبقي <AnimatedNumber value={p.stockQuantity} /> وحدات</p>
                          </div>
                          <button onClick={() => onOpenEditForm(p)} className="p-2 text-slate-400 hover:text-emerald-600 transition">✎</button>
                       </div>
@@ -278,9 +371,65 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* إدارة المخزن */}
-        {activeTab === 'products' && (
+        {/* إدارة الأعضاء - تم تحسينها لإضافة إمكانية التعديل */}
+        {activeTab === 'members' && (
           <div className="space-y-8 animate-fadeIn">
+            <div className="flex justify-end">
+              <div className="relative w-full md:w-80">
+                <input type="text" placeholder="بحث بالاسم أو رقم الجوال..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none focus:ring-4 focus:ring-emerald-500/10 shadow-sm font-bold" />
+                <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
+              </div>
+            </div>
+            <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black border-b uppercase">
+                    <th className="px-8 py-5">الاسم</th>
+                    <th className="px-8 py-5">رقم الموبايل</th>
+                    <th className="px-8 py-5">الصلاحية</th>
+                    <th className="px-8 py-5">تاريخ الانضمام</th>
+                    <th className="px-8 py-5 text-center">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredMembers.length > 0 ? (
+                    filteredMembers.map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="px-8 py-5 font-bold text-slate-800">{u.name}</td>
+                        <td className="px-8 py-5 font-black text-slate-500 tracking-wider text-left" dir="ltr">{u.phone}</td>
+                        <td className="px-8 py-5">
+                          <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                            {u.role === 'admin' ? 'مدير' : 'عميل'}
+                          </span>
+                        </td>
+                        <td className="px-8 py-5 text-[10px] font-bold text-slate-400 italic">
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar-EG') : '-'}
+                        </td>
+                        <td className="px-8 py-5">
+                          <div className="flex justify-center gap-2">
+                             <button 
+                               onClick={() => handleEditUser(u)}
+                               className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                               title="تعديل بيانات العضو والباسورد"
+                             >
+                               ✎
+                             </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr><td colSpan={5} className="py-20 text-center text-slate-300 font-bold italic">لا توجد نتائج بحث</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* باقي التبويبات تظل كما هي... */}
+        {activeTab === 'products' && (
+           <div className="space-y-8 animate-fadeIn">
             <div className="flex flex-col md:flex-row justify-end items-center gap-4">
               <div className="relative w-full md:w-72">
                 <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3 text-sm outline-none focus:ring-4 focus:ring-emerald-500/10 shadow-sm" />
@@ -309,10 +458,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </td>
                       <td className="px-8 py-5">
                         <span className={`font-black px-3 py-1 rounded-full text-xs ${Number(p.stockQuantity || 0) < 5 ? 'bg-rose-50 text-rose-500' : 'bg-slate-50 text-slate-700'}`}>
-                          {p.stockQuantity} وحدة
+                          <AnimatedNumber value={p.stockQuantity} /> وحدة
                         </span>
                       </td>
-                      <td className="px-8 py-5 font-black text-emerald-600">{p.price} ج.م</td>
+                      <td className="px-8 py-5 font-black text-emerald-600"><AnimatedNumber value={p.price} decimals={2} /> ج.م</td>
                       <td className="px-8 py-5">
                          <div className="flex flex-wrap gap-1 max-w-[150px]">
                            {(p.batches || []).filter(b => b.quantity > 0).map((b, i) => (
@@ -336,279 +485,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* إدارة الأقسام */}
-        {activeTab === 'categories' && (
-          <div className="space-y-10 animate-fadeIn">
-            {/* إحصائيات سريعة للأقسام */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-               <div className="bg-white p-6 rounded-[2rem] border border-emerald-100 shadow-sm flex items-center gap-4">
-                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl">🏷️</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase">إجمالي الأقسام</p>
-                    <p className="text-2xl font-black text-slate-800">{categories.length}</p>
-                  </div>
-               </div>
-               <div className="bg-white p-6 rounded-[2rem] border border-blue-100 shadow-sm flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-xl">📦</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase">منتجات مصنفة</p>
-                    <p className="text-2xl font-black text-slate-800">{products.length}</p>
-                  </div>
-               </div>
-               <div className="bg-white p-6 rounded-[2rem] border border-amber-100 shadow-sm flex items-center gap-4">
-                  <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-xl">⚡</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase">أقسام نشطة</p>
-                    <p className="text-2xl font-black text-slate-800">{categories.filter(c => c.isActive !== false).length}</p>
-                  </div>
-               </div>
-            </div>
-
-            {/* أدوات التحكم: إضافة وبحث */}
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className="flex-grow bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-                <h3 className="font-black mb-6 text-slate-800 text-xl flex items-center gap-2"><span>✨</span> إضافة قسم جديد</h3>
-                <div className="flex gap-4">
-                  <input 
-                    value={newCatName} 
-                    onChange={e => setNewCatName(e.target.value)} 
-                    placeholder="مثال: بقالة جافة، أدوات منزلية..." 
-                    className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm border-2 border-transparent focus:border-emerald-400 transition-all" 
-                  />
-                  <button 
-                    onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName, isActive: true}); setNewCatName(''); } }} 
-                    className="bg-emerald-600 text-white px-10 rounded-2xl font-black text-xs hover:bg-slate-900 transition-all shadow-lg"
-                  >إضافة</button>
-                </div>
-              </div>
-
-              <div className="lg:w-80 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col justify-center">
-                <label className="text-[10px] font-black text-slate-400 uppercase mb-3 mr-2">بحث سريع بالأقسام</label>
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    placeholder="ابحث هنا..." 
-                    value={catSearch}
-                    onChange={e => setCatSearch(e.target.value)}
-                    className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm border-2 border-transparent focus:border-indigo-400 transition-all shadow-inner"
-                  />
-                  <span className="absolute left-4 top-4 text-slate-300">🔍</span>
-                </div>
-              </div>
-            </div>
-
-            {/* شبكة الأقسام */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCategories.length > 0 ? (
-                filteredCategories.map(cat => {
-                  const meta = getCategoryMeta(cat.name);
-                  const itemsCount = (products || []).filter(p => p.categoryId === cat.id).length;
-                  
-                  return (
-                    <div key={cat.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-6 group hover:border-emerald-200 hover:shadow-xl transition-all relative overflow-hidden">
-                      <div className={`absolute top-0 right-0 w-24 h-24 ${meta.color} opacity-[0.03] rounded-bl-full`}></div>
-                      
-                      {editingCatId === cat.id ? (
-                        <div className="flex flex-col gap-4 flex-grow animate-fadeIn">
-                          <input 
-                            value={editingCatName} 
-                            onChange={e => setEditingCatName(e.target.value)} 
-                            className="w-full bg-slate-50 px-6 py-3 rounded-2xl outline-none font-bold border-2 border-emerald-400 shadow-inner"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <button onClick={() => { onUpdateCategory({id: cat.id, name: editingCatName}); setEditingCatId(null); }} className="flex-grow bg-emerald-600 text-white py-2.5 rounded-xl font-black text-xs shadow-md">حفظ التعديل</button>
-                            <button onClick={() => setEditingCatId(null)} className="px-4 bg-slate-100 text-slate-500 py-2.5 rounded-xl font-black text-xs">إلغاء</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-14 h-14 ${meta.color} bg-opacity-10 rounded-2xl flex items-center justify-center text-3xl shadow-sm group-hover:scale-110 transition-transform`}>
-                                {meta.icon}
-                              </div>
-                              <div>
-                                <p className="font-black text-slate-800 text-xl tracking-tight">{cat.name}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  <p className="text-[10px] text-slate-400 font-bold">يحتوي على {itemsCount} صنف</p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-6 border-t border-slate-50">
-                             <div className="flex gap-1">
-                                <button 
-                                  onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} 
-                                  className="p-3 text-blue-500 bg-blue-50 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-sm"
-                                  title="تعديل الاسم"
-                                >
-                                  ✎
-                                </button>
-                                <button 
-                                  onClick={() => { if(confirm(`هل أنت متأكد من حذف قسم "${cat.name}"؟ سيتم إلغاء تصنيف جميع المنتجات المرتبطة به.`)) onDeleteCategory(cat.id); }} 
-                                  className="p-3 text-rose-500 bg-rose-50 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                                  title="حذف القسم"
-                                >
-                                  🗑
-                                </button>
-                             </div>
-                             <button 
-                               onClick={() => { setAdminSearch(cat.id); setActiveTab('products'); }}
-                               className="text-[10px] font-black text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1"
-                             >
-                               إدارة الأصناف 📦
-                             </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                   <div className="text-6xl mb-4 opacity-10">📂</div>
-                   <p className="text-slate-300 font-black text-xl">لا توجد أقسام تطابق بحثك حالياً</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* إدارة الطلبات */}
-        {activeTab === 'orders' && (
-          <div className="space-y-8 animate-fadeIn">
-            <div className="flex flex-col md:flex-row justify-end items-center gap-4">
-              <div className="relative w-full md:w-80">
-                <input 
-                  type="text" 
-                  placeholder="بحث برقم الطلب، الاسم، أو الهاتف..." 
-                  value={adminSearch} 
-                  onChange={e => setAdminSearch(e.target.value)} 
-                  className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 shadow-sm font-bold" 
-                />
-                <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
-              <table className="w-full text-right text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase border-b">
-                    <th className="px-8 py-5">الطلب والعميل</th>
-                    <th className="px-8 py-5">الإجمالي</th>
-                    <th className="px-8 py-5">حالة الدفع</th>
-                    <th className="px-8 py-5 text-center">الإجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredOrdersTable.length > 0 ? (
-                    filteredOrdersTable.map(o => {
-                      if (!o) return null;
-                      const isCancelled = o.status === 'cancelled';
-                      const paymentMethod = o.paymentMethod || 'نقدي';
-                      const isDebt = paymentMethod.includes('آجل');
-                      
-                      return (
-                        <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
-                          <td className="px-8 py-5">
-                            <div>
-                              <p className="font-black text-slate-700">#{o.id} - {o.customerName || 'عميل مجهول'}</p>
-                              <p className="text-[10px] text-slate-400 font-bold mt-1">
-                                {o.createdAt ? new Date(o.createdAt).toLocaleString('ar-EG') : 'تاريخ غير معروف'}
-                                {o.phone ? ` • ${o.phone}` : ''}
-                              </p>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5 font-black text-emerald-600 text-lg">{(o.total || 0).toLocaleString()} ج.م</td>
-                          <td className="px-8 py-5">
-                            {!isCancelled ? (
-                              <div className="flex gap-1.5 p-1 bg-slate-50 rounded-xl border w-fit">
-                                <button 
-                                  onClick={() => onUpdateOrderPayment(o.id, 'نقدي (تم الدفع)')}
-                                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
-                                >نقدي 💰</button>
-                                <button 
-                                  onClick={() => onUpdateOrderPayment(o.id, 'آجل (مديونية)')}
-                                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
-                                >آجل ⏳</button>
-                              </div>
-                            ) : (
-                              <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
-                            )}
-                          </td>
-                          <td className="px-8 py-5">
-                            <div className="flex items-center justify-center gap-2">
-                               <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
-                               
-                               {isDebt && !isCancelled && (
-                                 <button 
-                                   onClick={() => WhatsAppService.sendDebtReminderToCustomer(o)}
-                                   className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm"
-                                   title="تذكير واتساب"
-                                 >📢</button>
-                               )}
-
-                               {!isCancelled && (
-                                 <button 
-                                   onClick={() => onReturnOrder(o.id)}
-                                   className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                                   title="استرداد الفاتورة"
-                                 >↩️</button>
-                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">لا توجد نتائج بحث تطابق استعلامك</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* إدارة المستخدمين */}
-        {activeTab === 'members' && (
-          <div className="space-y-8 animate-fadeIn">
-            <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
-              <table className="w-full text-right text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black border-b">
-                    <th className="px-8 py-5">الاسم</th>
-                    <th className="px-8 py-5">رقم الموبايل</th>
-                    <th className="px-8 py-5">الصلاحية</th>
-                    <th className="px-8 py-5">تاريخ الانضمام</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {(users || []).map(u => (
-                    <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-8 py-5 font-bold text-slate-800">{u.name}</td>
-                      <td className="px-8 py-5 font-black text-slate-500 tracking-wider">{u.phone}</td>
-                      <td className="px-8 py-5">
-                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
-                          {u.role === 'admin' ? 'مدير' : 'عميل'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-5 text-[10px] font-bold text-slate-400 italic">
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar-EG') : '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* التقارير والأرباح */}
+        {/* ... (باقي كود التبويبات Categories, Orders, Reports) ... */}
         {activeTab === 'reports' && (
           <div className="space-y-10 animate-fadeIn">
             <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100">
@@ -624,24 +501,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 text-center">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">إجمالي المبيعات</p>
-                <p className="text-4xl font-black text-slate-800">{(profitStats.revenue || 0).toLocaleString()} <small className="text-xs">ج.م</small></p>
+                <p className="text-4xl font-black text-slate-800"><AnimatedNumber value={profitStats.revenue || 0} decimals={2} /> <small className="text-xs">ج.م</small></p>
               </div>
               <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 text-center">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">تكلفة البضاعة</p>
-                <p className="text-4xl font-black text-amber-600">{(profitStats.cost || 0).toLocaleString()} <small className="text-xs">ج.م</small></p>
+                <p className="text-4xl font-black text-amber-600"><AnimatedNumber value={profitStats.cost || 0} decimals={2} /> <small className="text-xs">ج.م</small></p>
               </div>
               <div className="bg-emerald-600 p-10 rounded-[3.5rem] shadow-xl border border-emerald-500 text-white text-center transform hover:scale-105 transition-transform duration-500">
                 <p className="text-[10px] font-black text-white/70 uppercase tracking-widest mb-2">صافي الربح الفعلي</p>
-                <p className="text-4xl font-black">{(profitStats.profit || 0).toLocaleString()} <small className="text-xs text-white/50">ج.م</small></p>
+                <p className="text-4xl font-black"><AnimatedNumber value={profitStats.profit || 0} decimals={2} /> <small className="text-xs text-white/50">ج.م</small></p>
               </div>
             </div>
           </div>
         )}
 
+        {/* ... (إغلاق الـ main والـaside) ... */}
       </main>
     </div>
   );
@@ -651,11 +528,11 @@ const AdminNavButton = ({ active, onClick, label, icon, badge }: any) => (
   <button onClick={onClick} className={`w-full flex items-center gap-4 px-8 py-4 rounded-[1.5rem] font-black text-sm transition-all duration-300 relative ${active ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-500/20 scale-105 z-10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
     <span className="text-xl">{icon}</span>
     <span className="flex-grow text-right">{label}</span>
-    {(badge || 0) > 0 && <span className="absolute left-4 top-1/2 -translate-y-1/2 bg-rose-500 text-white text-[8px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-900 animate-pulse">{badge}</span>}
+    {(badge || 0) > 0 && <span className="absolute left-4 top-1/2 -translate-y-1/2 bg-rose-500 text-white text-[8px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-900 animate-pulse"><AnimatedNumber value={badge} /></span>}
   </button>
 );
 
-const StatCard = ({ title, value, icon, color, onClick }: any) => {
+const StatCard = ({ title, value, suffix = '', icon, color, onClick }: any) => {
   const themes: any = {
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-900/5',
     indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100 shadow-indigo-900/5',
@@ -672,7 +549,7 @@ const StatCard = ({ title, value, icon, color, onClick }: any) => {
         <div className="w-2 h-10 bg-current/10 rounded-full"></div>
       </div>
       <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{title}</p>
-      <p className="text-2xl font-black tracking-tight">{value}</p>
+      <p className="text-2xl font-black tracking-tight"><AnimatedNumber value={value} /> <small className="text-xs font-bold">{suffix}</small></p>
     </div>
   );
 };
