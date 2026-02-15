@@ -20,6 +20,7 @@ import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
 import MobileNav from './components/MobileNav.tsx';
 import PullToRefresh from './components/PullToRefresh.tsx';
+import NewOrderPopup from './components/NewOrderPopup.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
@@ -41,6 +42,7 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [newOrdersForPopup, setNewOrdersForPopup] = useState<Order[]>([]);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -63,7 +65,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
-  const prevOrdersCount = useRef<number>(-1);
+  const prevOrderIds = useRef<Set<string>>(new Set());
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('sound_enabled') === 'true';
@@ -79,12 +81,8 @@ const App: React.FC = () => {
 
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled || !audioObj.current) return;
-    
-    // إعادة الصوت للبداية وتشغيله
     audioObj.current.currentTime = 0;
-    audioObj.current.play().catch(err => {
-      console.warn("تنبيه: المتصفح منع تشغيل الصوت تلقائياً. يرجى التفاعل مع الصفحة أولاً.", err);
-    });
+    audioObj.current.play().catch(err => console.warn("Audio play blocked", err));
   }, [soundEnabled]);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
@@ -114,14 +112,19 @@ const App: React.FC = () => {
           const fetchedUsers = await ApiService.getUsers();
           setUsers(fetchedUsers || []);
           
-          // اكتشاف الطلب الجديد
-          if (isSilent && prevOrdersCount.current !== -1 && newOrdersList.length > prevOrdersCount.current) {
-            playNotificationSound();
-            showNotify('🛍️ طلب جديد وصل للمتجر!', 'success');
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          // اكتشاف الطلبات الجديدة فعلياً عبر مقارنة الـ IDs
+          if (isSilent && prevOrderIds.current.size > 0) {
+            const trulyNew = newOrdersList.filter(o => !prevOrderIds.current.has(o.id));
+            if (trulyNew.length > 0) {
+              playNotificationSound();
+              setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
+              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            }
           }
           
-          prevOrdersCount.current = newOrdersList.length;
+          // تحديث قائمة الـ IDs المرجعية
+          const newIds = new Set(newOrdersList.map(o => o.id));
+          prevOrderIds.current = newIds;
         }
         setOrders(newOrdersList);
       }
@@ -161,22 +164,18 @@ const App: React.FC = () => {
       interval = setInterval(() => { loadData(true); }, 15000);
     }
     return () => clearInterval(interval);
-  }, [currentUser?.id, currentUser?.role, soundEnabled]); // إعادة التشغيل عند تغيير حالة الصوت لضمان التزامن
+  }, [currentUser?.id, currentUser?.role, soundEnabled]);
 
   const toggleSound = () => {
     const newState = !soundEnabled;
     setSoundEnabled(newState);
     localStorage.setItem('sound_enabled', newState.toString());
-    
-    // محاولة تشغيل الصوت فوراً لاختباره ومنح الإذن للمتصفح
     if (newState && audioObj.current) {
       audioObj.current.play().then(() => {
         audioObj.current?.pause();
         audioObj.current!.currentTime = 0;
         showNotify('تم تفعيل جرس التنبيهات 🔔');
-      }).catch(() => {
-        showNotify('فشل تفعيل الصوت، اضغط مرة أخرى', 'error');
-      });
+      }).catch(() => showNotify('يرجى التفاعل مع الصفحة أولاً', 'error'));
     } else {
       showNotify('تم إيقاف التنبيهات الصوتية 🔇');
     }
@@ -201,7 +200,7 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setOrders([]);
     setUsers([]);
-    prevOrdersCount.current = -1;
+    prevOrderIds.current = new Set();
     showNotify('تم تسجيل الخروج بنجاح');
     onNavigateAction('store');
   };
@@ -252,6 +251,19 @@ const App: React.FC = () => {
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
       <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-32 md:pb-0'}`}>
+        
+        {/* نافذة الطلبات الجديدة للمدير */}
+        {currentUser?.role === 'admin' && newOrdersForPopup.length > 0 && (
+          <NewOrderPopup 
+            orders={newOrdersForPopup} 
+            onClose={(id) => setNewOrdersForPopup(prev => prev.filter(o => o.id !== id))}
+            onView={(order) => {
+              setLastCreatedOrder(order);
+              onNavigateAction('order-success');
+            }}
+          />
+        )}
+
         {notification && (
           <div className="no-print">
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
