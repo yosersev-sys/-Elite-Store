@@ -22,6 +22,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const [isLoadingSeo, setIsLoadingSeo] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasInitialized = useRef(false); // لمنع إعادة التعيين المتكرر
   
   // حقول إضافة دفعة جديدة
   const [newBatchQty, setNewBatchQty] = useState('');
@@ -49,6 +50,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
+  // تهيئة البيانات (مرة واحدة فقط عند التغيير الحقيقي للمنتج)
   useEffect(() => {
     if (product) {
       setFormData({
@@ -66,20 +68,24 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         batches: product.batches || []
       });
       if (product.seoSettings) setSeoData(product.seoSettings);
-    } else {
+    } else if (!hasInitialized.current) {
+      // فقط للمنتج الجديد وللمرة الأولى فقط
       setFormData(prev => ({
         ...prev,
         categoryId: categories[0]?.id || '',
         unit: 'piece',
         batches: []
       }));
+      hasInitialized.current = true;
     }
-  }, [product, categories]);
+  }, [product]); // إزالة categories من الاعتماديات لمنع مسح البيانات عند تحديثها في الخلفية
 
-  // تحديث إجمالي الكمية عند تغير الدفعات
+  // تحديث إجمالي الكمية عند تغير الدفعات فقط
   useEffect(() => {
     const total = formData.batches.reduce((sum, b) => sum + b.quantity, 0);
-    setFormData(prev => ({ ...prev, stockQuantity: total }));
+    if (total !== formData.stockQuantity) {
+        setFormData(prev => ({ ...prev, stockQuantity: total }));
+    }
   }, [formData.batches]);
 
   const openLibrary = async () => {
@@ -187,7 +193,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     <div className="max-w-6xl mx-auto py-8 px-4 animate-fadeIn pb-32">
       {showScanner && <BarcodeScanner onScan={(code) => setFormData({...formData, barcode: code})} onClose={() => setShowScanner(false)} />}
       
-      {/* مكتبة الصور */}
       {showLibrary && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setShowLibrary(false)}></div>
@@ -210,7 +215,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                </div>
                <button onClick={() => setShowLibrary(false)} className="hidden md:block bg-slate-100 p-2 rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-500 transition">✕</button>
             </div>
-            
             <div className="flex-grow overflow-y-auto no-scrollbar">
               {isLoadingLibrary ? (
                  <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -247,7 +251,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                  </div>
               )}
             </div>
-            
             <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">إجمالي المكتشف: {filteredLibrary.length} صورة</p>
                <button onClick={() => setShowLibrary(false)} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-emerald-600 transition shadow-lg active:scale-95">إغلاق المكتبة</button>
@@ -275,7 +278,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               </h3>
               <button type="button" onClick={openLibrary} className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-xl font-black text-xs hover:bg-emerald-600 hover:text-white transition-all shadow-sm">استخدام من المكتبة 📸</button>
             </div>
-            
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
               {formData.images.map((img, index) => (
                 <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-slate-50 group">
@@ -376,7 +378,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             {formData.batches.length > 0 ? (
               <div className="border border-slate-100 rounded-[2rem] overflow-hidden bg-white shadow-sm">
                  <table className="w-full text-right text-sm">
-                    <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-b">
+                    <thead className="bg-slate-50 text-[8px] md:text-[10px] font-black text-slate-400 uppercase border-b">
                       <tr>
                         <th className="px-8 py-5">تاريخ التوريد</th>
                         <th className="px-8 py-5">الكمية</th>
@@ -420,7 +422,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                    <span className="absolute left-6 top-7 text-emerald-400/50 font-black text-xs uppercase">ج.م</span>
                 </div>
              </div>
-             
              <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                 <div className="bg-emerald-50 p-6 rounded-[2.5rem] border border-emerald-100 flex items-center gap-5">
                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm">📦</div>
