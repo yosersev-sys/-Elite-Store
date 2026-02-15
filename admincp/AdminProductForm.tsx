@@ -53,25 +53,33 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
   // مزامنة البيانات عند فتح المنتج للتحرير
   useEffect(() => {
-    if (product && product.id !== prevProductIdRef.current) {
-      setFormData({
-        name: product.name || '',
-        description: product.description || '',
-        price: product.price?.toString() || '',
-        wholesalePrice: product.wholesalePrice?.toString() || '',
-        categoryId: product.categoryId || '',
-        stockQuantity: product.stockQuantity?.toString() || '0',
-        barcode: product.barcode || '',
-        unit: product.unit || 'piece', 
-        sizes: product.sizes?.join(', ') || '',
-        colors: product.colors?.join(', ') || '',
-        images: product.images || [],
-        batches: product.batches || []
-      });
-      if (product.seoSettings) {
-        setSeoData(product.seoSettings);
+    if (product) {
+      // نتحقق من الـ ID لضمان عدم تكرار التعيين بلا داعي، 
+      // ولكن نسمح بالتحديث إذا كان المنتج جديداً أو مختلفاً
+      if (product.id !== prevProductIdRef.current) {
+        setFormData({
+          name: product.name || '',
+          description: product.description || '',
+          price: product.price?.toString() || '',
+          wholesalePrice: product.wholesalePrice?.toString() || '',
+          categoryId: product.categoryId || '',
+          stockQuantity: product.stockQuantity?.toString() || '0',
+          barcode: product.barcode ? String(product.barcode) : '', // التأكد من تحويل الباركود لنص
+          unit: product.unit || 'piece', 
+          sizes: product.sizes?.join(', ') || '',
+          colors: product.colors?.join(', ') || '',
+          images: product.images || [],
+          batches: product.batches || []
+        });
+        
+        if (product.seoSettings) {
+          setSeoData(product.seoSettings);
+        }
+        prevProductIdRef.current = product.id;
       }
-      prevProductIdRef.current = product.id;
+    } else {
+      // في حالة الإضافة الجديدة
+      prevProductIdRef.current = null;
     }
   }, [product]);
 
@@ -82,7 +90,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   }, [categories, product, formData.categoryId]);
 
   useEffect(() => {
-    const total = formData.batches.reduce((sum, b) => sum + b.quantity, 0);
+    const total = formData.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
     setFormData(prev => ({ ...prev, stockQuantity: total.toString() }));
   }, [formData.batches]);
 
@@ -104,7 +112,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   );
 
   const handleAiDescription = async () => {
-    if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً');
+    if (!formData.name) return alert('يرجى إدخل اسم المنتج أولاً');
     setIsLoadingAi(true);
     const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
     const desc = await generateProductDescription(formData.name, catName);
@@ -140,7 +148,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setFormData(prev => ({
       ...prev,
       batches: [...prev.batches, newBatch],
-      wholesalePrice: price.toString() // تحديث سعر الجملة لآخر سعر تم إدخاله
+      wholesalePrice: price.toString() 
     }));
     setNewBatchQty('');
     setNewBatchPrice('');
