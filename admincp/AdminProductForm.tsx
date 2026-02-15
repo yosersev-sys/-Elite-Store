@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Product, Category, SeoSettings, StockBatch } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Product, Category, SeoSettings } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
 
@@ -25,23 +25,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // حقول إضافة دفعة جديدة
-  const [newBatchQty, setNewBatchQty] = useState('');
-  const [newBatchPrice, setNewBatchPrice] = useState('');
-
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     wholesalePrice: '',
     categoryId: '',
-    stockQuantity: 0,
+    stockQuantity: '0',
     barcode: '',
     unit: 'piece' as 'piece' | 'kg' | 'gram', 
     sizes: '',
     colors: '',
-    images: [] as string[],
-    batches: [] as StockBatch[]
+    images: [] as string[]
   });
 
   const [seoData, setSeoData] = useState<SeoSettings>({
@@ -64,13 +59,12 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         price: product.price.toString(),
         wholesalePrice: (product.wholesalePrice || 0).toString(),
         categoryId: product.categoryId,
-        stockQuantity: product.stockQuantity || 0,
+        stockQuantity: (product.stockQuantity || 0).toString(),
         barcode: product.barcode || '',
         unit: product.unit || 'piece', 
         sizes: product.sizes?.join(', ') || '',
         colors: product.colors?.join(', ') || '',
-        images: product.images || [],
-        batches: product.batches || []
+        images: product.images || []
       });
       if (product.seoSettings) {
         setSeoData(product.seoSettings);
@@ -80,48 +74,50 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       setFormData(prev => ({
         ...prev,
         categoryId: prev.categoryId || categories[0]?.id || '',
-        unit: prev.unit || 'piece',
-        batches: []
+        stockQuantity: prev.stockQuantity === '0' ? '10' : prev.stockQuantity,
+        unit: prev.unit || 'piece'
       }));
     }
     initialSetupDone.current = true;
   }, [product, categories.length]);
 
-  // تحديث إجمالي الكمية عند تغير الدفعات
   useEffect(() => {
-    const total = formData.batches.reduce((sum, b) => sum + b.quantity, 0);
-    setFormData(prev => ({ ...prev, stockQuantity: total }));
-  }, [formData.batches]);
-
-  const handleAddBatch = () => {
-    const qty = parseFloat(newBatchQty);
-    const price = parseFloat(newBatchPrice);
-    if (isNaN(qty) || isNaN(price) || qty <= 0 || price <= 0) {
-      alert("يرجى إدخال كمية وسعر جملة صحيحين");
-      return;
+    if (!isSlugManuallyEdited.current && formData.name) {
+      const generatedSlug = formData.name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-') 
+        .replace(/[^\u0600-\u06FFa-zA-Z0-9-]/g, ''); 
+      
+      setSeoData(prev => ({ ...prev, slug: generatedSlug }));
     }
+  }, [formData.name]);
 
-    const newBatch: StockBatch = {
-      id: 'batch_' + Date.now(),
-      quantity: qty,
-      wholesalePrice: price,
-      createdAt: Date.now()
-    };
-
-    setFormData(prev => ({
-      ...prev,
-      batches: [...prev.batches, newBatch],
-      wholesalePrice: price.toString() // تحديث السعر الحالي لآخر سعر شراء
-    }));
-    setNewBatchQty('');
-    setNewBatchPrice('');
+  const handleOpenLibrary = async () => {
+    setShowLibrary(true);
+    setLibrarySearch('');
+    if (libraryImages.length === 0) {
+      setIsLoadingLibrary(true);
+      const images = await ApiService.getAllImages() as any;
+      // التأكد من أن البيانات تأتي بالتنسيق الجديد {url, productName}
+      setLibraryImages(Array.isArray(images) ? images : []);
+      setIsLoadingLibrary(false);
+    }
   };
 
-  const removeBatch = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      batches: prev.batches.filter(b => b.id !== id)
-    }));
+  const filteredLibrary = useMemo(() => {
+    if (!librarySearch.trim()) return libraryImages;
+    const q = librarySearch.toLowerCase();
+    return libraryImages.filter(img => 
+      img.productName.toLowerCase().includes(q)
+    );
+  }, [libraryImages, librarySearch]);
+
+  const selectFromLibrary = (url: string) => {
+    if (!formData.images.includes(url)) {
+      setFormData(prev => ({ ...prev, images: [...prev.images, url] }));
+    }
+    setShowLibrary(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,6 +134,11 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     });
   };
 
+  const generateRandomBarcode = () => {
+    const random = Math.floor(Math.random() * 9000000000000) + 1000000000000;
+    setFormData(prev => ({ ...prev, barcode: random.toString() }));
+  };
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.images.length === 0) return alert('يرجى إضافة صورة واحدة على الأقل');
@@ -149,13 +150,12 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       price: parseFloat(formData.price) || 0,
       wholesalePrice: parseFloat(formData.wholesalePrice) || 0,
       categoryId: formData.categoryId,
-      stockQuantity: formData.stockQuantity,
+      stockQuantity: parseInt(formData.stockQuantity) || 0,
       barcode: formData.barcode,
       unit: formData.unit,
       sizes: formData.sizes ? formData.sizes.split(',').map(s => s.trim()).filter(s => s !== '') : undefined,
       colors: formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(c => c !== '') : undefined,
       images: formData.images,
-      batches: formData.batches,
       createdAt: product ? product.createdAt : Date.now(),
       salesCount: product ? product.salesCount : 0,
       seoSettings: seoData
@@ -165,175 +165,299 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4 animate-fadeIn pb-20">
-      {showScanner && <BarcodeScanner onScan={(code) => setFormData({...formData, barcode: code})} onClose={() => setShowScanner(false)} />}
+      {showScanner && <BarcodeScanner onScan={(code) => { setFormData({...formData, barcode: code}); setShowScanner(false); }} onClose={() => setShowScanner(false)} />}
       
+      {/* Image Library Modal */}
+      {showLibrary && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md animate-fadeIn" onClick={() => setShowLibrary(false)}></div>
+          <div className="relative bg-white w-full max-w-5xl h-[85vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-slideUp">
+            <div className="p-8 border-b space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر 🖼️</h3>
+                  <p className="text-slate-400 font-bold text-xs">يمكنك البحث عن الصور بواسطة اسم المنتج الذي استخدمت فيه سابقاً</p>
+                </div>
+                <button onClick={() => setShowLibrary(false)} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white transition">✕</button>
+              </div>
+              
+              {/* شريط البحث في المكتبة */}
+              <div className="relative group">
+                <input 
+                  type="text" 
+                  placeholder="ابحث عن صورة باسم المنتج (مثال: طماطم، ساعة...)" 
+                  value={librarySearch}
+                  onChange={e => setLibrarySearch(e.target.value)}
+                  className="w-full px-12 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl outline-none font-bold transition shadow-inner"
+                  autoFocus
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl opacity-30">🔍</span>
+                {librarySearch && (
+                  <button onClick={() => setLibrarySearch('')} className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500 font-black text-xs hover:underline">مسح</button>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex-grow p-8 overflow-y-auto no-scrollbar bg-slate-50/50">
+              {isLoadingLibrary ? (
+                <div className="h-full flex flex-col items-center justify-center gap-4">
+                  <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="font-black text-emerald-600">جاري جلب الصور من السيرفر...</p>
+                </div>
+              ) : filteredLibrary.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                  <span className="text-6xl mb-4">📂</span>
+                  <p className="font-black">لا توجد صور تطابق بحثك حالياً.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  {filteredLibrary.map((item, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => selectFromLibrary(item.url)}
+                      className="group relative bg-white aspect-square rounded-[2rem] overflow-hidden cursor-pointer border-2 border-transparent hover:border-emerald-500 transition-all shadow-sm hover:shadow-xl"
+                    >
+                      <img src={item.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                      
+                      {/* معلومات المنتج أسفل الصورة */}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <p className="text-white text-[9px] font-black line-clamp-1">{item.productName}</p>
+                      </div>
+
+                      <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/10 flex items-center justify-center transition-all">
+                        <span className="bg-white text-emerald-600 px-3 py-1.5 rounded-full text-[10px] font-black shadow-lg opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all">اختيار الصورة</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 bg-white border-t flex justify-between items-center">
+              <p className="text-slate-400 text-xs font-bold">تم العثور على {filteredLibrary.length} صورة</p>
+              <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg hover:bg-emerald-700 active:scale-95 transition">
+                رفع صورة جديدة من جهازك 📤
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
+          <div className="relative bg-white w-full max-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
+            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">هل أنت متأكد؟</h3>
+            <p className="text-slate-500 font-bold text-sm mb-8 leading-relaxed">سيتم فقدان جميع التعديلات التي قمت بها. لا يمكنك التراجع عن هذا الإجراء.</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={onCancel}
+                className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm hover:bg-rose-600 transition shadow-lg active:scale-95"
+              >
+                نعم، إلغاء
+              </button>
+              <button 
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition active:scale-95"
+              >
+                تراجع
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-10 px-2">
         <div>
           <h2 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">
             {product ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد'}
           </h2>
-          <p className="text-slate-500 mt-2 font-medium">نظام الدفعات (FIFO) مفعل لضمان دقة الأرباح</p>
+          <p className="text-slate-500 mt-2 font-medium">قم بتعبئة بيانات المنتج بدقة لضمان أفضل تجربة تسوق</p>
         </div>
-        <button type="button" onClick={() => setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 text-slate-500 px-6 py-2.5 rounded-2xl font-bold">إلغاء</button>
+        <button 
+          type="button"
+          onClick={() => setShowCancelConfirm(true)} 
+          className="bg-white border-2 border-slate-100 text-slate-500 px-4 py-2 md:px-8 md:py-3 rounded-xl md:rounded-2xl font-bold hover:bg-slate-50 transition shadow-sm text-xs md:text-sm"
+        >
+          إلغاء
+        </button>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-10">
-        
-        {/* القسم الأول: الصور والمعلومات الأساسية */}
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
+        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 space-y-10">
           <div className="space-y-6">
-            <h3 className="text-xl font-black text-indigo-600 flex items-center gap-3">
+            <h3 className="text-lg md:text-xl font-black text-indigo-600 flex items-center gap-3">
               <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-sm">01</span>
-              صور المنتج واسمه
+              المعلومات الأساسية والمعرض
             </h3>
             
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
               {formData.images.map((img, index) => (
-                <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-slate-50 group">
+                <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group border-2 border-slate-50 shadow-sm">
                   <img src={img} className="w-full h-full object-cover" alt="" />
-                  <button type="button" onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, i) => i !== index)}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition">✕</button>
+                  <button type="button" onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, i) => i !== index)}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-lg">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                  {index === 0 && <div className="absolute bottom-0 inset-x-0 bg-indigo-600 text-white text-[10px] text-center py-1 font-bold">الرئيسية</div>}
                 </div>
               ))}
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-indigo-400 transition">
-                <span className="text-2xl">+</span>
-                <span className="text-[10px] font-bold">رفع صور</span>
-              </button>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-500">اسم المنتج</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-500">القسم</label>
-                <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition">
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* القسم الثاني: نظام الدفعات والمخزون (FIFO System) */}
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-emerald-50 space-y-10">
-          <div>
-            <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-sm">02</span>
-              إدارة المخزون والدفعات (FIFO)
-            </h3>
-            <p className="text-slate-400 text-xs font-bold mt-2">أضف شحنات جديدة بأسعار جملة مختلفة، سيقوم النظام بحساب الربح بدقة.</p>
-          </div>
-
-          <div className="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100">
-            <h4 className="font-black text-slate-700 mb-4 text-sm">إضافة شحنة (دفعة) جديدة للمخزن:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الكمية الجديدة</label>
-                <input 
-                  type="number" 
-                  value={newBatchQty} 
-                  onChange={e => setNewBatchQty(e.target.value)} 
-                  placeholder="0.00" 
-                  className="w-full px-6 py-3 bg-white border border-emerald-200 rounded-xl outline-none font-bold" 
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">سعر الجملة للقطعة</label>
-                <input 
-                  type="number" 
-                  value={newBatchPrice} 
-                  onChange={e => setNewBatchPrice(e.target.value)} 
-                  placeholder="0.00" 
-                  className="w-full px-6 py-3 bg-white border border-emerald-200 rounded-xl outline-none font-bold" 
-                />
-              </div>
+              
               <button 
                 type="button" 
-                onClick={handleAddBatch} 
-                className="bg-emerald-600 text-white py-3 rounded-xl font-black text-sm hover:bg-emerald-700 transition"
+                onClick={handleOpenLibrary} 
+                className="aspect-square rounded-2xl border-2 border-emerald-100 bg-emerald-50/30 flex flex-col items-center justify-center gap-2 text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50 transition shadow-inner"
               >
-                + تأكيد إضافة الشحنة
+                <span className="text-2xl">🖼️</span>
+                <span className="text-[10px] font-black">اختيار من المكتبة</span>
               </button>
+
+              <button 
+                type="button" 
+                onClick={() => fileInputRef.current?.click()} 
+                className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 hover:bg-indigo-50 transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                <span className="text-[10px] font-bold">رفع صور</span>
+              </button>
+
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="font-black text-slate-800 flex items-center justify-between">
-              <span>الدفعات الحالية في المخزن:</span>
-              <span className="bg-slate-900 text-white px-4 py-1 rounded-full text-xs">إجمالي المخزون: {formData.stockQuantity}</span>
-            </h4>
-            
-            <div className="border border-slate-100 rounded-2xl overflow-hidden">
-              <table className="w-full text-right text-sm">
-                <thead className="bg-slate-50 text-slate-400 font-black uppercase text-[10px]">
-                  <tr>
-                    <th className="px-6 py-4">تاريخ الشحنة</th>
-                    <th className="px-6 py-4">الكمية المتاحة</th>
-                    <th className="px-6 py-4">سعر الجملة</th>
-                    <th className="px-6 py-4">الإجمالي</th>
-                    <th className="px-6 py-4"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {formData.batches.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-10 text-center text-slate-300 font-bold italic">لا توجد دفعات مسجلة حالياً.. يرجى إضافة شحنة</td>
-                    </tr>
-                  ) : (
-                    formData.batches.map((batch, idx) => (
-                      <tr key={batch.id} className={idx === 0 ? 'bg-emerald-50/20' : ''}>
-                        <td className="px-6 py-4 font-bold text-slate-500">
-                          {new Date(batch.createdAt).toLocaleDateString('ar-EG')}
-                          {idx === 0 && <span className="mr-2 text-[8px] bg-emerald-500 text-white px-2 py-0.5 rounded-full">تصرف الآن (FIFO)</span>}
-                        </td>
-                        <td className="px-6 py-4 font-black text-slate-700">{batch.quantity} {formData.unit}</td>
-                        <td className="px-6 py-4 font-black text-indigo-600">{batch.wholesalePrice} ج.م</td>
-                        <td className="px-6 py-4 font-bold text-slate-400">{(batch.quantity * batch.wholesalePrice).toFixed(1)}</td>
-                        <td className="px-6 py-4">
-                          <button type="button" onClick={() => removeBatch(batch.id)} className="text-rose-400 hover:text-rose-600 font-black text-xs">حذف</button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">اسم المنتج</label>
+              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="مثال: ساعة ذكية الترا" />
             </div>
-          </div>
-
-          <div className="pt-6 border-t border-slate-50">
-             <div className="space-y-2 max-w-xs">
-                <label className="text-sm font-bold text-slate-500">سعر البيع للجمهور (ج.م)</label>
-                <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-900 text-emerald-400 text-2xl font-black rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/20" />
-             </div>
-          </div>
-        </section>
-
-        {/* القسم الثالث: الوصف والـ SEO */}
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
-           <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500">وصف المنتج</label>
-              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 min-h-[150px]" placeholder="اكتب وصفاً جذاباً..." />
-           </div>
-
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-slate-50">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-500">Slug (رابط المنتج)</label>
-                <input value={seoData.slug} onChange={e => setSeoData({...seoData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-indigo-600" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-500">الباركود</label>
-                <div className="flex gap-2">
-                   <input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
-                   <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-4 rounded-2xl">📷</button>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">الباركود (رقم المنتج)</label>
+              <div className="relative group">
+                <input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition pr-12" placeholder="628xxxxxxxx" />
+                <div className="absolute left-2 top-2 flex gap-1">
+                  <button type="button" onClick={() => setShowScanner(true)} className="bg-emerald-100 p-2 rounded-xl text-emerald-600 hover:bg-emerald-600 hover:text-white transition" title="فتح الكاميرا للمسح">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+                  <button type="button" onClick={generateRandomBarcode} className="bg-slate-200 px-3 py-2 rounded-xl text-[10px] font-black hover:bg-slate-300 transition">توليد تلقائي</button>
                 </div>
               </div>
-           </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">التصنيف</label>
+              <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition">
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">سعر الجملة (ج.م)</label>
+              <input required type="number" value={formData.wholesalePrice} onChange={e => setFormData({...formData, wholesalePrice: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="0.00" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">سعر البيع (ج.م)</label>
+              <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="0.00" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
+              <div className="flex gap-2">
+                {(['piece', 'kg', 'gram'] as const).map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setFormData({...formData, unit: u})}
+                    className={`flex-grow py-4 rounded-2xl font-black text-sm transition-all border-2 ${formData.unit === u ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-white hover:border-indigo-100'}`}
+                  >
+                    {u === 'piece' ? 'بالقطعة' : u === 'kg' ? 'بالكيلو' : 'بالجرام'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">الكمية المتوفرة في المخزون</label>
+              <input required type="number" min="0" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" placeholder="مثال: 50" />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">الوصف</label>
+              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition min-h-[150px] resize-none" placeholder="اكتب وصفاً جذاباً يشرح مميزات المنتج..." />
+            </div>
+          </div>
         </section>
 
-        <button type="submit" className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-slate-900 transition-all active:scale-95">
-          {product ? 'حفظ كافة التعديلات 💾' : 'نشر المنتج والمخزون 🚀'}
+        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 space-y-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg md:text-xl font-black text-emerald-600 flex items-center gap-3">
+              <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-sm">02</span>
+              تحسين محركات البحث (SEO)
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 flex justify-between">
+                  Meta Title (عنوان البحث)
+                  <span className={`text-[10px] ${seoData.metaTitle.length > 60 ? 'text-red-500' : 'text-slate-400'}`}>
+                    {seoData.metaTitle.length}/60 حرف
+                  </span>
+                </label>
+                <input value={seoData.metaTitle} onChange={e => setSeoData({...seoData, metaTitle: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-300 transition" placeholder="العنوان الذي يظهر في جوجل" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500">Slug (رابط المنتج)</label>
+                <div className="flex items-center bg-slate-50 rounded-2xl px-6 border-2 border-transparent focus-within:border-emerald-300 transition">
+                  <span className="text-slate-400 text-xs font-medium">soqelasr.com/p/</span>
+                  <input 
+                    value={seoData.slug} 
+                    onChange={e => {
+                      setSeoData({...seoData, slug: e.target.value});
+                      isSlugManuallyEdited.current = true;
+                    }} 
+                    className="flex-grow py-4 bg-transparent outline-none text-emerald-700 font-bold" 
+                    placeholder="رابط-المنتج" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 flex justify-between">
+                  Meta Description (وصف البحث)
+                  <span className={`text-[10px] ${seoData.metaDescription.length > 160 ? 'text-red-500' : 'text-slate-400'}`}>
+                    {seoData.metaDescription.length}/160 حرف
+                  </span>
+                </label>
+                <textarea value={seoData.metaDescription} onChange={e => setSeoData({...seoData, metaDescription: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-300 transition min-h-[120px] resize-none" placeholder="وصف مخلص يظهر أسفل العنوان في جوجل..." />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500">Keywords (كلمات مفتاحية - مفصولة بفاصلة)</label>
+                <input value={seoData.metaKeywords} onChange={e => setSeoData({...seoData, metaKeywords: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-300 transition" placeholder="مثال: ساعة، ذكية، تقنية، عروض" />
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <label className="text-sm font-bold text-slate-500">معاينة نتيجة البحث (Google Preview)</label>
+              <div className="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-sm space-y-2 max-w-lg">
+                <div className="flex items-center gap-2 text-[12px] text-slate-500">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold">S</div>
+                  <span dir="ltr">soqelasr.com › p › {seoData.slug || '...'}</span>
+                </div>
+                <h4 className="text-[20px] text-[#1a0dab] hover:underline cursor-pointer font-medium leading-tight">
+                  {seoData.metaTitle || (formData.name ? `${formData.name} | سوق العصر` : 'عنوان المنتج يظهر هنا')}
+                </h4>
+                <p className="text-[14px] text-[#4d5156] leading-relaxed line-clamp-2">
+                  <span className="text-slate-500">{new Date().toLocaleDateString('ar-SA')} — </span>
+                  {seoData.metaDescription || 'هذا الوصف سيظهر للعملاء عند بحثهم عن المنتج في محرك بحث جوجل.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <button type="submit" className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-xl md:text-2xl shadow-2xl hover:bg-indigo-600 transition-all duration-500 transform hover:-translate-y-2 active:scale-95">
+          {product ? 'حفظ كافة التغييرات' : 'نشر المنتج الآن 🚀'}
         </button>
       </form>
     </div>

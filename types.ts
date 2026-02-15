@@ -22,19 +22,12 @@ export interface Category {
   sortOrder?: number;
 }
 
-export interface StockBatch {
-  id: string;
-  quantity: number;
-  wholesalePrice: number;
-  createdAt: number;
-}
-
 export interface Product {
   id: string;
   name: string;
   description: string;
   price: number; 
-  wholesalePrice: number; // السعر الافتراضي أو لآخر دفعة
+  wholesalePrice: number; 
   categoryId: string;
   images: string[];
   sizes?: string[]; 
@@ -45,14 +38,12 @@ export interface Product {
   createdAt: number;
   salesCount?: number;
   seoSettings?: SeoSettings;
-  batches?: StockBatch[]; // مصفوفة الدفعات الجديدة
 }
 
 export interface CartItem extends Product {
   quantity: number;
   selectedSize?: string;
   selectedColor?: string;
-  actualWholesalePrice?: number; // السعر الذي تم الحساب عليه فعلياً عند البيع
 }
 
 export interface Order {
