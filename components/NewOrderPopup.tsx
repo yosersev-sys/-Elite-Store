@@ -14,6 +14,7 @@ const NewOrderPopup: React.FC<NewOrderPopupProps> = ({ orders, onClose, onView }
 
   // نعرض أحدث طلب وصل في القائمة
   const order = orders[0];
+  const isQuickInvoice = order.id.startsWith('INV-') || order.id.startsWith('OFF-');
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-fadeIn">
@@ -21,15 +22,19 @@ const NewOrderPopup: React.FC<NewOrderPopupProps> = ({ orders, onClose, onView }
       
       <div className="relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border border-white/20 overflow-hidden animate-slideUp">
         {/* Header Section */}
-        <div className="bg-emerald-600 p-6 text-white relative">
-          <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">🛍️</div>
+        <div className={`${isQuickInvoice ? 'bg-indigo-600' : 'bg-emerald-600'} p-6 text-white relative`}>
+          <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">{isQuickInvoice ? '🧾' : '🛍️'}</div>
           <div className="flex items-center gap-4 relative z-10">
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl animate-bounce">
-              🔥
+              {isQuickInvoice ? '⚡' : '🔥'}
             </div>
             <div>
-              <h3 className="text-xl font-black">وصل طلب جديد الآن!</h3>
-              <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest">رقم الفاتورة: #{order.id}</p>
+              <h3 className="text-xl font-black">
+                {isQuickInvoice ? 'فاتورة سريعة جديدة!' : 'وصل طلب جديد الآن!'}
+              </h3>
+              <p className={`${isQuickInvoice ? 'text-indigo-100' : 'text-emerald-100'} text-[10px] font-bold uppercase tracking-widest`}>
+                {isQuickInvoice ? 'بيان فوري' : 'طلب من المتجر'} : #{order.id}
+              </p>
             </div>
           </div>
         </div>
@@ -40,16 +45,23 @@ const NewOrderPopup: React.FC<NewOrderPopupProps> = ({ orders, onClose, onView }
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase mb-1">العميل</p>
               <p className="text-xl font-black text-slate-800">{order.customerName}</p>
-              <p className="text-emerald-600 font-bold text-sm">{order.phone}</p>
+              <p className={`${isQuickInvoice ? 'text-indigo-600' : 'text-emerald-600'} font-bold text-sm`}>{order.phone}</p>
             </div>
             <div className="text-left">
               <p className="text-[10px] font-black text-slate-400 uppercase mb-1">إجمالي الفاتورة</p>
-              <p className="text-2xl font-black text-emerald-600">{order.total.toLocaleString()} ج.م</p>
+              <p className={`text-2xl font-black ${isQuickInvoice ? 'text-indigo-600' : 'text-emerald-600'}`}>
+                {order.total.toLocaleString()} ج.م
+              </p>
             </div>
           </div>
 
           <div className="space-y-3">
-             <p className="text-[10px] font-black text-slate-400 uppercase px-2">الأصناف المطلوبة</p>
+             <div className="flex items-center justify-between px-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase">الأصناف المطلوبة</p>
+                <span className={`px-3 py-1 rounded-full text-[8px] font-black text-white ${isQuickInvoice ? 'bg-indigo-500' : 'bg-emerald-500'}`}>
+                  {isQuickInvoice ? 'فاتورة سريعة' : 'طلب سلة'}
+                </span>
+             </div>
              <div className="max-h-40 overflow-y-auto no-scrollbar space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                {order.items.map((item, idx) => (
                  <div key={idx} className="flex items-center justify-between gap-3 text-sm">
@@ -77,7 +89,7 @@ const NewOrderPopup: React.FC<NewOrderPopupProps> = ({ orders, onClose, onView }
             </button>
             <button 
               onClick={() => WhatsAppService.sendOrderNotification(order, order.phone)}
-              className="bg-emerald-100 text-emerald-700 py-4 rounded-2xl font-black text-xs hover:bg-emerald-200 transition-all active:scale-95"
+              className={`${isQuickInvoice ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'} py-4 rounded-2xl font-black text-xs transition-all active:scale-95`}
             >
               تواصل واتساب 💬
             </button>

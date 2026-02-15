@@ -112,7 +112,7 @@ const App: React.FC = () => {
           const fetchedUsers = await ApiService.getUsers();
           setUsers(fetchedUsers || []);
           
-          // اكتشاف الطلبات الجديدة فعلياً عبر مقارنة الـ IDs
+          // اكتشاف الطلبات الجديدة فعلياً (سواء كانت ORD- أو INV-)
           if (isSilent && prevOrderIds.current.size > 0) {
             const trulyNew = newOrdersList.filter(o => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
@@ -122,7 +122,7 @@ const App: React.FC = () => {
             }
           }
           
-          // تحديث قائمة الـ IDs المرجعية
+          // تحديث قائمة الـ IDs المرجعية لضمان عدم تكرار التنبيه
           const newIds = new Set(newOrdersList.map(o => o.id));
           prevOrderIds.current = newIds;
         }
@@ -252,7 +252,7 @@ const App: React.FC = () => {
     <PullToRefresh onRefresh={() => loadData(true)}>
       <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-32 md:pb-0'}`}>
         
-        {/* نافذة الطلبات الجديدة للمدير */}
+        {/* نافذة الطلبات الجديدة للمدير - تظهر لجميع أنواع الطلبات */}
         {currentUser?.role === 'admin' && newOrdersForPopup.length > 0 && (
           <NewOrderPopup 
             orders={newOrdersForPopup} 
@@ -384,7 +384,15 @@ const App: React.FC = () => {
                   setLastCreatedOrder(order);
                   const isOffline = order.id.startsWith('OFF-');
                   showNotify(isOffline ? 'تم حفظ الطلب محلياً (أوفلاين)' : 'تم إرسال الطلب بنجاح');
-                  if (!isOffline) WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                  
+                  if (!isOffline) {
+                    WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                    // إذا كان المستخدم هو من أنشأ الفاتورة السريعة، نرسل إشعار للمدير أيضاً
+                    if (view === 'quick-invoice') {
+                      WhatsAppService.sendOrderNotification(order, adminPhone);
+                    }
+                  }
+                  
                   await loadData();
                   onNavigateAction('order-success');
                 } else {
