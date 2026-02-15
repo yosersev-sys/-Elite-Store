@@ -112,7 +112,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return (
         o.id.toLowerCase().includes(q) ||
         (o.customerName && o.customerName.toLowerCase().includes(q)) ||
-        (o.phone && o.phone.includes(q))
+        (o.phone && o.phone.includes(q)) ||
+        (o.paymentMethod && o.paymentMethod.toLowerCase().includes(q)) // إضافة البحث في طريقة الدفع (لتمكين فلاتر الآجل)
       );
     });
   }, [orders, adminSearch]);
@@ -214,7 +215,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
                 <button 
-                  onClick={() => { setActiveTab('orders'); setAdminSearch('آجل'); }}
+                  onClick={() => { setAdminSearch('آجل'); setActiveTab('orders'); }}
                   className="bg-white text-orange-600 px-8 py-3.5 rounded-2xl font-black text-xs shadow-lg hover:bg-slate-900 hover:text-white transition-all active:scale-95 whitespace-nowrap"
                 >
                   مراجعة وتحصيل الديون الآن ←
