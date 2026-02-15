@@ -177,11 +177,17 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     onSubmit(productData);
   };
 
+  const getUnitAr = (u: string) => {
+    if (u === 'kg') return 'كيلو';
+    if (u === 'gram') return 'جرام';
+    return 'وحدة';
+  };
+
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 animate-fadeIn pb-32">
       {showScanner && <BarcodeScanner onScan={(code) => setFormData({...formData, barcode: code})} onClose={() => setShowScanner(false)} />}
       
-      {/* مكتبة الصور المحدثة مع البحث */}
+      {/* مكتبة الصور */}
       {showLibrary && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setShowLibrary(false)}></div>
@@ -320,67 +326,115 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        {/* القسم الثاني: نظام الدفعات (FIFO) */}
-        <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-emerald-50 space-y-10">
-          <div>
+        {/* القسم الثاني: نظام الدفعات (FIFO) المطور */}
+        <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-emerald-50 space-y-10 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">
               <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-sm">02</span>
               إدارة المخزون والدفعات (FIFO)
             </h3>
-          </div>
-
-          <div className="bg-emerald-50/50 p-8 rounded-[2.5rem] border border-emerald-100">
-            <h4 className="font-black text-slate-700 mb-6">إضافة شحنة جديدة للمخزن:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الكمية الجديدة</label>
-                <input type="number" value={newBatchQty} onChange={e => setNewBatchQty(e.target.value)} placeholder="0.00" className="w-full px-6 py-3.5 bg-white border border-emerald-200 rounded-2xl outline-none font-bold" />
+            <div className="flex gap-4">
+              <div className="bg-slate-50 px-6 py-3 rounded-2xl border border-slate-100 text-center">
+                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">الكمية القديمة</p>
+                 <p className="text-lg font-black text-slate-600">{(product?.stockQuantity || 0)} {getUnitAr(formData.unit)}</p>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">سعر الجملة للقطعة</label>
-                <input type="number" value={newBatchPrice} onChange={e => setNewBatchPrice(e.target.value)} placeholder="0.00" className="w-full px-6 py-3.5 bg-white border border-emerald-200 rounded-2xl outline-none font-bold" />
+              <div className="bg-emerald-600 px-6 py-3 rounded-2xl border border-emerald-500 text-center shadow-lg shadow-emerald-200">
+                 <p className="text-[9px] font-black text-emerald-100 uppercase tracking-widest">إجمالي المخزون الجديد</p>
+                 <p className="text-lg font-black text-white">{formData.stockQuantity} {getUnitAr(formData.unit)}</p>
               </div>
-              <button type="button" onClick={handleAddBatch} className="bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-900 transition-all shadow-lg">تأكيد إضافة الشحنة +</button>
             </div>
           </div>
 
-          {formData.batches.length > 0 && (
-            <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
-               <table className="w-full text-right text-sm">
-                  <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-b">
-                    <tr>
-                      <th className="px-8 py-5">التاريخ</th>
-                      <th className="px-8 py-5">الكمية</th>
-                      <th className="px-8 py-5">سعر الجملة</th>
-                      <th className="px-8 py-5"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {formData.batches.map(batch => (
-                      <tr key={batch.id}>
-                        <td className="px-8 py-4 font-bold text-slate-500">{new Date(batch.createdAt).toLocaleDateString('ar-EG')}</td>
-                        <td className="px-8 py-4 font-black">{batch.quantity} {formData.unit === 'piece' ? 'وحدة' : formData.unit === 'kg' ? 'كيلو' : 'جرام'}</td>
-                        <td className="px-8 py-4 font-black text-indigo-600">{batch.wholesalePrice} ج.م</td>
-                        <td className="px-8 py-4 text-left">
-                          <button type="button" onClick={() => setFormData(prev => ({...prev, batches: prev.batches.filter(b => b.id !== batch.id)}))} className="text-rose-400 font-black">حذف</button>
-                        </td>
+          <div className="bg-gradient-to-br from-emerald-50 to-white p-8 md:p-10 rounded-[2.5rem] border border-emerald-100 relative">
+            <div className="absolute top-0 left-10 transform -translate-y-1/2">
+               <span className="bg-emerald-600 text-white px-4 py-1 rounded-full text-[10px] font-black">توريد جديد +</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 uppercase mr-2 block tracking-widest">الكمية الواردة</label>
+                <div className="relative">
+                  <input type="number" value={newBatchQty} onChange={e => setNewBatchQty(e.target.value)} placeholder="0.00" className="w-full px-6 py-4 bg-white border-2 border-emerald-100 rounded-2xl outline-none font-black text-emerald-700 text-lg focus:border-emerald-500 transition-all shadow-sm" />
+                  <span className="absolute left-4 top-4 text-emerald-300 font-bold">{getUnitAr(formData.unit)}</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 uppercase mr-2 block tracking-widest">سعر الجملة للوحدة</label>
+                <div className="relative">
+                  <input type="number" value={newBatchPrice} onChange={e => setNewBatchPrice(e.target.value)} placeholder="0.00" className="w-full px-6 py-4 bg-white border-2 border-emerald-100 rounded-2xl outline-none font-black text-emerald-700 text-lg focus:border-emerald-500 transition-all shadow-sm" />
+                  <span className="absolute left-4 top-4 text-emerald-300 font-bold text-xs">ج.م</span>
+                </div>
+              </div>
+              <button type="button" onClick={handleAddBatch} className="bg-emerald-600 text-white py-5 rounded-2xl font-black text-base hover:bg-slate-900 transition-all shadow-xl shadow-emerald-200 active:scale-95">تأكيد الإضافة للمخزن</button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="font-black text-slate-700 px-4 flex items-center gap-2">
+              <span className="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
+              سجل الدفعات الحالية (أولاً بأول)
+            </h4>
+            {formData.batches.length > 0 ? (
+              <div className="border border-slate-100 rounded-[2rem] overflow-hidden bg-white shadow-sm">
+                 <table className="w-full text-right text-sm">
+                    <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-b">
+                      <tr>
+                        <th className="px-8 py-5">تاريخ التوريد</th>
+                        <th className="px-8 py-5">الكمية</th>
+                        <th className="px-8 py-5">سعر الجملة</th>
+                        <th className="px-8 py-5">القيمة الإجمالية</th>
+                        <th className="px-8 py-5"></th>
                       </tr>
-                    ))}
-                  </tbody>
-               </table>
-            </div>
-          )}
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {formData.batches.map(batch => (
+                        <tr key={batch.id} className="hover:bg-slate-50 transition-colors group">
+                          <td className="px-8 py-4 font-bold text-slate-500">
+                             <div className="flex items-center gap-2">
+                               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                               {new Date(batch.createdAt).toLocaleDateString('ar-EG')}
+                             </div>
+                          </td>
+                          <td className="px-8 py-4 font-black text-slate-700">{batch.quantity} {getUnitAr(formData.unit)}</td>
+                          <td className="px-8 py-4 font-black text-indigo-600">{batch.wholesalePrice} ج.م</td>
+                          <td className="px-8 py-4 font-bold text-slate-400">{(batch.quantity * batch.wholesalePrice).toFixed(2)} ج.م</td>
+                          <td className="px-8 py-4 text-left">
+                            <button type="button" onClick={() => setFormData(prev => ({...prev, batches: prev.batches.filter(b => b.id !== batch.id)}))} className="text-rose-400 font-black opacity-0 group-hover:opacity-100 transition-opacity hover:text-rose-600">حذف الشحنة ×</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                 </table>
+              </div>
+            ) : (
+              <div className="text-center py-12 border-2 border-dashed border-slate-100 rounded-[2.5rem] bg-slate-50/30">
+                 <p className="text-slate-300 font-black text-sm">لا توجد دفعات مسجلة.. قم بإضافة أول شحنة أعلاه</p>
+              </div>
+            )}
+          </div>
 
-          <div className="pt-8 border-t border-slate-50 flex flex-col md:flex-row gap-8 items-end">
-             <div className="w-full md:w-64 space-y-2">
-                <label className="text-sm font-bold text-slate-500 mr-2">سعر البيع الحالي (ج.م)</label>
-                <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-8 py-5 bg-slate-900 text-emerald-400 text-2xl font-black rounded-[2rem] outline-none shadow-xl" />
+          <div className="pt-10 border-t border-slate-50 flex flex-col md:flex-row gap-10 items-end">
+             <div className="w-full md:w-80 space-y-3">
+                <label className="text-[10px] font-black text-slate-500 uppercase mr-4 block tracking-widest">تحديد سعر البيع للجمهور (ج.م)</label>
+                <div className="relative">
+                   <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-10 py-6 bg-slate-900 text-emerald-400 text-3xl font-black rounded-[2.5rem] outline-none shadow-2xl border-4 border-slate-800 focus:border-emerald-500/30 transition-all" />
+                   <span className="absolute left-6 top-7 text-emerald-400/50 font-black text-xs uppercase">ج.م</span>
+                </div>
              </div>
-             <div className="flex-grow flex items-center gap-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm">📦</div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي المخزون الحالي</p>
-                  <p className="text-xl font-black text-slate-800">{formData.stockQuantity} {formData.unit === 'piece' ? 'وحدة' : formData.unit === 'kg' ? 'كيلو' : 'جرام'}</p>
+             
+             <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                <div className="bg-emerald-50 p-6 rounded-[2.5rem] border border-emerald-100 flex items-center gap-5">
+                   <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm">📦</div>
+                   <div>
+                     <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">المخزون الكلي</p>
+                     <p className="text-2xl font-black text-slate-800 leading-none mt-1">{formData.stockQuantity} <small className="text-xs">{getUnitAr(formData.unit)}</small></p>
+                   </div>
+                </div>
+                <div className="bg-indigo-50 p-6 rounded-[2.5rem] border border-indigo-100 flex items-center gap-5">
+                   <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-3xl shadow-sm">💰</div>
+                   <div>
+                     <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">آخر تكلفة توريد</p>
+                     <p className="text-2xl font-black text-slate-800 leading-none mt-1">{formData.wholesalePrice || 0} <small className="text-xs">ج.م</small></p>
+                   </div>
                 </div>
              </div>
           </div>
