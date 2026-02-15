@@ -117,6 +117,12 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setIsLoadingSeo(false);
   };
 
+  const handleGenerateBarcode = () => {
+    // توليد رقم عشوائي مكون من 13 رقماً (شبيه بـ EAN-13)
+    const randomCode = Math.floor(Math.random() * 9000000000000) + 1000000000000;
+    setFormData(prev => ({ ...prev, barcode: randomCode.toString() }));
+  };
+
   const handleAddBatch = () => {
     const qty = parseFloat(newBatchQty);
     const price = parseFloat(newBatchPrice);
@@ -331,7 +337,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <label className="text-sm font-bold text-slate-500 mr-2">باركود المنتج</label>
               <div className="flex gap-2">
                  <input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold shadow-inner" placeholder="أدخل الكود أو امسح بالكاميرا" />
-                 <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-5 rounded-2xl hover:bg-emerald-600 transition shadow-lg">📷</button>
+                 <button type="button" onClick={handleGenerateBarcode} className="bg-indigo-600 text-white px-5 rounded-2xl hover:bg-slate-900 transition shadow-lg" title="توليد باركود تلقائي">✨</button>
+                 <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-5 rounded-2xl hover:bg-emerald-600 transition shadow-lg" title="مسح باركود بالكاميرا">📷</button>
               </div>
             </div>
           </div>
