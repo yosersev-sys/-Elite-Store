@@ -34,6 +34,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
+  const [catSearch, setCatSearch] = useState(''); // بحث خاص بالأقسام
   const [newCatName, setNewCatName] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   
@@ -43,7 +44,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
 
-  // نصوص العناوين حسب التبويب
   const tabTitles: Record<AdminTab, string> = {
     stats: 'نظرة عامة على النشاط',
     products: 'إدارة مخزون الأصناف',
@@ -54,7 +54,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     settings: 'إعدادات النظام'
   };
 
-  // حساب الأرباح (FIFO)
   const profitStats = useMemo(() => {
     try {
       const start = new Date(reportStart).setHours(0, 0, 0, 0);
@@ -78,7 +77,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   }, [orders, reportStart, reportEnd]);
 
-  // إحصائيات عامة
   const generalStats = useMemo(() => {
     const activeOrders = (orders || []).filter(o => o && o.status !== 'cancelled');
     const totalSales = activeOrders.reduce((s, o) => s + Number(o.total || 0), 0);
@@ -86,7 +84,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return { totalSales, lowStock: lowStockItems.length, totalOrders: (orders || []).length, totalProducts: (products || []).length };
   }, [products, orders]);
 
-  // تصفية المنتجات
   const filteredProductsTable = useMemo(() => {
     return (products || []).filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || (p.barcode && p.barcode.includes(adminSearch));
@@ -95,7 +92,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [products, adminSearch, showLowStockOnly]);
 
-  // تصفية الطلبات
   const filteredOrdersTable = useMemo(() => {
     const q = adminSearch.toLowerCase().trim();
     if (!q) return orders || [];
@@ -108,6 +104,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       );
     });
   }, [orders, adminSearch]);
+
+  // تصفية الأقسام بناءً على البحث
+  const filteredCategories = useMemo(() => {
+    return (categories || []).filter(c => 
+      c.name.toLowerCase().includes(catSearch.toLowerCase())
+    );
+  }, [categories, catSearch]);
+
+  const getCategoryMeta = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('سوبر ماركت')) return { icon: '🛒', color: 'bg-emerald-500', text: 'text-emerald-600' };
+    if (n.includes('خضروات')) return { icon: '🥦', color: 'bg-green-500', text: 'text-green-600' };
+    if (n.includes('فواكه')) return { icon: '🍎', color: 'bg-rose-500', text: 'text-rose-600' };
+    if (n.includes('ألبان')) return { icon: '🥛', color: 'bg-sky-500', text: 'text-sky-600' };
+    return { icon: '📦', color: 'bg-slate-500', text: 'text-slate-600' };
+  };
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[2.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
@@ -129,7 +141,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <nav className="space-y-2 flex-grow overflow-y-auto no-scrollbar">
           <AdminNavButton active={activeTab === 'stats'} onClick={() => { setActiveTab('stats'); setAdminSearch(''); }} label="الإحصائيات" icon="📊" />
           <AdminNavButton active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setShowLowStockOnly(false); setAdminSearch(''); }} label="المخزن" icon="📦" badge={generalStats.lowStock > 0 ? generalStats.lowStock : undefined} />
-          <AdminNavButton active={activeTab === 'categories'} onClick={() => { setActiveTab('categories'); setAdminSearch(''); }} label="الأقسام" icon="🏷️" />
+          <AdminNavButton active={activeTab === 'categories'} onClick={() => { setActiveTab('categories'); setCatSearch(''); }} label="الأقسام" icon="🏷️" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => { setActiveTab('orders'); setAdminSearch(''); }} label="الطلبات" icon="🛍️" />
           <AdminNavButton active={activeTab === 'members'} onClick={() => { setActiveTab('members'); setAdminSearch(''); }} label="الأعضاء" icon="👥" />
           <AdminNavButton active={activeTab === 'reports'} onClick={() => { setActiveTab('reports'); setAdminSearch(''); }} label="الأرباح" icon="📈" />
@@ -141,14 +153,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       <main className="flex-grow p-6 md:p-12 bg-slate-50/50 overflow-y-auto no-scrollbar">
         
-        {/* رأس موحد يظهر في كل الصفحات */}
         <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 animate-fadeIn">
            <div>
              <h3 className="text-3xl font-black text-slate-800 tracking-tight">{tabTitles[activeTab]}</h3>
              <p className="text-slate-400 text-sm font-bold mt-1">سوق العصر - لوحة تحكم الإدارة v4.2</p>
            </div>
            
-           {/* أزرار العمليات السريعة - تظهر في كل الصفحات */}
            <div className="flex gap-3 w-full md:w-auto">
              <button 
                onClick={onOpenInvoiceForm} 
@@ -167,8 +177,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
            </div>
         </div>
 
-        {/* محتوى التبويبات */}
-        
         {/* صفحة الإحصائيات */}
         {activeTab === 'stats' && (
           <div className="space-y-10 animate-fadeIn">
@@ -278,6 +286,148 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
+        {/* إدارة الأقسام - النسخة المحسنة */}
+        {activeTab === 'categories' && (
+          <div className="space-y-10 animate-fadeIn">
+            {/* إحصائيات سريعة للأقسام */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               <div className="bg-white p-6 rounded-[2rem] border border-emerald-100 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl">🏷️</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase">إجمالي الأقسام</p>
+                    <p className="text-2xl font-black text-slate-800">{categories.length}</p>
+                  </div>
+               </div>
+               <div className="bg-white p-6 rounded-[2rem] border border-blue-100 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-xl">📦</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase">منتجات مصنفة</p>
+                    <p className="text-2xl font-black text-slate-800">{products.length}</p>
+                  </div>
+               </div>
+               <div className="bg-white p-6 rounded-[2rem] border border-amber-100 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-xl">⚡</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase">أقسام نشطة</p>
+                    <p className="text-2xl font-black text-slate-800">{categories.filter(c => c.isActive !== false).length}</p>
+                  </div>
+               </div>
+            </div>
+
+            {/* أدوات التحكم: إضافة وبحث */}
+            <div className="flex flex-col lg:flex-row gap-6">
+              <div className="flex-grow bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50">
+                <h3 className="font-black mb-6 text-slate-800 text-xl flex items-center gap-2"><span>✨</span> إضافة قسم جديد</h3>
+                <div className="flex gap-4">
+                  <input 
+                    value={newCatName} 
+                    onChange={e => setNewCatName(e.target.value)} 
+                    placeholder="مثال: بقالة جافة، أدوات منزلية..." 
+                    className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm border-2 border-transparent focus:border-emerald-400 transition-all" 
+                  />
+                  <button 
+                    onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName, isActive: true}); setNewCatName(''); } }} 
+                    className="bg-emerald-600 text-white px-10 rounded-2xl font-black text-xs hover:bg-slate-900 transition-all shadow-lg"
+                  >إضافة</button>
+                </div>
+              </div>
+
+              <div className="lg:w-80 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col justify-center">
+                <label className="text-[10px] font-black text-slate-400 uppercase mb-3 mr-2">بحث سريع بالأقسام</label>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    placeholder="ابحث هنا..." 
+                    value={catSearch}
+                    onChange={e => setCatSearch(e.target.value)}
+                    className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm border-2 border-transparent focus:border-indigo-400 transition-all shadow-inner"
+                  />
+                  <span className="absolute left-4 top-4 text-slate-300">🔍</span>
+                </div>
+              </div>
+            </div>
+
+            {/* شبكة الأقسام */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCategories.length > 0 ? (
+                filteredCategories.map(cat => {
+                  const meta = getCategoryMeta(cat.name);
+                  const itemsCount = (products || []).filter(p => p.categoryId === cat.id).length;
+                  
+                  return (
+                    <div key={cat.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-6 group hover:border-emerald-200 hover:shadow-xl transition-all relative overflow-hidden">
+                      {/* خلفية جمالية خفيفة */}
+                      <div className={`absolute top-0 right-0 w-24 h-24 ${meta.color} opacity-[0.03] rounded-bl-full`}></div>
+                      
+                      {editingCatId === cat.id ? (
+                        <div className="flex flex-col gap-4 flex-grow animate-fadeIn">
+                          <input 
+                            value={editingCatName} 
+                            onChange={e => setEditingCatName(e.target.value)} 
+                            className="w-full bg-slate-50 px-6 py-3 rounded-2xl outline-none font-bold border-2 border-emerald-400 shadow-inner"
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={() => { onUpdateCategory({id: cat.id, name: editingCatName}); setEditingCatId(null); }} className="flex-grow bg-emerald-600 text-white py-2.5 rounded-xl font-black text-xs shadow-md">حفظ التعديل</button>
+                            <button onClick={() => setEditingCatId(null)} className="px-4 bg-slate-100 text-slate-500 py-2.5 rounded-xl font-black text-xs">إلغاء</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-14 h-14 ${meta.color} bg-opacity-10 rounded-2xl flex items-center justify-center text-3xl shadow-sm group-hover:scale-110 transition-transform`}>
+                                {meta.icon}
+                              </div>
+                              <div>
+                                <p className="font-black text-slate-800 text-xl tracking-tight">{cat.name}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                  <p className="text-[10px] text-slate-400 font-bold">يحتوي على {itemsCount} صنف</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-6 border-t border-slate-50">
+                             <div className="flex gap-1">
+                                <button 
+                                  onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} 
+                                  className="p-3 text-blue-500 bg-blue-50 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                                  title="تعديل الاسم"
+                                >
+                                  ✎
+                                </button>
+                                <button 
+                                  onClick={() => { if(confirm(`هل أنت متأكد من حذف قسم "${cat.name}"؟ سيتم إلغاء تصنيف جميع المنتجات المرتبطة به.`)) onDeleteCategory(cat.id); }} 
+                                  className="p-3 text-rose-500 bg-rose-50 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                                  title="حذف القسم"
+                                >
+                                  🗑
+                                </button>
+                             </div>
+                             <button 
+                               onClick={() => { setAdminSearch(cat.id); setActiveTab('products'); }}
+                               className="text-[10px] font-black text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1"
+                             >
+                               إدارة الأصناف 📦
+                             </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+                   <div className="text-6xl mb-4 opacity-10">📂</div>
+                   <p className="text-slate-300 font-black text-xl">لا توجد أقسام تطابق بحثك حالياً</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* إدارة الطلبات */}
         {activeTab === 'orders' && (
           <div className="space-y-8 animate-fadeIn">
@@ -371,42 +521,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   )}
                 </tbody>
               </table>
-            </div>
-          </div>
-        )}
-
-        {/* إدارة الأقسام */}
-        {activeTab === 'categories' && (
-          <div className="space-y-10 animate-fadeIn">
-            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 max-w-2xl">
-              <h3 className="font-black mb-6 text-slate-800 text-xl">إضافة قسم تجاري جديد</h3>
-              <div className="flex gap-4">
-                <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="مثال: بقالة جافة..." className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
-                <button onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName}); setNewCatName(''); } }} className="bg-emerald-600 text-white px-10 rounded-2xl font-black text-xs">إضافة</button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(categories || []).map(cat => (
-                <div key={cat.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all">
-                  {editingCatId === cat.id ? (
-                    <div className="flex items-center gap-2 flex-grow">
-                      <input value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="flex-grow bg-slate-50 px-4 py-2 rounded-xl outline-none font-bold" />
-                      <button onClick={() => { onUpdateCategory({id: cat.id, name: editingCatName}); setEditingCatId(null); }} className="p-2 bg-emerald-600 text-white rounded-xl">✓</button>
-                    </div>
-                  ) : (
-                    <>
-                      <div>
-                        <p className="font-black text-slate-800 text-lg">{cat.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold mt-1">الأصناف: {(products || []).filter(p => p.categoryId === cat.id).length}</p>
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                        <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} className="p-2 text-blue-400 bg-blue-50 rounded-xl">✎</button>
-                        <button onClick={() => onDeleteCategory(cat.id)} className="p-2 text-rose-400 bg-rose-50 rounded-xl">🗑</button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
         )}
