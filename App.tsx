@@ -455,13 +455,12 @@ const App: React.FC = () => {
           )}
         </main>
 
-        <div className="no-print">
-          {!isAdminView && (
+        {!isAdminView && (
+          <div className="no-print">
             <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={view !== 'cart' && view !== 'checkout'} />
-          )}
-          {/* السماح لزر الفاتورة السريعة بالظهور في لوحة التحكم أيضاً */}
-          <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
-        </div>
+            <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
+          </div>
+        )}
 
         {currentUser?.role === 'admin' && view !== 'admin' && (
           <div className="no-print">
