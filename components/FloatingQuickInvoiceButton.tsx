@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { View } from '../types';
 
@@ -7,11 +8,11 @@ interface FloatingQuickInvoiceButtonProps {
 }
 
 const FloatingQuickInvoiceButton: React.FC<FloatingQuickInvoiceButtonProps> = ({ currentView, onNavigate }) => {
-  // لا يظهر الزر إذا كنا بالفعل في صفحة الفاتورة أو لوحة التحكم
-  if (currentView === 'quick-invoice' || currentView === 'admin' || currentView === 'admin-invoice') return null;
+  // يختفي الزر فقط إذا كنا بالفعل "داخل" عملية إنشاء الفاتورة أو شاشة الدخول
+  if (currentView === 'quick-invoice' || currentView === 'admin-invoice' || currentView === 'admin-auth' || currentView === 'checkout') return null;
 
   return (
-    <div className="hidden md:block fixed bottom-32 right-12 z-50 group">
+    <div className={`hidden md:block fixed z-50 group ${currentView === 'admin' ? 'bottom-8 right-8' : 'bottom-32 right-12'}`}>
       {/* التلميح (Tooltip) */}
       <div className="absolute bottom-full right-0 mb-4 px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-2xl">
         إنشاء فاتورة سريعة 🧾
@@ -21,7 +22,7 @@ const FloatingQuickInvoiceButton: React.FC<FloatingQuickInvoiceButtonProps> = ({
       {/* الزر الرئيسي */}
       <button
         onClick={() => onNavigate('quick-invoice')}
-        className="relative w-16 h-16 bg-white text-emerald-600 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.1)] flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all duration-500 transform hover:scale-110 active:scale-90 border-2 border-emerald-50 overflow-visible"
+        className={`relative w-16 h-16 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.1)] flex items-center justify-center transition-all duration-500 transform hover:scale-110 active:scale-90 border-2 overflow-visible ${currentView === 'admin' ? 'bg-emerald-600 text-white border-white shadow-emerald-500/20' : 'bg-white text-emerald-600 border-emerald-50'}`}
         aria-label="Quick Invoice"
       >
         <span className="text-3xl">🧾</span>
