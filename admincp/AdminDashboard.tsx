@@ -429,6 +429,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </td>
                           <td className="px-8 py-5">
                             <div className="flex items-center justify-center gap-2">
+                               <button 
+                                 onClick={() => WhatsAppService.sendInvoiceToCustomer(o, o.phone)} 
+                                 className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" 
+                                 title="إرسال الفاتورة عبر واتساب"
+                               >
+                                 📱
+                               </button>
                                <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
                                {!isCancelled && (
                                  <button onClick={() => onReturnOrder(o.id)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="استرداد">↩️</button>
