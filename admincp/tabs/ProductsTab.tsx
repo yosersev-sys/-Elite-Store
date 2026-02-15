@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, Category } from '../../types';
 
 interface ProductsTabProps {
@@ -12,12 +12,29 @@ interface ProductsTabProps {
 }
 
 const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSearch, setAdminSearch, onOpenEditForm, onDeleteProduct }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // تصفير الصفحة عند تغيير البحث
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [adminSearch]);
+
   const filteredProducts = useMemo(() => {
+    const q = adminSearch.toLowerCase().trim();
     return products.filter(p => 
-      p.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
-      (p.barcode && String(p.barcode).includes(adminSearch))
+      p.name.toLowerCase().includes(q) || 
+      (p.barcode && String(p.barcode).includes(q)) ||
+      p.id.toLowerCase().includes(q)
     );
   }, [products, adminSearch]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(start, start + itemsPerPage);
+  }, [filteredProducts, currentPage]);
 
   return (
     <div className="space-y-8">
@@ -28,11 +45,12 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
             placeholder="بحث بالاسم أو الباركود..." 
             value={adminSearch} 
             onChange={e => setAdminSearch(e.target.value)} 
-            className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none shadow-sm font-bold" 
+            className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none shadow-sm font-bold focus:ring-4 focus:ring-emerald-500/10 transition-all" 
           />
           <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
         </div>
       </div>
+
       <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-right text-sm">
           <thead>
@@ -41,38 +59,105 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
               <th className="px-8 py-5">القسم</th>
               <th className="px-8 py-5">المخزون</th>
               <th className="px-8 py-5">السعر</th>
-              <th className="px-8 py-5">الإجراء</th>
+              <th className="px-8 py-5 text-center">الإجراء</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {filteredProducts.map(p => (
-              <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-8 py-5">
-                  <div className="flex items-center gap-4">
-                    <img src={p.images[0]} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
-                    <p className="font-bold text-slate-700">{p.name}</p>
-                  </div>
-                </td>
-                <td className="px-8 py-5 text-slate-400 font-bold">
-                  {categories.find(c => c.id === p.categoryId)?.name || 'عام'}
-                </td>
-                <td className="px-8 py-5">
-                  <span className={`font-black px-3 py-1 rounded-full text-xs ${Number(p.stockQuantity || 0) < 5 ? 'bg-rose-50 text-rose-500' : 'bg-slate-50 text-slate-700'}`}>
-                    {p.stockQuantity} وحدة
-                  </span>
-                </td>
-                <td className="px-8 py-5 font-black text-emerald-600">{p.price} ج.م</td>
-                <td className="px-8 py-5">
-                  <div className="flex gap-2">
-                    <button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-blue-50 rounded-xl">✎</button>
-                    <button onClick={() => { if(confirm('حذف المنتج؟')) onDeleteProduct(p.id) }} className="p-2 text-rose-500 bg-rose-50 rounded-xl">🗑</button>
-                  </div>
+            {paginatedProducts.length > 0 ? (
+              paginatedProducts.map(p => (
+                <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-100 shadow-sm shrink-0">
+                        <img src={p.images[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                      </div>
+                      <div>
+                        <p className="font-black text-slate-700">{p.name}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">ID: {p.id}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-[10px] font-black">
+                      {categories.find(c => c.id === p.categoryId)?.name || 'عام'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className={`font-black px-3 py-1 rounded-full text-xs ${Number(p.stockQuantity || 0) < 5 ? 'bg-rose-50 text-rose-500 animate-pulse' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {p.stockQuantity} {p.unit === 'kg' ? 'كيلو' : p.unit === 'gram' ? 'جرام' : 'قطعة'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 font-black text-slate-900 text-lg">
+                    {p.price.toLocaleString()} <small className="text-[10px] text-emerald-600">ج.م</small>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex justify-center gap-2">
+                      <button 
+                        onClick={() => onOpenEditForm(p)} 
+                        className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                        title="تعديل المنتج"
+                      >
+                        ✎
+                      </button>
+                      <button 
+                        onClick={() => { if(confirm('حذف المنتج نهائياً من المخزن؟')) onDeleteProduct(p.id) }} 
+                        className="p-2.5 text-rose-500 bg-rose-50 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                        title="حذف المنتج"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="px-8 py-20 text-center text-slate-300 font-bold italic">
+                  لا توجد منتجات مطابقة للبحث
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
+
+      {/* أدوات التحكم بالترقيم (Pagination UI) */}
+      {totalPages > 1 && (
+        <div className="flex flex-col md:flex-row items-center justify-between px-8 py-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm gap-4">
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            عرض الصفحة {currentPage} من أصل {totalPages} صفحات
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              disabled={currentPage === 1}
+              onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({top: 0, behavior: 'smooth'}); }}
+              className="p-3 bg-slate-50 text-slate-400 rounded-xl disabled:opacity-30 hover:bg-emerald-50 hover:text-emerald-600 transition-all font-black text-xs"
+            >
+              السابق 🡒
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({length: totalPages}, (_, i) => i + 1).map(num => (
+                <button 
+                  key={num}
+                  onClick={() => { setCurrentPage(num); window.scrollTo({top: 0, behavior: 'smooth'}); }}
+                  className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${currentPage === num ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                >
+                  {num}
+                </button>
+              )).slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2))}
+            </div>
+
+            <button 
+              disabled={currentPage === totalPages}
+              onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({top: 0, behavior: 'smooth'}); }}
+              className="p-3 bg-slate-50 text-slate-400 rounded-xl disabled:opacity-30 hover:bg-emerald-50 hover:text-emerald-600 transition-all font-black text-xs"
+            >
+              🡐 التالي
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
