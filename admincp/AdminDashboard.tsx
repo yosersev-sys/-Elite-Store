@@ -34,7 +34,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
-  const [catSearch, setCatSearch] = useState(''); // بحث خاص بالأقسام
+  const [catSearch, setCatSearch] = useState(''); 
   const [newCatName, setNewCatName] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   
@@ -82,7 +82,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const totalSales = activeOrders.reduce((s, o) => s + Number(o.total || 0), 0);
     const lowStockItems = (products || []).filter(p => Number(p.stockQuantity || 0) < 5);
     
-    // حساب مديونيات الآجل
     const debtOrders = activeOrders.filter(o => o.paymentMethod && o.paymentMethod.includes('آجل'));
     const totalDebtAmount = debtOrders.reduce((s, o) => s + Number(o.total || 0), 0);
 
@@ -113,7 +112,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         o.id.toLowerCase().includes(q) ||
         (o.customerName && o.customerName.toLowerCase().includes(q)) ||
         (o.phone && o.phone.includes(q)) ||
-        (o.paymentMethod && o.paymentMethod.toLowerCase().includes(q)) // إضافة البحث في طريقة الدفع (لتمكين فلاتر الآجل)
+        (o.paymentMethod && o.paymentMethod.toLowerCase().includes(q))
       );
     });
   }, [orders, adminSearch]);
@@ -160,16 +159,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminNavButton active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setAdminSearch(''); }} label="الإعدادات" icon="🛠️" />
         </nav>
 
-        {/* زر التنبيه الصوتي في الشريط الجانبي */}
-        <button 
-          onClick={onToggleSound} 
-          className={`mt-4 w-full flex items-center justify-between px-6 py-4 rounded-2xl font-black text-xs transition-all border ${soundEnabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}
-        >
-          <span>تنبيه الطلبات 🔔</span>
-          <span className={`px-2 py-0.5 rounded-lg text-[8px] ${soundEnabled ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-slate-500'}`}>
-            {soundEnabled ? 'مفعل' : 'صامت'}
-          </span>
-        </button>
+        {/* زر التنبيه الصوتي - تم تحسينه ليكون أكثر بروزاً */}
+        <div className="mt-4 p-4 bg-slate-800/50 rounded-3xl border border-slate-700/50">
+          <p className="text-[9px] font-black text-slate-500 uppercase mb-2 mr-2">جرس التنبيه للطلبات</p>
+          <button 
+            onClick={onToggleSound} 
+            className={`w-full flex items-center justify-between px-5 py-3.5 rounded-2xl font-black text-xs transition-all border-2 ${soundEnabled ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-700 text-slate-400 border-slate-600'}`}
+          >
+            <span className="flex items-center gap-2">
+              {soundEnabled ? '🔔 مفعل' : '🔕 معطل'}
+            </span>
+            <div className={`w-10 h-5 rounded-full relative transition-colors ${soundEnabled ? 'bg-emerald-500' : 'bg-slate-500'}`}>
+              <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${soundEnabled ? 'right-6' : 'right-1'}`}></div>
+            </div>
+          </button>
+          {!soundEnabled && (
+            <p className="text-[8px] text-amber-500 font-bold mt-2 text-center">اضغط لتفعيل الصوت لضمان سماع الطلبات الجديدة</p>
+          )}
+        </div>
 
         <button onClick={onLogout} className="mt-4 w-full bg-rose-500/10 text-rose-500 py-4 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all duration-300">تسجيل الخروج 👋</button>
       </aside>
@@ -329,7 +336,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* إدارة الأقسام - النسخة المحسنة */}
+        {/* إدارة الأقسام */}
         {activeTab === 'categories' && (
           <div className="space-y-10 animate-fadeIn">
             {/* إحصائيات سريعة للأقسام */}
@@ -399,7 +406,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   
                   return (
                     <div key={cat.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-6 group hover:border-emerald-200 hover:shadow-xl transition-all relative overflow-hidden">
-                      {/* خلفية جمالية خفيفة */}
                       <div className={`absolute top-0 right-0 w-24 h-24 ${meta.color} opacity-[0.03] rounded-bl-full`}></div>
                       
                       {editingCatId === cat.id ? (

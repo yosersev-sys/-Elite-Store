@@ -23,8 +23,8 @@ import PullToRefresh from './components/PullToRefresh.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
-// رابط صوت تنبيه أكثر وضوحاً وموثوقية
-const NOTIFICATION_SOUND_URL = 'https://raw.githubusercontent.com/shun-li/Ding-Sound/master/ding.mp3';
+// رابط صوت تنبيه عالي الوضوح
+const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const App: React.FC = () => {
   const getInitialView = (): View => {
@@ -63,22 +63,28 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
-  const prevOrdersCount = useRef<number>(-1); // نستخدم -1 لضمان عدم التنبيه عند أول تحميل
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const prevOrdersCount = useRef<number>(-1);
+  const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(() => {
-    return localStorage.getItem('sound_enabled') !== 'false';
+    return localStorage.getItem('sound_enabled') === 'true';
   });
 
+  // تهيئة كائن الصوت
   useEffect(() => {
-    localStorage.setItem('sound_enabled', soundEnabled.toString());
-  }, [soundEnabled]);
+    if (!audioObj.current) {
+      audioObj.current = new Audio(NOTIFICATION_SOUND_URL);
+      audioObj.current.load();
+    }
+  }, []);
 
   const playNotificationSound = useCallback(() => {
-    if (!soundEnabled) return;
-    if (!audioRef.current) {
-      audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
-    }
-    audioRef.current.play().catch(e => console.warn("Audio play blocked by browser. Need user interaction first."));
+    if (!soundEnabled || !audioObj.current) return;
+    
+    // إعادة الصوت للبداية وتشغيله
+    audioObj.current.currentTime = 0;
+    audioObj.current.play().catch(err => {
+      console.warn("تنبيه: المتصفح منع تشغيل الصوت تلقائياً. يرجى التفاعل مع الصفحة أولاً.", err);
+    });
   }, [soundEnabled]);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
@@ -108,11 +114,10 @@ const App: React.FC = () => {
           const fetchedUsers = await ApiService.getUsers();
           setUsers(fetchedUsers || []);
           
-          // اكتشاف الطلب الجديد (فقط إذا كان التحميل صامتاً والعدد زاد)
+          // اكتشاف الطلب الجديد
           if (isSilent && prevOrdersCount.current !== -1 && newOrdersList.length > prevOrdersCount.current) {
             playNotificationSound();
-            showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
-            // اهتزاز الموبايل إذا كان مدعوماً
+            showNotify('🛍️ طلب جديد وصل للمتجر!', 'success');
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
           }
           
@@ -153,11 +158,29 @@ const App: React.FC = () => {
   useEffect(() => {
     let interval: any;
     if (currentUser?.role === 'admin') {
-      // فحص كل 15 ثانية بدلاً من 20 لزيادة السرعة
       interval = setInterval(() => { loadData(true); }, 15000);
     }
     return () => clearInterval(interval);
-  }, [currentUser?.id, currentUser?.role]);
+  }, [currentUser?.id, currentUser?.role, soundEnabled]); // إعادة التشغيل عند تغيير حالة الصوت لضمان التزامن
+
+  const toggleSound = () => {
+    const newState = !soundEnabled;
+    setSoundEnabled(newState);
+    localStorage.setItem('sound_enabled', newState.toString());
+    
+    // محاولة تشغيل الصوت فوراً لاختباره ومنح الإذن للمتصفح
+    if (newState && audioObj.current) {
+      audioObj.current.play().then(() => {
+        audioObj.current?.pause();
+        audioObj.current!.currentTime = 0;
+        showNotify('تم تفعيل جرس التنبيهات 🔔');
+      }).catch(() => {
+        showNotify('فشل تفعيل الصوت، اضغط مرة أخرى', 'error');
+      });
+    } else {
+      showNotify('تم إيقاف التنبيهات الصوتية 🔇');
+    }
+  };
 
   const onNavigateAction = (v: View) => {
     if ((v === 'profile' || v === 'my-orders') && !currentUser) {
@@ -314,7 +337,7 @@ const App: React.FC = () => {
               onUpdateOrderPayment={handleUpdateOrderPayment}
               onReturnOrder={handleReturnOrder}
               soundEnabled={soundEnabled}
-              onToggleSound={() => setSoundEnabled(!soundEnabled)}
+              onToggleSound={toggleSound}
               onLogout={handleLogout}
             />
           )}
