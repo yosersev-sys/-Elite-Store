@@ -2,6 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr - Batch System Edition (FIFO)
+ * Updated with Auto-Migration System
  */
 session_start();
 error_reporting(E_ALL); 
@@ -30,11 +31,44 @@ function isAdmin() {
 }
 
 function initDatabase($pdo) {
+    // 1. إنشاء الجداول الأساسية إذا لم تكن موجودة
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive BOOLEAN DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), wholesalePrice DECIMAL(10,2) DEFAULT 0, categoryId VARCHAR(50), images LONGTEXT, sizes TEXT, colors TEXT, stockQuantity INT DEFAULT 0, unit VARCHAR(20) DEFAULT 'piece', createdAt BIGINT, salesCount INT DEFAULT 0, seoSettings TEXT, barcode VARCHAR(100), batches LONGTEXT)");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), city VARCHAR(100), address TEXT, total DECIMAL(10,2), subtotal DECIMAL(10,2), items LONGTEXT, paymentMethod VARCHAR(50), status VARCHAR(20), createdAt BIGINT, userId VARCHAR(50))");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), categoryId VARCHAR(50), images LONGTEXT, createdAt BIGINT)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), total DECIMAL(10,2), items LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
+
+    // 2. نظام التحديث التلقائي (Migration) للأعمدة الناقصة
+    $columnsToAdd = [
+        'products' => [
+            'wholesalePrice' => "DECIMAL(10,2) DEFAULT 0 AFTER price",
+            'stockQuantity'  => "INT DEFAULT 0 AFTER categoryId",
+            'unit'           => "VARCHAR(20) DEFAULT 'piece' AFTER stockQuantity",
+            'barcode'        => "VARCHAR(100) AFTER unit",
+            'batches'        => "LONGTEXT AFTER barcode",
+            'seoSettings'    => "TEXT AFTER batches",
+            'salesCount'     => "INT DEFAULT 0 AFTER createdAt",
+            'sizes'          => "TEXT AFTER images",
+            'colors'         => "TEXT AFTER sizes"
+        ],
+        'orders' => [
+            'city'           => "VARCHAR(100) AFTER phone",
+            'address'        => "TEXT AFTER city",
+            'subtotal'       => "DECIMAL(10,2) AFTER address",
+            'paymentMethod'  => "VARCHAR(50) AFTER items",
+            'status'         => "VARCHAR(20) AFTER paymentMethod",
+            'userId'         => "VARCHAR(50) AFTER createdAt"
+        ]
+    ];
+
+    foreach ($columnsToAdd as $table => $columns) {
+        $existingColumns = $pdo->query("DESCRIBE $table")->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($columns as $colName => $definition) {
+            if (!in_array($colName, $existingColumns)) {
+                $pdo->exec("ALTER TABLE $table ADD COLUMN $colName $definition");
+            }
+        }
+    }
 }
 
 $action = $_GET['action'] ?? '';
