@@ -345,6 +345,8 @@ const App: React.FC = () => {
                   showNotify('تم حفظ البيانات بنجاح! ✨');
                   await loadData();
                   onNavigateAction('admin');
+                } else {
+                  showNotify('عذراً، فشل الاتصال بالسيرفر أو تكرار باركود', 'error');
                 }
               }}
               onCancel={() => onNavigateAction('admin')}
