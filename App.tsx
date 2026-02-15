@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User } from './types.ts';
 import Header from './components/Header.tsx';
@@ -65,7 +66,7 @@ const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // تسجيل الـ Service Worker للعمل أوفلاين
+  // تسجيل الـ Service Worker
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -78,18 +79,16 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // مراقبة الاتصال للمزامنة
   useEffect(() => {
     const handleOnline = async () => {
       if (currentUser?.role === 'admin') {
         const synced = await ApiService.syncOfflineOrders();
         if (synced > 0) {
-          showNotify(`تمت مزامنة ${synced} فاتورة كانت في وضع الانتظار بنجاح! 📡`, 'success');
+          showNotify(`تمت مزامنة ${synced} فاتورة بنجاح! 📡`, 'success');
           loadData(true);
         }
       }
     };
-
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
   }, [currentUser?.role]);
@@ -106,56 +105,7 @@ const App: React.FC = () => {
     setNotification({ message, type });
   };
 
-  const triggerFlyAnimation = (startRect: DOMRect, imageUrl: string) => {
-    const flyEl = document.createElement('div');
-    flyEl.style.position = 'fixed';
-    flyEl.style.left = `${startRect.left}px`;
-    flyEl.style.top = `${startRect.top}px`;
-    flyEl.style.width = `${startRect.width}px`;
-    flyEl.style.height = `${startRect.height}px`;
-    flyEl.style.backgroundImage = `url(${imageUrl})`;
-    flyEl.style.backgroundSize = 'cover';
-    flyEl.style.backgroundPosition = 'center';
-    flyEl.style.borderRadius = '20px';
-    flyEl.style.zIndex = '9999';
-    flyEl.style.pointerEvents = 'none';
-    flyEl.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
-    flyEl.style.transition = 'all 0.8s cubic-bezier(0.42, 0, 0.58, 1)';
-    document.body.appendChild(flyEl);
-
-    const cartBtn = document.getElementById('floating-cart-btn') || document.querySelector('.mobile-cart-btn');
-    
-    setTimeout(() => {
-      let tx = window.innerWidth - 80;
-      let ty = window.innerHeight - 80;
-
-      if (cartBtn) {
-        const rect = cartBtn.getBoundingClientRect();
-        tx = rect.left + rect.width / 2;
-        ty = rect.top + rect.height / 2;
-      }
-
-      flyEl.style.left = `${tx}px`;
-      flyEl.style.top = `${ty}px`;
-      flyEl.style.width = '20px';
-      flyEl.style.height = '20px';
-      flyEl.style.opacity = '0';
-      flyEl.style.transform = 'scale(0.1) rotate(720deg)';
-    }, 10);
-
-    setTimeout(() => {
-      flyEl.remove();
-      if (cartBtn) {
-        cartBtn.classList.add('animate-ping-once');
-        setTimeout(() => cartBtn.classList.remove('animate-ping-once'), 500);
-      }
-    }, 800);
-  };
-
   const addToCart = (product: Product, startRect?: DOMRect) => {
-    if (startRect && product.images && product.images[0]) {
-      triggerFlyAnimation(startRect, product.images[0]);
-    }
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -190,37 +140,28 @@ const App: React.FC = () => {
   const loadData = async (isSilent: boolean = false) => {
     try {
       if (!isSilent) setIsLoading(true);
-      
       const user = await ApiService.getCurrentUser();
       setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
-      
       const adminInfo = await ApiService.getAdminPhone();
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
-
       const fetchedProducts = await ApiService.getProducts();
       setProducts(fetchedProducts || []);
-      
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
-      
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
         const newOrdersList = fetchedOrders || [];
-        
         if (user.role === 'admin') {
           const fetchedUsers = await ApiService.getUsers();
           setUsers(fetchedUsers || []);
-
           if (isSilent && newOrdersList.length > prevOrdersCount.current && prevOrdersCount.current > 0) {
             playNotificationSound();
             showNotify('وصل طلب جديد للمتجر! 🛍️', 'success');
           }
         }
-        
         setOrders(newOrdersList);
         prevOrdersCount.current = newOrdersList.length;
       }
-
       if (!isSilent) syncViewWithHash(user);
     } catch (err) {
       console.error("Data loading error:", err);
@@ -229,9 +170,7 @@ const App: React.FC = () => {
     }
   };
 
-  useEffect(() => { 
-    loadData(); 
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
     const handleHashChange = () => syncViewWithHash(currentUser);
@@ -242,9 +181,7 @@ const App: React.FC = () => {
   useEffect(() => {
     let interval: any;
     if (currentUser?.role === 'admin') {
-      interval = setInterval(() => {
-        loadData(true); 
-      }, 20000);
+      interval = setInterval(() => { loadData(true); }, 20000);
     }
     return () => clearInterval(interval);
   }, [currentUser?.id, currentUser?.role]);
@@ -254,7 +191,6 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
-
     setView(v);
     if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
        if (!window.location.hash.includes('admincp')) window.location.hash = '#/admincp';
@@ -281,6 +217,17 @@ const App: React.FC = () => {
       loadData(true);
     } else {
       showNotify('فشل تحديث حالة الدفع', 'error');
+    }
+  };
+
+  const handleReturnOrder = async (id: string) => {
+    if (!confirm('هل أنت متأكد من استرداد هذه الفاتورة؟ سيتم إعادة الكميات للمخزن وإلغاء الربح.')) return;
+    const res = await ApiService.returnOrder(id);
+    if (res.status === 'success') {
+      showNotify('تم استرداد الفاتورة بنجاح ↩️');
+      loadData(true);
+    } else {
+      showNotify(res.message || 'فشل عملية الاسترداد', 'error');
     }
   };
 
@@ -381,6 +328,7 @@ const App: React.FC = () => {
                 onNavigateAction('order-success');
               }}
               onUpdateOrderPayment={handleUpdateOrderPayment}
+              onReturnOrder={handleReturnOrder}
               soundEnabled={soundEnabled}
               onToggleSound={() => setSoundEnabled(!soundEnabled)}
               onLogout={handleLogout}
@@ -409,9 +357,7 @@ const App: React.FC = () => {
               initialCustomerName={currentUser ? currentUser.name : 'عميل زائر'}
               initialPhone={currentUser ? currentUser.phone : ''}
               onSubmit={async (order) => {
-                if (currentUser) {
-                  order.userId = currentUser.id;
-                }
+                if (currentUser) order.userId = currentUser.id;
                 const success = await ApiService.saveOrder(order);
                 if (success) {
                   setLastCreatedOrder(order);
@@ -470,7 +416,6 @@ const App: React.FC = () => {
                   paymentMethod: details.paymentMethod || 'عند الاستلام',
                   userId: currentUser?.id || null
                 };
-                
                 const success = await ApiService.saveOrder(newOrder);
                 if (success) {
                   setLastCreatedOrder(newOrder);
@@ -512,15 +457,8 @@ const App: React.FC = () => {
 
         {!isAdminView && (
           <div className="no-print">
-            <FloatingCartButton 
-              count={cart.length} 
-              onClick={() => onNavigateAction('cart')} 
-              isVisible={view !== 'cart' && view !== 'checkout'}
-            />
-            <FloatingQuickInvoiceButton 
-              currentView={view}
-              onNavigate={onNavigateAction}
-            />
+            <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={view !== 'cart' && view !== 'checkout'} />
+            <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
           </div>
         )}
 
@@ -548,34 +486,6 @@ const App: React.FC = () => {
             </footer>
           </div>
         )}
-        
-        <style>{`
-          @keyframes ping-once {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.3); }
-            100% { transform: scale(1); }
-          }
-          .animate-ping-once {
-            animation: ping-once 0.5s ease-out;
-          }
-          @media print {
-            .no-print {
-              display: none !important;
-            }
-            body {
-              background: white !important;
-            }
-            main {
-              padding-top: 0 !important;
-              margin: 0 !important;
-            }
-            .print-full-width {
-              max-width: 100% !important;
-              width: 100% !important;
-              padding: 0 !important;
-            }
-          }
-        `}</style>
       </div>
     </PullToRefresh>
   );

@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Product, Category, Order, User } from '../types';
 import { ApiService } from '../services/api';
+import { WhatsAppService } from '../services/whatsappService';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -18,6 +19,7 @@ interface AdminDashboardProps {
   onDeleteCategory: (id: string) => void;
   onViewOrder: (order: Order) => void;
   onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
+  onReturnOrder: (id: string) => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
   onLogout: () => void;
@@ -28,12 +30,12 @@ type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 're
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, categories, orders, users, onOpenAddForm, onOpenEditForm, onOpenInvoiceForm, 
   onDeleteProduct, onAddCategory, onUpdateCategory, onDeleteCategory,
-  onViewOrder, onLogout
+  onViewOrder, onUpdateOrderPayment, onReturnOrder, onLogout
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
   const [newCatName, setNewCatName] = useState('');
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false); // حالة تصفية النواقص
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   
   // تواريخ التقارير
   const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]); 
@@ -48,12 +50,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       const start = new Date(reportStart).setHours(0, 0, 0, 0);
       const end = new Date(reportEnd).setHours(23, 59, 59, 999);
-
       const periodOrders = (orders || []).filter(o => {
         const d = Number(o.createdAt);
         return d >= start && d <= end && o.status !== 'cancelled';
       });
-
       let revenue = 0;
       let cost = 0;
       periodOrders.forEach(order => {
@@ -62,7 +62,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           cost += (Number(item.actualWholesalePrice) || Number(item.wholesalePrice) || 0) * (Number(item.quantity) || 0);
         });
       });
-
       return { revenue, cost, profit: revenue - cost };
     } catch (e) {
       return { revenue: 0, cost: 0, profit: 0 };
@@ -77,7 +76,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return { totalSales, lowStock: lowStockItems.length, totalOrders: (orders || []).length, totalProducts: (products || []).length };
   }, [products, orders]);
 
-  // تصفية المنتجات في جدول المخزن
+  // تصفية المنتجات
   const filteredProductsTable = useMemo(() => {
     return (products || []).filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(adminSearch.toLowerCase()) || (p.barcode && p.barcode.includes(adminSearch));
@@ -135,14 +134,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                <StatCard title="إجمالي المبيعات" value={`${generalStats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" />
                <StatCard title="إجمالي الطلبات" value={generalStats.totalOrders} icon="🧾" color="indigo" onClick={() => setActiveTab('orders')} />
-               {/* كارت النواقص - الضغط عليه يفتح المخزن مع تصفية النواقص */}
-               <StatCard 
-                 title="نواقص المخزن" 
-                 value={generalStats.lowStock} 
-                 icon="⚠️" 
-                 color="rose" 
-                 onClick={() => { setActiveTab('products'); setShowLowStockOnly(true); }}
-               />
+               <StatCard title="نواقص المخزن" value={generalStats.lowStock} icon="⚠️" color="rose" onClick={() => { setActiveTab('products'); setShowLowStockOnly(true); }} />
                <StatCard title="أصناف المتجر" value={generalStats.totalProducts} icon="📦" color="amber" onClick={() => { setActiveTab('products'); setShowLowStockOnly(false); }} />
             </div>
 
@@ -187,7 +179,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* إدارة المخزن - مع دعم التصفية التلقائية للنواقص */}
+        {/* إدارة المخزن */}
         {activeTab === 'products' && (
           <div className="space-y-8 animate-fadeIn">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -195,16 +187,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <h3 className="text-2xl font-black text-slate-800">
                   {showLowStockOnly ? 'نواقص المخزن (تحتاج توريد)' : 'جرد المخزن الشامل'}
                 </h3>
-                {showLowStockOnly && (
-                  <button onClick={() => setShowLowStockOnly(false)} className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full mt-1 border border-emerald-100">عرض كل الأصناف ✕</button>
-                )}
               </div>
               <div className="relative w-full md:w-72">
                 <input type="text" placeholder="بحث بالاسم أو الباركود..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3 text-sm outline-none focus:ring-4 focus:ring-emerald-500/10 shadow-sm" />
                 <span className="absolute left-4 top-3 text-slate-300">🔍</span>
               </div>
             </div>
-            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden overflow-x-auto">
+            <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
               <table className="w-full text-right text-sm">
                 <thead>
                   <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase border-b">
@@ -241,31 +230,100 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </td>
                       <td className="px-8 py-5">
                         <div className="flex gap-2">
-                          <button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-blue-50 rounded-xl hover:bg-blue-500 hover:text-white transition-all">✎</button>
-                          <button onClick={() => { if(confirm('هل أنت متأكد من حذف المنتج نهائياً؟')) onDeleteProduct(p.id) }} className="p-2 text-rose-500 bg-rose-50 rounded-xl hover:bg-rose-500 hover:text-white transition-all">🗑</button>
+                          <button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-blue-50 rounded-xl">✎</button>
+                          <button onClick={() => { if(confirm('هل أنت متأكد من حذف المنتج نهائياً؟')) onDeleteProduct(p.id) }} className="p-2 text-rose-500 bg-rose-50 rounded-xl">🗑</button>
                         </div>
                       </td>
                     </tr>
                   ))}
-                  {filteredProductsTable.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-8 py-20 text-center text-slate-300 font-bold italic">لا توجد منتجات تطابق البحث أو التصفية</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* ... بقية التبويبات (الأقسام، الطلبات، الأعضاء، التقارير، الإعدادات) ... */}
+        {/* إدارة الطلبات - مع أزرار التحكم الجديدة */}
+        {activeTab === 'orders' && (
+          <div className="space-y-8 animate-fadeIn">
+            <h3 className="text-3xl font-black text-slate-800">أرشيف الطلبات والمديونيات</h3>
+            <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase border-b">
+                    <th className="px-8 py-5">الطلب والعميل</th>
+                    <th className="px-8 py-5">الإجمالي</th>
+                    <th className="px-8 py-5">حالة الدفع</th>
+                    <th className="px-8 py-5 text-center">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {orders.map(o => {
+                    const isCancelled = o.status === 'cancelled';
+                    const isDebt = o.paymentMethod.includes('آجل');
+                    
+                    return (
+                      <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
+                        <td className="px-8 py-5">
+                          <div>
+                            <p className="font-black text-slate-700">#{o.id} - {o.customerName}</p>
+                            <p className="text-[10px] text-slate-400 font-bold mt-1">{new Date(o.createdAt).toLocaleString('ar-EG')}</p>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 font-black text-emerald-600 text-lg">{o.total.toLocaleString()} ج.م</td>
+                        <td className="px-8 py-5">
+                          {!isCancelled ? (
+                            <div className="flex gap-1.5 p-1 bg-slate-50 rounded-xl border w-fit">
+                              <button 
+                                onClick={() => onUpdateOrderPayment(o.id, 'نقدي (تم الدفع)')}
+                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
+                              >نقدي 💰</button>
+                              <button 
+                                onClick={() => onUpdateOrderPayment(o.id, 'آجل (مديونية)')}
+                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
+                              >آجل ⏳</button>
+                            </div>
+                          ) : (
+                            <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
+                          )}
+                        </td>
+                        <td className="px-8 py-5">
+                          <div className="flex items-center justify-center gap-2">
+                             <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
+                             
+                             {isDebt && !isCancelled && (
+                               <button 
+                                 onClick={() => WhatsAppService.sendDebtReminderToCustomer(o)}
+                                 className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm"
+                                 title="تذكير واتساب"
+                               >📢</button>
+                             )}
+
+                             {!isCancelled && (
+                               <button 
+                                 onClick={() => onReturnOrder(o.id)}
+                                 className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                                 title="استرداد الفاتورة"
+                               >↩️</button>
+                             )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ... بقية التبويبات (الأعضاء، الأقسام، التقارير، الإعدادات) ... */}
         {activeTab === 'categories' && (
           <div className="space-y-10 animate-fadeIn">
             <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 max-w-2xl">
               <h3 className="font-black mb-6 text-slate-800 text-xl">إضافة قسم تجاري</h3>
               <div className="flex gap-4">
-                <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="مثال: بقالة جافة، منظفات..." className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
-                <button onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName}); setNewCatName(''); } }} className="bg-emerald-600 text-white px-10 rounded-2xl font-black text-xs shadow-lg">إضافة</button>
+                <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="مثال: بقالة جافة..." className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" />
+                <button onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName}); setNewCatName(''); } }} className="bg-emerald-600 text-white px-10 rounded-2xl font-black text-xs">إضافة</button>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -294,42 +352,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {activeTab === 'orders' && (
-          <div className="space-y-8 animate-fadeIn">
-            <h3 className="text-3xl font-black text-slate-800">أرشيف الطلبات</h3>
-            <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
-              <table className="w-full text-right text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase border-b">
-                    <th className="px-8 py-5">الطلب</th>
-                    <th className="px-8 py-5">العميل</th>
-                    <th className="px-8 py-5">الإجمالي</th>
-                    <th className="px-8 py-5">الحالة</th>
-                    <th className="px-8 py-5">الإجراء</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {orders.map(o => (
-                    <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${o.status === 'cancelled' ? 'opacity-50 grayscale' : ''}`}>
-                      <td className="px-8 py-5 font-black text-slate-700">#{o.id}</td>
-                      <td className="px-8 py-5 font-bold text-slate-700">{o.customerName}</td>
-                      <td className="px-8 py-5 font-black text-emerald-600">{o.total.toLocaleString()} ج.م</td>
-                      <td className="px-8 py-5">
-                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${o.status === 'cancelled' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                          {o.status === 'cancelled' ? 'مسترجع' : 'مكتمل'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-5">
-                        <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all">🧾</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'members' && (
           <div className="space-y-8 animate-fadeIn">
             <h3 className="text-3xl font-black text-slate-800">إدارة المستخدمين</h3>
@@ -348,11 +370,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-8 py-5 font-bold text-slate-800">{u.name}</td>
                       <td className="px-8 py-5 font-black text-slate-500 tracking-wider">{u.phone}</td>
-                      <td className="px-8 py-5">
-                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
-                          {u.role === 'admin' ? 'مدير' : 'عميل'}
-                        </span>
-                      </td>
                       <td className="px-8 py-5 text-[10px] font-bold text-slate-400 italic">
                         {new Date(u.createdAt).toLocaleDateString('ar-EG')}
                       </td>
@@ -381,39 +398,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100">
+              <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 text-center">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">إجمالي المبيعات</p>
                 <p className="text-4xl font-black text-slate-800">{profitStats.revenue.toLocaleString()} <small className="text-xs">ج.م</small></p>
               </div>
-              <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">تكلفة البضاعة (FIFO)</p>
+              <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 text-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">تكلفة البضاعة</p>
                 <p className="text-4xl font-black text-amber-600">{profitStats.cost.toLocaleString()} <small className="text-xs">ج.م</small></p>
               </div>
-              <div className="bg-emerald-600 p-10 rounded-[3.5rem] shadow-xl border border-emerald-500 text-white transform hover:scale-105 transition-transform duration-500">
+              <div className="bg-emerald-600 p-10 rounded-[3.5rem] shadow-xl border border-emerald-500 text-white text-center transform hover:scale-105 transition-transform duration-500">
                 <p className="text-[10px] font-black text-white/70 uppercase tracking-widest mb-2">صافي الربح الفعلي</p>
                 <p className="text-4xl font-black">{profitStats.profit.toLocaleString()} <small className="text-xs text-white/50">ج.م</small></p>
               </div>
             </div>
           </div>
-        )}
-
-        {activeTab === 'settings' && (
-           <div className="animate-fadeIn max-w-2xl">
-              <div className="bg-white p-10 md:p-14 rounded-[4rem] shadow-2xl border border-slate-100">
-                 <h3 className="text-2xl font-black text-slate-800 mb-10 border-b pb-6 border-slate-50">🛠️ إعدادات المتجر</h3>
-                 <div className="space-y-8">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">واتساب الإدارة</label>
-                      <input type="tel" defaultValue="201026034170" className="w-full px-8 py-5 bg-slate-50 rounded-[1.5rem] outline-none font-bold text-sm" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">اسم المتجر</label>
-                      <input type="text" defaultValue="سوق العصر - فاقوس" className="w-full px-8 py-5 bg-slate-50 rounded-[1.5rem] outline-none font-bold text-sm" />
-                    </div>
-                    <button className="w-full bg-emerald-600 text-white py-6 rounded-[2rem] font-black text-lg shadow-xl hover:bg-slate-900 transition-all duration-500 mt-6">حفظ كافة الإعدادات 💾</button>
-                 </div>
-              </div>
-           </div>
         )}
 
       </main>
