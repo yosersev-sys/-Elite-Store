@@ -21,6 +21,7 @@ import ProfileView from './components/ProfileView.tsx';
 import MobileNav from './components/MobileNav.tsx';
 import PullToRefresh from './components/PullToRefresh.tsx';
 import NewOrderPopup from './components/NewOrderPopup.tsx';
+import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
@@ -43,6 +44,7 @@ const App: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [newOrdersForPopup, setNewOrdersForPopup] = useState<Order[]>([]);
+  const [productForBarcode, setProductForBarcode] = useState<Product | null>(null);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -267,6 +269,14 @@ const App: React.FC = () => {
           />
         )}
 
+        {/* نافذة طباعة الباركود للمنتج المحفوظ */}
+        {productForBarcode && (
+          <BarcodePrintPopup 
+            product={productForBarcode} 
+            onClose={() => { setProductForBarcode(null); onNavigateAction('admin'); }} 
+          />
+        )}
+
         {notification && (
           <div className="no-print">
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
@@ -365,8 +375,9 @@ const App: React.FC = () => {
                 const success = isEdit ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
                 if (success) {
                   showNotify('تم حفظ البيانات بنجاح! ✨');
-                  await loadData();
-                  onNavigateAction('admin');
+                  await loadData(true);
+                  // تفعيل نافذة الباركود فوراً
+                  setProductForBarcode(p);
                 } else {
                   showNotify('عذراً، فشل الاتصال بالسيرفر أو تكرار باركود', 'error');
                 }
