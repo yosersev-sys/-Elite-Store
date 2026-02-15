@@ -1,3 +1,4 @@
+
 <?php
 /**
  * API Backend for Souq Al-Asr - Batch System Edition (FIFO)
@@ -59,11 +60,27 @@ try {
             sendRes($products);
             break;
 
+        case 'get_all_images':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->query("SELECT images FROM products");
+            $rows = $stmt->fetchAll();
+            $allImages = [];
+            foreach ($rows as $row) {
+                $imgs = json_decode($row['images'] ?? '[]', true);
+                if (is_array($imgs)) {
+                    foreach ($imgs as $img) {
+                        if (!empty($img)) $allImages[] = $img;
+                    }
+                }
+            }
+            // إرجاع مصفوفة فريدة من الصور لتجنب التكرار في المكتبة
+            sendRes(array_values(array_unique($allImages)));
+            break;
+
         case 'add_product':
         case 'update_product':
             if (!isAdmin()) sendErr('غير مصرح', 403);
             
-            // تحويل الدفعات إلى JSON
             $batchesJson = json_encode($input['batches'] ?? []);
             
             if ($action === 'add_product') {
@@ -101,30 +118,24 @@ try {
                     $qtyToDeduct = (int)$cartItem['quantity'];
                     $totalWholesaleCostForThisItem = 0;
 
-                    // إذا لم تكن هناك دفعات (نظام قديم)، نستخدم سعر الجملة المباشر
                     if (empty($batches)) {
                         $totalWholesaleCostForThisItem = ($cartItem['wholesalePrice'] ?? 0) * $qtyToDeduct;
                     } else {
-                        // منطق FIFO (الوارد أولاً يصرف أولاً)
                         for ($i = 0; $i < count($batches); $i++) {
                             if ($qtyToDeduct <= 0) break;
-
                             if ($batches[$i]['quantity'] > 0) {
                                 $deductFromThisBatch = min($qtyToDeduct, $batches[$i]['quantity']);
                                 $totalWholesaleCostForThisItem += ($deductFromThisBatch * $batches[$i]['wholesalePrice']);
-                                
                                 $batches[$i]['quantity'] -= $deductFromThisBatch;
                                 $qtyToDeduct -= $deductFromThisBatch;
                             }
                         }
                     }
 
-                    // تخزين سعر التكلفة الفعلي في عنصر الفاتورة للتقارير
                     $actualAvgWholesale = $cartItem['quantity'] > 0 ? ($totalWholesaleCostForThisItem / $cartItem['quantity']) : 0;
                     $cartItem['actualWholesalePrice'] = $actualAvgWholesale;
                     $processedItems[] = $cartItem;
 
-                    // تحديث المخزون والدفعات
                     $newTotalStock = max(0, (int)$product['stockQuantity'] - (int)$cartItem['quantity']);
                     $updateStmt = $pdo->prepare("UPDATE products SET stockQuantity = ?, batches = ?, salesCount = salesCount + ? WHERE id = ?");
                     $updateStmt->execute([$newTotalStock, json_encode($batches), (int)$cartItem['quantity'], $cartItem['id']]);
@@ -150,18 +161,15 @@ try {
                 
                 $items = json_decode($order['items'], true);
                 foreach ($items as $item) {
-                    // عند الاسترجاع، نعيد الكمية لأحدث دفعة أو كدفعة جديدة
                     $pStmt = $pdo->prepare("SELECT batches, stockQuantity FROM products WHERE id = ?");
                     $pStmt->execute([$item['id']]);
                     $product = $pStmt->fetch();
                     
                     if ($product) {
                         $batches = json_decode($product['batches'] ?? '[]', true) ?: [];
-                        // نضيف الكمية المسترجعة لأول دفعة (الأقدم) لإعادة تدويرها
                         if (!empty($batches)) {
                             $batches[0]['quantity'] += $item['quantity'];
                         }
-                        
                         $updateProduct = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ?, batches = ? WHERE id = ?");
                         $updateProduct->execute([$item['quantity'], $item['quantity'], json_encode($batches), $item['id']]);
                     }

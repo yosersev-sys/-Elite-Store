@@ -84,9 +84,15 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const openLibrary = async () => {
     setShowLibrary(true);
     setIsLoadingLibrary(true);
-    const images = await ApiService.getAllImages();
-    setLibraryImages(images);
-    setIsLoadingLibrary(false);
+    try {
+      const images = await ApiService.getAllImages();
+      setLibraryImages(images || []);
+    } catch (err) {
+      console.error("Error loading library:", err);
+      setLibraryImages([]);
+    } finally {
+      setIsLoadingLibrary(false);
+    }
   };
 
   const handleAiDescription = async () => {
@@ -179,21 +185,43 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر 📸</h3>
                <button onClick={() => setShowLibrary(false)} className="bg-slate-100 p-2 rounded-xl">✕</button>
             </div>
-            {isLoadingLibrary ? (
-               <div className="flex-grow flex items-center justify-center">جاري تحميل المكتبة...</div>
-            ) : (
-               <div className="flex-grow overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 p-2 no-scrollbar">
-                  {libraryImages.map((img, i) => (
-                    <button 
-                      key={i} 
-                      onClick={() => { setFormData(prev => ({...prev, images: [...prev.images, img]})); setShowLibrary(false); }}
-                      className="aspect-square rounded-2xl overflow-hidden border-2 border-transparent hover:border-emerald-500 transition shadow-sm"
-                    >
-                      <img src={img} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-               </div>
-            )}
+            
+            <div className="flex-grow overflow-y-auto no-scrollbar">
+              {isLoadingLibrary ? (
+                 <div className="flex flex-col items-center justify-center py-20 gap-4">
+                   <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                   <p className="font-bold text-slate-400">جاري تجميع الصور من الأرشيف...</p>
+                 </div>
+              ) : libraryImages.length === 0 ? (
+                 <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                    <span className="text-6xl mb-4">🖼️</span>
+                    <p className="font-bold">لا توجد صور في المكتبة حالياً</p>
+                    <p className="text-xs">قم برفع صور لمنتجاتك أولاً لتظهر هنا</p>
+                 </div>
+              ) : (
+                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 p-2">
+                    {libraryImages.map((img, i) => (
+                      <button 
+                        key={i} 
+                        type="button"
+                        onClick={() => { 
+                          if (!formData.images.includes(img)) {
+                            setFormData(prev => ({...prev, images: [...prev.images, img]})); 
+                          }
+                          setShowLibrary(false); 
+                        }}
+                        className="aspect-square rounded-2xl overflow-hidden border-4 border-transparent hover:border-emerald-500 transition shadow-sm bg-slate-50"
+                      >
+                        <img src={img} className="w-full h-full object-cover" loading="lazy" />
+                      </button>
+                    ))}
+                 </div>
+              )}
+            </div>
+            
+            <div className="mt-6 pt-6 border-t border-slate-100 flex justify-end">
+               <button onClick={() => setShowLibrary(false)} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-xs">إغلاق</button>
+            </div>
           </div>
         </div>
       )}
@@ -203,7 +231,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">{product ? 'تعديل بيانات المنتج' : 'إضافة صنف للمخزن'}</h2>
           <p className="text-slate-400 font-bold mt-1 uppercase text-[10px] tracking-widest">إدارة متكاملة للمنتجات والمخزون</p>
         </div>
-        <button onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-400 px-8 py-3 rounded-2xl font-bold hover:bg-rose-50 hover:text-rose-500 transition">إلغاء</button>
+        <button type="button" onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-400 px-8 py-3 rounded-2xl font-bold hover:bg-rose-50 hover:text-rose-500 transition">إلغاء</button>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-10">
@@ -215,7 +243,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-sm">01</span>
                 المعلومات الأساسية والمعرض
               </h3>
-              <button type="button" onClick={openLibrary} className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-xl font-black text-xs hover:bg-emerald-600 hover:text-white transition">استخدام من المكتبة 📸</button>
+              <button type="button" onClick={openLibrary} className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-xl font-black text-xs hover:bg-emerald-600 hover:text-white transition-all shadow-sm">استخدام من المكتبة 📸</button>
             </div>
             
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
@@ -307,7 +335,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                     {formData.batches.map(batch => (
                       <tr key={batch.id}>
                         <td className="px-8 py-4 font-bold text-slate-500">{new Date(batch.createdAt).toLocaleDateString('ar-EG')}</td>
-                        <td className="px-8 py-4 font-black">{batch.quantity} {formData.unit}</td>
+                        <td className="px-8 py-4 font-black">{batch.quantity} {formData.unit === 'piece' ? 'وحدة' : formData.unit === 'kg' ? 'كيلو' : 'جرام'}</td>
                         <td className="px-8 py-4 font-black text-indigo-600">{batch.wholesalePrice} ج.م</td>
                         <td className="px-8 py-4 text-left">
                           <button type="button" onClick={() => setFormData(prev => ({...prev, batches: prev.batches.filter(b => b.id !== batch.id)}))} className="text-rose-400 font-black">حذف</button>
