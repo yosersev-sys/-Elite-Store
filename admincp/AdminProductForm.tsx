@@ -1,12 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings, StockBatch } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
-
-interface LibraryImage {
-  url: string;
-  productName: string;
-}
+import { generateProductDescription, generateSeoData } from '../services/geminiService';
 
 interface AdminProductFormProps {
   product: Product | null;
@@ -16,12 +13,12 @@ interface AdminProductFormProps {
 }
 
 const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, onSubmit, onCancel }) => {
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
-  const [libraryImages, setLibraryImages] = useState<LibraryImage[]>([]);
+  const [libraryImages, setLibraryImages] = useState<string[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
-  const [librarySearch, setLibrarySearch] = useState('');
+  const [isLoadingAi, setIsLoadingAi] = useState(false);
+  const [isLoadingSeo, setIsLoadingSeo] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -51,12 +48,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
-  const initialSetupDone = useRef(false);
-  const isSlugManuallyEdited = useRef(false);
-
   useEffect(() => {
-    if (initialSetupDone.current && !product) return;
-
     if (product) {
       setFormData({
         name: product.name,
@@ -72,20 +64,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         images: product.images || [],
         batches: product.batches || []
       });
-      if (product.seoSettings) {
-        setSeoData(product.seoSettings);
-        isSlugManuallyEdited.current = true;
-      }
+      if (product.seoSettings) setSeoData(product.seoSettings);
     } else {
       setFormData(prev => ({
         ...prev,
-        categoryId: prev.categoryId || categories[0]?.id || '',
-        unit: prev.unit || 'piece',
+        categoryId: categories[0]?.id || '',
+        unit: 'piece',
         batches: []
       }));
     }
-    initialSetupDone.current = true;
-  }, [product, categories.length]);
+  }, [product, categories]);
 
   // تحديث إجمالي الكمية عند تغير الدفعات
   useEffect(() => {
@@ -93,13 +81,35 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setFormData(prev => ({ ...prev, stockQuantity: total }));
   }, [formData.batches]);
 
+  const openLibrary = async () => {
+    setShowLibrary(true);
+    setIsLoadingLibrary(true);
+    const images = await ApiService.getAllImages();
+    setLibraryImages(images);
+    setIsLoadingLibrary(false);
+  };
+
+  const handleAiDescription = async () => {
+    if (!formData.name) return alert('يرجى إدخال اسم المنتج أولاً');
+    setIsLoadingAi(true);
+    const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
+    const desc = await generateProductDescription(formData.name, catName);
+    setFormData(prev => ({ ...prev, description: desc }));
+    setIsLoadingAi(false);
+  };
+
+  const handleAiSeo = async () => {
+    if (!formData.name || !formData.description) return alert('يرجى إدخال الاسم والوصف أولاً');
+    setIsLoadingSeo(true);
+    const data = await generateSeoData(formData.name, formData.description);
+    if (data) setSeoData(data);
+    setIsLoadingSeo(false);
+  };
+
   const handleAddBatch = () => {
     const qty = parseFloat(newBatchQty);
     const price = parseFloat(newBatchPrice);
-    if (isNaN(qty) || isNaN(price) || qty <= 0 || price <= 0) {
-      alert("يرجى إدخال كمية وسعر جملة صحيحين");
-      return;
-    }
+    if (isNaN(qty) || isNaN(price) || qty <= 0 || price <= 0) return alert("بيانات الشحنة غير صحيحة");
 
     const newBatch: StockBatch = {
       id: 'batch_' + Date.now(),
@@ -111,23 +121,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setFormData(prev => ({
       ...prev,
       batches: [...prev.batches, newBatch],
-      wholesalePrice: price.toString() // تحديث السعر الحالي لآخر سعر شراء
+      wholesalePrice: price.toString()
     }));
     setNewBatchQty('');
     setNewBatchPrice('');
   };
 
-  const removeBatch = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      batches: prev.batches.filter(b => b.id !== id)
-    }));
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach((file: File) => {
+    Array.from(files).forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === 'string') {
@@ -164,176 +167,207 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   };
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 animate-fadeIn pb-20">
+    <div className="max-w-6xl mx-auto py-8 px-4 animate-fadeIn pb-32">
       {showScanner && <BarcodeScanner onScan={(code) => setFormData({...formData, barcode: code})} onClose={() => setShowScanner(false)} />}
       
-      <div className="flex items-center justify-between mb-10 px-2">
-        <div>
-          <h2 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">
-            {product ? 'تعديل بيانات المنتج' : 'إضافة منتج جديد'}
-          </h2>
-          <p className="text-slate-500 mt-2 font-medium">نظام الدفعات (FIFO) مفعل لضمان دقة الأرباح</p>
+      {/* مكتبة الصور */}
+      {showLibrary && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setShowLibrary(false)}></div>
+          <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl p-8 max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+               <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر 📸</h3>
+               <button onClick={() => setShowLibrary(false)} className="bg-slate-100 p-2 rounded-xl">✕</button>
+            </div>
+            {isLoadingLibrary ? (
+               <div className="flex-grow flex items-center justify-center">جاري تحميل المكتبة...</div>
+            ) : (
+               <div className="flex-grow overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 p-2 no-scrollbar">
+                  {libraryImages.map((img, i) => (
+                    <button 
+                      key={i} 
+                      onClick={() => { setFormData(prev => ({...prev, images: [...prev.images, img]})); setShowLibrary(false); }}
+                      className="aspect-square rounded-2xl overflow-hidden border-2 border-transparent hover:border-emerald-500 transition shadow-sm"
+                    >
+                      <img src={img} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+               </div>
+            )}
+          </div>
         </div>
-        <button type="button" onClick={() => setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 text-slate-500 px-6 py-2.5 rounded-2xl font-bold">إلغاء</button>
+      )}
+
+      <div className="flex items-center justify-between mb-10 px-4">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{product ? 'تعديل بيانات المنتج' : 'إضافة صنف للمخزن'}</h2>
+          <p className="text-slate-400 font-bold mt-1 uppercase text-[10px] tracking-widest">إدارة متكاملة للمنتجات والمخزون</p>
+        </div>
+        <button onClick={onCancel} className="bg-white border-2 border-slate-100 text-slate-400 px-8 py-3 rounded-2xl font-bold hover:bg-rose-50 hover:text-rose-500 transition">إلغاء</button>
       </div>
 
       <form onSubmit={handleFormSubmit} className="space-y-10">
-        
         {/* القسم الأول: الصور والمعلومات الأساسية */}
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
+        <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
           <div className="space-y-6">
-            <h3 className="text-xl font-black text-indigo-600 flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-sm">01</span>
-              صور المنتج واسمه
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black text-indigo-600 flex items-center gap-3">
+                <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-sm">01</span>
+                المعلومات الأساسية والمعرض
+              </h3>
+              <button type="button" onClick={openLibrary} className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-xl font-black text-xs hover:bg-emerald-600 hover:text-white transition">استخدام من المكتبة 📸</button>
+            </div>
             
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
               {formData.images.map((img, index) => (
                 <div key={index} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-slate-50 group">
-                  <img src={img} className="w-full h-full object-cover" alt="" />
-                  <button type="button" onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, i) => i !== index)}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition">✕</button>
+                  <img src={img} className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => setFormData(prev => ({...prev, images: prev.images.filter((_, i) => i !== index)}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-lg">✕</button>
                 </div>
               ))}
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-indigo-400 transition">
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 hover:border-indigo-400 transition">
                 <span className="text-2xl">+</span>
                 <span className="text-[10px] font-bold">رفع صور</span>
               </button>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-500">اسم المنتج</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">اسم المنتج</label>
+              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">التصنيف</label>
+              <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold">
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
+              <div className="grid grid-cols-3 gap-2 bg-slate-50 p-1.5 rounded-2xl border">
+                 {(['piece', 'kg', 'gram'] as const).map(u => (
+                   <button 
+                    key={u} type="button" 
+                    onClick={() => setFormData({...formData, unit: u})}
+                    className={`py-3 rounded-xl font-black text-xs transition-all ${formData.unit === u ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
+                   >
+                     {u === 'piece' ? 'قطعة' : u === 'kg' ? 'كيلو' : 'جرام'}
+                   </button>
+                 ))}
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-500">القسم</label>
-                <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 transition">
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">الباركود</label>
+              <div className="flex gap-2">
+                 <input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
+                 <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-5 rounded-2xl">📷</button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* القسم الثاني: نظام الدفعات والمخزون (FIFO System) */}
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-emerald-50 space-y-10">
+        {/* القسم الثاني: نظام الدفعات (FIFO) */}
+        <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-emerald-50 space-y-10">
           <div>
             <h3 className="text-xl font-black text-emerald-600 flex items-center gap-3">
               <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-sm">02</span>
               إدارة المخزون والدفعات (FIFO)
             </h3>
-            <p className="text-slate-400 text-xs font-bold mt-2">أضف شحنات جديدة بأسعار جملة مختلفة، سيقوم النظام بحساب الربح بدقة.</p>
           </div>
 
-          <div className="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100">
-            <h4 className="font-black text-slate-700 mb-4 text-sm">إضافة شحنة (دفعة) جديدة للمخزن:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="bg-emerald-50/50 p-8 rounded-[2.5rem] border border-emerald-100">
+            <h4 className="font-black text-slate-700 mb-6">إضافة شحنة جديدة للمخزن:</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الكمية الجديدة</label>
-                <input 
-                  type="number" 
-                  value={newBatchQty} 
-                  onChange={e => setNewBatchQty(e.target.value)} 
-                  placeholder="0.00" 
-                  className="w-full px-6 py-3 bg-white border border-emerald-200 rounded-xl outline-none font-bold" 
-                />
+                <input type="number" value={newBatchQty} onChange={e => setNewBatchQty(e.target.value)} placeholder="0.00" className="w-full px-6 py-3.5 bg-white border border-emerald-200 rounded-2xl outline-none font-bold" />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">سعر الجملة للقطعة</label>
-                <input 
-                  type="number" 
-                  value={newBatchPrice} 
-                  onChange={e => setNewBatchPrice(e.target.value)} 
-                  placeholder="0.00" 
-                  className="w-full px-6 py-3 bg-white border border-emerald-200 rounded-xl outline-none font-bold" 
-                />
+                <input type="number" value={newBatchPrice} onChange={e => setNewBatchPrice(e.target.value)} placeholder="0.00" className="w-full px-6 py-3.5 bg-white border border-emerald-200 rounded-2xl outline-none font-bold" />
               </div>
-              <button 
-                type="button" 
-                onClick={handleAddBatch} 
-                className="bg-emerald-600 text-white py-3 rounded-xl font-black text-sm hover:bg-emerald-700 transition"
-              >
-                + تأكيد إضافة الشحنة
-              </button>
+              <button type="button" onClick={handleAddBatch} className="bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-900 transition-all shadow-lg">تأكيد إضافة الشحنة +</button>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="font-black text-slate-800 flex items-center justify-between">
-              <span>الدفعات الحالية في المخزن:</span>
-              <span className="bg-slate-900 text-white px-4 py-1 rounded-full text-xs">إجمالي المخزون: {formData.stockQuantity}</span>
-            </h4>
-            
-            <div className="border border-slate-100 rounded-2xl overflow-hidden">
-              <table className="w-full text-right text-sm">
-                <thead className="bg-slate-50 text-slate-400 font-black uppercase text-[10px]">
-                  <tr>
-                    <th className="px-6 py-4">تاريخ الشحنة</th>
-                    <th className="px-6 py-4">الكمية المتاحة</th>
-                    <th className="px-6 py-4">سعر الجملة</th>
-                    <th className="px-6 py-4">الإجمالي</th>
-                    <th className="px-6 py-4"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {formData.batches.length === 0 ? (
+          {formData.batches.length > 0 && (
+            <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
+               <table className="w-full text-right text-sm">
+                  <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-b">
                     <tr>
-                      <td colSpan={5} className="px-6 py-10 text-center text-slate-300 font-bold italic">لا توجد دفعات مسجلة حالياً.. يرجى إضافة شحنة</td>
+                      <th className="px-8 py-5">التاريخ</th>
+                      <th className="px-8 py-5">الكمية</th>
+                      <th className="px-8 py-5">سعر الجملة</th>
+                      <th className="px-8 py-5"></th>
                     </tr>
-                  ) : (
-                    formData.batches.map((batch, idx) => (
-                      <tr key={batch.id} className={idx === 0 ? 'bg-emerald-50/20' : ''}>
-                        <td className="px-6 py-4 font-bold text-slate-500">
-                          {new Date(batch.createdAt).toLocaleDateString('ar-EG')}
-                          {idx === 0 && <span className="mr-2 text-[8px] bg-emerald-500 text-white px-2 py-0.5 rounded-full">تصرف الآن (FIFO)</span>}
-                        </td>
-                        <td className="px-6 py-4 font-black text-slate-700">{batch.quantity} {formData.unit}</td>
-                        <td className="px-6 py-4 font-black text-indigo-600">{batch.wholesalePrice} ج.م</td>
-                        <td className="px-6 py-4 font-bold text-slate-400">{(batch.quantity * batch.wholesalePrice).toFixed(1)}</td>
-                        <td className="px-6 py-4">
-                          <button type="button" onClick={() => removeBatch(batch.id)} className="text-rose-400 hover:text-rose-600 font-black text-xs">حذف</button>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {formData.batches.map(batch => (
+                      <tr key={batch.id}>
+                        <td className="px-8 py-4 font-bold text-slate-500">{new Date(batch.createdAt).toLocaleDateString('ar-EG')}</td>
+                        <td className="px-8 py-4 font-black">{batch.quantity} {formData.unit}</td>
+                        <td className="px-8 py-4 font-black text-indigo-600">{batch.wholesalePrice} ج.م</td>
+                        <td className="px-8 py-4 text-left">
+                          <button type="button" onClick={() => setFormData(prev => ({...prev, batches: prev.batches.filter(b => b.id !== batch.id)}))} className="text-rose-400 font-black">حذف</button>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+               </table>
             </div>
-          </div>
+          )}
 
-          <div className="pt-6 border-t border-slate-50">
-             <div className="space-y-2 max-w-xs">
-                <label className="text-sm font-bold text-slate-500">سعر البيع للجمهور (ج.م)</label>
-                <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-900 text-emerald-400 text-2xl font-black rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/20" />
+          <div className="pt-8 border-t border-slate-50 flex flex-col md:flex-row gap-8 items-end">
+             <div className="w-full md:w-64 space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">سعر البيع الحالي (ج.م)</label>
+                <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-8 py-5 bg-slate-900 text-emerald-400 text-2xl font-black rounded-[2rem] outline-none shadow-xl" />
+             </div>
+             <div className="flex-grow flex items-center gap-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm">📦</div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي المخزون الحالي</p>
+                  <p className="text-xl font-black text-slate-800">{formData.stockQuantity} {formData.unit === 'piece' ? 'وحدة' : formData.unit === 'kg' ? 'كيلو' : 'جرام'}</p>
+                </div>
              </div>
           </div>
         </section>
 
-        {/* القسم الثالث: الوصف والـ SEO */}
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
-           <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500">وصف المنتج</label>
-              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 min-h-[150px]" placeholder="اكتب وصفاً جذاباً..." />
+        {/* القسم الثالث: الذكاء الاصطناعي والـ SEO */}
+        <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
+           <div className="space-y-2 relative">
+              <label className="text-sm font-bold text-slate-500 mr-2">وصف المنتج</label>
+              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-8 bg-slate-50 rounded-[2rem] outline-none focus:ring-2 focus:ring-indigo-400 min-h-[180px]" placeholder="اكتب وصفاً جذاباً أو استخدم الذكاء الاصطناعي..." />
+              <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="absolute left-6 bottom-6 bg-indigo-600 text-white px-5 py-2 rounded-xl font-black text-[10px] shadow-lg hover:bg-slate-900 transition disabled:opacity-50">
+                {isLoadingAi ? 'جاري التوليد...' : '✨ وصف ذكي (Gemini)'}
+              </button>
            </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-slate-50">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-500">Slug (رابط المنتج)</label>
-                <input value={seoData.slug} onChange={e => setSeoData({...seoData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-indigo-600" />
+           <div className="pt-10 border-t border-slate-50 space-y-8">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-black text-slate-800">تحسين محركات البحث (SEO)</h3>
+                <button type="button" onClick={handleAiSeo} disabled={isLoadingSeo} className="text-[10px] font-black bg-emerald-500 text-white px-6 py-2 rounded-xl hover:bg-emerald-600 transition shadow-lg disabled:opacity-50">توليد بيانات SEO ✨</button>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-500">الباركود</label>
-                <div className="flex gap-2">
-                   <input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
-                   <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-4 rounded-2xl">📷</button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2">Meta Title</label>
+                  <input value={seoData.metaTitle} onChange={e => setSeoData({...seoData, metaTitle: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-300 font-bold text-sm" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2">Slug (رابط المنتج)</label>
+                  <input value={seoData.slug} onChange={e => setSeoData({...seoData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-300 font-bold text-sm text-indigo-600" />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2">Meta Description</label>
+                  <textarea value={seoData.metaDescription} onChange={e => setSeoData({...seoData, metaDescription: e.target.value})} className="w-full p-6 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-300 text-sm font-bold min-h-[100px]" />
                 </div>
               </div>
            </div>
         </section>
 
-        <button type="submit" className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-slate-900 transition-all active:scale-95">
-          {product ? 'حفظ كافة التعديلات 💾' : 'نشر المنتج والمخزون 🚀'}
+        <button type="submit" className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-slate-900 transition-all transform hover:-translate-y-2 active:scale-95">
+           {product ? 'حفظ التغييرات 💾' : 'نشر المنتج والمخزون 🚀'}
         </button>
       </form>
     </div>
