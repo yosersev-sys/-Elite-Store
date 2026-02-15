@@ -81,7 +81,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const activeOrders = (orders || []).filter(o => o && o.status !== 'cancelled');
     const totalSales = activeOrders.reduce((s, o) => s + Number(o.total || 0), 0);
     const lowStockItems = (products || []).filter(p => Number(p.stockQuantity || 0) < 5);
-    return { totalSales, lowStock: lowStockItems.length, totalOrders: (orders || []).length, totalProducts: (products || []).length };
+    
+    // حساب مديونيات الآجل
+    const debtOrders = activeOrders.filter(o => o.paymentMethod && o.paymentMethod.includes('آجل'));
+    const totalDebtAmount = debtOrders.reduce((s, o) => s + Number(o.total || 0), 0);
+
+    return { 
+      totalSales, 
+      lowStock: lowStockItems.length, 
+      totalOrders: (orders || []).length, 
+      totalProducts: (products || []).length,
+      debtCount: debtOrders.length,
+      totalDebtAmount
+    };
   }, [products, orders]);
 
   const filteredProductsTable = useMemo(() => {
@@ -105,7 +117,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [orders, adminSearch]);
 
-  // تصفية الأقسام بناءً على البحث
   const filteredCategories = useMemo(() => {
     return (categories || []).filter(c => 
       c.name.toLowerCase().includes(catSearch.toLowerCase())
@@ -191,6 +202,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* صفحة الإحصائيات */}
         {activeTab === 'stats' && (
           <div className="space-y-10 animate-fadeIn">
+            
+            {/* تنبيه مديونيات الآجل */}
+            {generalStats.debtCount > 0 && (
+              <div className="bg-orange-500 text-white p-6 md:p-8 rounded-[2.5rem] shadow-2xl shadow-orange-500/20 flex flex-col md:flex-row items-center justify-between gap-6 border-b-8 border-orange-700 animate-slideDown">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-4xl animate-pulse">⏳</div>
+                  <div>
+                    <h4 className="text-xl md:text-2xl font-black">تحذير مديونيات معلقة!</h4>
+                    <p className="text-orange-100 font-bold text-sm mt-1">يوجد عدد <span className="underline decoration-2">{generalStats.debtCount} فواتير آجل</span> لم يتم تحصيلها بإجمالي <span className="text-white text-lg">{(generalStats.totalDebtAmount).toLocaleString()} ج.م</span></p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { setActiveTab('orders'); setAdminSearch('آجل'); }}
+                  className="bg-white text-orange-600 px-8 py-3.5 rounded-2xl font-black text-xs shadow-lg hover:bg-slate-900 hover:text-white transition-all active:scale-95 whitespace-nowrap"
+                >
+                  مراجعة وتحصيل الديون الآن ←
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                <StatCard title="إجمالي المبيعات" value={`${generalStats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" />
                <StatCard title="إجمالي الطلبات" value={generalStats.totalOrders} icon="🧾" color="indigo" onClick={() => setActiveTab('orders')} />
