@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Product, Category, Order, User } from '../types';
 import { ApiService } from '../services/api';
@@ -41,7 +42,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
 
-  // 1. حساب الأرباح الحقيقية (FIFO) للتقارير
+  // إحصائيات الأرباح (FIFO)
   const profitStats = useMemo(() => {
     const start = new Date(reportStart).setHours(0, 0, 0, 0);
     const end = new Date(reportEnd).setHours(23, 59, 59, 999);
@@ -51,39 +52,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return d >= start && d <= end && o.status !== 'cancelled';
     });
 
-    let totalRevenue = 0;
-    let totalCost = 0;
-    
+    let revenue = 0;
+    let cost = 0;
     periodOrders.forEach(order => {
-      totalRevenue += Number(order.total);
+      revenue += Number(order.total);
       order.items.forEach(item => {
-        // نستخدم التكلفة الحقيقية المسجلة في الفاتورة أو التكلفة الحالية كاحتياطي
-        const cost = (item.actualWholesalePrice || item.wholesalePrice || 0) * item.quantity;
-        totalCost += cost;
+        cost += (item.actualWholesalePrice || item.wholesalePrice || 0) * item.quantity;
       });
     });
 
-    return { 
-      revenue: totalRevenue, 
-      cost: totalCost, 
-      profit: totalRevenue - totalCost,
-      count: periodOrders.length 
-    };
+    return { revenue, cost, profit: revenue - cost };
   }, [orders, reportStart, reportEnd]);
 
-  // 2. إحصائيات عامة للصفحة الرئيسية
+  // إحصائيات الصفحة الرئيسية
   const generalStats = useMemo(() => {
     const activeOrders = orders.filter(o => o.status !== 'cancelled');
     const totalSales = activeOrders.reduce((s, o) => s + o.total, 0);
-    const lowStockCount = products.filter(p => p.stockQuantity < 5).length;
-    return { totalSales, lowStockCount, totalOrders: orders.length, totalProducts: products.length };
+    const lowStock = products.filter(p => p.stockQuantity < 5).length;
+    return { totalSales, lowStock, totalOrders: orders.length, totalProducts: products.length };
   }, [products, orders]);
 
   const handleReturnOrder = async (order: Order) => {
     if (window.confirm(`هل أنت متأكد من استرجاع الطلب #${order.id}؟`)) {
       const res = await ApiService.returnOrder(order.id);
       if (res.status === 'success') {
-        alert('تم استرجاع الطلب وإعادة الكميات للمخزن');
+        alert('تم استرجاع الطلب بنجاح');
         window.location.reload();
       }
     }
@@ -92,47 +85,47 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[2.5rem] md:rounded-[3rem] shadow-2xl overflow-hidden border border-emerald-50">
       
-      {/* Sidebar - القائمة الجانبية */}
+      {/* Sidebar */}
       <aside className="w-full lg:w-72 bg-slate-900 text-white p-6 md:p-8 flex flex-col shrink-0">
         <div className="mb-10">
           <h2 className="text-xl md:text-2xl font-black flex items-center gap-3">
             <span className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-lg">⚙️</span>
             لوحة الإدارة
           </h2>
-          <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest mt-2 mr-1">نظام سوق العصر المحاسبي</p>
+          <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest mt-2 mr-1">نظام سوق العصر المتكامل</p>
         </div>
         
         <nav className="space-y-1 flex-grow overflow-y-auto no-scrollbar">
           <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label="الرئيسية" icon="📊" />
-          <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="المخزن" icon="📦" badge={generalStats.lowStockCount > 0 ? generalStats.lowStockCount : undefined} />
+          <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="المخزن" icon="📦" badge={generalStats.lowStock > 0 ? generalStats.lowStock : undefined} />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="الأقسام" icon="🏷️" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="الطلبات" icon="🛍️" />
           <AdminNavButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} label="الأعضاء" icon="👥" />
-          <AdminNavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} label="الأرباح الدقيقة" icon="📈" />
+          <AdminNavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} label="الأرباح" icon="📈" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} label="الإعدادات" icon="🛠️" />
         </nav>
 
         <button onClick={onLogout} className="mt-6 w-full bg-rose-500/10 text-rose-500 py-4 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all">تسجيل الخروج 👋</button>
       </aside>
 
-      {/* Main Content - المحتوى الرئيسي */}
+      {/* Main Content */}
       <main className="flex-grow p-4 md:p-10 bg-slate-50/50 overflow-y-auto no-scrollbar">
         
-        {/* صفحة الإحصائيات الرئيسية */}
+        {/* Stats Tab */}
         {activeTab === 'stats' && (
           <div className="space-y-8 animate-fadeIn">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                <h3 className="text-2xl font-black text-slate-800">نظرة عامة</h3>
                <div className="flex gap-2">
-                 <button onClick={onOpenInvoiceForm} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black text-xs shadow-lg hover:bg-slate-900 transition-all">+ فاتورة سريعة</button>
-                 <button onClick={onOpenAddForm} className="bg-white border-2 border-slate-200 text-slate-700 px-6 py-3 rounded-2xl font-black text-xs hover:bg-slate-50 transition-all">+ إضافة منتج</button>
+                 <button onClick={onOpenInvoiceForm} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black text-xs shadow-lg hover:scale-105 transition-all">+ فاتورة سريعة</button>
+                 <button onClick={onOpenAddForm} className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs shadow-lg hover:scale-105 transition-all">+ إضافة منتج</button>
                </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                <StatCard title="إجمالي المبيعات" value={`${generalStats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" />
                <StatCard title="إجمالي الطلبات" value={generalStats.totalOrders} icon="🧾" color="indigo" />
-               <StatCard title="نواقص المخزن" value={generalStats.lowStockCount} icon="⚠️" color="rose" />
+               <StatCard title="نواقص المخزن" value={generalStats.lowStock} icon="⚠️" color="rose" />
                <StatCard title="إجمالي الأصناف" value={generalStats.totalProducts} icon="📦" color="amber" />
             </div>
 
@@ -144,7 +137,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </h4>
                   <div className="space-y-4">
                     {orders.slice(0, 5).map(order => (
-                      <div key={order.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-emerald-200 transition">
+                      <div key={order.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                          <div>
                             <p className="font-black text-sm text-slate-700">#{order.id} - {order.customerName}</p>
                             <p className="text-[10px] text-slate-400 font-bold">{new Date(order.createdAt).toLocaleString('ar-EG')}</p>
@@ -157,8 +150,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
                   <h4 className="font-black text-slate-800 mb-6 flex items-center justify-between">
-                    <span>منتجات تحتاج شحن (نواقص)</span>
-                    <button onClick={() => setActiveTab('products')} className="text-[10px] text-rose-500 font-black">تحديث المخزن ←</button>
+                    <span>نواقص المخزن</span>
+                    <button onClick={() => setActiveTab('products')} className="text-[10px] text-rose-500 font-black">المخزن ←</button>
                   </h4>
                   <div className="space-y-4">
                     {products.filter(p => p.stockQuantity < 5).slice(0, 5).map(p => (
@@ -166,15 +159,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                          <img src={p.images[0]} className="w-10 h-10 rounded-xl object-cover" />
                          <div className="flex-grow">
                             <p className="font-black text-sm text-slate-700">{p.name}</p>
-                            <p className="text-[10px] text-rose-500 font-bold">متبقي فقط {p.stockQuantity} وحدة</p>
+                            <p className="text-[10px] text-rose-500 font-bold">متبقي {p.stockQuantity} فقط</p>
                          </div>
-                         <button onClick={() => onOpenEditForm(p)} className="bg-white text-slate-400 p-2 rounded-lg hover:text-emerald-600 transition">✎</button>
+                         <button onClick={() => onOpenEditForm(p)} className="p-2 bg-white text-slate-400 rounded-lg hover:text-emerald-600 transition">✎</button>
                       </div>
                     ))}
                     {products.filter(p => p.stockQuantity < 5).length === 0 && (
-                      <div className="py-12 text-center">
-                        <p className="text-slate-300 font-bold italic">كل الأصناف متوفرة بكثرة ✅</p>
-                      </div>
+                      <div className="py-12 text-center text-slate-300 font-bold italic">لا توجد نواقص حالياً ✅</div>
                     )}
                   </div>
                </div>
@@ -182,12 +173,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* صفحة المخزن وإدارة الدفعات */}
+        {/* Products Tab */}
         {activeTab === 'products' && (
           <div className="space-y-6 animate-fadeIn">
             <div className="flex justify-between items-center">
               <h3 className="text-2xl font-black text-slate-800">إدارة المخزن</h3>
-              <input type="text" placeholder="بحث باسم المنتج..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="bg-white border rounded-xl px-4 py-2 text-sm outline-none w-64" />
+              <input type="text" placeholder="بحث..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} className="bg-white border rounded-xl px-4 py-2 text-sm outline-none w-64" />
             </div>
             
             <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
@@ -195,8 +186,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <thead>
                   <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase border-b">
                     <th className="px-6 py-4">المنتج</th>
-                    <th className="px-6 py-4">دفعات الشراء (FIFO)</th>
-                    <th className="px-6 py-4">الإجمالي</th>
+                    <th className="px-6 py-4">الدفعات (FIFO)</th>
+                    <th className="px-6 py-4">المخزون</th>
                     <th className="px-6 py-4">الإجراء</th>
                   </tr>
                 </thead>
@@ -205,7 +196,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <tr key={p.id} className="hover:bg-slate-50 transition">
                       <td className="px-6 py-4 flex items-center gap-3">
                         <img src={p.images[0]} className="w-10 h-10 rounded-lg object-cover" />
-                        <div><p className="font-bold">{p.name}</p><p className="text-[9px] text-slate-400 uppercase tracking-widest">{p.id}</p></div>
+                        <span className="font-bold">{p.name}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1 max-w-xs">
@@ -216,12 +207,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           ))}
                         </div>
                       </td>
-                      <td className={`px-6 py-4 font-black ${p.stockQuantity < 5 ? 'text-rose-500 animate-pulse' : 'text-slate-700'}`}>{p.stockQuantity} وحدة</td>
-                      <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          <button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-blue-50 rounded-lg">✎</button>
-                          <button onClick={() => { if(confirm('حذف المنتج نهائياً؟')) onDeleteProduct(p.id) }} className="p-2 text-rose-500 bg-rose-50 rounded-lg">🗑</button>
-                        </div>
+                      <td className={`px-6 py-4 font-black ${p.stockQuantity < 5 ? 'text-rose-500' : 'text-slate-700'}`}>{p.stockQuantity} ق</td>
+                      <td className="px-6 py-4 flex gap-2">
+                        <button onClick={() => onOpenEditForm(p)} className="p-2 text-blue-500 bg-blue-50 rounded-lg">✎</button>
+                        <button onClick={() => { if(confirm('حذف؟')) onDeleteProduct(p.id) }} className="p-2 text-rose-500 bg-rose-50 rounded-lg">🗑</button>
                       </td>
                     </tr>
                   ))}
@@ -231,13 +220,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* صفحة الأقسام */}
+        {/* Categories Tab */}
         {activeTab === 'categories' && (
           <div className="space-y-8 animate-fadeIn">
             <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm max-w-xl">
               <h3 className="font-black mb-6 text-slate-800">إضافة قسم جديد</h3>
               <div className="flex gap-3">
-                <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="اسم القسم الجديد..." className="flex-grow px-6 py-3 bg-slate-50 rounded-2xl outline-none font-bold" />
+                <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="اسم القسم..." className="flex-grow px-6 py-3 bg-slate-50 rounded-2xl outline-none font-bold" />
                 <button onClick={() => { if(newCatName) { onAddCategory({id: 'cat_'+Date.now(), name: newCatName}); setNewCatName(''); } }} className="bg-emerald-600 text-white px-8 rounded-2xl font-black text-xs shadow-lg">إضافة</button>
               </div>
             </div>
@@ -264,7 +253,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* صفحة الطلبات */}
+        {/* Orders Tab */}
         {activeTab === 'orders' && (
           <div className="space-y-6 animate-fadeIn">
             <h3 className="text-2xl font-black text-slate-800">إدارة الطلبات</h3>
@@ -298,7 +287,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* صفحة الأعضاء */}
+        {/* Members Tab */}
         {activeTab === 'members' && (
           <div className="space-y-6 animate-fadeIn">
             <h3 className="text-2xl font-black text-slate-800">قائمة الأعضاء</h3>
@@ -317,11 +306,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* صفحة الأرباح الدقيقة (Profit Center) */}
+        {/* Reports Tab */}
         {activeTab === 'reports' && (
           <div className="space-y-8 animate-fadeIn">
             <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-               <h3 className="font-black text-slate-800 text-xl mb-6">تقرير الأرباح الحقيقي (نظام FIFO)</h3>
+               <h3 className="font-black text-slate-800 text-xl mb-6">تقرير الأرباح الحقيقي</h3>
                <div className="flex flex-col md:flex-row gap-4 items-end">
                   <div className="flex-grow space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">من تاريخ</label><input type="date" value={reportStart} onChange={e => setReportStart(e.target.value)} className="w-full bg-slate-50 rounded-2xl px-6 py-4 outline-none font-black text-sm" /></div>
                   <div className="flex-grow space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">إلى تاريخ</label><input type="date" value={reportEnd} onChange={e => setReportEnd(e.target.value)} className="w-full bg-slate-50 rounded-2xl px-6 py-4 outline-none font-black text-sm" /></div>
@@ -329,24 +318,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي المبيعات</p><p className="text-3xl font-black text-slate-800 mt-2">{profitStats.revenue.toLocaleString()} ج.م</p></div>
-              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">تكلفة البضاعة (FIFO)</p><p className="text-3xl font-black text-amber-600 mt-2">{profitStats.cost.toLocaleString()} ج.م</p></div>
-              <div className="bg-emerald-600 p-8 rounded-[3rem] shadow-xl border border-emerald-500 text-white"><p className="text-[10px] font-black text-white/70 uppercase tracking-widest">صافي الربح الفعلي</p><p className="text-3xl font-black mt-2">{profitStats.profit.toLocaleString()} ج.م</p></div>
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المبيعات</p><p className="text-3xl font-black text-slate-800 mt-2">{profitStats.revenue.toLocaleString()} ج.م</p></div>
+              <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">التكلفة (FIFO)</p><p className="text-3xl font-black text-amber-600 mt-2">{profitStats.cost.toLocaleString()} ج.م</p></div>
+              <div className="bg-emerald-600 p-8 rounded-[3rem] shadow-xl border border-emerald-500 text-white"><p className="text-[10px] font-black text-white/70 uppercase tracking-widest">صافي الربح</p><p className="text-3xl font-black mt-2">{profitStats.profit.toLocaleString()} ج.م</p></div>
             </div>
-            
-            <div className="bg-blue-50 p-6 rounded-[2.5rem] border border-blue-100 flex items-center gap-4"><span className="text-2xl">💡</span><p className="text-blue-800 text-xs font-bold leading-relaxed">هذا التقرير دقيق بنسبة 100%، حيث يخصم سعر الجملة للقطعة المبيعة من دفعتها الخاصة، مما يضمن لك حساب الربح بشكل صحيح حتى مع تقلب الأسعار اليومي.</p></div>
           </div>
         )}
 
-        {/* صفحة الإعدادات */}
+        {/* Settings Tab */}
         {activeTab === 'settings' && (
            <div className="space-y-8 animate-fadeIn max-w-2xl">
               <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-sm border border-slate-100">
-                 <h3 className="text-xl font-black text-slate-800 mb-8">إعدادات المتجر العامة</h3>
+                 <h3 className="text-xl font-black text-slate-800 mb-8">إعدادات المتجر</h3>
                  <div className="space-y-6">
-                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم واتساب الإدارة</label><input type="tel" defaultValue="201026034170" className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" /></div>
-                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">اسم المتجر الرسمي</label><input type="text" defaultValue="سوق العصر - فاقوس" className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" /></div>
-                    <button className="w-full bg-emerald-600 text-white py-5 rounded-3xl font-black shadow-xl hover:bg-slate-900 transition-all">حفظ التغييرات 💾</button>
+                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">واتساب الإدارة</label><input type="tel" defaultValue="201026034170" className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" /></div>
+                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">اسم المتجر</label><input type="text" defaultValue="سوق العصر - فاقوس" className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" /></div>
+                    <button className="w-full bg-emerald-600 text-white py-5 rounded-3xl font-black shadow-xl hover:bg-slate-900 transition-all">حفظ الإعدادات 💾</button>
                  </div>
               </div>
            </div>
