@@ -45,12 +45,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
 
-  // حساب الأرباح (FIFO)
+  // حساب الأرباح (FIFO) - مع حماية ضد البيانات الفارغة
   const profitStats = useMemo(() => {
     try {
       const start = new Date(reportStart).setHours(0, 0, 0, 0);
       const end = new Date(reportEnd).setHours(23, 59, 59, 999);
       const periodOrders = (orders || []).filter(o => {
+        if (!o || !o.createdAt) return false;
         const d = Number(o.createdAt);
         return d >= start && d <= end && o.status !== 'cancelled';
       });
@@ -64,13 +65,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
       return { revenue, cost, profit: revenue - cost };
     } catch (e) {
+      console.error("Profit stats error:", e);
       return { revenue: 0, cost: 0, profit: 0 };
     }
   }, [orders, reportStart, reportEnd]);
 
   // إحصائيات الصفحة الرئيسية
   const generalStats = useMemo(() => {
-    const activeOrders = (orders || []).filter(o => o.status !== 'cancelled');
+    const activeOrders = (orders || []).filter(o => o && o.status !== 'cancelled');
     const totalSales = activeOrders.reduce((s, o) => s + Number(o.total || 0), 0);
     const lowStockItems = (products || []).filter(p => Number(p.stockQuantity || 0) < 5);
     return { totalSales, lowStock: lowStockItems.length, totalOrders: (orders || []).length, totalProducts: (products || []).length };
@@ -117,7 +119,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       <main className="flex-grow p-6 md:p-12 bg-slate-50/50 overflow-y-auto no-scrollbar">
         
-        {/* صفحة الإحصائيات (الرئيسية) */}
+        {/* صفحة الإحصائيات */}
         {activeTab === 'stats' && (
           <div className="space-y-10 animate-fadeIn">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -145,13 +147,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <button onClick={() => setActiveTab('orders')} className="text-[10px] text-emerald-600 font-black px-4 py-2 bg-emerald-50 rounded-full">عرض الكل ←</button>
                   </div>
                   <div className="space-y-4">
-                    {orders.slice(0, 5).map(order => (
+                    {(orders || []).slice(0, 5).map(order => (
                       <div key={order.id} className="flex items-center justify-between p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100 hover:bg-emerald-50 transition-colors">
                          <div>
                             <p className="font-black text-sm text-slate-700">#{order.id} - {order.customerName}</p>
                             <p className="text-[10px] text-slate-400 font-bold mt-1">{new Date(order.createdAt).toLocaleString('ar-EG')}</p>
                          </div>
-                         <p className="font-black text-emerald-600">{order.total} ج.م</p>
+                         <p className="font-black text-emerald-600">{(order.total || 0).toLocaleString()} ج.م</p>
                       </div>
                     ))}
                   </div>
@@ -163,7 +165,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <button onClick={() => { setActiveTab('products'); setShowLowStockOnly(true); }} className="text-[10px] text-rose-500 font-black px-4 py-2 bg-rose-50 rounded-full">عرض النواقص ←</button>
                   </div>
                   <div className="space-y-4">
-                    {products.filter(p => Number(p.stockQuantity || 0) < 5).slice(0, 5).map(p => (
+                    {(products || []).filter(p => Number(p.stockQuantity || 0) < 5).slice(0, 5).map(p => (
                       <div key={p.id} className="flex items-center gap-4 p-5 bg-rose-50/30 rounded-[1.5rem] border border-rose-100/50">
                          <img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-sm" />
                          <div className="flex-grow">
@@ -242,7 +244,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* إدارة الطلبات - مع أزرار التحكم الجديدة */}
+        {/* إدارة الطلبات - تم إصلاح خطر الصفحة البيضاء هنا */}
         {activeTab === 'orders' && (
           <div className="space-y-8 animate-fadeIn">
             <h3 className="text-3xl font-black text-slate-800">أرشيف الطلبات والمديونيات</h3>
@@ -257,66 +259,77 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {orders.map(o => {
-                    const isCancelled = o.status === 'cancelled';
-                    const isDebt = o.paymentMethod.includes('آجل');
-                    
-                    return (
-                      <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
-                        <td className="px-8 py-5">
-                          <div>
-                            <p className="font-black text-slate-700">#{o.id} - {o.customerName}</p>
-                            <p className="text-[10px] text-slate-400 font-bold mt-1">{new Date(o.createdAt).toLocaleString('ar-EG')}</p>
-                          </div>
-                        </td>
-                        <td className="px-8 py-5 font-black text-emerald-600 text-lg">{o.total.toLocaleString()} ج.م</td>
-                        <td className="px-8 py-5">
-                          {!isCancelled ? (
-                            <div className="flex gap-1.5 p-1 bg-slate-50 rounded-xl border w-fit">
-                              <button 
-                                onClick={() => onUpdateOrderPayment(o.id, 'نقدي (تم الدفع)')}
-                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
-                              >نقدي 💰</button>
-                              <button 
-                                onClick={() => onUpdateOrderPayment(o.id, 'آجل (مديونية)')}
-                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
-                              >آجل ⏳</button>
+                  {(orders || []).length > 0 ? (
+                    orders.map(o => {
+                      // فحص أمان للبيانات المفقودة
+                      if (!o) return null;
+                      const isCancelled = o.status === 'cancelled';
+                      const paymentMethod = o.paymentMethod || 'نقدي';
+                      const isDebt = paymentMethod.includes('آجل');
+                      
+                      return (
+                        <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
+                          <td className="px-8 py-5">
+                            <div>
+                              <p className="font-black text-slate-700">#{o.id} - {o.customerName || 'عميل مجهول'}</p>
+                              <p className="text-[10px] text-slate-400 font-bold mt-1">
+                                {o.createdAt ? new Date(o.createdAt).toLocaleString('ar-EG') : 'تاريخ غير معروف'}
+                              </p>
                             </div>
-                          ) : (
-                            <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
-                          )}
-                        </td>
-                        <td className="px-8 py-5">
-                          <div className="flex items-center justify-center gap-2">
-                             <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
-                             
-                             {isDebt && !isCancelled && (
-                               <button 
-                                 onClick={() => WhatsAppService.sendDebtReminderToCustomer(o)}
-                                 className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm"
-                                 title="تذكير واتساب"
-                               >📢</button>
-                             )}
+                          </td>
+                          <td className="px-8 py-5 font-black text-emerald-600 text-lg">{(o.total || 0).toLocaleString()} ج.م</td>
+                          <td className="px-8 py-5">
+                            {!isCancelled ? (
+                              <div className="flex gap-1.5 p-1 bg-slate-50 rounded-xl border w-fit">
+                                <button 
+                                  onClick={() => onUpdateOrderPayment(o.id, 'نقدي (تم الدفع)')}
+                                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
+                                >نقدي 💰</button>
+                                <button 
+                                  onClick={() => onUpdateOrderPayment(o.id, 'آجل (مديونية)')}
+                                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
+                                >آجل ⏳</button>
+                              </div>
+                            ) : (
+                              <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
+                            )}
+                          </td>
+                          <td className="px-8 py-5">
+                            <div className="flex items-center justify-center gap-2">
+                               <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
+                               
+                               {isDebt && !isCancelled && (
+                                 <button 
+                                   onClick={() => WhatsAppService.sendDebtReminderToCustomer(o)}
+                                   className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-600 hover:text-white transition-all shadow-sm"
+                                   title="تذكير واتساب"
+                                 >📢</button>
+                               )}
 
-                             {!isCancelled && (
-                               <button 
-                                 onClick={() => onReturnOrder(o.id)}
-                                 className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                                 title="استرداد الفاتورة"
-                               >↩️</button>
-                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                               {!isCancelled && (
+                                 <button 
+                                   onClick={() => onReturnOrder(o.id)}
+                                   className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                                   title="استرداد الفاتورة"
+                                 >↩️</button>
+                               )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">لا توجد طلبات مسجلة حالياً في الأرشيف</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* ... بقية التبويبات (الأعضاء، الأقسام، التقارير، الإعدادات) ... */}
+        {/* بقية التبويبات مع حماية إضافية */}
         {activeTab === 'categories' && (
           <div className="space-y-10 animate-fadeIn">
             <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 max-w-2xl">
@@ -327,7 +340,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {categories.map(cat => (
+              {(categories || []).map(cat => (
                 <div key={cat.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all">
                   {editingCatId === cat.id ? (
                     <div className="flex items-center gap-2 flex-grow">
@@ -338,7 +351,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <>
                       <div>
                         <p className="font-black text-slate-800 text-lg">{cat.name}</p>
-                        <p className="text-[10px] text-slate-400 font-bold mt-1">الأصناف: {products.filter(p => p.categoryId === cat.id).length}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-1">الأصناف: {(products || []).filter(p => p.categoryId === cat.id).length}</p>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                         <button onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} className="p-2 text-blue-400 bg-blue-50 rounded-xl">✎</button>
@@ -366,12 +379,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {users.map(u => (
+                  {(users || []).map(u => (
                     <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-8 py-5 font-bold text-slate-800">{u.name}</td>
                       <td className="px-8 py-5 font-black text-slate-500 tracking-wider">{u.phone}</td>
+                      <td className="px-8 py-5">
+                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+                          {u.role === 'admin' ? 'مدير' : 'عميل'}
+                        </span>
+                      </td>
                       <td className="px-8 py-5 text-[10px] font-bold text-slate-400 italic">
-                        {new Date(u.createdAt).toLocaleDateString('ar-EG')}
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar-EG') : '-'}
                       </td>
                     </tr>
                   ))}
@@ -400,15 +418,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 text-center">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">إجمالي المبيعات</p>
-                <p className="text-4xl font-black text-slate-800">{profitStats.revenue.toLocaleString()} <small className="text-xs">ج.م</small></p>
+                <p className="text-4xl font-black text-slate-800">{(profitStats.revenue || 0).toLocaleString()} <small className="text-xs">ج.م</small></p>
               </div>
               <div className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 text-center">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">تكلفة البضاعة</p>
-                <p className="text-4xl font-black text-amber-600">{profitStats.cost.toLocaleString()} <small className="text-xs">ج.م</small></p>
+                <p className="text-4xl font-black text-amber-600">{(profitStats.cost || 0).toLocaleString()} <small className="text-xs">ج.م</small></p>
               </div>
               <div className="bg-emerald-600 p-10 rounded-[3.5rem] shadow-xl border border-emerald-500 text-white text-center transform hover:scale-105 transition-transform duration-500">
                 <p className="text-[10px] font-black text-white/70 uppercase tracking-widest mb-2">صافي الربح الفعلي</p>
-                <p className="text-4xl font-black">{profitStats.profit.toLocaleString()} <small className="text-xs text-white/50">ج.م</small></p>
+                <p className="text-4xl font-black">{(profitStats.profit || 0).toLocaleString()} <small className="text-xs text-white/50">ج.م</small></p>
               </div>
             </div>
           </div>
@@ -423,7 +441,7 @@ const AdminNavButton = ({ active, onClick, label, icon, badge }: any) => (
   <button onClick={onClick} className={`w-full flex items-center gap-4 px-8 py-4 rounded-[1.5rem] font-black text-sm transition-all duration-300 relative ${active ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-500/20 scale-105 z-10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
     <span className="text-xl">{icon}</span>
     <span className="flex-grow text-right">{label}</span>
-    {badge > 0 && <span className="absolute left-4 top-1/2 -translate-y-1/2 bg-rose-500 text-white text-[8px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-900 animate-pulse">{badge}</span>}
+    {(badge || 0) > 0 && <span className="absolute left-4 top-1/2 -translate-y-1/2 bg-rose-500 text-white text-[8px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-900 animate-pulse">{badge}</span>}
   </button>
 );
 
