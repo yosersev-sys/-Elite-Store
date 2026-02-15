@@ -67,8 +67,11 @@ const App: React.FC = () => {
   
   const prevOrderIds = useRef<Set<string>>(new Set());
   const audioObj = useRef<HTMLAudioElement | null>(null);
+  
+  // تعديل: الأولوية للتفعيل (Default is True)
   const [soundEnabled, setSoundEnabled] = useState(() => {
-    return localStorage.getItem('sound_enabled') === 'true';
+    const saved = localStorage.getItem('sound_enabled');
+    return saved === null ? true : saved === 'true';
   });
 
   // تهيئة كائن الصوت
