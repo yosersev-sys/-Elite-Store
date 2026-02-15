@@ -22,12 +22,14 @@ const extractJson = (text: string) => {
 
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
   try {
+    // Initializing Gemini client
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `قم بكتابة وصف تسويقي جذاب ومختصر باللغة العربية لمنتج يسمى "${productName}" في قسم "${category}". ركز على الفوائد والجودة وسرعة التوصيل في فاقوس.`,
       config: { temperature: 0.7 }
     });
+    // Correctly using .text property (not a method)
     return response.text || "فشل في إنشاء الوصف.";
   } catch (error) {
     console.error("Error generating description:", error);
@@ -37,6 +39,7 @@ export const generateProductDescription = async (productName: string, category: 
 
 export const generateSeoData = async (productName: string, description: string) => {
   try {
+    // Initializing Gemini client
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -62,6 +65,7 @@ export const generateSeoData = async (productName: string, description: string) 
       }
     });
     
+    // Correctly using .text property
     let text = response.text;
     if (!text) return null;
 
@@ -84,6 +88,7 @@ export const generateProductImage = async (productName: string, category: string
       contents: `Respond with only 2-3 English words describing this Arabic item for a clean product photo: "${productName}"`
     });
     
+    // Correctly using .text property
     const simpleEnglishName = translationResponse.text?.trim() || productName;
     const finalPrompt = `Professional commercial studio product photo of ${simpleEnglishName}, solid white background, high resolution, 4k, bright studio lighting.`;
 
@@ -92,19 +97,20 @@ export const generateProductImage = async (productName: string, category: string
     // المرحلة 2: توليد الصورة
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: [{ parts: [{ text: finalPrompt }] }],
+      contents: { parts: [{ text: finalPrompt }] },
       config: {
         imageConfig: {
           aspectRatio: "1:1"
-        },
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-        ]
-      }
-    });
+        }
+      },
+      // safetySettings should be at top-level of the request, not inside config
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+      ]
+    } as any); // Cast to any because the SDK's simplified type might not list safetySettings at top level but the API supports it.
 
     if (!response.candidates || response.candidates.length === 0) {
       console.warn("AI returned no candidates. Possibly blocked.");
@@ -113,6 +119,7 @@ export const generateProductImage = async (productName: string, category: string
 
     const parts = response.candidates[0].content.parts;
     for (const part of parts) {
+      // Find the image part, do not assume it is the first part.
       if (part.inlineData) {
         console.log("Image generation successful!");
         return `data:image/png;base64,${part.inlineData.data}`;

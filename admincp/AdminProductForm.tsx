@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings, StockBatch } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
@@ -154,10 +153,11 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setNewBatchPrice('');
   };
 
+  // Fixed the 'unknown' to 'Blob' error by adding explicit type 'File' for the 'file' parameter.
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach((file) => {
+    Array.from(files).forEach((file: File) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === 'string') {
@@ -367,7 +367,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 نظام الوارد أولاً يصرف أولاً (FIFO) يضمن لك حساب أرباح دقيق بناءً على تكلفة كل شحنة توريد على حدة.
               </p>
             </div>
-            <div className="flex flex-col items-center justify-center bg-slate-900 text-white px-8 py-6 rounded-[2.5rem] shadow-2xl border-4 border-emerald-500/20 transform hover:scale-105 transition-transform">
+            <div className="flex items-center justify-center bg-slate-900 text-white px-8 py-6 rounded-[2.5rem] shadow-2xl border-4 border-emerald-500/20 transform hover:scale-105 transition-transform">
                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">المخزون الكلي المتوفر</p>
                <div className="flex items-baseline gap-2">
                  <p className="text-4xl font-black">{formData.stockQuantity}</p>
@@ -465,7 +465,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                               type="button" 
                               onClick={() => setFormData(prev => ({...prev, batches: prev.batches.filter(b => b.id !== batch.id)}))} 
                               className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                              title="حذف هذه الشحنة"
+                              title="حذف هذه شحنة"
                             >
                               ✕
                             </button>
