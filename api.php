@@ -7,7 +7,7 @@
 session_start();
 error_reporting(0); 
 ini_set('display_errors', 0);
-ini_set('memory_limit', '256M'); // زيادة حد الذاكرة للتعامل مع الصور
+ini_set('memory_limit', '256M'); 
 ini_set('post_max_size', '50M');
 ini_set('upload_max_filesize', '50M');
 
@@ -34,25 +34,59 @@ function isAdmin() {
     return ($_SESSION['user']['role'] ?? '') === 'admin';
 }
 
-// دالة مبسطة لإنشاء الجداول عند الحاجة فقط لتقليل الضغط على السيرفر
 function ensureSchema($pdo) {
     static $checked = false;
     if ($checked) return;
     
-    // تنفيذ استعلام واحد فقط للتحقق من وجود جدول المنتجات كدليل
-    $exists = $pdo->query("SHOW TABLES LIKE 'products'")->fetch();
-    if ($exists) {
-        $checked = true;
-        return;
-    }
-
+    // فحص وجود الجداول وتحديث الأعمدة إذا لزم الأمر
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive BOOLEAN DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), categoryId VARCHAR(50), images LONGTEXT, createdAt BIGINT)");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), total DECIMAL(10,2), items LONGTEXT, createdAt BIGINT)");
+    
+    // تحديث جدول المنتجات بكافة الأعمدة المطلوبة
+    $pdo->exec("CREATE TABLE IF NOT EXISTS products (
+        id VARCHAR(50) PRIMARY KEY, 
+        name VARCHAR(255) NOT NULL, 
+        description TEXT, 
+        price DECIMAL(10,2), 
+        wholesalePrice DECIMAL(10,2) DEFAULT 0,
+        categoryId VARCHAR(50), 
+        images LONGTEXT, 
+        stockQuantity INT DEFAULT 0,
+        unit VARCHAR(20) DEFAULT 'piece',
+        barcode VARCHAR(100),
+        salesCount INT DEFAULT 0,
+        seoSettings LONGTEXT,
+        batches LONGTEXT,
+        createdAt BIGINT
+    )");
+
+    // تحديث جدول الطلبات ليشمل حالة الدفع والبيانات التفصيلية
+    $pdo->exec("CREATE TABLE IF NOT EXISTS orders (
+        id VARCHAR(50) PRIMARY KEY, 
+        customerName VARCHAR(255), 
+        phone VARCHAR(20), 
+        city VARCHAR(100) DEFAULT 'فاقوس',
+        address TEXT,
+        subtotal DECIMAL(10,2),
+        total DECIMAL(10,2), 
+        items LONGTEXT, 
+        paymentMethod VARCHAR(100) DEFAULT 'نقدي',
+        status VARCHAR(50) DEFAULT 'completed',
+        userId VARCHAR(50),
+        createdAt BIGINT
+    )");
+    
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) NOT NULL, companyName VARCHAR(255), address TEXT, notes TEXT, type VARCHAR(50) DEFAULT 'wholesale', balance DECIMAL(10,2) DEFAULT 0, rating INT DEFAULT 5, status VARCHAR(20) DEFAULT 'active', createdAt BIGINT)");
     
+    // التأكد من وجود الأعمدة في حال كان الجدول قديماً (Migration)
+    try {
+        $pdo->exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS paymentMethod VARCHAR(100) DEFAULT 'نقدي'");
+        $pdo->exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS city VARCHAR(100) DEFAULT 'فاقوس'");
+        $pdo->exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS address TEXT");
+        $pdo->exec("ALTER TABLE orders ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'completed'");
+    } catch(Exception $e) {}
+
     $checked = true;
 }
 
@@ -148,6 +182,15 @@ try {
                 $pdo->commit();
                 sendRes(['status' => 'success']);
             } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
+            break;
+
+        case 'update_order_payment':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            if (!isset($input['id']) || !isset($input['paymentMethod'])) sendErr('بيانات ناقصة');
+            
+            $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
+            $stmt->execute([$input['paymentMethod'], $input['id']]);
+            sendRes(['status' => 'success']);
             break;
 
         case 'get_orders':
