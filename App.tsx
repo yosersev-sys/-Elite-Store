@@ -15,6 +15,7 @@ import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import FloatingCartButton from './components/FloatingCartButton.tsx';
 import FloatingQuickInvoiceButton from './components/FloatingQuickInvoiceButton.tsx';
+import AiAssistant from './components/AiAssistant.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
@@ -134,11 +135,15 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
-    // تحديث البيانات فوراً عند الدخول للأدمن
-    if (v === 'admin' || v === 'admin-invoice') {
+    if (v === 'admin' || v === 'admin-invoice' || v === 'quick-invoice') {
       loadData(true);
     }
-    setView(v);
+    // تحويل quick-invoice لـ admin-invoice لتوحيد الواجهة
+    if (v === 'quick-invoice') {
+      setView('admin-invoice');
+    } else {
+      setView(v);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -358,14 +363,29 @@ const App: React.FC = () => {
           {view === 'profile' && currentUser && <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigateAction('store')} />}
         </main>
 
+        {/* الأزرار العائمة ومساعد الذكاء الاصطناعي - تظهر فقط خارج صفحات الإدارة */}
         {!isAdminView && (
-          <MobileNav 
-            currentView={view} 
-            cartCount={cart.length} 
-            onNavigate={onNavigateAction} 
-            onCartClick={() => onNavigateAction('cart')}
-            isAdmin={currentUser?.role === 'admin'}
-          />
+          <>
+            <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={!isAdminView} />
+            {currentUser?.role === 'admin' && (
+              <>
+                <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
+                <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
+              </>
+            )}
+            <AiAssistant products={products} onAddToCart={addToCart} showNotification={showNotify} />
+            <MobileNav 
+              currentView={view} 
+              cartCount={cart.length} 
+              onNavigate={onNavigateAction} 
+              onCartClick={() => onNavigateAction('cart')}
+              isAdmin={currentUser?.role === 'admin'}
+            />
+          </>
+        )}
+        
+        {productForBarcode && (
+          <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigateAction('admin'); }} />
         )}
       </div>
     </PullToRefresh>
