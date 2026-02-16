@@ -1,5 +1,5 @@
 
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -12,13 +12,17 @@ interface State {
 
 /**
  * ErrorBoundary component to catch rendering errors and show a fallback UI.
- * Fixed: Explicitly extending React.Component with generic types to resolve property access issues.
  */
-class ErrorBoundary extends React.Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null
-  };
+class ErrorBoundary extends Component<Props, State> {
+  // Explicitly defining the constructor and calling super(props) ensures 
+  // that 'this.props' is correctly typed and accessible in all methods.
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -29,7 +33,7 @@ class ErrorBoundary extends React.Component<Props, State> {
   }
 
   public render(): ReactNode {
-    // Fixed: Destructuring from this.props and this.state to ensure correct typing and access.
+    // Access state and props via destructuring
     const { hasError, error } = this.state;
     const { children } = this.props;
 
@@ -69,7 +73,6 @@ class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // Fixed: Accessed via destructured variable which is correctly typed.
     return children;
   }
 }

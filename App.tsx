@@ -28,13 +28,16 @@ import { WhatsAppService } from './services/whatsappService.ts';
 const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const App: React.FC = () => {
-  // دالة محسنة لتحديد الواجهة من الرابط مباشرة
+  // قائمة المسارات الإدارية المسموحة
+  const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
+
   const getInitialView = (): View => {
     const hash = window.location.hash.replace('#', '');
-    if (['admin', 'admincp', 'admin-auth', 'admin-form', 'admin-invoice'].includes(hash)) {
+    if (ADMIN_VIEWS.includes(hash as View)) {
       return hash as View;
     }
-    if (['cart', 'my-orders', 'profile', 'checkout'].includes(hash)) {
+    const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice'];
+    if (publicViews.includes(hash as View)) {
       return hash as View;
     }
     return 'store';
@@ -82,17 +85,20 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // مزامنة الـ Hash مع الـ View المختار لضمان عمل أزرار المتصفح
+  // مزامنة الـ Hash مع الـ View
   useEffect(() => {
     const currentHash = window.location.hash.replace('#', '');
     if (view === 'store') {
-        if (currentHash !== '') window.history.replaceState(null, '', window.location.pathname);
+        // لا تمسح الـ Hash إذا كان يحتوي على مسار إداري (لمنع التوجيه الخاطئ أثناء التحميل)
+        if (currentHash !== '' && !ADMIN_VIEWS.includes(currentHash as View)) {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
     } else {
         if (currentHash !== view) window.location.hash = view;
     }
   }, [view]);
 
-  // مراقبة تغيير الـ Hash يدوياً
+  // مراقبة تغيير الـ Hash
   useEffect(() => {
     const handleHashChange = () => {
       const newView = getInitialView();
@@ -151,7 +157,7 @@ const App: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error("Critical Refresh Load Error:", err);
+      console.error("Load Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -197,11 +203,12 @@ const App: React.FC = () => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // تحديد ما إذا كنا في وضع الإدارة
-  const isAdminPath = ['admin', 'admin-form', 'admin-invoice', 'admin-auth'].includes(view);
+  // تحديد ما إذا كان المسار الحالي يتطلب واجهة الإدارة
+  const isAdminPath = ADMIN_VIEWS.includes(view);
   const isActuallyAdmin = currentUser?.role === 'admin';
 
-  if (isLoading && products.length === 0) {
+  // شاشة التحميل تظهر فقط في أول مرة ولا تعيق عرض الإدارة إذا كان المسار محدداً
+  if (isLoading && products.length === 0 && !isAdminPath) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6">
          <div className="w-16 h-16 bg-emerald-500 rounded-3xl flex items-center justify-center mb-6 animate-bounce shadow-xl">
@@ -222,7 +229,7 @@ const App: React.FC = () => {
             onClose={(id) => setNewOrdersForPopup(prev => prev.filter(o => o.id !== id))}
             onView={(order) => {
               setLastCreatedOrder(order);
-              onNavigateAction('order-success');
+              setView('order-success');
             }}
           />
         )}
@@ -231,13 +238,12 @@ const App: React.FC = () => {
           <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
         )}
 
-        {/* بوابة الحماية: إذا كان المسار إداري والمستخدم غير مسجل كمدير، نعرض دائماً صفحة تسجيل الدخول */}
+        {/* إذا كان المسار إداري والمستخدم غير مسجل كمدير، نعرض دائماً صفحة تسجيل دخول المدير */}
         {isAdminPath && !isActuallyAdmin && (
           <AdminAuthView 
             onSuccess={(user) => {
               setCurrentUser(user);
               loadData();
-              // نبقى في نفس الـ View الذي طلبه المستخدم قبل تسجيل الدخول
             }}
             onClose={() => setView('store')}
           />
@@ -278,7 +284,7 @@ const App: React.FC = () => {
             />
           )}
           
-          {view === 'admin' && isActuallyAdmin && (
+          {(view === 'admin' || view === 'admincp') && isActuallyAdmin && (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
               onOpenAddForm={() => { setSelectedProduct(null); setView('admin-form'); }}
