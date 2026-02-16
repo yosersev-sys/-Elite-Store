@@ -7,9 +7,10 @@ interface MembersTabProps {
   users: User[];
   adminSearch: string;
   setAdminSearch: (val: string) => void;
+  onRefreshData?: () => void;
 }
 
-const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSearch }) => {
+const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSearch, onRefreshData }) => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -65,7 +66,10 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSea
       if (res.status === 'success') {
         alert('تم تحديث بيانات العضو بنجاح ✨');
         setEditingUser(null);
-        window.location.reload();
+        // تحديث البيانات دون إعادة تحميل الصفحة بالكامل
+        if (onRefreshData) {
+          onRefreshData();
+        }
       } else {
         alert(res.message || 'فشل التحديث');
       }
@@ -184,7 +188,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSea
                   </td>
                   <td className="px-8 py-5 font-black text-slate-500">{u.phone}</td>
                   <td className="px-8 py-5">
-                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-50'}`}>
+                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
                       {u.role === 'admin' ? 'مدير نظام' : 'عميل متجر'}
                     </span>
                   </td>

@@ -35,8 +35,18 @@ interface AdminDashboardProps {
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'reports' | 'settings' | 'api-keys';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('stats');
+  // جلب التبويب الأخير من التخزين المحلي أو البدء بالإحصائيات
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+    return (localStorage.getItem('admin_active_tab') as AdminTab) || 'stats';
+  });
+  
   const [adminSearch, setAdminSearch] = useState('');
+
+  // حفظ التبويب النشط عند تغييره
+  const handleTabChange = (tab: AdminTab) => {
+    setActiveTab(tab);
+    localStorage.setItem('admin_active_tab', tab);
+  };
 
   const tabTitles: Record<AdminTab, string> = {
     stats: 'نظرة عامة',
@@ -52,7 +62,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'stats':
-        return <StatsTab {...props} onNavigateToTab={setActiveTab} />;
+        return <StatsTab {...props} onNavigateToTab={handleTabChange} />;
       case 'products':
         return <ProductsTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} />;
       case 'categories':
@@ -60,7 +70,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'orders':
         return <OrdersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} />;
       case 'members':
-        return <MembersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} />;
+        return <MembersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} />;
       case 'reports':
         return <ReportsTab {...props} />;
       case 'settings':
@@ -68,7 +78,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'api-keys':
         return <ApiKeysTab />;
       default:
-        return <StatsTab {...props} onNavigateToTab={setActiveTab} />;
+        return <StatsTab {...props} onNavigateToTab={handleTabChange} />;
     }
   };
 
@@ -91,17 +101,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         </div>
         
         <nav className="flex lg:flex-col flex-row gap-2 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-3 lg:pb-0 -mx-2 px-2 lg:mx-0 lg:px-0">
-          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} icon="📊" label="الإحصائيات" />
-          <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
-          <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} icon="🏷️" label="الأقسام" />
-          <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} icon="🛍️" label="الطلبات" />
-          <AdminNavButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon="👥" label="الأعضاء" />
-          <AdminNavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon="📈" label="الأرباح" />
-          <AdminNavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon="🛠️" label="الإعدادات" />
+          <AdminNavButton active={activeTab === 'stats'} onClick={() => handleTabChange('stats')} icon="📊" label="الإحصائيات" />
+          <AdminNavButton active={activeTab === 'products'} onClick={() => handleTabChange('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
+          <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
+          <AdminNavButton active={activeTab === 'orders'} onClick={() => handleTabChange('orders')} icon="🛍️" label="الطلبات" />
+          <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
+          <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
+          <AdminNavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon="🛠️" label="الإعدادات" />
         </nav>
 
         <div className="mt-auto hidden lg:block space-y-4">
-           {/* زر التنبيهات المسترجع */}
            <button 
              onClick={props.onToggleSound} 
              className={`w-full py-3 rounded-2xl font-black text-xs border transition-all flex items-center justify-center gap-2 ${
@@ -125,7 +134,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            </div>
            
            <div className="flex gap-2 w-full md:w-auto">
-             {/* إخفاء زر التحديث من هنا أيضاً */}
              <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">🧾 فاتورة</button>
              <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">📦 صنف جديد</button>
            </div>
