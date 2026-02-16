@@ -39,7 +39,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               صنع بكل حب في فاقوس &copy; {new Date().getFullYear()}
             </p>
             <p className="text-[9px] font-black text-emerald-500 mt-1 uppercase tracking-tighter">
-              SOUQ AL-ASR - FAQOUS
+              SOQ AL-ASR - FAQOUS
             </p>
           </div>
 
