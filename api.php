@@ -1,6 +1,6 @@
 <?php
 /**
- * API Backend for Souq Al-Asr - Optimized v4.3
+ * API Backend for Souq Al-Asr - Full Version v4.5
  */
 session_start();
 error_reporting(0); 
@@ -30,9 +30,7 @@ function isAdmin() {
     return ($_SESSION['user']['role'] ?? '') === 'admin';
 }
 
-// تحسين: تشغيل فحص الهيكل فقط عند الضرورة أو في طلبات الإدارة الثقيلة
 function ensureSchema($pdo) {
-    // استخدام cache بسيط لمنع التكرار في نفس الجلسة إذا كان المدعوم
     if (isset($_SESSION['schema_verified'])) return;
     
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive BOOLEAN DEFAULT 1, sortOrder INT DEFAULT 0)");
@@ -72,17 +70,6 @@ function ensureSchema($pdo) {
         createdAt BIGINT
     )");
     
-    // تنفيذ التعديلات فقط إذا لم تكن موجودة (تحسين الأداء)
-    $check = $pdo->query("SHOW COLUMNS FROM orders LIKE 'paymentMethod'");
-    if (!$check->fetch()) {
-        try {
-            $pdo->exec("ALTER TABLE orders ADD COLUMN paymentMethod VARCHAR(100) DEFAULT 'نقدي (تم الدفع)'");
-            $pdo->exec("ALTER TABLE orders ADD COLUMN city VARCHAR(100) DEFAULT 'فاقوس'");
-            $pdo->exec("ALTER TABLE orders ADD COLUMN address TEXT");
-            $pdo->exec("ALTER TABLE orders ADD COLUMN status VARCHAR(50) DEFAULT 'completed'");
-        } catch (Exception $e) { }
-    }
-
     $_SESSION['schema_verified'] = true;
 }
 
@@ -90,10 +77,7 @@ $action = $_GET['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true);
 
 try {
-    // تحسين: لا نحتاج لفحص الهيكل في كل عملية جلب بيانات بسيطة
-    if (in_array($action, ['add_product', 'update_product', 'save_order', 'login', 'register'])) {
-        ensureSchema($pdo);
-    }
+    ensureSchema($pdo);
 
     switch ($action) {
         case 'get_admin_phone':
@@ -115,13 +99,75 @@ try {
             sendRes($products);
             break;
 
-        case 'update_order_payment':
+        case 'get_categories':
+            $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC");
+            sendRes($stmt->fetchAll() ?: []);
+            break;
+
+        case 'get_users':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            if (!isset($input['id']) || !isset($input['paymentMethod'])) sendErr('بيانات ناقصة');
-            $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
-            $stmt->execute([$input['paymentMethod'], $input['id']]);
+            $stmt = $pdo->query("SELECT id, name, phone, role, createdAt FROM users ORDER BY createdAt DESC");
+            sendRes($stmt->fetchAll() ?: []);
+            break;
+
+        case 'admin_update_user':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            if (isset($input['password']) && !empty($input['password'])) {
+                $hashed = password_hash($input['password'], PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ?, password = ? WHERE id = ?");
+                $stmt->execute([$input['name'], $input['phone'], $hashed, $input['id']]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ? WHERE id = ?");
+                $stmt->execute([$input['name'], $input['phone'], $input['id']]);
+            }
             sendRes(['status' => 'success']);
             break;
+
+        case 'get_suppliers':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY createdAt DESC");
+            $sups = $stmt->fetchAll() ?: [];
+            foreach ($sups as &$s) {
+                $s['balance'] = (float)$s['balance'];
+                $s['rating'] = (int)$s['rating'];
+            }
+            sendRes($sups);
+            break;
+
+        case 'add_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("INSERT INTO suppliers (id, name, phone, companyName, address, notes, type, balance, rating, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$input['id'], $input['name'], $input['phone'], $input['companyName'], $input['address'], $input['notes'], $input['type'], $input['balance'], $input['rating'], $input['status'], $input['createdAt']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'update_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("UPDATE suppliers SET name = ?, phone = ?, companyName = ?, address = ?, notes = ?, type = ?, balance = ?, rating = ?, status = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['phone'], $input['companyName'], $input['address'], $input['notes'], $input['type'], $input['balance'], $input['rating'], $input['status'], $input['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("DELETE FROM suppliers WHERE id = ?");
+            $stmt->execute([$_GET['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'login':
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ?");
+            $stmt->execute([$input['phone']]);
+            $user = $stmt->fetch();
+            if ($user && password_verify($input['password'], $user['password'])) {
+                $userData = ['id' => $user['id'], 'name' => $user['name'], 'phone' => $user['phone'], 'role' => $user['role']];
+                $_SESSION['user'] = $userData;
+                sendRes(['status' => 'success', 'user' => $userData]);
+            } else { sendErr('بيانات الدخول غير صحيحة'); }
+            break;
+
+        case 'get_current_user': sendRes($_SESSION['user'] ?? null); break;
+        case 'logout': session_destroy(); sendRes(['status' => 'success']); break;
 
         case 'get_orders':
             if (isAdmin()) { $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); } 
@@ -175,24 +221,6 @@ try {
                 $pdo->commit();
                 sendRes(['status' => 'success']);
             } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
-            break;
-
-        case 'login':
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ?");
-            $stmt->execute([$input['phone']]);
-            $user = $stmt->fetch();
-            if ($user && password_verify($input['password'], $user['password'])) {
-                $userData = ['id' => $user['id'], 'name' => $user['name'], 'phone' => $user['phone'], 'role' => $user['role']];
-                $_SESSION['user'] = $userData;
-                sendRes(['status' => 'success', 'user' => $userData]);
-            } else { sendErr('بيانات الدخول غير صحيحة'); }
-            break;
-
-        case 'get_current_user': sendRes($_SESSION['user'] ?? null); break;
-        case 'logout': session_destroy(); sendRes(['status' => 'success']); break;
-        case 'get_categories':
-            $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC");
-            sendRes($stmt->fetchAll() ?: []);
             break;
 
         default: sendRes(['status' => 'ok']);

@@ -47,11 +47,14 @@ const App: React.FC = () => {
   const [view, setView] = useState<View>(getInitialView());
   const [adminPhone, setAdminPhone] = useState('201026034170'); 
   const [showAuthModal, setShowAuthModal] = useState(false);
+  
+  // تهيئة المصفوفات بمصفوفات فارغة لضمان عدم حدوث أخطاء filter/map
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  
   const [newOrdersForPopup, setNewOrdersForPopup] = useState<Order[]>([]);
   const [productForBarcode, setProductForBarcode] = useState<Product | null>(null);
   
@@ -112,46 +115,40 @@ const App: React.FC = () => {
           activeUser = userFromServer;
       }
 
-      const baseTasks: Promise<any>[] = [
+      // جلب البيانات الأساسية
+      const [adminInfo, fetchedProducts, fetchedCats] = await Promise.all([
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
         ApiService.getCategories()
-      ];
-
-      if (activeUser) {
-        baseTasks.push(ApiService.getOrders());
-        if (activeUser.role === 'admin') {
-          baseTasks.push(ApiService.getUsers());
-          baseTasks.push(ApiService.getSuppliers());
-        }
-      }
-
-      const results = await Promise.all(baseTasks);
-      
-      const adminInfo = results[0];
-      const fetchedProducts = results[1] || [];
-      const fetchedCats = results[2] || [];
+      ]);
 
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
-      setProducts(fetchedProducts);
-      setCategories(fetchedCats);
+      setProducts(fetchedProducts || []);
+      setCategories(fetchedCats || []);
 
+      // جلب بيانات المستخدم والمدير
       if (activeUser) {
-        const fetchedOrders = results[3] || [];
-        setOrders(fetchedOrders);
+        const fetchedOrders = await ApiService.getOrders();
+        setOrders(fetchedOrders || []);
 
         if (activeUser.role === 'admin') {
-          if (results[4]) setUsers(results[4]);
-          if (results[5]) setSuppliers(results[5]);
+          const [fetchedUsers, fetchedSuppliers] = await Promise.all([
+            ApiService.getUsers(),
+            ApiService.getSuppliers()
+          ]);
+          
+          setUsers(fetchedUsers || []);
+          setSuppliers(fetchedSuppliers || []);
 
-          if (prevOrderIds.current.size > 0) {
+          // فحص الطلبات الجديدة للتنبيهات
+          if (fetchedOrders && prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
               if (soundEnabled && audioObj.current) audioObj.current.play().catch(() => {});
               setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
           }
-          prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
+          if (fetchedOrders) prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
         }
       }
     } catch (err) {
@@ -303,7 +300,6 @@ const App: React.FC = () => {
                 setView('order-success');
               }}
               onUpdateOrderPayment={async (id, method) => {
-                // تحسين: تحديث محلي فوري بدلاً من loadData الكاملة
                 const success = await ApiService.updateOrderPayment(id, method);
                 if(success) { 
                   setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentMethod: method } : o));
