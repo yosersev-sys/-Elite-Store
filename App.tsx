@@ -15,7 +15,6 @@ import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import FloatingCartButton from './components/FloatingCartButton.tsx';
 import FloatingQuickInvoiceButton from './components/FloatingQuickInvoiceButton.tsx';
-import AiAssistant from './components/AiAssistant.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
@@ -499,7 +498,6 @@ const App: React.FC = () => {
           <div className="no-print">
             <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={view !== 'cart' && view !== 'checkout'} />
             <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
-            <AiAssistant products={products} onAddToCart={addToCart} showNotification={showNotify} />
           </div>
         )}
 
