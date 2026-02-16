@@ -57,21 +57,52 @@ try {
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse-soft { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
-        .animate-slideUp { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        #error-display { display: none; padding: 20px; color: #e11d48; text-align: center; font-weight: bold; background: #fff1f2; border: 2px solid #fda4af; border-radius: 20px; margin: 20px; }
         
-        /* مخصص للوحة التحكم لضمان عدم وجود تباعد بين الحروف */
-        .admin-no-tracking, .admin-no-tracking * { 
-            letter-spacing: 0em !important; 
+        /* استايل واجهة التشغيل الفورية */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            z-index: 9999;
         }
+        .splash-logo {
+            width: 100px;
+            height: 100px;
+            background: #10b981;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.2);
+            animation: pulse-soft 2s infinite ease-in-out;
+            margin-bottom: 20px;
+        }
+        .splash-logo img { width: 60px; height: 60px; object-fit: contain; }
+        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.5rem; letter-spacing: -1px; }
+        .splash-loader { width: 40px; height: 4px; background: #e2e8f0; border-radius: 10px; margin-top: 15px; overflow: hidden; position: relative; }
+        .splash-loader::after { content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 50%; background: #10b981; border-radius: 10px; animation: loading-bar 1.5s infinite ease-in-out; }
+        @keyframes loading-bar { 0% { left: -50%; } 100% { left: 100%; } }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <!-- واجهة تشغيل فورية تظهر قبل تحميل React -->
+        <div id="splash-screen">
+            <div class="splash-logo">
+                <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
+            </div>
+            <div class="splash-text">سوق العصر</div>
+            <div class="splash-loader"></div>
+        </div>
+    </div>
 
     <script type="module">
         import React from 'react';
@@ -140,10 +171,10 @@ try {
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
+                // عند تنفيذ render، سيختفي الـ splash-screen تلقائياً لأنه داخل حاوية root
                 root.render(React.createElement(App));
             } catch (err) {
                 console.error("Critical Load Error:", err);
-                // إظهار الخطأ فقط في حال فشل التطبيق تماماً
                 const root = document.getElementById('root');
                 if (root) {
                     root.innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">حدث خطأ تقني في التحميل: <br/> ${err.message}</div>`;
