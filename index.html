@@ -1,25 +1,77 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>سوق العصر - جاري التوجيه...</title>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0"
-  }
-}
-</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>سوق العصر - اول سوق الكتروني في فاقوس</title>
+    
+    <!-- Tailwind CSS & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@^19.2.4",
+        "react/": "https://esm.sh/react@^19.2.4/",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+        "@google/genai": "https://esm.sh/@google/genai@^1.41.0"
+      }
+    }
+    </script>
+    <style>
+        * { font-family: 'Cairo', sans-serif; }
+        body { background: #f8fafc; margin: 0; overflow-x: hidden; }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-soft { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.95); opacity: 0.8; } }
+        
+        .loader-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: #f8fafc;
+        }
+        
+        .loader-logo {
+            width: 80px;
+            height: 80px;
+            background: #10b981;
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15);
+            animation: pulse-soft 2s infinite ease-in-out;
+            margin-bottom: 20px;
+        }
+        
+        .loader-logo img { width: 45px; height: 45px; object-fit: contain; }
+        
+        .loader-spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+    </style>
 </head>
-<body style="background: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
-    <div style="text-align: center;">
-        <div style="width: 50px; height: 50px; border: 5px solid #10b981; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
-        <p style="font-weight: bold; color: #64748b;">جاري تحميل المتجر...</p>
+<body>
+    <!-- هذا هو العنصر المطلوب لربط تطبيق React -->
+    <div id="root">
+        <!-- محتوى مؤقت يظهر أثناء تحميل ملفات الجافاسكريبت -->
+        <div class="loader-container">
+            <div class="loader-logo">
+                <img src="https://soqelasr.com/shopping-bag.png" alt="سوق العصر">
+            </div>
+            <h1 style="font-weight: 900; color: #1e293b; font-size: 1.5rem; margin-bottom: 5px;">سوق العصر</h1>
+            <p style="font-weight: bold; color: #94a3b8; font-size: 0.8rem; margin-bottom: 20px;">جاري تجهيز المتجر الذكي...</p>
+            <div class="loader-spinner"></div>
+        </div>
     </div>
-    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 </body>
 </html>
