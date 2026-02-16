@@ -25,31 +25,15 @@ import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
-const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
-
 const App: React.FC = () => {
-  // قائمة المسارات الإدارية التي يجب حمايتها وعدم التوجيه منها للمتجر
   const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
-  // دالة قوية لتحديد الواجهة من الرابط مباشرة
   const getInitialView = (): View => {
     const hash = window.location.hash.replace('#', '').split('?')[0];
-    
-    // إذا كان الرابط يحتوي على أي كلمة تخص الإدارة، نعتبره مسار إدارة
-    if (ADMIN_VIEWS.includes(hash as View)) {
-      return hash as View;
-    }
-    
-    // دعم الروابط القديمة أو المختصرة
-    if (hash === 'admin' || hash === 'admincp' || window.location.href.includes('admin')) {
-      return 'admin';
-    }
-
+    if (ADMIN_VIEWS.includes(hash as View)) return hash as View;
+    if (hash === 'admin' || hash === 'admincp' || window.location.href.includes('admin')) return 'admin';
     const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success'];
-    if (publicViews.includes(hash as View)) {
-      return hash as View;
-    }
-    
+    if (publicViews.includes(hash as View)) return hash as View;
     return 'store';
   };
 
@@ -95,22 +79,17 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // مزامنة الـ Hash مع الـ View المختار بشكل دقيق
   useEffect(() => {
     const currentHash = window.location.hash.replace('#', '').split('?')[0];
     if (view === 'store') {
-        // لا تمسح الـ Hash إذا كان يحتوي على مسار إداري (لحماية المستخدم من فقدان مكانه أثناء التحميل)
         if (currentHash !== '' && !ADMIN_VIEWS.includes(currentHash as View)) {
             window.history.replaceState(null, '', window.location.pathname);
         }
     } else {
-        if (currentHash !== view) {
-          window.location.hash = view;
-        }
+        if (currentHash !== view) window.location.hash = view;
     }
   }, [view]);
 
-  // مراقبة تغيير الـ Hash يدوياً (أزرار المتصفح)
   useEffect(() => {
     const handleHashChange = () => {
       const newView = getInitialView();
@@ -120,27 +99,36 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [view]);
 
-  const loadData = async (isSilent: boolean = false) => {
+  // دالة تحميل محسنة: تبدأ بجلب البيانات فوراً بناءً على حالة المستخدم الحالية
+  const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
       if (!isSilent) setIsLoading(true);
       
-      const user = await ApiService.getCurrentUser();
-      setCurrentUser(user);
+      // إذا لم يتم تمرير مستخدم (مثلاً عند الدخول لأول مرة)، نجلب المستخدم الحالي من السيرفر
+      let activeUser = forcedUser !== undefined ? forcedUser : currentUser;
+      
+      if (forcedUser === undefined) {
+          const userFromServer = await ApiService.getCurrentUser();
+          setCurrentUser(userFromServer);
+          activeUser = userFromServer;
+      }
 
-      const tasks: Promise<any>[] = [
+      // تجهيز المهام الأساسية
+      const baseTasks: Promise<any>[] = [
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
         ApiService.getCategories()
       ];
 
-      if (user) {
-        tasks.push(ApiService.getOrders());
-        if (user.role === 'admin') {
-          tasks.push(ApiService.getUsers());
+      // إضافة مهام الإدارة إذا كان المستخدم مديراً
+      if (activeUser) {
+        baseTasks.push(ApiService.getOrders());
+        if (activeUser.role === 'admin') {
+          baseTasks.push(ApiService.getUsers());
         }
       }
 
-      const results = await Promise.all(tasks);
+      const results = await Promise.all(baseTasks);
       
       const adminInfo = results[0];
       const fetchedProducts = results[1] || [];
@@ -150,14 +138,15 @@ const App: React.FC = () => {
       setProducts(fetchedProducts);
       setCategories(fetchedCats);
 
-      if (user) {
+      if (activeUser) {
         const fetchedOrders = results[3] || [];
         setOrders(fetchedOrders);
 
-        if (user.role === 'admin' && results[4]) {
+        if (activeUser.role === 'admin' && results[4]) {
           const fetchedUsers = results[4] || [];
           setUsers(fetchedUsers);
 
+          // كشف الطلبات الجديدة للتنبيهات
           if (prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
@@ -169,7 +158,7 @@ const App: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error("Critical Refresh Load Error:", err);
+      console.error("Data Load Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -179,9 +168,9 @@ const App: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') loadData(true);
-    }, 30000); 
+    }, 15000); // تقليل وقت التحديث لـ 15 ثانية لمواكبة الطلبات
     return () => clearInterval(interval);
-  }, [currentUser?.role]);
+  }, [currentUser?.id]); // ربط التحديث بتغير معرف المستخدم
 
   const onNavigateAction = (v: View) => {
     if ((v === 'profile' || v === 'my-orders') && !currentUser) {
@@ -200,6 +189,13 @@ const App: React.FC = () => {
     setView('store');
   };
 
+  const handleAuthSuccess = (user: User) => {
+    setCurrentUser(user);
+    setShowAuthModal(false);
+    // نمرر المستخدم الجديد لـ loadData ليبدأ تحميل طلباته فوراً دون انتظار طلب getCurrentUser
+    loadData(false, user); 
+  };
+
   const addToCart = (product: Product, qty: number = 1) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -215,11 +211,9 @@ const App: React.FC = () => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // تحديد ما إذا كان المسار الحالي يتطلب واجهة الإدارة
   const isAdminPath = ADMIN_VIEWS.includes(view);
   const isActuallyAdmin = currentUser?.role === 'admin';
 
-  // شاشة التحميل تظهر فقط في الواجهة العامة لمنع توجيه مسار الإدارة
   if (isLoading && products.length === 0 && !isAdminPath) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6">
@@ -250,14 +244,9 @@ const App: React.FC = () => {
           <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
         )}
 
-        {/* بوابة الحماية: إذا كان المسار إداري والمستخدم غير مسجل كمدير، نعرض دائماً صفحة تسجيل دخول المدير */}
         {isAdminPath && !isActuallyAdmin && (
           <AdminAuthView 
-            onSuccess={(user) => {
-              setCurrentUser(user);
-              loadData();
-              // نبقى في نفس الـ View الذي طلبه المستخدم
-            }}
+            onSuccess={handleAuthSuccess}
             onClose={() => setView('store')}
           />
         )}
@@ -265,11 +254,7 @@ const App: React.FC = () => {
         {showAuthModal && (
           <AuthView 
             onClose={() => setShowAuthModal(false)}
-            onSuccess={(user) => { 
-              setCurrentUser(user); 
-              setShowAuthModal(false);
-              loadData();
-            }} 
+            onSuccess={handleAuthSuccess} 
           />
         )}
 
