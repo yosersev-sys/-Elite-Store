@@ -99,12 +99,10 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [view]);
 
-  // دالة تحميل محسنة: تبدأ بجلب البيانات فوراً بناءً على حالة المستخدم الحالية
   const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
       if (!isSilent) setIsLoading(true);
       
-      // إذا لم يتم تمرير مستخدم (مثلاً عند الدخول لأول مرة)، نجلب المستخدم الحالي من السيرفر
       let activeUser = forcedUser !== undefined ? forcedUser : currentUser;
       
       if (forcedUser === undefined) {
@@ -113,14 +111,12 @@ const App: React.FC = () => {
           activeUser = userFromServer;
       }
 
-      // تجهيز المهام الأساسية
       const baseTasks: Promise<any>[] = [
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
         ApiService.getCategories()
       ];
 
-      // إضافة مهام الإدارة إذا كان المستخدم مديراً
       if (activeUser) {
         baseTasks.push(ApiService.getOrders());
         if (activeUser.role === 'admin') {
@@ -146,7 +142,6 @@ const App: React.FC = () => {
           const fetchedUsers = results[4] || [];
           setUsers(fetchedUsers);
 
-          // كشف الطلبات الجديدة للتنبيهات
           if (prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
@@ -168,9 +163,9 @@ const App: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') loadData(true);
-    }, 15000); // تقليل وقت التحديث لـ 15 ثانية لمواكبة الطلبات
+    }, 15000); 
     return () => clearInterval(interval);
-  }, [currentUser?.id]); // ربط التحديث بتغير معرف المستخدم
+  }, [currentUser?.id]);
 
   const onNavigateAction = (v: View) => {
     if ((v === 'profile' || v === 'my-orders') && !currentUser) {
@@ -192,7 +187,6 @@ const App: React.FC = () => {
   const handleAuthSuccess = (user: User) => {
     setCurrentUser(user);
     setShowAuthModal(false);
-    // نمرر المستخدم الجديد لـ loadData ليبدأ تحميل طلباته فوراً دون انتظار طلب getCurrentUser
     loadData(false, user); 
   };
 
@@ -285,6 +279,7 @@ const App: React.FC = () => {
           {(view === 'admin' || view === 'admincp') && isActuallyAdmin && (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
+              isLoading={isLoading}
               onOpenAddForm={() => { setSelectedProduct(null); setView('admin-form'); }}
               onOpenEditForm={(p) => { setSelectedProduct(p); setView('admin-form'); }}
               onOpenInvoiceForm={() => setView('admin-invoice')}

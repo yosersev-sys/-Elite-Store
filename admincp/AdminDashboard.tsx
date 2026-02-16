@@ -16,6 +16,7 @@ interface AdminDashboardProps {
   orders: Order[];
   users: User[];
   currentUser: User | null;
+  isLoading: boolean;
   onOpenAddForm: () => void;
   onOpenEditForm: (product: Product) => void;
   onOpenInvoiceForm: () => void;
@@ -35,14 +36,12 @@ interface AdminDashboardProps {
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'reports' | 'settings' | 'api-keys';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
-  // جلب التبويب الأخير من التخزين المحلي أو البدء بالإحصائيات
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     return (localStorage.getItem('admin_active_tab') as AdminTab) || 'stats';
   });
   
   const [adminSearch, setAdminSearch] = useState('');
 
-  // حفظ التبويب النشط عند تغييره
   const handleTabChange = (tab: AdminTab) => {
     setActiveTab(tab);
     localStorage.setItem('admin_active_tab', tab);
@@ -68,7 +67,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'categories':
         return <CategoriesTab {...props} />;
       case 'orders':
-        return <OrdersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} />;
+        return <OrdersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
       case 'members':
         return <MembersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} />;
       case 'reports':

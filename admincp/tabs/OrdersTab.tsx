@@ -6,13 +6,14 @@ import { WhatsAppService } from '../../services/whatsappService';
 interface OrdersTabProps {
   orders: Order[];
   adminSearch: string;
+  isLoading: boolean;
   setAdminSearch: (val: string) => void;
   onViewOrder: (order: Order) => void;
   onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
   onReturnOrder: (id: string) => void;
 }
 
-const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, setAdminSearch, onViewOrder, onUpdateOrderPayment, onReturnOrder }) => {
+const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
   const ordersPerPage = 10;
 
@@ -32,6 +33,36 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, setAdminSear
   }, [filteredOrders, orderPage]);
 
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
+
+  // هيكل التحميل لصفوف الجدول
+  if (isLoading && orders.length === 0) {
+    return (
+      <div className="space-y-8 animate-fadeIn">
+        <div className="flex justify-end">
+           <div className="w-80 h-12 bg-slate-200 rounded-2xl animate-pulse"></div>
+        </div>
+        <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden">
+           <div className="p-8 space-y-6">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 bg-slate-100 rounded-xl animate-pulse"></div>
+                     <div className="space-y-2">
+                        <div className="w-48 h-4 bg-slate-100 rounded-lg animate-pulse"></div>
+                        <div className="w-32 h-3 bg-slate-50 rounded-lg animate-pulse"></div>
+                     </div>
+                  </div>
+                  <div className="w-20 h-6 bg-slate-100 rounded-full animate-pulse"></div>
+                </div>
+              ))}
+           </div>
+           <div className="bg-slate-50 p-4 text-center">
+              <p className="text-slate-400 font-black text-xs animate-bounce">جاري جلب أحدث الطلبات من فاقوس...</p>
+           </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -101,6 +132,13 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, setAdminSear
                 </tr>
               );
             })}
+            {!isLoading && paginatedOrders.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">
+                  لا توجد طلبات مسجلة حالياً
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

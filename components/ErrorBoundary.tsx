@@ -1,9 +1,9 @@
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React from 'react';
 
 interface Props {
-  // Make children optional to resolve "missing children" error when used in JSX
-  children?: ReactNode;
+  // Children is optional for the component to be used as a wrapper in JSX
+  children?: React.ReactNode;
 }
 
 interface State {
@@ -14,32 +14,35 @@ interface State {
 /**
  * ErrorBoundary component to catch rendering errors and show a fallback UI.
  */
-// Fix: Use React.Component with explicit generic types to ensure 'props' and 'state' are correctly inherited and typed.
+// Explicitly extending React.Component with Props and State generics ensures 
+// that this.props and this.state are correctly typed and recognized by the compiler.
 class ErrorBoundary extends React.Component<Props, State> {
-  // Fix: Initializing state as a class property ensures it is recognized by the TypeScript compiler on 'this'.
-  public state: State = {
-    hasError: false,
-    error: null
-  };
-
   constructor(props: Props) {
     super(props);
+    // Initialize the component state
+    this.state = {
+      hasError: false,
+      error: null
+    };
   }
 
   public static getDerivedStateFromError(error: Error): State {
+    // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // Log the error to an error reporting service or console
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  public render(): ReactNode {
-    // Fix: Destructuring 'state' and 'props' from 'this' which now has correct inheritance types.
+  public render(): React.ReactNode {
+    // Use destructuring to access state and props which are inherited from React.Component
     const { hasError, error } = this.state;
     const { children } = this.props;
 
     if (hasError) {
+      // Fallback UI when an error occurs in the child components
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
           <div className="bg-white p-10 rounded-[3rem] shadow-2xl border border-rose-100 max-w-md w-full animate-fadeIn">
