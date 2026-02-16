@@ -62,7 +62,7 @@ try {
             position: fixed; inset: 0; display: flex; flex-direction: column;
             align-items: center; justify-content: center; background: #f8fafc; z-index: 9999;
         }
-        .splash-container { display: flex; flex-direction: column; align-items: center; width: 280px; }
+        .splash-container { display: flex; flex-direction: column; align-items: center; width: 280px; text-align: center; }
         .splash-logo {
             width: 100px; height: 100px; background: #10b981; border-radius: 32px;
             display: flex; align-items: center; justify-content: center;
@@ -70,8 +70,9 @@ try {
             animation: pulse-soft 2s infinite ease-in-out; margin-bottom: 24px;
         }
         .splash-logo img { width: 60px; height: 60px; object-fit: contain; }
-        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.5rem; margin-bottom: 4px; }
-        .splash-status { color: #94a3b8; font-size: 0.7rem; font-weight: 700; margin-bottom: 20px; height: 1rem; }
+        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.6rem; line-height: 1.2; }
+        .splash-tagline { color: #10b981; font-weight: 800; font-size: 0.75rem; margin-bottom: 12px; opacity: 0.9; letter-spacing: 0.5px; }
+        .splash-status { color: #94a3b8; font-size: 0.65rem; font-weight: 700; margin-bottom: 20px; height: 1rem; text-transform: uppercase; }
         
         .progress-box { width: 100%; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; position: relative; }
         #progress-bar {
@@ -91,6 +92,7 @@ try {
                     <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
                 </div>
                 <div class="splash-text">سوق العصر</div>
+                <div class="splash-tagline">اول سوق الكتروني في فاقوس</div>
                 <div id="splash-status-text" class="splash-status">جاري الاتصال...</div>
                 <div class="progress-box">
                     <div id="progress-bar"></div>
@@ -111,7 +113,6 @@ try {
         let visualProgress = 0;
         let targetProgress = 0;
 
-        // دالة لتحديث النسبة المئوية بشكل انسيابي
         function smoothUpdate() {
             if (visualProgress < targetProgress) {
                 visualProgress += (targetProgress - visualProgress) * 0.1;
@@ -135,7 +136,7 @@ try {
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
         let filesProcessed = 0;
-        const estimatedTotalFiles = 25; // تقدير لعدد ملفات المشروع لزيادة الدقة
+        const estimatedTotalFiles = 25; 
 
         async function fetchWithFallback(url) {
             const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
@@ -162,10 +163,17 @@ try {
                 let code = rawCode;
                 
                 filesProcessed++;
-                // زيادة النسبة بناءً على تقدم معالجة الملفات (من 10% إلى 85%)
+                // إخفاء أسماء الملفات واستخدام عبارات عامة احترافية
                 const calcPercent = 10 + Math.min(filesProcessed / estimatedTotalFiles * 75, 75);
-                const fileName = filePath.split('/').pop();
-                setProgress(calcPercent, `معالجة ${fileName}...`);
+                
+                // رسائل متغيرة بناءً على نسبة التقدم بدلاً من أسماء الملفات
+                let loadingMsg = "جاري معالجة البيانات...";
+                if (calcPercent > 20) loadingMsg = "تحسين تجربة التصفح...";
+                if (calcPercent > 40) loadingMsg = "تجهيز مكونات المتجر...";
+                if (calcPercent > 60) loadingMsg = "تأمين الاتصال المشفر...";
+                if (calcPercent > 80) loadingMsg = "تنسيق واجهة المستخدم...";
+                
+                setProgress(calcPercent, loadingMsg);
 
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
                 const matches = [...code.matchAll(importRegex)];
@@ -192,24 +200,23 @@ try {
 
         async function startApp() {
             try {
-                setProgress(5, "جاري تحضير المحرك...");
+                setProgress(5, "بدء تشغيل المحرك الذكي...");
                 const appBlobUrl = await getTranspiledUrl('App.tsx');
                 
-                setProgress(90, "تشغيل واجهة المستخدم...");
+                setProgress(90, "فتح أبواب المتجر...");
                 const module = await import(appBlobUrl);
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                setProgress(100, "اكتمل التحميل!");
+                setProgress(100, "جاهز للتسوق!");
                 
-                // تأخير طفيف جداً لضمان رؤية الـ 100%
                 setTimeout(() => {
                     root.render(React.createElement(App));
                 }, 300);
 
             } catch (err) {
                 console.error(err);
-                document.getElementById('root').innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">خطأ في التحميل: ${err.message}</div>`;
+                document.getElementById('root').innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">خطأ في تحميل المتجر: <br/> يرجى التأكد من اتصال الإنترنت</div>`;
             }
         }
 
