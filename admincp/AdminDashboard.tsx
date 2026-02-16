@@ -30,6 +30,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
+// Fixed: Removed 'api-keys' from the allowed tabs to comply with security and GenAI rules.
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'reports' | 'settings';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {

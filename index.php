@@ -1,9 +1,20 @@
 
 <?php
 /**
- * سوق العصر - المحرك الذكي v4.1 (Mobile APK Optimized)
+ * سوق العصر - المحرك الذكي v4.2
  */
 header('Content-Type: text/html; charset=utf-8');
+require_once 'config.php';
+
+// جلب مفتاح API من إعدادات النظام في قاعدة البيانات
+$gemini_key = '';
+try {
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'gemini_api_key' LIMIT 1");
+    $stmt->execute();
+    $gemini_key = $stmt->fetchColumn() ?: '';
+} catch (Exception $e) {
+    // في حال عدم وجود الجدول بعد
+}
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" style="scroll-behavior: smooth;">
@@ -69,11 +80,9 @@ header('Content-Type: text/html; charset=utf-8');
         import React from 'react';
         import ReactDOM from 'react-dom/client';
 
-        // تهيئة كائن process لضمان وصول مفتاح API من البيئة الخارجية
+        // تهيئة كائن process وحقن مفتاح API المجلوب من PHP
         window.process = window.process || { env: {} };
-        if (typeof API_KEY !== 'undefined') {
-            window.process.env.API_KEY = API_KEY;
-        }
+        window.process.env.API_KEY = '<?php echo $gemini_key; ?>';
 
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
