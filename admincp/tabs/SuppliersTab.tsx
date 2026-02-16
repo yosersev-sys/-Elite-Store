@@ -7,10 +7,13 @@ interface SuppliersTabProps {
   isLoading: boolean;
 }
 
+type FilterStatus = 'all' | 'debtors' | 'paid';
+
 const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading }) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [localLoading, setLocalLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -49,18 +52,28 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
   const totals = useMemo(() => {
     return {
       totalDebts: suppliers.reduce((s, sup) => s + (sup.balance || 0), 0),
-      activeCount: suppliers.filter(s => s.status === 'active').length
+      activeCount: suppliers.filter(s => s.status === 'active').length,
+      debtorsCount: suppliers.filter(s => s.balance > 0).length,
+      paidCount: suppliers.filter(s => s.balance <= 0).length
     };
   }, [suppliers]);
 
   const filteredSuppliers = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
-    return suppliers.filter(s => 
-      s.name.toLowerCase().includes(q) || 
-      (s.companyName && s.companyName.toLowerCase().includes(q)) ||
-      s.phone.includes(q)
-    );
-  }, [suppliers, searchTerm]);
+    return suppliers.filter(s => {
+      // فلترة بالبحث
+      const matchesSearch = s.name.toLowerCase().includes(q) || 
+                           (s.companyName && s.companyName.toLowerCase().includes(q)) ||
+                           s.phone.includes(q);
+      
+      // فلترة بالحالة
+      let matchesStatus = true;
+      if (filterStatus === 'debtors') matchesStatus = s.balance > 0;
+      else if (filterStatus === 'paid') matchesStatus = s.balance <= 0;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [suppliers, searchTerm, filterStatus]);
 
   const openAddModal = () => {
     setEditingSupplier(null);
@@ -180,17 +193,40 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
          </div>
       </div>
 
-      {/* Search & Filter */}
-      <div className="flex justify-end">
-        <div className="relative w-full md:w-96">
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm">
+        {/* Filter Tabs */}
+        <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full md:w-auto">
+          <button 
+            onClick={() => setFilterStatus('all')}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            الكل ({suppliers.length})
+          </button>
+          <button 
+            onClick={() => setFilterStatus('debtors')}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'debtors' ? 'bg-rose-500 text-white shadow-lg shadow-rose-200' : 'text-slate-400 hover:text-rose-500'}`}
+          >
+            مديونية ({totals.debtorsCount})
+          </button>
+          <button 
+            onClick={() => setFilterStatus('paid')}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'paid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'text-slate-400 hover:text-emerald-600'}`}
+          >
+            خالص ({totals.paidCount})
+          </button>
+        </div>
+
+        {/* Search Input */}
+        <div className="relative w-full md:w-80">
           <input 
             type="text" 
-            placeholder="بحث بالاسم، الشركة، أو الهاتف..." 
+            placeholder="بحث بالاسم أو الشركة..." 
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-4 text-sm outline-none font-bold pr-12 shadow-sm focus:ring-4 focus:ring-emerald-500/5 transition-all"
+            className="w-full bg-slate-50 border-none rounded-2xl px-6 py-3 text-sm outline-none font-bold pr-12 focus:ring-2 focus:ring-emerald-500/20 transition-all"
           />
-          <span className="absolute right-4 top-4 text-slate-300">🔍</span>
+          <span className="absolute right-4 top-2.5 text-slate-300 text-lg">🔍</span>
         </div>
       </div>
 
@@ -201,7 +237,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
             <div className="flex flex-col md:flex-row gap-6 relative z-10">
               {/* Left Side: Avatar & Badge */}
               <div className="flex flex-col items-center gap-3">
-                 <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-3xl shadow-inner group-hover:bg-emerald-50 transition-colors">
+                 <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center text-3xl shadow-inner transition-colors ${s.balance > 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
                    {s.type === 'farm' ? '🚜' : s.type === 'factory' ? '🏭' : '🚛'}
                  </div>
                  <div className="flex gap-0.5">
@@ -214,7 +250,10 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
               {/* Middle: Info */}
               <div className="flex-grow space-y-4">
                  <div>
-                    <h4 className="text-xl font-black text-slate-800">{s.name}</h4>
+                    <div className="flex items-center gap-2">
+                       <h4 className="text-xl font-black text-slate-800">{s.name}</h4>
+                       {s.balance > 0 && <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>}
+                    </div>
                     <p className="text-emerald-600 font-bold text-xs">{s.companyName || 'فرد / تاجر حر'} • {getTypeText(s.type)}</p>
                  </div>
                  <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-4">
@@ -225,7 +264,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
                     <div>
                       <p className="text-[8px] font-black text-slate-400 uppercase">المديونية</p>
                       <p className={`font-black text-sm ${s.balance > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                        {s.balance > 0 ? `${s.balance.toLocaleString()} ج.م` : 'خالص'}
+                        {s.balance > 0 ? `${s.balance.toLocaleString()} ج.م` : 'خالص ✅'}
                       </p>
                     </div>
                  </div>
@@ -248,6 +287,18 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
           </div>
         ))}
       </div>
+
+      {filteredSuppliers.length === 0 && (
+        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-100 animate-fadeIn">
+           <div className="text-6xl mb-6 opacity-10">🔍</div>
+           <p className="text-slate-300 font-black italic text-xl">
+             {searchTerm ? 'لا توجد نتائج مطابقة لبحثك' : 'لا يوجد موردين في هذا القسم حالياً'}
+           </p>
+           {filterStatus !== 'all' && (
+             <button onClick={() => setFilterStatus('all')} className="mt-4 text-emerald-600 font-black text-sm hover:underline">عرض جميع الموردين</button>
+           )}
+        </div>
+      )}
 
       {/* Payment Modal */}
       {isPaymentModalOpen && activeSupplierForPayment && (
