@@ -94,13 +94,44 @@ try {
             sendRes($products);
             break;
 
+        case 'generate_sitemap':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            
+            $baseUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
+            $xml = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
+            $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
+
+            // الصفحة الرئيسية
+            $xml .= '  <url><loc>' . $baseUrl . '/</loc><priority>1.0</priority></url>' . PHP_EOL;
+
+            // روابط الأقسام
+            $cats = $pdo->query("SELECT id FROM categories WHERE isActive = 1")->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($cats as $catId) {
+                $xml .= '  <url><loc>' . $baseUrl . '/#category-' . $catId . '</loc><priority>0.8</priority></url>' . PHP_EOL;
+            }
+
+            // روابط المنتجات
+            $prods = $pdo->query("SELECT id, createdAt FROM products")->fetchAll();
+            foreach ($prods as $p) {
+                $xml .= '  <url><loc>' . $baseUrl . '/#product-' . $p['id'] . '</loc><priority>0.6</priority><lastmod>' . date('Y-m-d', $p['createdAt']/1000) . '</lastmod></url>' . PHP_EOL;
+            }
+
+            $xml .= '</urlset>';
+            
+            if (file_put_contents('sitemap.xml', $xml)) {
+                sendRes(['status' => 'success', 'message' => 'تم توليد ملف Sitemap بنجاح']);
+            } else {
+                sendErr('فشل كتابة الملف. تأكد من صلاحيات المجلد الرئيسي.');
+            }
+            break;
+
         case 'get_all_images':
             if (!isAdmin()) sendErr('غير مصرح', 403);
             $stmt = $pdo->query("SELECT name, images FROM products");
             $rows = $stmt->fetchAll();
             $library = [];
             foreach ($rows as $row) {
-                $imgs = json_decode($row['images'] ?? '[]', true);
+                $imgs = json_decode($row['images'] ?? '[]', true) ?? [];
                 if (is_array($imgs)) {
                     foreach ($imgs as $img) {
                         if (!empty($img)) {

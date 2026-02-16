@@ -420,7 +420,8 @@ const App: React.FC = () => {
               currentView={view} 
               cartCount={cart.length} 
               onNavigate={onNavigateAction} 
-              onCartClick={() => onCartClick()}
+              /* Fix: Define onCartClick correctly by navigating to cart view */
+              onCartClick={() => onNavigateAction('cart')}
               isAdmin={currentUser?.role === 'admin'}
             />
           </>

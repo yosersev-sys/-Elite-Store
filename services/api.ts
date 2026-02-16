@@ -30,6 +30,11 @@ export const ApiService = {
     return null;
   },
 
+  async generateSitemap(): Promise<boolean> {
+    const result = await safeFetch('generate_sitemap');
+    return result?.status === 'success';
+  },
+
   async getAdminPhone(): Promise<{phone: string} | null> {
     return await safeFetch('get_admin_phone');
   },

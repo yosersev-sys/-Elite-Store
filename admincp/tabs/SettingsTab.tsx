@@ -11,6 +11,7 @@ interface SettingsTabProps {
 const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingSitemap, setIsGeneratingSitemap] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   // إعدادات المتجر (SEO وتواصل)
@@ -63,6 +64,22 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
     }
   };
 
+  const handleGenerateSitemap = async () => {
+    setIsGeneratingSitemap(true);
+    try {
+      const success = await ApiService.generateSitemap();
+      if (success) {
+        alert('تم توليد ملف Sitemap.xml بنجاح! يمكنك الآن تقديمه لمحركات البحث.');
+      } else {
+        alert('حدث خطأ أثناء توليد الملف، يرجى التحقق من صلاحيات السيرفر.');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setIsGeneratingSitemap(false);
+    }
+  };
+
   const handleUpdateAdminProfile = async () => {
     if (!adminData.name || !adminData.phone) return alert('الاسم ورقم الهاتف مطلوبان');
     
@@ -93,9 +110,54 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
     );
   }
 
+  const sitemapUrl = `${window.location.origin}${window.location.pathname.replace('index.php', '')}sitemap.xml`;
+
   return (
     <div className="max-w-4xl space-y-10 animate-fadeIn pb-20">
       
+      {/* قسم Sitemap و Google Console */}
+      <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border-t-8 border-indigo-500 space-y-8 relative overflow-hidden">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🗺️</div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800">أدوات الأرشفة (Sitemap)</h3>
+            <p className="text-slate-400 text-xs font-bold">تسهيل وصول جوجل لكافة منتجاتك</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+           <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+              <p className="text-slate-600 text-sm font-bold mb-4 leading-relaxed">
+                ملف الـ Sitemap يساعد محركات البحث في فهرسة موقعك بشكل أسرع وأكثر دقة. قم بتوليد الملف عند إضافة منتجات جديدة بانتظام.
+              </p>
+              
+              <div className="flex flex-col md:flex-row gap-4 items-center">
+                 <button 
+                  onClick={handleGenerateSitemap}
+                  disabled={isGeneratingSitemap}
+                  className="w-full md:w-auto bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+                 >
+                   {isGeneratingSitemap ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : '🔄'}
+                   {isGeneratingSitemap ? 'جاري التوليد...' : 'توليد ملف Sitemap الآن'}
+                 </button>
+                 
+                 <a 
+                  href={sitemapUrl} 
+                  target="_blank" 
+                  className="w-full md:w-auto bg-white border-2 border-slate-100 text-indigo-600 px-8 py-4 rounded-2xl font-black text-center hover:bg-slate-50 transition-all"
+                 >
+                   👁️ عرض الملف الحالي
+                 </a>
+              </div>
+           </div>
+
+           <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">رابط Sitemap لتقديمه في Google Search Console:</p>
+              <code className="text-xs font-bold text-slate-700 select-all break-all">{sitemapUrl}</code>
+           </div>
+        </div>
+      </section>
+
       {/* القسم الأول: إعدادات SEO والصفحة الرئيسية */}
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 space-y-8">
         <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
@@ -181,7 +243,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
         </button>
       </section>
 
-      {/* القسم الثالث: إدارة حساب المدير (تغيير الباسورد والجوال) */}
+      {/* القسم الثالث: إدارة حساب المدير */}
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border-t-8 border-rose-500 space-y-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-bl-full pointer-events-none"></div>
         
@@ -248,16 +310,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
           {isSaving ? 'جاري التحديث...' : 'تحديث بيانات الحساب الآمن 🛡️'}
         </button>
       </section>
-
-      <div className="bg-amber-50 p-6 rounded-[2rem] border border-amber-100 flex items-start gap-4">
-        <span className="text-2xl">💡</span>
-        <div className="space-y-1">
-          <p className="font-black text-amber-900 text-sm">نصيحة أمنية</p>
-          <p className="text-amber-700 text-[10px] font-bold leading-relaxed">
-            احرص دائماً على تعيين كلمة مرور قوية تحتوي على أحرف وأرقام باللغة الإنجليزية، ولا تشارك رقم الدخول الخاص بك مع أي شخص لضمان حماية بيانات متجرك وعملائك.
-          </p>
-        </div>
-      </div>
 
     </div>
   );
