@@ -64,7 +64,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'reports':
         return <ReportsTab {...props} />;
       case 'settings':
-        return <SettingsTab />;
+        return <SettingsTab currentUser={props.currentUser} onLogout={props.onLogout} />;
       case 'api-keys':
         return <ApiKeysTab />;
       default:
