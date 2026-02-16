@@ -6,7 +6,7 @@ interface StatsTabProps {
   products: Product[];
   orders: Order[];
   categories: Category[];
-  onNavigateToTab: (tab: any) => void;
+  onNavigateToTab: (tab: any, search?: string) => void;
   onOpenAddForm: () => void;
 }
 
@@ -64,7 +64,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, onNav
             </div>
           </div>
           <button 
-            onClick={() => onNavigateToTab('orders')} 
+            onClick={() => onNavigateToTab('orders', 'آجل')} 
             className="relative z-10 bg-white text-orange-600 px-10 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-slate-900 hover:text-white transition-all active:scale-95"
           >
             جرد الديون الآن 🔍

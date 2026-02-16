@@ -1,9 +1,9 @@
 
-import React from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   // Children is optional for the component to be used as a wrapper in JSX
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 interface State {
@@ -14,16 +14,16 @@ interface State {
 /**
  * ErrorBoundary component to catch rendering errors and show a fallback UI.
  */
-// Explicitly extending React.Component with Props and State generics ensures 
-// that this.props and this.state are correctly typed and recognized by the compiler.
-class ErrorBoundary extends React.Component<Props, State> {
+// Fix: Extending Component<Props, State> ensures that props and state are correctly typed.
+class ErrorBoundary extends Component<Props, State> {
+  // Fix: Explicitly declare the state property to resolve "Property 'state' does not exist on type 'ErrorBoundary'" error.
+  public state: State = {
+    hasError: false,
+    error: null
+  };
+
   constructor(props: Props) {
     super(props);
-    // Initialize the component state
-    this.state = {
-      hasError: false,
-      error: null
-    };
   }
 
   public static getDerivedStateFromError(error: Error): State {
@@ -31,13 +31,14 @@ class ErrorBoundary extends React.Component<Props, State> {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log the error to an error reporting service or console
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  public render(): React.ReactNode {
-    // Use destructuring to access state and props which are inherited from React.Component
+  public render(): ReactNode {
+    // Fix: Destructure from this.state and this.props. 
+    // Explicit property declarations and named imports help TypeScript find these members on the class instance.
     const { hasError, error } = this.state;
     const { children } = this.props;
 

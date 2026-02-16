@@ -23,7 +23,8 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
     return orders.filter(o => 
       o.id.toLowerCase().includes(q) || 
       (o.customerName && o.customerName.toLowerCase().includes(q)) ||
-      (o.phone && o.phone.includes(q))
+      (o.phone && o.phone.includes(q)) ||
+      (o.paymentMethod && o.paymentMethod.toLowerCase().includes(q))
     );
   }, [orders, adminSearch]);
 
@@ -70,7 +71,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
         <div className="relative w-full md:w-80">
           <input 
             type="text" 
-            placeholder="رقم الطلب أو الهاتف..." 
+            placeholder="رقم الطلب أو الهاتف أو 'آجل'..." 
             value={adminSearch} 
             onChange={e => { setAdminSearch(e.target.value); setOrderPage(1); }} 
             className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none shadow-sm font-bold" 

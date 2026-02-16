@@ -42,8 +42,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   
   const [adminSearch, setAdminSearch] = useState('');
 
-  const handleTabChange = (tab: AdminTab) => {
+  const handleTabChange = (tab: AdminTab, searchVal?: string) => {
     setActiveTab(tab);
+    if (searchVal !== undefined) {
+      setAdminSearch(searchVal);
+    }
     localStorage.setItem('admin_active_tab', tab);
   };
 
@@ -103,7 +106,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           <AdminNavButton active={activeTab === 'stats'} onClick={() => handleTabChange('stats')} icon="📊" label="الإحصائيات" />
           <AdminNavButton active={activeTab === 'products'} onClick={() => handleTabChange('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
-          <AdminNavButton active={activeTab === 'orders'} onClick={() => handleTabChange('orders')} icon="🛍️" label="الطلبات" />
+          <AdminNavButton active={activeTab === 'orders'} onClick={() => handleTabChange('orders', '')} icon="🛍️" label="الطلبات" />
           <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
           <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon="🛠️" label="الإعدادات" />
