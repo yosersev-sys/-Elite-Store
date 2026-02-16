@@ -2,7 +2,6 @@
 import { Product, Category, Order, User } from '../types.ts';
 
 const API_URL = 'api.php';
-const PRODUCTS_CACHE_KEY = 'souq_products_cache';
 const USER_CACHE_KEY = 'souq_user_profile';
 
 const safeFetch = async (action: string, options?: RequestInit) => {
@@ -28,7 +27,6 @@ export const ApiService = {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
       return user;
     }
-    // في حالة فشل الاتصال، لا نعتمد على الكاش للعمليات الحساسة
     return null;
   },
 
@@ -64,11 +62,10 @@ export const ApiService = {
   },
 
   async updateProfile(data: { name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
-    const result = await safeFetch('update_profile', {
+    return await safeFetch('update_profile', {
       method: 'POST',
       body: JSON.stringify(data)
     });
-    return result;
   },
 
   async adminUpdateUser(data: { id: string, name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
@@ -80,12 +77,7 @@ export const ApiService = {
 
   async getProducts(): Promise<Product[]> {
     const products = await safeFetch('get_products');
-    if (products) {
-      localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(products));
-      return products;
-    }
-    const cached = localStorage.getItem(PRODUCTS_CACHE_KEY);
-    return cached ? JSON.parse(cached) : [];
+    return products || [];
   },
 
   async getAllImages(): Promise<{url: string, productName: string}[]> {
@@ -121,7 +113,6 @@ export const ApiService = {
   },
 
   async saveOrder(order: Order): Promise<boolean> {
-    // محاولة الحفظ على السيرفر حصرياً
     const result = await safeFetch('save_order', {
       method: 'POST',
       body: JSON.stringify(order)
