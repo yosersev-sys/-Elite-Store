@@ -308,7 +308,7 @@ const App: React.FC = () => {
                   onNavigateAction('order-success');
                 }
               }}
-              onCancel={() => onNavigateAction('admin')}
+              onCancel={() => onNavigateAction(currentUser?.role === 'admin' ? 'admin' : 'store')}
             />
           )}
 
@@ -367,9 +367,11 @@ const App: React.FC = () => {
         {!isAdminView && (
           <>
             <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={!isAdminView} />
+            {/* جعل زر الفاتورة السريعة متاحاً للجميع */}
+            <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
+            
             {currentUser?.role === 'admin' && (
               <>
-                <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
                 <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
               </>
             )}
