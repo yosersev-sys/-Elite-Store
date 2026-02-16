@@ -1,5 +1,5 @@
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -10,8 +10,11 @@ interface State {
   error: Error | null;
 }
 
-// Importing Component directly and extending it helps TypeScript correctly identify inherited members like 'this.props' and 'this.state' from the base React class.
-class ErrorBoundary extends Component<Props, State> {
+/**
+ * ErrorBoundary component to catch rendering errors and show a fallback UI.
+ * Fixed: Explicitly extending React.Component with generic types to resolve property access issues.
+ */
+class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null
@@ -26,7 +29,11 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public render(): ReactNode {
-    if (this.state.hasError) {
+    // Fixed: Destructuring from this.props and this.state to ensure correct typing and access.
+    const { hasError, error } = this.state;
+    const { children } = this.props;
+
+    if (hasError) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
           <div className="bg-white p-10 rounded-[3rem] shadow-2xl border border-rose-100 max-w-md w-full animate-fadeIn">
@@ -54,7 +61,7 @@ class ErrorBoundary extends Component<Props, State> {
             </div>
             {process.env.NODE_ENV === 'development' && (
               <pre className="mt-6 p-4 bg-slate-900 text-rose-400 text-[10px] text-left rounded-xl overflow-auto max-h-32">
-                {this.state.error?.toString()}
+                {error?.toString()}
               </pre>
             )}
           </div>
@@ -62,8 +69,8 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Explicitly accessing children through this.props to ensure compatibility with standard React class component structures.
-    return this.props.children;
+    // Fixed: Accessed via destructured variable which is correctly typed.
+    return children;
   }
 }
 

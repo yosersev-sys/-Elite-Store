@@ -39,6 +39,7 @@ export const parseUserShoppingList = async (userInput: string): Promise<{item: s
       }
     });
     
+    // Fixed: Accessed text as a getter property.
     const text = response.text?.trim();
     if (!text) return null;
 
@@ -50,7 +51,6 @@ export const parseUserShoppingList = async (userInput: string): Promise<{item: s
     }
   } catch (error: any) {
     console.error("AI Parsing Error:", error);
-    // نمرر الخطأ الأصلي ليتمكن المكون من معرفة كود الحالة (مثلاً 429)
     throw error;
   }
 };
@@ -63,22 +63,37 @@ export const generateProductDescription = async (productName: string, category: 
       contents: `اكتب وصفاً تسويقياً موجزاً وجذاباً لمنتج "${productName}" في قسم "${category}". ركز على الجودة والتوصيل السريع لفاقوس.`,
       config: { temperature: 0.7 }
     });
+    // Fixed: Accessed text as a getter property.
     return response.text || "وصف منتج عالي الجودة متاح الآن في متجرنا.";
   } catch (error) {
     return "منتج طازج ومميز متاح الآن لعملاء فاقوس الكرام.";
   }
 };
 
+/**
+ * توليد بيانات SEO باستخدام موديل Pro للمهام المعقدة التي تتطلب تفكيراً أعمق واستراتيجية SEO صحيحة
+ */
 export const generateSeoData = async (productName: string, description: string) => {
   try {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview", // Updated to gemini-3-pro-preview for complex reasoning task
       contents: `أنت خبير SEO. ولد بيانات SEO لمنتج: "${productName}". الوصف: "${description}". أجب بـ JSON فقط يحتوي على metaTitle, metaDescription, metaKeywords, slug.`,
       config: { 
-        responseMimeType: "application/json" 
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            metaTitle: { type: Type.STRING },
+            metaDescription: { type: Type.STRING },
+            metaKeywords: { type: Type.STRING },
+            slug: { type: Type.STRING }
+          },
+          required: ["metaTitle", "metaDescription", "metaKeywords", "slug"]
+        }
       }
     });
+    // Fixed: Accessed text as a getter property.
     const text = response.text?.trim();
     return text ? JSON.parse(text) : null;
   } catch (error) {
@@ -93,6 +108,7 @@ export const generateProductImage = async (productName: string, category: string
       model: 'gemini-3-flash-preview',
       contents: `Translate to 2 English words: "${productName}"`
     });
+    // Fixed: Accessed text as a getter property.
     const simpleEnglishName = translationResponse.text?.trim() || "grocery";
     const finalPrompt = `Professional product photo of ${simpleEnglishName}, bright studio lighting, white background, 4k.`;
 
@@ -102,8 +118,13 @@ export const generateProductImage = async (productName: string, category: string
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+    // Fixed: Iterating through candidates and parts to find the image part correctly.
+    for (const candidate of response.candidates) {
+      for (const part of candidate.content.parts) {
+        if (part.inlineData) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
+      }
     }
     return null;
   } catch (error) {
