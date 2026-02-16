@@ -37,12 +37,12 @@ interface AdminDashboardProps {
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'settings' | 'api-keys';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
-  // صمامات أمان لضمان وجود مصفوفات دائماً
-  const safeProducts = props.products || [];
-  const safeCategories = props.categories || [];
-  const safeOrders = props.orders || [];
-  const safeUsers = props.users || [];
-  const safeSuppliers = props.suppliers || [];
+  // صمامات أمان نهائية لضمان وجود مصفوفات دائماً قبل العرض
+  const safeProducts = Array.isArray(props.products) ? props.products : [];
+  const safeCategories = Array.isArray(props.categories) ? props.categories : [];
+  const safeOrders = Array.isArray(props.orders) ? props.orders : [];
+  const safeUsers = Array.isArray(props.users) ? props.users : [];
+  const safeSuppliers = Array.isArray(props.suppliers) ? props.suppliers : [];
 
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     return (localStorage.getItem('admin_active_tab') as AdminTab) || 'stats';
@@ -56,7 +56,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     if (searchVal !== undefined) setAdminSearch(searchVal);
     if (filterVal !== undefined) setAdminFilter(filterVal);
     else setAdminFilter('all'); 
-    
     localStorage.setItem('admin_active_tab', tab);
   };
 
@@ -73,7 +72,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   };
 
   const renderTabContent = () => {
-    // تمرير البيانات الآمنة للتبويبات
+    // تجميع الخصائص الآمنة
     const tabProps = {
       ...props,
       products: safeProducts,
@@ -84,26 +83,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     };
 
     switch (activeTab) {
-      case 'stats':
-        return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
-      case 'products':
-        return <ProductsTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} initialFilter={adminFilter} />;
-      case 'categories':
-        return <CategoriesTab {...tabProps} />;
-      case 'orders':
-        return <OrdersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
-      case 'members':
-        return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
-      case 'suppliers':
-        return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
-      case 'reports':
-        return <ReportsTab orders={safeOrders} />;
-      case 'settings':
-        return <SettingsTab currentUser={props.currentUser} onLogout={props.onLogout} />;
-      case 'api-keys':
-        return <ApiKeysTab />;
-      default:
-        return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
+      case 'stats': return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
+      case 'products': return <ProductsTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} initialFilter={adminFilter} />;
+      case 'categories': return <CategoriesTab {...tabProps} />;
+      case 'orders': return <OrdersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
+      case 'members': return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
+      case 'suppliers': return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
+      case 'reports': return <ReportsTab orders={safeOrders} />;
+      case 'settings': return <SettingsTab currentUser={props.currentUser} onLogout={props.onLogout} />;
+      case 'api-keys': return <ApiKeysTab />;
+      default: return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
     }
   };
 
@@ -137,18 +126,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         </nav>
 
         <div className="mt-auto hidden lg:block space-y-4">
-           <button 
-             onClick={props.onToggleSound} 
-             className={`w-full py-3 rounded-2xl font-black text-xs border transition-all flex items-center justify-center gap-2 ${
-               props.soundEnabled 
-               ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
-               : 'bg-slate-700/30 text-slate-500 border-slate-700/50'
-             }`}
-           >
-             <span>{props.soundEnabled ? '🔔 صوت التنبيه: مفعّل' : '🔕 صوت التنبيه: صامت'}</span>
+           <button onClick={props.onToggleSound} className={`w-full py-3 rounded-2xl font-black text-xs border transition-all flex items-center justify-center gap-2 ${props.soundEnabled ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-slate-700/30 text-slate-500 border-slate-700/50'}`}>
+             <span>{props.soundEnabled ? '🔔 منبه مفعل' : '🔕 منبه صامت'}</span>
            </button>
-           
-           <button onClick={props.onLogout} className="w-full bg-rose-500/10 text-rose-500 py-3 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all">خروج آمن 👋</button>
+           <button onClick={props.onLogout} className="w-full bg-rose-500/10 text-rose-500 py-3 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all">خروج 👋</button>
         </div>
       </aside>
 
@@ -158,7 +139,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
              <h3 className="text-2xl md:text-4xl font-black text-slate-800">{tabTitles[activeTab]}</h3>
              <p className="text-slate-400 text-xs font-bold mt-1">نظام إدارة فاقوس المتطور</p>
            </div>
-           
            <div className="flex gap-2 w-full md:w-auto">
              <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">🧾 فاتورة</button>
              <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">📦 صنف جديد</button>
@@ -168,7 +148,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         {props.isLoading && safeProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 animate-fadeIn">
             <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="font-black text-slate-400 text-sm">جاري مزامنة بيانات لوحة التحكم...</p>
+            <p className="font-black text-slate-400 text-sm">جاري جلب البيانات...</p>
           </div>
         ) : (
           <div className="animate-fadeIn">
@@ -181,21 +161,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 };
 
 const AdminNavButton = ({ active, onClick, icon, label, badge }: any) => (
-  <button 
-    onClick={onClick} 
-    className={`flex flex-col lg:flex-row items-center gap-1 lg:gap-4 px-4 lg:px-8 py-2.5 lg:py-4 rounded-xl lg:rounded-2xl font-black transition-all relative shrink-0 min-w-[70px] lg:min-w-0 ${
-      active 
-      ? 'bg-emerald-600 text-white shadow-xl scale-105 z-10' 
-      : 'text-slate-400 hover:bg-slate-800'
-    }`}
-  >
+  <button onClick={onClick} className={`flex flex-col lg:flex-row items-center gap-1 lg:gap-4 px-4 lg:px-8 py-2.5 lg:py-4 rounded-xl lg:rounded-2xl font-black transition-all relative shrink-0 min-w-[70px] lg:min-w-0 ${active ? 'bg-emerald-600 text-white shadow-xl scale-105 z-10' : 'text-slate-400 hover:bg-slate-800'}`}>
     <span className="text-lg lg:text-xl">{icon}</span>
     <span className="text-[8px] lg:text-sm whitespace-nowrap">{label}</span>
-    {badge && (
-      <span className="absolute -top-1 -left-1 lg:top-auto lg:left-4 bg-rose-500 text-white text-[7px] lg:text-[8px] w-4 h-4 lg:w-5 lg:h-5 flex items-center justify-center rounded-full border-2 border-slate-900">
-        {badge}
-      </span>
-    )}
+    {badge && <span className="absolute -top-1 -left-1 lg:top-auto lg:left-4 bg-rose-500 text-white text-[7px] lg:text-[8px] w-4 h-4 lg:w-5 lg:h-5 flex items-center justify-center rounded-full border-2 border-slate-900">{badge}</span>}
   </button>
 );
 
