@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Product, Category, SeoSettings, StockBatch } from '../types';
+import { Product, Category, SeoSettings, StockBatch, Supplier } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
 import { generateProductDescription, generateSeoData } from '../services/geminiService';
@@ -7,11 +8,12 @@ import { generateProductDescription, generateSeoData } from '../services/geminiS
 interface AdminProductFormProps {
   product: Product | null;
   categories: Category[];
+  suppliers: Supplier[];
   onSubmit: (product: Product) => void;
   onCancel: () => void;
 }
 
-const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, onSubmit, onCancel }) => {
+const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, suppliers, onSubmit, onCancel }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -34,6 +36,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     price: '',
     wholesalePrice: '',
     categoryId: '',
+    supplierId: '',
     stockQuantity: '0',
     barcode: '',
     unit: 'piece' as 'piece' | 'kg' | 'gram', 
@@ -53,8 +56,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   // مزامنة البيانات عند فتح المنتج للتحرير
   useEffect(() => {
     if (product) {
-      // نتحقق من الـ ID لضمان عدم تكرار التعيين بلا داعي، 
-      // ولكن نسمح بالتحديث إذا كان المنتج جديداً أو مختلفاً
       if (product.id !== prevProductIdRef.current) {
         setFormData({
           name: product.name || '',
@@ -62,8 +63,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           price: product.price?.toString() || '',
           wholesalePrice: product.wholesalePrice?.toString() || '',
           categoryId: product.categoryId || '',
+          supplierId: product.supplierId || '',
           stockQuantity: product.stockQuantity?.toString() || '0',
-          barcode: product.barcode ? String(product.barcode) : '', // التأكد من تحويل الباركود لنص
+          barcode: product.barcode ? String(product.barcode) : '', 
           unit: product.unit || 'piece', 
           sizes: product.sizes?.join(', ') || '',
           colors: product.colors?.join(', ') || '',
@@ -77,7 +79,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         prevProductIdRef.current = product.id;
       }
     } else {
-      // في حالة الإضافة الجديدة
       prevProductIdRef.current = null;
     }
   }, [product]);
@@ -153,7 +154,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setNewBatchPrice('');
   };
 
-  // Fixed the 'unknown' to 'Blob' error by adding explicit type 'File' for the 'file' parameter.
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -187,6 +187,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         price: finalPrice,
         wholesalePrice: parseFloat(formData.wholesalePrice) || 0,
         categoryId: formData.categoryId,
+        supplierId: formData.supplierId || undefined,
         stockQuantity: finalStock || 0,
         barcode: formData.barcode.trim(),
         unit: formData.unit,
@@ -326,6 +327,13 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
                 <option value="">-- اختر القسم --</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">المورد (اختياري)</label>
+              <select value={formData.supplierId} onChange={e => setFormData({...formData, supplierId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
+                <option value="">-- بدون مورد محدد --</option>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name} {s.companyName ? `(${s.companyName})` : ''}</option>)}
               </select>
             </div>
             <div className="space-y-2">

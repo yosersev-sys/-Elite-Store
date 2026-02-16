@@ -51,6 +51,7 @@ export interface Product {
   price: number; 
   wholesalePrice: number; 
   categoryId: string;
+  supplierId?: string; // المورد المرتبط (اختياري)
   images: string[];
   sizes?: string[]; 
   colors?: string[]; 

@@ -319,7 +319,7 @@ const App: React.FC = () => {
 
           {view === 'admin-form' && isActuallyAdmin && (
             <AdminProductForm 
-              product={selectedProduct} categories={categories} 
+              product={selectedProduct} categories={categories} suppliers={suppliers}
               onSubmit={async (p) => {
                 const success = products.find(prod => prod.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
                 if (success) {
