@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Product, Category, Order, User, Supplier } from '../types';
 import StatsTab from './tabs/StatsTab.tsx';
@@ -38,6 +37,13 @@ interface AdminDashboardProps {
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'settings' | 'api-keys';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
+  // صمامات أمان لضمان وجود مصفوفات دائماً
+  const safeProducts = props.products || [];
+  const safeCategories = props.categories || [];
+  const safeOrders = props.orders || [];
+  const safeUsers = props.users || [];
+  const safeSuppliers = props.suppliers || [];
+
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     return (localStorage.getItem('admin_active_tab') as AdminTab) || 'stats';
   });
@@ -67,31 +73,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   };
 
   const renderTabContent = () => {
+    // تمرير البيانات الآمنة للتبويبات
+    const tabProps = {
+      ...props,
+      products: safeProducts,
+      categories: safeCategories,
+      orders: safeOrders,
+      users: safeUsers,
+      suppliers: safeSuppliers
+    };
+
     switch (activeTab) {
       case 'stats':
-        return <StatsTab {...props} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
+        return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
       case 'products':
-        return <ProductsTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} initialFilter={adminFilter} />;
+        return <ProductsTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} initialFilter={adminFilter} />;
       case 'categories':
-        return <CategoriesTab {...props} />;
+        return <CategoriesTab {...tabProps} />;
       case 'orders':
-        return <OrdersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
+        return <OrdersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
       case 'members':
-        return <MembersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
+        return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'suppliers':
-        return <SuppliersTab isLoading={props.isLoading} suppliersData={props.suppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
+        return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
       case 'reports':
-        return <ReportsTab {...props} />;
+        return <ReportsTab orders={safeOrders} />;
       case 'settings':
         return <SettingsTab currentUser={props.currentUser} onLogout={props.onLogout} />;
       case 'api-keys':
         return <ApiKeysTab />;
       default:
-        return <StatsTab {...props} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
+        return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
     }
   };
 
-  const lowStockCount = props.products.filter(p => Number(p.stockQuantity || 0) < 5).length;
+  const lowStockCount = safeProducts.filter(p => Number(p.stockQuantity || 0) < 5).length;
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[90vh] bg-white rounded-[1.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
@@ -149,9 +165,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            </div>
         </div>
 
-        <div className="animate-fadeIn">
-          {renderTabContent()}
-        </div>
+        {props.isLoading && safeProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 animate-fadeIn">
+            <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="font-black text-slate-400 text-sm">جاري مزامنة بيانات لوحة التحكم...</p>
+          </div>
+        ) : (
+          <div className="animate-fadeIn">
+            {renderTabContent()}
+          </div>
+        )}
       </main>
     </div>
   );
