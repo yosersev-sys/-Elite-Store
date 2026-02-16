@@ -6,11 +6,12 @@ import { ApiService } from '../../services/api';
 interface MembersTabProps {
   users: User[];
   adminSearch: string;
+  isLoading: boolean;
   setAdminSearch: (val: string) => void;
   onRefreshData?: () => void;
 }
 
-const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSearch, onRefreshData }) => {
+const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, isLoading, setAdminSearch, onRefreshData }) => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -79,6 +80,37 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSea
       setIsSaving(false);
     }
   };
+
+  // واجهة جاري التحميل للأعضاء
+  if (isLoading && users.length === 0) {
+    return (
+      <div className="space-y-8 animate-fadeIn">
+        <div className="flex justify-end">
+           <div className="w-80 h-12 bg-slate-200 rounded-2xl animate-pulse"></div>
+        </div>
+        <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden">
+           <div className="p-8 space-y-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex items-center justify-between gap-4 border-b border-slate-50 pb-4 last:border-0">
+                  <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 bg-slate-100 rounded-xl animate-pulse"></div>
+                     <div className="space-y-2">
+                        <div className="w-40 h-4 bg-slate-100 rounded-lg animate-pulse"></div>
+                        <div className="w-24 h-3 bg-slate-50 rounded-lg animate-pulse"></div>
+                     </div>
+                  </div>
+                  <div className="w-24 h-6 bg-slate-50 rounded-full animate-pulse"></div>
+                  <div className="w-10 h-10 bg-slate-50 rounded-xl animate-pulse"></div>
+                </div>
+              ))}
+           </div>
+           <div className="bg-slate-50 p-4 text-center">
+              <p className="text-slate-400 font-black text-[10px] animate-bounce uppercase tracking-widest">جاري مزامنة بيانات أعضاء المتجر...</p>
+           </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fadeIn">

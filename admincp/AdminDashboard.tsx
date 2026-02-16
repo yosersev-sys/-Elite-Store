@@ -72,7 +72,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'orders':
         return <OrdersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
       case 'members':
-        return <MembersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} />;
+        return <MembersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'reports':
         return <ReportsTab {...props} />;
       case 'settings':

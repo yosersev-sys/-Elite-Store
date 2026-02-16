@@ -16,6 +16,9 @@ interface State {
  */
 // Fix: Extending Component<Props, State> ensures that props and state are correctly typed.
 class ErrorBoundary extends Component<Props, State> {
+  // Fix: Explicitly declare the props property to resolve "Property 'props' does not exist on type 'ErrorBoundary'" error.
+  public props: Props;
+
   // Fix: Explicitly declare the state property to resolve "Property 'state' does not exist on type 'ErrorBoundary'" error.
   public state: State = {
     hasError: false,
