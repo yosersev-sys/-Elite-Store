@@ -2,7 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr - Batch System Edition (FIFO)
- * Updated with Auto-Migration System & Suppliers Management
+ * Updated with Auto-Migration System & Advanced Suppliers Management
  */
 session_start();
 error_reporting(E_ALL); 
@@ -31,15 +31,26 @@ function isAdmin() {
 }
 
 function initDatabase($pdo) {
-    // إنشاء الجداول الأساسية
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive BOOLEAN DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), categoryId VARCHAR(50), images LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), total DECIMAL(10,2), items LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
     
-    // إنشاء جدول الموردين
-    $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) NOT NULL, companyName VARCHAR(255), address TEXT, notes TEXT, createdAt BIGINT)");
+    // إنشاء جدول الموردين مع الميزات الجديدة
+    $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
+        id VARCHAR(50) PRIMARY KEY, 
+        name VARCHAR(255) NOT NULL, 
+        phone VARCHAR(20) NOT NULL, 
+        companyName VARCHAR(255), 
+        address TEXT, 
+        notes TEXT, 
+        type VARCHAR(50) DEFAULT 'wholesale',
+        balance DECIMAL(10,2) DEFAULT 0,
+        rating INT DEFAULT 5,
+        status VARCHAR(20) DEFAULT 'active',
+        createdAt BIGINT
+    )");
 
     // التحديث التلقائي للأعمدة
     $columnsToAdd = [
@@ -61,6 +72,12 @@ function initDatabase($pdo) {
             'paymentMethod'  => "VARCHAR(50) AFTER items",
             'status'         => "VARCHAR(20) AFTER paymentMethod",
             'userId'         => "VARCHAR(50) AFTER createdAt"
+        ],
+        'suppliers' => [
+            'type' => "VARCHAR(50) DEFAULT 'wholesale' AFTER notes",
+            'balance' => "DECIMAL(10,2) DEFAULT 0 AFTER type",
+            'rating' => "INT DEFAULT 5 AFTER balance",
+            'status' => "VARCHAR(20) DEFAULT 'active' AFTER rating"
         ]
     ];
 
@@ -99,15 +116,23 @@ try {
 
         case 'add_supplier':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("INSERT INTO suppliers (id, name, phone, companyName, address, notes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$input['id'], $input['name'], $input['phone'], $input['companyName'] ?? null, $input['address'] ?? null, $input['notes'] ?? null, $input['createdAt']]);
+            $stmt = $pdo->prepare("INSERT INTO suppliers (id, name, phone, companyName, address, notes, type, balance, rating, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $input['id'], $input['name'], $input['phone'], $input['companyName'] ?? null, 
+                $input['address'] ?? null, $input['notes'] ?? null, $input['type'] ?? 'wholesale',
+                (float)($input['balance'] ?? 0), (int)($input['rating'] ?? 5), $input['status'] ?? 'active', $input['createdAt']
+            ]);
             sendRes(['status' => 'success']);
             break;
 
         case 'update_supplier':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("UPDATE suppliers SET name=?, phone=?, companyName=?, address=?, notes=? WHERE id=?");
-            $stmt->execute([$input['name'], $input['phone'], $input['companyName'] ?? null, $input['address'] ?? null, $input['notes'] ?? null, $input['id']]);
+            $stmt = $pdo->prepare("UPDATE suppliers SET name=?, phone=?, companyName=?, address=?, notes=?, type=?, balance=?, rating=?, status=? WHERE id=?");
+            $stmt->execute([
+                $input['name'], $input['phone'], $input['companyName'] ?? null, 
+                $input['address'] ?? null, $input['notes'] ?? null, $input['type'], 
+                (float)$input['balance'], (int)$input['rating'], $input['status'], $input['id']
+            ]);
             sendRes(['status' => 'success']);
             break;
 
@@ -121,8 +146,13 @@ try {
 
         case 'get_suppliers':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY createdAt DESC");
-            sendRes($stmt->fetchAll() ?: []);
+            $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY balance DESC, createdAt DESC");
+            $rows = $stmt->fetchAll() ?: [];
+            foreach($rows as &$r) {
+                $r['balance'] = (float)$r['balance'];
+                $r['rating'] = (int)$r['rating'];
+            }
+            sendRes($rows);
             break;
 
         case 'generate_sitemap':

@@ -14,6 +14,10 @@ export interface Supplier {
   companyName?: string;
   address?: string;
   notes?: string;
+  type: 'wholesale' | 'factory' | 'farm' | 'importer';
+  balance: number; // المبلغ المستحق له
+  rating: number; // من 1 إلى 5
+  status: 'active' | 'inactive';
   createdAt: number;
 }
 
@@ -37,6 +41,7 @@ export interface StockBatch {
   quantity: number;
   wholesalePrice: number;
   createdAt: number;
+  supplierId?: string; // ربط الشحنة بالمورد
 }
 
 export interface Product {
