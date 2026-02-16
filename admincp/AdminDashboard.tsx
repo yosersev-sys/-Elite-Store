@@ -90,14 +90,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           </div>
         </div>
         
-        <nav className="flex lg:flex-col flex-row gap-2 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-3 lg:pb-0">
-          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} label="📊" desktopLabel="الإحصائيات" />
-          <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} label="📦" desktopLabel="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
-          <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} label="🏷️" desktopLabel="الأقسام" />
-          <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} label="🛍️" desktopLabel="الطلبات" />
-          <AdminNavButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} label="👥" desktopLabel="الأعضاء" />
-          <AdminNavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} label="📈" desktopLabel="الأرباح" />
-          <AdminNavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} label="🛠️" desktopLabel="الإعدادات" />
+        <nav className="flex lg:flex-col flex-row gap-2 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-3 lg:pb-0 -mx-2 px-2 lg:mx-0 lg:px-0">
+          <AdminNavButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')} icon="📊" label="الإحصائيات" />
+          <AdminNavButton active={activeTab === 'products'} onClick={() => setActiveTab('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
+          <AdminNavButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')} icon="🏷️" label="الأقسام" />
+          <AdminNavButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} icon="🛍️" label="الطلبات" />
+          <AdminNavButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon="👥" label="الأعضاء" />
+          <AdminNavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon="📈" label="الأرباح" />
+          <AdminNavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon="🛠️" label="الإعدادات" />
         </nav>
 
         <div className="mt-auto hidden lg:block space-y-4">
@@ -128,19 +128,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   );
 };
 
-const AdminNavButton = ({ active, onClick, label, desktopLabel, badge }: any) => (
+const AdminNavButton = ({ active, onClick, icon, label, badge }: any) => (
   <button 
     onClick={onClick} 
-    className={`flex items-center gap-4 px-5 lg:px-8 py-3 lg:py-4 rounded-xl lg:rounded-2xl font-black text-sm transition-all relative shrink-0 ${
+    className={`flex flex-col lg:flex-row items-center gap-1 lg:gap-4 px-4 lg:px-8 py-2.5 lg:py-4 rounded-xl lg:rounded-2xl font-black transition-all relative shrink-0 min-w-[70px] lg:min-w-0 ${
       active 
       ? 'bg-emerald-600 text-white shadow-xl scale-105 z-10' 
       : 'text-slate-400 hover:bg-slate-800'
     }`}
   >
-    <span className="text-xl">{label}</span>
-    <span className="hidden lg:block">{desktopLabel}</span>
+    <span className="text-lg lg:text-xl">{icon}</span>
+    <span className="text-[8px] lg:text-sm whitespace-nowrap">{label}</span>
     {badge && (
-      <span className="absolute -top-1 -left-1 bg-rose-500 text-white text-[8px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-900">
+      <span className="absolute -top-1 -left-1 lg:top-auto lg:left-4 bg-rose-500 text-white text-[7px] lg:text-[8px] w-4 h-4 lg:w-5 lg:h-5 flex items-center justify-center rounded-full border-2 border-slate-900">
         {badge}
       </span>
     )}
