@@ -5,6 +5,7 @@ import ProductCard from './ProductCard';
 import Slider from './Slider';
 import BrandsSection from './BrandsSection';
 import CategorySection from './CategorySection';
+import AboutSection from './AboutSection'; // Import the new section
 
 interface StoreViewProps {
   products: Product[];
@@ -59,7 +60,6 @@ const StoreView: React.FC<StoreViewProps> = ({
   };
 
   useEffect(() => {
-    // لا نحتاج لتعطيل العرض الأولي، فقط نحدّث عند الحاجة
     if (selectedCategoryId !== 'all' || searchQuery || minPrice || maxPrice) {
       const timer = setTimeout(() => {
         const element = document.getElementById('products-list');
@@ -169,7 +169,6 @@ const StoreView: React.FC<StoreViewProps> = ({
           </div>
         )}
 
-        {/* شبكة المنتجات - تظهر فارغة (Skeletons) إذا كانت البيانات تحمل */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-10">
           {products.length === 0 ? (
             Array.from({ length: 8 }).map((_, i) => (
@@ -203,6 +202,9 @@ const StoreView: React.FC<StoreViewProps> = ({
       </div>
 
       <BrandsSection />
+
+      {/* Adding the new About Section at the end */}
+      <AboutSection />
     </div>
   );
 };
