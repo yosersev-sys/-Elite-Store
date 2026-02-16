@@ -1,5 +1,5 @@
 
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   // Make children optional to resolve "missing children" error when used in JSX
@@ -14,8 +14,8 @@ interface State {
 /**
  * ErrorBoundary component to catch rendering errors and show a fallback UI.
  */
-// Explicitly extend React.Component to ensure props and state properties are inherited correctly
-class ErrorBoundary extends React.Component<Props, State> {
+// Explicitly extend Component from react to ensure props and state properties are inherited correctly
+class ErrorBoundary extends Component<Props, State> {
   // Explicitly defining the constructor and calling super(props) ensures 
   // that 'this.props' is correctly typed and accessible in all methods.
   constructor(props: Props) {
@@ -37,6 +37,7 @@ class ErrorBoundary extends React.Component<Props, State> {
 
   public render(): ReactNode {
     // Access state and props via destructuring from the component instance
+    // Fix: Ensure state and props are recognized by extending Component directly
     const { hasError, error } = this.state;
     const { children } = this.props;
 

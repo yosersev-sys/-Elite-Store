@@ -349,19 +349,21 @@ const App: React.FC = () => {
             />
           )}
 
-          {view === 'admin-invoice' && isActuallyAdmin && (
+          {(view === 'admin-invoice' || view === 'quick-invoice') && (
             <AdminInvoiceForm 
               products={products}
+              initialCustomerName={currentUser?.name || 'عميل نقدي'}
+              initialPhone={currentUser?.phone || ''}
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
-                  setNotification({message: 'تم حفظ الفاتورة', type: 'success'});
+                  setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
                   WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   await loadData(true);
                   setView('order-success');
                 }
               }}
-              onCancel={() => setView('admin')}
+              onCancel={() => setView(isActuallyAdmin ? 'admin' : 'store')}
             />
           )}
 
