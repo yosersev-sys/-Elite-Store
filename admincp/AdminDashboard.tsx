@@ -101,8 +101,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         </nav>
 
         <div className="mt-auto hidden lg:block space-y-4">
-           <button onClick={props.onRefreshData} className="w-full bg-emerald-600/10 text-emerald-500 py-3 rounded-2xl font-black text-xs border border-emerald-500/20">تحديث البيانات 🔄</button>
-           <button onClick={props.onLogout} className="w-full bg-rose-500/10 text-rose-500 py-3 rounded-2xl font-black text-xs border border-rose-500/20">خروج 👋</button>
+           {/* زر التنبيهات المسترجع */}
+           <button 
+             onClick={props.onToggleSound} 
+             className={`w-full py-3 rounded-2xl font-black text-xs border transition-all flex items-center justify-center gap-2 ${
+               props.soundEnabled 
+               ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
+               : 'bg-slate-700/30 text-slate-500 border-slate-700/50'
+             }`}
+           >
+             <span>{props.soundEnabled ? '🔔 صوت التنبيه: مفعّل' : '🔕 صوت التنبيه: صامت'}</span>
+           </button>
+           
+           <button onClick={props.onLogout} className="w-full bg-rose-500/10 text-rose-500 py-3 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all">خروج آمن 👋</button>
         </div>
       </aside>
 
@@ -114,7 +125,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            </div>
            
            <div className="flex gap-2 w-full md:w-auto">
-             <button onClick={props.onRefreshData} className="lg:hidden p-3 bg-white rounded-xl shadow-sm text-emerald-600 border border-emerald-100">🔄</button>
+             {/* إخفاء زر التحديث من هنا أيضاً */}
              <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">🧾 فاتورة</button>
              <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">📦 صنف جديد</button>
            </div>
