@@ -15,7 +15,6 @@ import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import FloatingCartButton from './components/FloatingCartButton.tsx';
 import FloatingQuickInvoiceButton from './components/FloatingQuickInvoiceButton.tsx';
-import AiAssistant from './components/AiAssistant.tsx';
 import Notification from './components/Notification.tsx';
 import MyOrdersView from './components/MyOrdersView.tsx';
 import ProfileView from './components/ProfileView.tsx';
@@ -138,7 +137,6 @@ const App: React.FC = () => {
     if (v === 'admin' || v === 'admin-invoice' || v === 'quick-invoice') {
       loadData(true);
     }
-    // تحويل quick-invoice لـ admin-invoice لتوحيد الواجهة
     if (v === 'quick-invoice') {
       setView('admin-invoice');
     } else {
@@ -363,11 +361,9 @@ const App: React.FC = () => {
           {view === 'profile' && currentUser && <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigateAction('store')} />}
         </main>
 
-        {/* الأزرار العائمة ومساعد الذكاء الاصطناعي - تظهر فقط خارج صفحات الإدارة */}
         {!isAdminView && (
           <>
             <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={!isAdminView} />
-            {/* جعل زر الفاتورة السريعة متاحاً للجميع */}
             <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
             
             {currentUser?.role === 'admin' && (
@@ -375,7 +371,6 @@ const App: React.FC = () => {
                 <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
               </>
             )}
-            <AiAssistant products={products} onAddToCart={addToCart} showNotification={showNotify} />
             <MobileNav 
               currentView={view} 
               cartCount={cart.length} 
