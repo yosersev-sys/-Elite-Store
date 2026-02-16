@@ -69,18 +69,44 @@ const App: React.FC = () => {
   const prevOrderIds = useRef<Set<string>>(new Set());
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
 
+  // تهيئة الصوت وفك القفل عند أول تفاعل
   useEffect(() => {
     if (!audioObj.current) {
       audioObj.current = new Audio(NOTIFICATION_SOUND_URL);
       audioObj.current.load();
     }
-  }, []);
+
+    const unlockAudio = () => {
+      if (audioObj.current && !isAudioUnlocked) {
+        audioObj.current.play().then(() => {
+          audioObj.current!.pause();
+          audioObj.current!.currentTime = 0;
+          setIsAudioUnlocked(true);
+          console.log("Audio Unlocked Successfully");
+        }).catch(() => {});
+        window.removeEventListener('click', unlockAudio);
+        window.removeEventListener('touchstart', unlockAudio);
+      }
+    };
+
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+  }, [isAudioUnlocked]);
 
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled || !audioObj.current) return;
     audioObj.current.currentTime = 0;
-    audioObj.current.play().catch(e => console.error("Sound play blocked:", e));
+    const playPromise = audioObj.current.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(e => console.error("Sound play failed:", e));
+    }
   }, [soundEnabled]);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
@@ -105,13 +131,10 @@ const App: React.FC = () => {
       
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
-        setOrders(fetchedOrders);
         
+        // التحقق من وجود طلبات جديدة للمدير
         if (user.role === 'admin') {
-          const fetchedUsers = await ApiService.getUsers();
-          setUsers(fetchedUsers);
-          
-          if (isSilent && prevOrderIds.current.size > 0) {
+          if (prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter(o => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
               playNotificationSound();
@@ -119,7 +142,11 @@ const App: React.FC = () => {
             }
           }
           prevOrderIds.current = new Set(fetchedOrders.map(o => o.id));
+          
+          const fetchedUsers = await ApiService.getUsers();
+          setUsers(fetchedUsers);
         }
+        setOrders(fetchedOrders);
       }
     } catch (err) {
       console.error("Data loading error:", err);
@@ -128,7 +155,16 @@ const App: React.FC = () => {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  // تحديث البيانات تلقائياً كل 30 ثانية للمدير
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(() => {
+      if (currentUser?.role === 'admin') {
+        loadData(true);
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [currentUser?.role]);
 
   const onNavigateAction = (v: View) => {
     if ((v === 'profile' || v === 'my-orders') && !currentUser) {
@@ -301,7 +337,7 @@ const App: React.FC = () => {
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
-                  playNotificationSound(); // تشغيل الصوت فور النجاح
+                  playNotificationSound(); 
                   showNotify('تم حفظ الفاتورة');
                   WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   await loadData(true);
@@ -349,7 +385,7 @@ const App: React.FC = () => {
                 };
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
-                  playNotificationSound(); // تشغيل الصوت فور النجاح
+                  playNotificationSound();
                   setCart([]);
                   showNotify('تم الطلب بنجاح');
                   WhatsAppService.sendOrderNotification(order, adminPhone);
