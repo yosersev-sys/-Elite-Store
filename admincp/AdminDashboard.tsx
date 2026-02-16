@@ -8,6 +8,7 @@ import OrdersTab from './tabs/OrdersTab.tsx';
 import MembersTab from './tabs/MembersTab.tsx';
 import ReportsTab from './tabs/ReportsTab.tsx';
 import SettingsTab from './tabs/SettingsTab.tsx';
+import ApiKeysTab from './tabs/ApiKeysTab.tsx';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -30,8 +31,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-// Fixed: Removed 'api-keys' from the allowed tabs to comply with security and GenAI rules.
-export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'reports' | 'settings';
+export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'reports' | 'settings' | 'api-keys';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
@@ -44,7 +44,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     orders: 'أرشيف الطلبات والديون',
     members: 'إدارة شؤون الأعضاء',
     reports: 'تقارير الأرباح المحاسبية',
-    settings: 'إعدادات النظام'
+    settings: 'إعدادات النظام',
+    'api-keys': 'إدارة مفاتيح API الذكية'
   };
 
   const renderTabContent = () => {
@@ -63,6 +64,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         return <ReportsTab {...props} />;
       case 'settings':
         return <SettingsTab />;
+      case 'api-keys':
+        return <ApiKeysTab />;
       default:
         return <StatsTab {...props} onNavigateToTab={setActiveTab} />;
     }
@@ -75,7 +78,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       
       {/* Sidebar / Top Nav on Mobile */}
       <aside className="w-full lg:w-80 bg-slate-900 text-white p-6 lg:p-10 flex flex-col shrink-0">
-        {/* Header - Hidden on small mobile to save space */}
         <div className="hidden lg:block mb-12">
           <div className="flex items-center gap-4 mb-2">
             <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
@@ -88,7 +90,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           </div>
         </div>
         
-        {/* Navigation - Scrollable row on mobile, column on desktop */}
         <nav className="flex lg:flex-col flex-row gap-2 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-4 lg:pb-0 -mx-2 lg:mx-0 px-2 lg:px-0">
           <AdminNavButton active={activeTab === 'stats'} onClick={() => { setActiveTab('stats'); setAdminSearch(''); }} label="الإحصائيات" icon="📊" />
           <AdminNavButton active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setAdminSearch(''); }} label="المخزن" icon="📦" badge={lowStockCount > 0 ? lowStockCount : undefined} />
@@ -96,10 +97,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           <AdminNavButton active={activeTab === 'orders'} onClick={() => { setActiveTab('orders'); setAdminSearch(''); }} label="الطلبات" icon="🛍️" />
           <AdminNavButton active={activeTab === 'members'} onClick={() => { setActiveTab('members'); setAdminSearch(''); }} label="الأعضاء" icon="👥" />
           <AdminNavButton active={activeTab === 'reports'} onClick={() => { setActiveTab('reports'); setAdminSearch(''); }} label="الأرباح" icon="📈" />
+          <AdminNavButton active={activeTab === 'api-keys'} onClick={() => { setActiveTab('api-keys'); }} label="مفاتيح API" icon="🔑" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); }} label="الإعدادات" icon="🛠️" />
         </nav>
 
-        {/* Action area - Simplified on mobile */}
         <div className="mt-4 lg:mt-auto space-y-3 hidden lg:block">
           <div className="p-4 bg-slate-800/50 rounded-3xl border border-slate-700/50">
             <button 
@@ -112,28 +113,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
           <button onClick={props.onLogout} className="w-full bg-rose-500/10 text-rose-500 py-4 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all duration-300">تسجيل الخروج 👋</button>
         </div>
-
-        {/* Mobile Mini Actions */}
-        <div className="lg:hidden flex items-center justify-between mt-2 pt-4 border-t border-slate-800">
-           <button onClick={props.onToggleSound} className={`p-3 rounded-xl text-xs font-bold ${props.soundEnabled ? 'text-emerald-500 bg-emerald-500/10' : 'text-slate-400 bg-slate-800'}`}>
-             {props.soundEnabled ? '🔔' : '🔕'}
-           </button>
-           <button onClick={props.onLogout} className="p-3 rounded-xl text-xs font-bold text-rose-500 bg-rose-500/10">
-             خروج 👋
-           </button>
-        </div>
       </aside>
 
       <main className="flex-grow p-4 md:p-12 bg-slate-50/50 overflow-y-auto no-scrollbar">
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 animate-fadeIn">
            <div>
              <h3 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{tabTitles[activeTab]}</h3>
-             <p className="text-slate-400 text-xs md:text-sm font-bold mt-1">سوق العصر - الإدارة الذكية v4.3</p>
+             <p className="text-slate-400 text-xs md:text-sm font-bold mt-1">سوق العصر - الإدارة الذكية v4.4</p>
            </div>
            
            <div className="flex gap-2 w-full md:w-auto">
-             <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-4 lg:px-8 py-3.5 rounded-2xl font-black text-[10px] md:text-xs shadow-xl flex items-center justify-center gap-2 transition-transform active:scale-95"><span>🧾</span> فاتورة</button>
-             <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-4 lg:px-8 py-3.5 rounded-2xl font-black text-[10px] md:text-xs shadow-xl transition-transform active:scale-95"><span>📦</span> صنف جديد</button>
+             <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-4 lg:px-8 py-3.5 rounded-2xl font-black text-[10px] md:text-xs shadow-xl flex items-center justify-center gap-2"><span>🧾</span> فاتورة</button>
+             <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-4 lg:px-8 py-3.5 rounded-2xl font-black text-[10px] md:text-xs shadow-xl"><span>📦</span> صنف جديد</button>
            </div>
         </div>
 
