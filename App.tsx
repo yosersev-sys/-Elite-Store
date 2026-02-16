@@ -73,13 +73,14 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!audioObj.current) {
       audioObj.current = new Audio(NOTIFICATION_SOUND_URL);
+      audioObj.current.load();
     }
   }, []);
 
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled || !audioObj.current) return;
     audioObj.current.currentTime = 0;
-    audioObj.current.play().catch(() => {});
+    audioObj.current.play().catch(e => console.error("Sound play blocked:", e));
   }, [soundEnabled]);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
@@ -300,6 +301,7 @@ const App: React.FC = () => {
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
+                  playNotificationSound(); // تشغيل الصوت فور النجاح
                   showNotify('تم حفظ الفاتورة');
                   WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   await loadData(true);
@@ -347,6 +349,7 @@ const App: React.FC = () => {
                 };
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
+                  playNotificationSound(); // تشغيل الصوت فور النجاح
                   setCart([]);
                   showNotify('تم الطلب بنجاح');
                   WhatsAppService.sendOrderNotification(order, adminPhone);
