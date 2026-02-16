@@ -56,83 +56,42 @@ try {
         :root { --primary: #10b981; }
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes pulse-soft { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.98); } }
-        .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes pulse-soft { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.95); opacity: 0.8; } }
         
-        /* واجهة التشغيل الفورية مع النسبة المئوية */
         #splash-screen {
-            position: fixed;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: #f8fafc;
-            z-index: 9999;
+            position: fixed; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; background: #f8fafc; z-index: 9999;
         }
-        .splash-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            max-width: 280px;
-            width: 100%;
-        }
+        .splash-container { display: flex; flex-direction: column; align-items: center; width: 280px; }
         .splash-logo {
-            width: 100px;
-            height: 100px;
-            background: #10b981;
-            border-radius: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 100px; height: 100px; background: #10b981; border-radius: 32px;
+            display: flex; align-items: center; justify-content: center;
             box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15);
-            animation: pulse-soft 2s infinite ease-in-out;
-            margin-bottom: 24px;
+            animation: pulse-soft 2s infinite ease-in-out; margin-bottom: 24px;
         }
         .splash-logo img { width: 60px; height: 60px; object-fit: contain; }
-        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.5rem; margin-bottom: 8px; }
-        .splash-status { color: #94a3b8; font-size: 0.75rem; font-weight: 700; margin-bottom: 20px; }
+        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.5rem; margin-bottom: 4px; }
+        .splash-status { color: #94a3b8; font-size: 0.7rem; font-weight: 700; margin-bottom: 20px; height: 1rem; }
         
-        /* شريط التقدم */
-        .progress-box {
-            width: 100%;
-            height: 6px;
-            background: #e2e8f0;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-        }
+        .progress-box { width: 100%; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; position: relative; }
         #progress-bar {
-            position: absolute;
-            top: 0;
-            right: 0;
-            height: 100%;
-            width: 0%;
-            background: #10b981;
-            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: absolute; top: 0; right: 0; height: 100%; width: 0%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            transition: width 0.3s cubic-bezier(0.1, 0.5, 0.5, 1);
             border-radius: 10px;
         }
-        #progress-text {
-            margin-top: 12px;
-            font-weight: 900;
-            color: #10b981;
-            font-size: 1rem;
-        }
+        #progress-text { margin-top: 12px; font-weight: 900; color: #10b981; font-size: 1.1rem; }
     </style>
 </head>
 <body>
     <div id="root">
-        <!-- واجهة تشغيل فورية بنسبة مئوية -->
         <div id="splash-screen">
             <div class="splash-container">
                 <div class="splash-logo">
                     <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
                 </div>
                 <div class="splash-text">سوق العصر</div>
-                <div id="splash-status-text" class="splash-status">جاري تهيئة المتجر...</div>
+                <div id="splash-status-text" class="splash-status">جاري الاتصال...</div>
                 <div class="progress-box">
                     <div id="progress-bar"></div>
                 </div>
@@ -149,18 +108,34 @@ try {
         const progressText = document.getElementById('progress-text');
         const statusText = document.getElementById('splash-status-text');
 
-        function updateProgress(percent, status) {
-            if (progressBar) progressBar.style.width = percent + '%';
-            if (progressText) progressText.innerText = percent + '%';
+        let visualProgress = 0;
+        let targetProgress = 0;
+
+        // دالة لتحديث النسبة المئوية بشكل انسيابي
+        function smoothUpdate() {
+            if (visualProgress < targetProgress) {
+                visualProgress += (targetProgress - visualProgress) * 0.1;
+                if (targetProgress - visualProgress < 0.5) visualProgress = targetProgress;
+                
+                const displayVal = Math.floor(visualProgress);
+                if (progressBar) progressBar.style.width = displayVal + '%';
+                if (progressText) progressText.innerText = displayVal + '%';
+            }
+            if (visualProgress < 100) requestAnimationFrame(smoothUpdate);
+        }
+        smoothUpdate();
+
+        function setProgress(percent, status) {
+            targetProgress = percent;
             if (statusText && status) statusText.innerText = status;
         }
 
-        // تهيئة كائن process وحقن مفتاح API المجلوب من PHP
-        window.process = window.process || { env: {} };
-        window.process.env.API_KEY = '<?php echo $gemini_key; ?>';
+        window.process = window.process || { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
 
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
+        let filesProcessed = 0;
+        const estimatedTotalFiles = 25; // تقدير لعدد ملفات المشروع لزيادة الدقة
 
         async function fetchWithFallback(url) {
             const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
@@ -175,7 +150,7 @@ try {
                     }
                 } catch (e) {}
             }
-            throw new Error(`تعذر العثور على الملف: ${url}`);
+            throw new Error(`الملف مفقود: ${url}`);
         }
 
         async function getTranspiledUrl(filePath) {
@@ -185,6 +160,12 @@ try {
             try {
                 const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
                 let code = rawCode;
+                
+                filesProcessed++;
+                // زيادة النسبة بناءً على تقدم معالجة الملفات (من 10% إلى 85%)
+                const calcPercent = 10 + Math.min(filesProcessed / estimatedTotalFiles * 75, 75);
+                const fileName = filePath.split('/').pop();
+                setProgress(calcPercent, `معالجة ${fileName}...`);
 
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
                 const matches = [...code.matchAll(importRegex)];
@@ -206,47 +187,32 @@ try {
                 const blobUrl = URL.createObjectURL(blob);
                 blobCache.set(absolutePath, blobUrl);
                 return blobUrl;
-            } catch (err) {
-                throw err;
-            }
+            } catch (err) { throw err; }
         }
 
         async function startApp() {
             try {
-                // المرحلة الأولى: جلب ملفات النظام (20%)
-                updateProgress(20, "جاري تحميل ملفات النظام...");
-                
-                // المرحلة الثانية: معالجة المكونات (50%)
+                setProgress(5, "جاري تحضير المحرك...");
                 const appBlobUrl = await getTranspiledUrl('App.tsx');
-                updateProgress(60, "جاري معالجة مكونات الواجهة...");
-
-                // المرحلة الثالثة: تهيئة React (80%)
-                updateProgress(85, "جاري تشغيل المتجر...");
                 
+                setProgress(90, "تشغيل واجهة المستخدم...");
                 const module = await import(appBlobUrl);
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
+                setProgress(100, "اكتمل التحميل!");
                 
-                // المرحلة النهائية: العرض (100%)
-                updateProgress(100, "جاهز للعمل!");
-                
-                // انتظار بسيط ليشعر المستخدم بالنسب المكتملة
+                // تأخير طفيف جداً لضمان رؤية الـ 100%
                 setTimeout(() => {
                     root.render(React.createElement(App));
-                }, 200);
+                }, 300);
 
             } catch (err) {
-                console.error("Critical Load Error:", err);
-                const root = document.getElementById('root');
-                if (root) {
-                    root.innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">حدث خطأ تقني في التحميل: <br/> ${err.message}</div>`;
-                }
+                console.error(err);
+                document.getElementById('root').innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">خطأ في التحميل: ${err.message}</div>`;
             }
         }
 
-        // تشغيل العملية
-        updateProgress(5, "جاري الاتصال بالسيرفر...");
         startApp();
     </script>
 </body>
