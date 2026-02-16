@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User } from '../../types';
 import { ApiService } from '../../services/api';
 
@@ -12,23 +12,40 @@ interface MembersTabProps {
 const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSearch }) => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const [editFormData, setEditFormData] = useState({
     name: '',
     phone: '',
     password: ''
   });
 
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
-    u.phone.includes(adminSearch)
-  );
+  // تصفير الصفحة عند تغيير البحث
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [adminSearch]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => 
+      u.name.toLowerCase().includes(adminSearch.toLowerCase()) || 
+      u.phone.includes(adminSearch)
+    );
+  }, [users, adminSearch]);
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredUsers.slice(start, start + itemsPerPage);
+  }, [filteredUsers, currentPage]);
 
   const openEditModal = (user: User) => {
     setEditingUser(user);
     setEditFormData({
       name: user.name,
       phone: user.phone,
-      password: '' // تبقى فارغة إلا إذا أراد المدير تغييرها
+      password: '' 
     });
   };
 
@@ -48,7 +65,6 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSea
       if (res.status === 'success') {
         alert('تم تحديث بيانات العضو بنجاح ✨');
         setEditingUser(null);
-        // إعادة تحميل الصفحة لتحديث البيانات في الجدول
         window.location.reload();
       } else {
         alert(res.message || 'فشل التحديث');
@@ -61,7 +77,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSea
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fadeIn">
       {/* Modal التعديل */}
       {editingUser && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
@@ -155,8 +171,8 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSea
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {filteredUsers.length > 0 ? (
-              filteredUsers.map(u => (
+            {paginatedUsers.length > 0 ? (
+              paginatedUsers.map(u => (
                 <tr key={u.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
@@ -168,7 +184,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSea
                   </td>
                   <td className="px-8 py-5 font-black text-slate-500">{u.phone}</td>
                   <td className="px-8 py-5">
-                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-50'}`}>
                       {u.role === 'admin' ? 'مدير نظام' : 'عميل متجر'}
                     </span>
                   </td>
@@ -179,7 +195,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSea
                     <div className="flex justify-center">
                        <button 
                          onClick={() => openEditModal(u)}
-                         className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm opacity-0 group-hover:opacity-100"
+                         className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm md:opacity-0 md:group-hover:opacity-100"
                          title="تعديل بيانات العضو"
                        >
                          ✎
@@ -198,6 +214,44 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, setAdminSea
           </tbody>
         </table>
       </div>
+
+      {/* أدوات التحكم بالترقيم (Pagination UI) */}
+      {totalPages > 1 && (
+        <div className="flex flex-col md:flex-row items-center justify-between px-8 py-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm gap-4">
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            عرض الصفحة {currentPage} من أصل {totalPages} صفحات
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              disabled={currentPage === 1}
+              onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); }}
+              className="p-3 bg-slate-50 text-slate-400 rounded-xl disabled:opacity-30 hover:bg-emerald-50 hover:text-emerald-600 transition-all font-black text-xs"
+            >
+              السابق 🡒
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({length: totalPages}, (_, i) => i + 1).map(num => (
+                <button 
+                  key={num}
+                  onClick={() => { setCurrentPage(num); }}
+                  className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${currentPage === num ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                >
+                  {num}
+                </button>
+              )).slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2))}
+            </div>
+
+            <button 
+              disabled={currentPage === totalPages}
+              onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); }}
+              className="p-3 bg-slate-50 text-slate-400 rounded-xl disabled:opacity-30 hover:bg-emerald-50 hover:text-emerald-600 transition-all font-black text-xs"
+            >
+              🡐 التالي
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
