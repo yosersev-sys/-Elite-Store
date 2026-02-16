@@ -2,7 +2,6 @@
 import { Product, Category, Order, User } from '../types.ts';
 
 const API_URL = 'api.php';
-const OFFLINE_ORDERS_KEY = 'souq_offline_orders';
 const PRODUCTS_CACHE_KEY = 'souq_products_cache';
 const USER_CACHE_KEY = 'souq_user_profile';
 
@@ -25,15 +24,12 @@ const safeFetch = async (action: string, options?: RequestInit) => {
 export const ApiService = {
   async getCurrentUser(): Promise<User | null> {
     const user = await safeFetch('get_current_user');
-    
     if (user) {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
       return user;
     }
-
-    // إذا كنا أوفلاين، نسحب بيانات المستخدم من الذاكرة المحلية
-    const cachedUser = localStorage.getItem(USER_CACHE_KEY);
-    return cachedUser ? JSON.parse(cachedUser) : null;
+    // في حالة فشل الاتصال، لا نعتمد على الكاش للعمليات الحساسة
+    return null;
   },
 
   async getAdminPhone(): Promise<{phone: string} | null> {
@@ -45,11 +41,9 @@ export const ApiService = {
       method: 'POST',
       body: JSON.stringify({ phone, password })
     });
-    
     if (result?.status === 'success' && result.user) {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user));
     }
-    
     return result;
   },
 
@@ -58,11 +52,9 @@ export const ApiService = {
       method: 'POST',
       body: JSON.stringify({ name, phone, password })
     });
-    
     if (result?.status === 'success' && result.user) {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user));
     }
-    
     return result;
   },
 
@@ -76,10 +68,6 @@ export const ApiService = {
       method: 'POST',
       body: JSON.stringify(data)
     });
-    if (result?.status === 'success') {
-      const user = await this.getCurrentUser();
-      if (user) localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
-    }
     return result;
   },
 
@@ -92,12 +80,10 @@ export const ApiService = {
 
   async getProducts(): Promise<Product[]> {
     const products = await safeFetch('get_products');
-    
     if (products) {
       localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(products));
       return products;
     }
-
     const cached = localStorage.getItem(PRODUCTS_CACHE_KEY);
     return cached ? JSON.parse(cached) : [];
   },
@@ -135,72 +121,12 @@ export const ApiService = {
   },
 
   async saveOrder(order: Order): Promise<boolean> {
-    // محاولة الحفظ على السيرفر أولاً
+    // محاولة الحفظ على السيرفر حصرياً
     const result = await safeFetch('save_order', {
       method: 'POST',
       body: JSON.stringify(order)
     });
-
-    if (result?.status === 'success') {
-      return true;
-    }
-
-    // إذا فشل الاتصال بالسيرفر، نتحقق من صلاحية المدير محلياً
-    const cachedUser = localStorage.getItem(USER_CACHE_KEY);
-    const currentUser = cachedUser ? JSON.parse(cachedUser) : null;
-    
-    if (currentUser?.role === 'admin') {
-      console.log("Saving order to offline queue...");
-      this.queueOfflineOrder(order);
-      return true;
-    }
-
-    return false;
-  },
-
-  queueOfflineOrder(order: Order) {
-    const orders = this.getOfflineOrders();
-    // تجنب تكرار الفاتورة إذا تم الضغط مرتين
-    if (!orders.some(o => o.id === order.id)) {
-      orders.push(order);
-      localStorage.setItem(OFFLINE_ORDERS_KEY, JSON.stringify(orders));
-    }
-  },
-
-  getOfflineOrders(): Order[] {
-    try {
-      const orders = localStorage.getItem(OFFLINE_ORDERS_KEY);
-      return orders ? JSON.parse(orders) : [];
-    } catch { return []; }
-  },
-
-  async syncOfflineOrders(): Promise<number> {
-    const orders = this.getOfflineOrders();
-    if (orders.length === 0) return 0;
-
-    let successCount = 0;
-    const remainingOrders: Order[] = [];
-
-    for (const order of orders) {
-      try {
-        const response = await fetch(`${API_URL}?action=save_order`, {
-          method: 'POST',
-          body: JSON.stringify(order),
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const result = await response.json();
-        if (result?.status === 'success') {
-          successCount++;
-        } else {
-          remainingOrders.push(order);
-        }
-      } catch {
-        remainingOrders.push(order);
-      }
-    }
-
-    localStorage.setItem(OFFLINE_ORDERS_KEY, JSON.stringify(remainingOrders));
-    return successCount;
+    return result?.status === 'success';
   },
 
   async returnOrder(id: string): Promise<{status: string, message?: string}> {

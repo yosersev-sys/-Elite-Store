@@ -96,7 +96,6 @@ const App: React.FC = () => {
     try {
       if (!isSilent) setIsLoading(true);
       
-      // جلب المستخدم الحالي أولاً لتحديد الصلاحيات
       const user = await ApiService.getCurrentUser();
       setCurrentUser(user);
       
@@ -109,7 +108,6 @@ const App: React.FC = () => {
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
       
-      // جلب الطلبات والأعضاء فقط إذا كان المستخدم مديراً أو مسجلاً
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
         const newOrdersList = fetchedOrders || [];
@@ -127,12 +125,10 @@ const App: React.FC = () => {
               if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             }
           }
-          
           const newIds = new Set(newOrdersList.map(o => o.id));
           prevOrderIds.current = newIds;
         }
       }
-      
       if (!isSilent) syncViewWithHash(user);
     } catch (err) {
       console.error("Data loading error:", err);
@@ -168,7 +164,7 @@ const App: React.FC = () => {
       interval = setInterval(() => { loadData(true); }, 15000);
     }
     return () => clearInterval(interval);
-  }, [currentUser?.id, currentUser?.role, soundEnabled]);
+  }, [currentUser?.id, currentUser?.role]);
 
   const toggleSound = () => {
     const newState = !soundEnabled;
@@ -190,12 +186,9 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
-    
-    // إذا انتقل للوحة التحكم، نتأكد من تحديث البيانات
     if (v === 'admin' && currentUser?.role === 'admin') {
       loadData(true);
     }
-
     setView(v);
     if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
        if (!window.location.hash.includes('admincp')) window.location.hash = '#/admincp';
@@ -403,20 +396,15 @@ const App: React.FC = () => {
                 const success = await ApiService.saveOrder(order);
                 if (success) {
                   setLastCreatedOrder(order);
-                  const isOffline = order.id.startsWith('OFF-');
-                  showNotify(isOffline ? 'تم حفظ الطلب محلياً (أوفلاين)' : 'تم إرسال الطلب بنجاح');
-                  
-                  if (!isOffline) {
-                    WhatsAppService.sendInvoiceToCustomer(order, order.phone);
-                    if (view === 'quick-invoice') {
-                      WhatsAppService.sendOrderNotification(order, adminPhone);
-                    }
+                  showNotify('تم إرسال الطلب بنجاح');
+                  WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                  if (view === 'quick-invoice') {
+                    WhatsAppService.sendOrderNotification(order, adminPhone);
                   }
-                  
                   await loadData();
                   onNavigateAction('order-success');
                 } else {
-                  showNotify('فشل حفظ الطلب', 'error');
+                  showNotify('فشل حفظ الطلب، تأكد من الاتصال بالإنترنت', 'error');
                 }
               }}
               onCancel={() => onNavigateAction(view === 'admin-invoice' ? 'admin' : 'store')}
@@ -474,7 +462,7 @@ const App: React.FC = () => {
                   onNavigateAction('order-success');
                   loadData();
                 } else {
-                  showNotify('عذراً، حدث خطأ أثناء إرسال الطلب', 'error');
+                  showNotify('عذراً، حدث خطأ أثناء إرسال الطلب، تأكد من الإنترنت', 'error');
                 }
               }}
             />
