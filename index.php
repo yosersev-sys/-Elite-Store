@@ -57,12 +57,12 @@ try {
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes pulse-soft { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
+        @keyframes pulse-soft { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.98); } }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* استايل واجهة التشغيل الفورية */
+        /* واجهة التشغيل الفورية مع النسبة المئوية */
         #splash-screen {
             position: fixed;
             inset: 0;
@@ -73,40 +73,87 @@ try {
             background: #f8fafc;
             z-index: 9999;
         }
+        .splash-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 280px;
+            width: 100%;
+        }
         .splash-logo {
             width: 100px;
             height: 100px;
             background: #10b981;
-            border-radius: 30px;
+            border-radius: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.2);
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15);
             animation: pulse-soft 2s infinite ease-in-out;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
         .splash-logo img { width: 60px; height: 60px; object-fit: contain; }
-        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.5rem; letter-spacing: -1px; }
-        .splash-loader { width: 40px; height: 4px; background: #e2e8f0; border-radius: 10px; margin-top: 15px; overflow: hidden; position: relative; }
-        .splash-loader::after { content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 50%; background: #10b981; border-radius: 10px; animation: loading-bar 1.5s infinite ease-in-out; }
-        @keyframes loading-bar { 0% { left: -50%; } 100% { left: 100%; } }
+        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.5rem; margin-bottom: 8px; }
+        .splash-status { color: #94a3b8; font-size: 0.75rem; font-weight: 700; margin-bottom: 20px; }
+        
+        /* شريط التقدم */
+        .progress-box {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        #progress-bar {
+            position: absolute;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: 0%;
+            background: #10b981;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 10px;
+        }
+        #progress-text {
+            margin-top: 12px;
+            font-weight: 900;
+            color: #10b981;
+            font-size: 1rem;
+        }
     </style>
 </head>
 <body>
     <div id="root">
-        <!-- واجهة تشغيل فورية تظهر قبل تحميل React -->
+        <!-- واجهة تشغيل فورية بنسبة مئوية -->
         <div id="splash-screen">
-            <div class="splash-logo">
-                <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
+            <div class="splash-container">
+                <div class="splash-logo">
+                    <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
+                </div>
+                <div class="splash-text">سوق العصر</div>
+                <div id="splash-status-text" class="splash-status">جاري تهيئة المتجر...</div>
+                <div class="progress-box">
+                    <div id="progress-bar"></div>
+                </div>
+                <div id="progress-text">0%</div>
             </div>
-            <div class="splash-text">سوق العصر</div>
-            <div class="splash-loader"></div>
         </div>
     </div>
 
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
+
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const statusText = document.getElementById('splash-status-text');
+
+        function updateProgress(percent, status) {
+            if (progressBar) progressBar.style.width = percent + '%';
+            if (progressText) progressText.innerText = percent + '%';
+            if (statusText && status) statusText.innerText = status;
+        }
 
         // تهيئة كائن process وحقن مفتاح API المجلوب من PHP
         window.process = window.process || { env: {} };
@@ -166,13 +213,29 @@ try {
 
         async function startApp() {
             try {
+                // المرحلة الأولى: جلب ملفات النظام (20%)
+                updateProgress(20, "جاري تحميل ملفات النظام...");
+                
+                // المرحلة الثانية: معالجة المكونات (50%)
                 const appBlobUrl = await getTranspiledUrl('App.tsx');
+                updateProgress(60, "جاري معالجة مكونات الواجهة...");
+
+                // المرحلة الثالثة: تهيئة React (80%)
+                updateProgress(85, "جاري تشغيل المتجر...");
+                
                 const module = await import(appBlobUrl);
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                // عند تنفيذ render، سيختفي الـ splash-screen تلقائياً لأنه داخل حاوية root
-                root.render(React.createElement(App));
+                
+                // المرحلة النهائية: العرض (100%)
+                updateProgress(100, "جاهز للعمل!");
+                
+                // انتظار بسيط ليشعر المستخدم بالنسب المكتملة
+                setTimeout(() => {
+                    root.render(React.createElement(App));
+                }, 200);
+
             } catch (err) {
                 console.error("Critical Load Error:", err);
                 const root = document.getElementById('root');
@@ -182,6 +245,8 @@ try {
             }
         }
 
+        // تشغيل العملية
+        updateProgress(5, "جاري الاتصال بالسيرفر...");
         startApp();
     </script>
 </body>
