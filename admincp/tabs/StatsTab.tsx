@@ -155,7 +155,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, suppl
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
          <StatCard title="إجمالي المبيعات" value={`${stats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" trend="+12% اليوم" />
          <StatCard title="صافي الأرباح" value={`${stats.netProfit.toLocaleString()} ج.م`} icon="📈" color="indigo" isDark />
-         <StatCard title="نواقص المخزن" value={stats.lowStockCount} icon="⚠️" color="rose" onClick={() => onNavigateToTab('products')} trend="بحاجة لطلب" />
+         <StatCard title="نواقص المخزن" value={stats.lowStockCount} icon="⚠️" color="rose" onClick={() => onNavigateToTab('products', '', 'low_stock')} trend="بحاجة لطلب" />
          <StatCard title="ديون الموردين" value={`${stats.totalSupplierDebt.toLocaleString()} ج.م`} icon="💸" color="amber" onClick={() => onNavigateToTab('suppliers')} />
       </div>
 
@@ -260,7 +260,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, suppl
          <div className="bg-white p-8 md:p-10 rounded-[3.5rem] shadow-xl border border-slate-100">
             <div className="flex items-center justify-between mb-8">
                <h4 className="font-black text-xl text-slate-800">نواقص عاجلة 🛒</h4>
-               <button onClick={() => onNavigateToTab('products')} className="text-[10px] font-black text-rose-600 hover:underline">إدارة المخزن</button>
+               <button onClick={() => onNavigateToTab('products', '', 'low_stock')} className="text-[10px] font-black text-rose-600 hover:underline">إدارة المخزن</button>
             </div>
             <div className="space-y-4">
               {products.filter(p => Number(p.stockQuantity || 0) < 5).slice(0, 5).map(p => (
@@ -277,7 +277,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, suppl
                         {Number(p.stockQuantity) === 0 ? 'نفذت الكمية تماماً' : `متبقي ${p.stockQuantity} وحدات فقط`}
                       </p>
                    </div>
-                   <button onClick={() => onNavigateToTab('products')} className="bg-white text-slate-400 p-2 rounded-xl border border-slate-100 hover:bg-rose-600 hover:text-white transition-all shadow-sm">
+                   <button onClick={() => onNavigateToTab('products', '', 'low_stock')} className="bg-white text-slate-400 p-2 rounded-xl border border-slate-100 hover:bg-rose-600 hover:text-white transition-all shadow-sm">
                       📦
                    </button>
                 </div>

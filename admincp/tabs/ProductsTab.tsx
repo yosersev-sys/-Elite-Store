@@ -9,11 +9,21 @@ interface ProductsTabProps {
   setAdminSearch: (val: string) => void;
   onOpenEditForm: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
+  initialFilter?: string;
 }
 
-const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSearch, setAdminSearch, onOpenEditForm, onDeleteProduct }) => {
+const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSearch, setAdminSearch, onOpenEditForm, onDeleteProduct, initialFilter }) => {
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentFilter, setCurrentFilter] = useState(initialFilter || 'all');
   const itemsPerPage = 10;
+
+  // مزامنة الفلتر عند التغيير الخارجي
+  useEffect(() => {
+    if (initialFilter) {
+      setCurrentFilter(initialFilter);
+      setCurrentPage(1);
+    }
+  }, [initialFilter]);
 
   // تصفير الصفحة عند تغيير البحث
   useEffect(() => {
@@ -22,12 +32,24 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
 
   const filteredProducts = useMemo(() => {
     const q = adminSearch.toLowerCase().trim();
-    return products.filter(p => 
-      p.name.toLowerCase().includes(q) || 
-      (p.barcode && String(p.barcode).includes(q)) ||
-      p.id.toLowerCase().includes(q)
-    );
-  }, [products, adminSearch]);
+    let result = products;
+
+    // تطبيق فلتر النواقص إذا كان نشطاً
+    if (currentFilter === 'low_stock') {
+      result = result.filter(p => Number(p.stockQuantity || 0) < 5);
+    }
+
+    // تطبيق البحث النصي
+    if (q) {
+      result = result.filter(p => 
+        p.name.toLowerCase().includes(q) || 
+        (p.barcode && String(p.barcode).includes(q)) ||
+        p.id.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [products, adminSearch, currentFilter]);
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
@@ -38,7 +60,24 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-end">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        
+        {/* أزرار التصفية السريعة */}
+        <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-100 w-full md:w-auto">
+          <button 
+            onClick={() => setCurrentFilter('all')}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${currentFilter === 'all' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            الكل ({products.length})
+          </button>
+          <button 
+            onClick={() => setCurrentFilter('low_stock')}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${currentFilter === 'low_stock' ? 'bg-rose-500 text-white shadow-lg shadow-rose-100' : 'text-slate-400 hover:text-rose-500'}`}
+          >
+            نواقص ({products.filter(p => Number(p.stockQuantity || 0) < 5).length})
+          </button>
+        </div>
+
         <div className="relative w-full md:w-80">
           <input 
             type="text" 
@@ -50,6 +89,16 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
           <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
         </div>
       </div>
+
+      {currentFilter === 'low_stock' && (
+        <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center gap-3">
+             <span className="text-xl">⚠️</span>
+             <p className="text-rose-600 font-black text-xs md:text-sm">أنت تشاهد حالياً نواقص المخزن فقط (أقل من 5 قطع)</p>
+          </div>
+          <button onClick={() => setCurrentFilter('all')} className="text-rose-400 hover:text-rose-600 font-black text-xs underline">عرض كل المنتجات</button>
+        </div>
+      )}
 
       <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-right text-sm">
@@ -113,7 +162,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
             ) : (
               <tr>
                 <td colSpan={5} className="px-8 py-20 text-center text-slate-300 font-bold italic">
-                  لا توجد منتجات مطابقة للبحث
+                  لا توجد منتجات مطابقة لهذا الفلتر أو البحث
                 </td>
               </tr>
             )}
