@@ -95,8 +95,10 @@ const App: React.FC = () => {
   const loadData = async (isSilent: boolean = false) => {
     try {
       if (!isSilent) setIsLoading(true);
+      
+      // جلب المستخدم الحالي أولاً لتحديد الصلاحيات
       const user = await ApiService.getCurrentUser();
-      setCurrentUser(prev => JSON.stringify(prev) !== JSON.stringify(user) ? user : prev);
+      setCurrentUser(user);
       
       const adminInfo = await ApiService.getAdminPhone();
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
@@ -107,9 +109,11 @@ const App: React.FC = () => {
       const fetchedCats = await ApiService.getCategories();
       setCategories(fetchedCats || []);
       
+      // جلب الطلبات والأعضاء فقط إذا كان المستخدم مديراً أو مسجلاً
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
         const newOrdersList = fetchedOrders || [];
+        setOrders(newOrdersList);
         
         if (user.role === 'admin') {
           const fetchedUsers = await ApiService.getUsers();
@@ -127,7 +131,6 @@ const App: React.FC = () => {
           const newIds = new Set(newOrdersList.map(o => o.id));
           prevOrderIds.current = newIds;
         }
-        setOrders(newOrdersList);
       }
       
       if (!isSilent) syncViewWithHash(user);
@@ -187,6 +190,12 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
+    
+    // إذا انتقل للوحة التحكم، نتأكد من تحديث البيانات
+    if (v === 'admin' && currentUser?.role === 'admin') {
+      loadData(true);
+    }
+
     setView(v);
     if (v === 'admin' || v === 'admin-auth' || v === 'admin-form' || v === 'admin-invoice') {
        if (!window.location.hash.includes('admincp')) window.location.hash = '#/admincp';
@@ -321,7 +330,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-4' : 'pt-16 md:pt-32'} ${view === 'order-success' ? 'print-full-width' : ''}`}>
+        <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminView ? 'pt-2 md:pt-4' : 'pt-16 md:pt-32'} ${view === 'order-success' ? 'print-full-width' : ''}`}>
           {view === 'store' && (
             <StoreView 
               products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
@@ -362,6 +371,7 @@ const App: React.FC = () => {
               soundEnabled={soundEnabled}
               onToggleSound={toggleSound}
               onLogout={handleLogout}
+              onRefreshData={() => loadData(true)}
             />
           )}
 

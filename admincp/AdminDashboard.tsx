@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, Category, Order, User } from '../types';
 import StatsTab from './tabs/StatsTab.tsx';
 import ProductsTab from './tabs/ProductsTab.tsx';
@@ -29,6 +29,7 @@ interface AdminDashboardProps {
   soundEnabled: boolean;
   onToggleSound: () => void;
   onLogout: () => void;
+  onRefreshData?: () => void;
 }
 
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'reports' | 'settings' | 'api-keys';
@@ -36,6 +37,13 @@ export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
   const [adminSearch, setAdminSearch] = useState('');
+
+  // نستخدم useEffect للتأكد من أن البيانات موجودة عند فتح اللوحة
+  useEffect(() => {
+    if (props.onRefreshData) {
+      props.onRefreshData();
+    }
+  }, []);
 
   const tabTitles: Record<AdminTab, string> = {
     stats: 'نظرة عامة على النشاط',
@@ -49,6 +57,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   };
 
   const renderTabContent = () => {
+    // التحقق من وجود بيانات قبل العرض لتجنب الانهيار أو المساحات الفارغة
+    const hasData = props.products.length > 0 || props.orders.length > 0;
+    
+    if (!hasData && activeTab !== 'settings' && activeTab !== 'api-keys') {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border-2 border-dashed border-slate-100">
+           <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+           <p className="font-black text-slate-400">جاري مزامنة بيانات النظام...</p>
+           <button onClick={props.onRefreshData} className="mt-4 bg-emerald-600 text-white px-6 py-2 rounded-xl font-black text-xs">تحديث يدوي 🔄</button>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'stats':
         return <StatsTab {...props} onNavigateToTab={setActiveTab} />;
@@ -74,10 +95,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const lowStockCount = props.products.filter(p => Number(p.stockQuantity || 0) < 5).length;
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-[85vh] bg-white rounded-[2rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
+    <div className="flex flex-col lg:flex-row min-h-[90vh] md:min-h-[85vh] bg-white rounded-[1.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
       
       {/* Sidebar / Top Nav on Mobile */}
-      <aside className="w-full lg:w-80 bg-slate-900 text-white p-6 lg:p-10 flex flex-col shrink-0">
+      <aside className="w-full lg:w-80 bg-slate-900 text-white p-4 lg:p-10 flex flex-col shrink-0">
         <div className="hidden lg:block mb-12">
           <div className="flex items-center gap-4 mb-2">
             <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
@@ -90,7 +111,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           </div>
         </div>
         
-        <nav className="flex lg:flex-col flex-row gap-2 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-4 lg:pb-0 -mx-2 lg:mx-0 px-2 lg:px-0">
+        <nav className="flex lg:flex-col flex-row gap-2 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-3 lg:pb-0 -mx-2 lg:mx-0 px-2 lg:px-0">
           <AdminNavButton active={activeTab === 'stats'} onClick={() => { setActiveTab('stats'); setAdminSearch(''); }} label="الإحصائيات" icon="📊" />
           <AdminNavButton active={activeTab === 'products'} onClick={() => { setActiveTab('products'); setAdminSearch(''); }} label="المخزن" icon="📦" badge={lowStockCount > 0 ? lowStockCount : undefined} />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => { setActiveTab('categories'); }} label="الأقسام" icon="🏷️" />
@@ -110,25 +131,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
               <span>{props.soundEnabled ? '🔔 التنبيهات مفعلة' : '🔕 التنبيهات معطلة'}</span>
             </button>
           </div>
-
           <button onClick={props.onLogout} className="w-full bg-rose-500/10 text-rose-500 py-4 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all duration-300">تسجيل الخروج 👋</button>
         </div>
       </aside>
 
-      <main className="flex-grow p-4 md:p-12 bg-slate-50/50 overflow-y-auto no-scrollbar">
-        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 animate-fadeIn">
-           <div>
-             <h3 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{tabTitles[activeTab]}</h3>
-             <p className="text-slate-400 text-xs md:text-sm font-bold mt-1">سوق العصر - الإدارة الذكية v4.4</p>
+      <main className="flex-grow p-3 md:p-12 bg-slate-50/50 overflow-y-auto overflow-x-hidden no-scrollbar">
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fadeIn">
+           <div className="flex items-center justify-between w-full md:w-auto">
+             <div>
+               <h3 className="text-xl md:text-3xl font-black text-slate-800 tracking-tight">{tabTitles[activeTab]}</h3>
+               <p className="text-slate-400 text-[10px] md:text-sm font-bold mt-1">إدارة فاقوس v4.5</p>
+             </div>
+             {/* زر تحديث سريع للموبايل */}
+             <button onClick={props.onRefreshData} className="md:hidden p-2 bg-white rounded-xl shadow-sm text-emerald-600" title="تحديث البيانات">🔄</button>
            </div>
            
            <div className="flex gap-2 w-full md:w-auto">
-             <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-4 lg:px-8 py-3.5 rounded-2xl font-black text-[10px] md:text-xs shadow-xl flex items-center justify-center gap-2"><span>🧾</span> فاتورة</button>
-             <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-4 lg:px-8 py-3.5 rounded-2xl font-black text-[10px] md:text-xs shadow-xl"><span>📦</span> صنف جديد</button>
+             <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-4 lg:px-8 py-3 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl flex items-center justify-center gap-2"><span>🧾</span> فاتورة</button>
+             <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-4 lg:px-8 py-3 rounded-xl md:rounded-2xl font-black text-[10px] md:text-xs shadow-xl"><span>📦</span> صنف جديد</button>
            </div>
         </div>
 
-        <div className="animate-fadeIn">
+        <div className="animate-fadeIn min-h-[50vh]">
           {renderTabContent()}
         </div>
       </main>
@@ -139,7 +163,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 const AdminNavButton = ({ active, onClick, label, icon, badge }: any) => (
   <button 
     onClick={onClick} 
-    className={`flex items-center gap-3 lg:gap-4 px-5 lg:px-8 py-3 lg:py-4 rounded-xl lg:rounded-[1.5rem] font-black text-xs lg:text-sm transition-all duration-300 relative whitespace-nowrap flex-shrink-0 lg:w-full ${
+    className={`flex items-center gap-3 lg:gap-4 px-4 lg:px-8 py-2.5 lg:py-4 rounded-xl lg:rounded-[1.5rem] font-black text-xs lg:text-sm transition-all duration-300 relative whitespace-nowrap flex-shrink-0 lg:w-full ${
       active 
       ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-500/20 scale-105 lg:scale-105 z-10' 
       : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -148,7 +172,7 @@ const AdminNavButton = ({ active, onClick, label, icon, badge }: any) => (
     <span className="text-lg lg:text-xl">{icon}</span>
     <span className="text-right">{label}</span>
     {(badge || 0) > 0 && (
-      <span className="absolute left-2 lg:left-4 top-1/2 -translate-y-1/2 bg-rose-500 text-white text-[7px] lg:text-[8px] font-black w-4 h-4 lg:w-5 lg:h-5 flex items-center justify-center rounded-full border-2 border-slate-900 animate-pulse">
+      <span className="absolute left-1 lg:left-4 top-1/2 -translate-y-1/2 bg-rose-500 text-white text-[7px] lg:text-[8px] font-black w-3.5 h-3.5 lg:w-5 lg:h-5 flex items-center justify-center rounded-full border border-slate-900 animate-pulse">
         {badge}
       </span>
     )}
