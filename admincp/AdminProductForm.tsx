@@ -121,7 +121,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   };
 
   const handleAiSeo = async () => {
-    if (!formData.name || !formData.description) return alert('يرجى إدخال الاسم والوصف أولاً');
+    if (!formData.name || !formData.description) return alert('يرجى إدخل الاسم والوصف أولاً');
     setIsLoadingSeo(true);
     const data = await generateSeoData(formData.name, formData.description);
     if (data) setSeoData(data);
@@ -320,7 +320,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">اسم المنتج</label>
-              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner" placeholder="مثال: طماطم بلدي طازجة" />
+              <input 
+                required 
+                value={formData.name} 
+                onChange={e => {
+                  const val = e.target.value;
+                  // مزامنة الاسم مع الوصف وعنوان Meta والرابط تلقائياً
+                  setFormData(prev => ({ ...prev, name: val, description: val }));
+                  setSeoData(prev => ({ ...prev, metaTitle: val, slug: val.trim().replace(/\s+/g, '-') }));
+                }} 
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner" 
+                placeholder="مثال: طماطم بلدي طازجة" 
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">القسم الرئيسي</label>
