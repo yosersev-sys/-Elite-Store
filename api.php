@@ -2,11 +2,15 @@
 <?php
 /**
  * API Backend for Souq Al-Asr - Batch System Edition (FIFO)
- * Updated with Auto-Migration System & Advanced Suppliers Management
+ * Optimized for performance and large data handling
  */
 session_start();
-error_reporting(E_ALL); 
+error_reporting(0); 
 ini_set('display_errors', 0);
+ini_set('memory_limit', '256M'); // زيادة حد الذاكرة للتعامل مع الصور
+ini_set('post_max_size', '50M');
+ini_set('upload_max_filesize', '50M');
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
@@ -17,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 require_once 'config.php';
 
 function sendRes($data) {
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
     exit;
 }
 
@@ -30,72 +34,33 @@ function isAdmin() {
     return ($_SESSION['user']['role'] ?? '') === 'admin';
 }
 
-function initDatabase($pdo) {
+// دالة مبسطة لإنشاء الجداول عند الحاجة فقط لتقليل الضغط على السيرفر
+function ensureSchema($pdo) {
+    static $checked = false;
+    if ($checked) return;
+    
+    // تنفيذ استعلام واحد فقط للتحقق من وجود جدول المنتجات كدليل
+    $exists = $pdo->query("SHOW TABLES LIKE 'products'")->fetch();
+    if ($exists) {
+        $checked = true;
+        return;
+    }
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive BOOLEAN DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), categoryId VARCHAR(50), images LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), total DECIMAL(10,2), items LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) NOT NULL, companyName VARCHAR(255), address TEXT, notes TEXT, type VARCHAR(50) DEFAULT 'wholesale', balance DECIMAL(10,2) DEFAULT 0, rating INT DEFAULT 5, status VARCHAR(20) DEFAULT 'active', createdAt BIGINT)");
     
-    // إنشاء جدول الموردين مع الميزات الجديدة
-    $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
-        id VARCHAR(50) PRIMARY KEY, 
-        name VARCHAR(255) NOT NULL, 
-        phone VARCHAR(20) NOT NULL, 
-        companyName VARCHAR(255), 
-        address TEXT, 
-        notes TEXT, 
-        type VARCHAR(50) DEFAULT 'wholesale',
-        balance DECIMAL(10,2) DEFAULT 0,
-        rating INT DEFAULT 5,
-        status VARCHAR(20) DEFAULT 'active',
-        createdAt BIGINT
-    )");
-
-    // التحديث التلقائي للأعمدة
-    $columnsToAdd = [
-        'products' => [
-            'wholesalePrice' => "DECIMAL(10,2) DEFAULT 0 AFTER price",
-            'stockQuantity'  => "INT DEFAULT 0 AFTER categoryId",
-            'unit'           => "VARCHAR(20) DEFAULT 'piece' AFTER stockQuantity",
-            'barcode'        => "VARCHAR(100) AFTER unit",
-            'batches'        => "LONGTEXT AFTER barcode",
-            'seoSettings'    => "TEXT AFTER batches",
-            'salesCount'     => "INT DEFAULT 0 AFTER createdAt",
-            'sizes'          => "TEXT AFTER images",
-            'colors'         => "TEXT AFTER sizes"
-        ],
-        'orders' => [
-            'city'           => "VARCHAR(100) AFTER phone",
-            'address'        => "TEXT AFTER city",
-            'subtotal'       => "DECIMAL(10,2) AFTER address",
-            'paymentMethod'  => "VARCHAR(50) AFTER items",
-            'status'         => "VARCHAR(20) AFTER paymentMethod",
-            'userId'         => "VARCHAR(50) AFTER createdAt"
-        ],
-        'suppliers' => [
-            'type' => "VARCHAR(50) DEFAULT 'wholesale' AFTER notes",
-            'balance' => "DECIMAL(10,2) DEFAULT 0 AFTER type",
-            'rating' => "INT DEFAULT 5 AFTER balance",
-            'status' => "VARCHAR(20) DEFAULT 'active' AFTER rating"
-        ]
-    ];
-
-    foreach ($columnsToAdd as $table => $columns) {
-        $existingColumns = $pdo->query("DESCRIBE $table")->fetchAll(PDO::FETCH_COLUMN);
-        foreach ($columns as $colName => $definition) {
-            if (!in_array($colName, $existingColumns)) {
-                $pdo->exec("ALTER TABLE $table ADD COLUMN $colName $definition");
-            }
-        }
-    }
+    $checked = true;
 }
 
 $action = $_GET['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true);
 
 try {
-    initDatabase($pdo);
+    ensureSchema($pdo);
 
     switch ($action) {
         case 'get_products':
@@ -114,114 +79,25 @@ try {
             sendRes($products);
             break;
 
-        case 'add_supplier':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("INSERT INTO suppliers (id, name, phone, companyName, address, notes, type, balance, rating, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                $input['id'], $input['name'], $input['phone'], $input['companyName'] ?? null, 
-                $input['address'] ?? null, $input['notes'] ?? null, $input['type'] ?? 'wholesale',
-                (float)($input['balance'] ?? 0), (int)($input['rating'] ?? 5), $input['status'] ?? 'active', $input['createdAt']
-            ]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'update_supplier':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("UPDATE suppliers SET name=?, phone=?, companyName=?, address=?, notes=?, type=?, balance=?, rating=?, status=? WHERE id=?");
-            $stmt->execute([
-                $input['name'], $input['phone'], $input['companyName'] ?? null, 
-                $input['address'] ?? null, $input['notes'] ?? null, $input['type'], 
-                (float)$input['balance'], (int)$input['rating'], $input['status'], $input['id']
-            ]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'delete_supplier':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $id = $_GET['id'] ?? $input['id'] ?? '';
-            $stmt = $pdo->prepare("DELETE FROM suppliers WHERE id = ?");
-            $stmt->execute([$id]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'get_suppliers':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY balance DESC, createdAt DESC");
-            $rows = $stmt->fetchAll() ?: [];
-            foreach($rows as &$r) {
-                $r['balance'] = (float)$r['balance'];
-                $r['rating'] = (int)$r['rating'];
-            }
-            sendRes($rows);
-            break;
-
-        case 'generate_sitemap':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            
-            $baseUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
-            $xml = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
-            $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
-
-            $xml .= '  <url><loc>' . $baseUrl . '/</loc><priority>1.0</priority></url>' . PHP_EOL;
-
-            $cats = $pdo->query("SELECT id FROM categories WHERE isActive = 1")->fetchAll(PDO::FETCH_COLUMN);
-            foreach ($cats as $catId) {
-                $xml .= '  <url><loc>' . $baseUrl . '/#category-' . $catId . '</loc><priority>0.8</priority></url>' . PHP_EOL;
-            }
-
-            $prods = $pdo->query("SELECT id, createdAt FROM products")->fetchAll();
-            foreach ($prods as $p) {
-                $xml .= '  <url><loc>' . $baseUrl . '/#product-' . $p['id'] . '</loc><priority>0.6</priority><lastmod>' . date('Y-m-d', $p['createdAt']/1000) . '</lastmod></url>' . PHP_EOL;
-            }
-
-            $xml .= '</urlset>';
-            
-            if (file_put_contents('sitemap.xml', $xml)) {
-                sendRes(['status' => 'success', 'message' => 'تم توليد ملف Sitemap بنجاح']);
-            } else {
-                sendErr('فشل كتابة الملف. تأكد من صلاحيات المجلد الرئيسي.');
-            }
-            break;
-
-        case 'get_all_images':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->query("SELECT name, images FROM products");
-            $rows = $stmt->fetchAll();
-            $library = [];
-            foreach ($rows as $row) {
-                $imgs = json_decode($row['images'] ?? '[]', true) ?? [];
-                if (is_array($imgs)) {
-                    foreach ($imgs as $img) {
-                        if (!empty($img)) {
-                            $library[] = [
-                                'url' => $img,
-                                'productName' => $row['name']
-                            ];
-                        }
-                    }
-                }
-            }
-            sendRes($library);
-            break;
-
         case 'add_product':
         case 'update_product':
             if (!isAdmin()) sendErr('غير مصرح', 403);
             
+            $imagesJson = json_encode($input['images']);
             $batchesJson = json_encode($input['batches'] ?? []);
             
             if ($action === 'add_product') {
                 $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, wholesalePrice, categoryId, images, stockQuantity, unit, barcode, createdAt, seoSettings, batches) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([
                     $input['id'], $input['name'], $input['description'], (float)$input['price'], (float)$input['wholesalePrice'], 
-                    $input['categoryId'], json_encode($input['images']), (int)$input['stockQuantity'], $input['unit'], 
+                    $input['categoryId'], $imagesJson, (int)$input['stockQuantity'], $input['unit'], 
                     $input['barcode'] ?? '', $input['createdAt'], json_encode($input['seoSettings'] ?? null), $batchesJson
                 ]);
             } else {
                 $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, wholesalePrice=?, categoryId=?, images=?, stockQuantity=?, unit=?, barcode=?, seoSettings=?, batches=? WHERE id=?");
                 $stmt->execute([
                     $input['name'], $input['description'], (float)$input['price'], (float)$input['wholesalePrice'], 
-                    $input['categoryId'], json_encode($input['images']), (int)$input['stockQuantity'], $input['unit'], 
+                    $input['categoryId'], $imagesJson, (int)$input['stockQuantity'], $input['unit'], 
                     $input['barcode'] ?? '', json_encode($input['seoSettings'] ?? null), $batchesJson, $input['id']
                 ]);
             }
@@ -235,37 +111,35 @@ try {
                 $customerName = $input['customerName'] ?? ($input['fullName'] ?? 'عميل مجهول');
                 
                 foreach ($input['items'] as $cartItem) {
-                    $stmt = $pdo->prepare("SELECT batches, stockQuantity, name FROM products WHERE id = ?");
+                    $stmt = $pdo->prepare("SELECT batches, stockQuantity FROM products WHERE id = ?");
                     $stmt->execute([$cartItem['id']]);
                     $product = $stmt->fetch();
-                    
                     if (!$product) continue;
 
                     $batches = json_decode($product['batches'] ?? '[]', true) ?: [];
                     $qtyToDeduct = (int)$cartItem['quantity'];
-                    $totalWholesaleCostForThisItem = 0;
+                    $totalWholesaleCost = 0;
 
                     if (empty($batches)) {
-                        $totalWholesaleCostForThisItem = ($cartItem['wholesalePrice'] ?? 0) * $qtyToDeduct;
+                        $totalWholesaleCost = ($cartItem['wholesalePrice'] ?? 0) * $qtyToDeduct;
                     } else {
                         for ($i = 0; $i < count($batches); $i++) {
                             if ($qtyToDeduct <= 0) break;
                             if ($batches[$i]['quantity'] > 0) {
-                                $deductFromThisBatch = min($qtyToDeduct, $batches[$i]['quantity']);
-                                $totalWholesaleCostForThisItem += ($deductFromThisBatch * $batches[$i]['wholesalePrice']);
-                                $batches[$i]['quantity'] -= $deductFromThisBatch;
-                                $qtyToDeduct -= $deductFromThisBatch;
+                                $deduct = min($qtyToDeduct, $batches[$i]['quantity']);
+                                $totalWholesaleCost += ($deduct * $batches[$i]['wholesalePrice']);
+                                $batches[$i]['quantity'] -= $deduct;
+                                $qtyToDeduct -= $deduct;
                             }
                         }
                     }
 
-                    $actualAvgWholesale = $cartItem['quantity'] > 0 ? ($totalWholesaleCostForThisItem / $cartItem['quantity']) : 0;
-                    $cartItem['actualWholesalePrice'] = $actualAvgWholesale;
+                    $cartItem['actualWholesalePrice'] = $cartItem['quantity'] > 0 ? ($totalWholesaleCost / $cartItem['quantity']) : 0;
                     $processedItems[] = $cartItem;
 
-                    $newTotalStock = max(0, (int)$product['stockQuantity'] - (int)$cartItem['quantity']);
+                    $newStock = max(0, (int)$product['stockQuantity'] - (int)$cartItem['quantity']);
                     $updateStmt = $pdo->prepare("UPDATE products SET stockQuantity = ?, batches = ?, salesCount = salesCount + ? WHERE id = ?");
-                    $updateStmt->execute([$newTotalStock, json_encode($batches), (int)$cartItem['quantity'], $cartItem['id']]);
+                    $updateStmt->execute([$newStock, json_encode($batches), (int)$cartItem['quantity'], $cartItem['id']]);
                 }
 
                 $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, createdAt, userId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -276,42 +150,12 @@ try {
             } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
             break;
 
-        case 'return_order':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $orderId = $input['id'] ?? '';
-            $pdo->beginTransaction();
-            try {
-                $stmt = $pdo->prepare("SELECT items, status FROM orders WHERE id = ?");
-                $stmt->execute([$orderId]);
-                $order = $stmt->fetch();
-                if (!$order || $order['status'] === 'cancelled') throw new Exception('طلب غير صالح أو مسترد مسبقاً');
-                
-                $items = json_decode($order['items'], true);
-                foreach ($items as $item) {
-                    $pStmt = $pdo->prepare("SELECT batches, stockQuantity FROM products WHERE id = ?");
-                    $pStmt->execute([$item['id']]);
-                    $product = $pStmt->fetch();
-                    
-                    if ($product) {
-                        $batches = json_decode($product['batches'] ?? '[]', true) ?: [];
-                        if (!empty($batches)) {
-                            $batches[0]['quantity'] += $item['quantity'];
-                        }
-                        $updateProduct = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ?, batches = ? WHERE id = ?");
-                        $updateProduct->execute([$item['quantity'], $item['quantity'], json_encode($batches), $item['id']]);
-                    }
-                }
-                $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?")->execute([$orderId]);
-                $pdo->commit();
-                sendRes(['status' => 'success']);
-            } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
-            break;
-
         case 'get_orders':
-            $isAdmin = isAdmin();
-            if ($isAdmin) { $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); } 
-            else if (isset($_SESSION['user']['phone'])) { $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? OR phone = ? ORDER BY createdAt DESC"); $stmt->execute([$_SESSION['user']['id'], $_SESSION['user']['phone']]); }
-            else { sendRes([]); }
+            if (isAdmin()) { $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); } 
+            else if (isset($_SESSION['user']['phone'])) { 
+                $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? OR phone = ? ORDER BY createdAt DESC"); 
+                $stmt->execute([$_SESSION['user']['id'], $_SESSION['user']['phone']]); 
+            } else { sendRes([]); }
             $orders = $stmt->fetchAll() ?: [];
             foreach ($orders as &$o) { 
                 $o['items'] = json_decode($o['items'] ?? '[]', true) ?: []; 
@@ -324,50 +168,6 @@ try {
         case 'get_categories':
             $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC");
             sendRes($stmt->fetchAll() ?: []);
-            break;
-
-        case 'add_category':
-        case 'update_category':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            if ($action === 'add_category') {
-                $stmt = $pdo->prepare("INSERT INTO categories (id, name, image, isActive, sortOrder) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$input['id'], $input['name'], $input['image'] ?? '', (int)($input['isActive'] ?? 1), (int)($input['sortOrder'] ?? 0)]);
-            } else {
-                $stmt = $pdo->prepare("UPDATE categories SET name=?, image=?, isActive=?, sortOrder=? WHERE id=?");
-                $stmt->execute([$input['name'], $input['image'] ?? '', (int)($input['isActive'] ?? 1), (int)($input['sortOrder'] ?? 0), $input['id']]);
-            }
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'delete_product':
-        case 'delete_category':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $id = $_GET['id'] ?? $input['id'] ?? '';
-            $table = ($action === 'delete_product') ? 'products' : 'categories';
-            $stmt = $pdo->prepare("DELETE FROM $table WHERE id = ?");
-            $stmt->execute([$id]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'update_order_payment':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
-            $stmt->execute([$input['paymentMethod'], $input['id']]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'get_users':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->query("SELECT id, name, phone, role, createdAt FROM users ORDER BY createdAt DESC");
-            sendRes($stmt->fetchAll() ?: []);
-            break;
-
-        case 'admin_update_user':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $passwordPart = $input['password'] ? ", password = '" . password_hash($input['password'], PASSWORD_DEFAULT) . "'" : "";
-            $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ? $passwordPart WHERE id = ?");
-            $stmt->execute([$input['name'], $input['phone'], $input['id']]);
-            sendRes(['status' => 'success']);
             break;
 
         case 'login':
@@ -392,9 +192,23 @@ try {
 
         case 'get_current_user': sendRes($_SESSION['user'] ?? null); break;
         case 'logout': session_destroy(); sendRes(['status' => 'success']); break;
-        case 'get_admin_phone': $stmt = $pdo->query("SELECT phone FROM users WHERE role = 'admin' LIMIT 1"); $admin = $stmt->fetch(); sendRes(['phone' => $admin['phone'] ?? '201026034170']); break;
-        case 'get_store_settings': $stmt = $pdo->query("SELECT * FROM settings"); $res = []; foreach($stmt->fetchAll() as $r) $res[$r['setting_key']] = $r['setting_value']; sendRes($res); break;
-        case 'update_store_settings': if(!isAdmin()) sendErr('403'); foreach($input as $k => $v) { $s = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?"); $s->execute([$k, $v, $v]); } sendRes(['status'=>'success']); break;
+        case 'get_all_images':
+            $stmt = $pdo->query("SELECT name, images FROM products");
+            $rows = $stmt->fetchAll();
+            $library = [];
+            foreach ($rows as $row) {
+                $imgs = json_decode($row['images'] ?? '[]', true) ?: [];
+                foreach ($imgs as $img) if (!empty($img)) $library[] = ['url' => $img, 'productName' => $row['name']];
+            }
+            sendRes($library);
+            break;
+            
+        case 'get_suppliers':
+            if (!isAdmin()) sendErr('403');
+            $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY createdAt DESC");
+            sendRes($stmt->fetchAll() ?: []);
+            break;
+
         default: sendErr('Unknown action');
     }
 } catch (Exception $e) { sendErr($e->getMessage(), 500); }

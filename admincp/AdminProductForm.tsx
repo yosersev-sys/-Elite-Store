@@ -23,6 +23,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [isLoadingSeo, setIsLoadingSeo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const prevProductIdRef = useRef<string | null>(null);
@@ -53,7 +54,43 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
-  // مزامنة البيانات عند فتح المنتج للتحرير
+  // وظيفة لضغط الصور برمجياً
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1000;
+        const MAX_HEIGHT = 1000;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); // ضغط الجودة لـ 70%
+        } else {
+          resolve(base64Str);
+        }
+      };
+    });
+  };
+
   useEffect(() => {
     if (product) {
       if (product.id !== prevProductIdRef.current) {
@@ -154,18 +191,30 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setNewBatchPrice('');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach((file: File) => {
+    
+    setIsCompressing(true);
+    // Fix: Explicitly cast FileList to File[] to ensure 'file' is typed as File (which extends Blob)
+    const fileList = Array.from(files) as File[];
+    
+    for (const file of fileList) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setFormData(prev => ({ ...prev, images: [...prev.images, reader.result as string] }));
-        }
-      };
+      const p = new Promise<void>((resolve) => {
+        reader.onloadend = async () => {
+          if (typeof reader.result === 'string') {
+            const compressed = await compressImage(reader.result);
+            setFormData(prev => ({ ...prev, images: [...prev.images, compressed] }));
+          }
+          resolve();
+        };
+      });
+      // Fix: With 'file' typed as File, readAsDataURL correctly receives a Blob argument
       reader.readAsDataURL(file);
-    });
+      await p;
+    }
+    setIsCompressing(false);
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -218,6 +267,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     <div className="max-w-6xl mx-auto py-8 px-4 animate-fadeIn pb-32">
       {showScanner && <BarcodeScanner onScan={(code) => setFormData({...formData, barcode: code})} onClose={() => setShowScanner(false)} />}
       
+      {(isSubmitting || isCompressing) && (
+        <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-md">
+           <div className="bg-white p-10 rounded-[3rem] text-center space-y-4 shadow-2xl animate-bounce">
+              <div className="w-16 h-16 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p className="font-black text-slate-800 text-lg">
+                {isCompressing ? 'جاري تحسين الصور...' : 'جاري نشر المنتج في المتجر...'}
+              </p>
+              <p className="text-slate-400 text-xs font-bold">يرجى عدم إغلاق الصفحة</p>
+           </div>
+        </div>
+      )}
+
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
@@ -315,6 +376,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               </button>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
             </div>
+            {isCompressing && <p className="text-emerald-600 font-black text-xs animate-pulse">جاري تحسين الصور المرفوعة لتسريع الرفع... ⚡</p>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -325,9 +387,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 value={formData.name} 
                 onChange={e => {
                   const val = e.target.value;
-                  // مزامنة الاسم مع الوصف وعنوان Meta والرابط تلقائياً
-                  setFormData(prev => ({ ...prev, name: val, description: val }));
-                  setSeoData(prev => ({ ...prev, metaTitle: val, slug: val.trim().replace(/\s+/g, '-') }));
+                  setFormData(prev => ({ ...prev, name: val }));
                 }} 
                 className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner" 
                 placeholder="مثال: طماطم بلدي طازجة" 
@@ -372,7 +432,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           </div>
         </section>
 
-        {/* تحسين قسم إدارة المخزون (FIFO) */}
         <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border-t-8 border-emerald-500 space-y-10 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-bl-full pointer-events-none"></div>
           
@@ -387,16 +446,17 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               </p>
             </div>
             <div className="flex items-center justify-center bg-slate-900 text-white px-8 py-6 rounded-[2.5rem] shadow-2xl border-4 border-emerald-500/20 transform hover:scale-105 transition-transform">
-               <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">المخزون الكلي المتوفر</p>
-               <div className="flex items-baseline gap-2">
-                 <p className="text-4xl font-black">{formData.stockQuantity}</p>
-                 <p className="text-xs font-bold text-slate-400">{getUnitAr(formData.unit)}</p>
+               <div className="text-center">
+                 <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">المخزون الكلي المتوفر</p>
+                 <div className="flex items-baseline gap-2">
+                   <p className="text-4xl font-black">{formData.stockQuantity}</p>
+                   <p className="text-xs font-bold text-slate-400">{getUnitAr(formData.unit)}</p>
+                 </div>
                </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            {/* إدخال شحنة جديدة */}
             <div className="bg-emerald-50/40 p-8 rounded-[2.5rem] border border-emerald-100 shadow-inner space-y-8 h-full">
               <div className="flex items-center gap-3">
                 <span className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl shadow-lg shadow-emerald-200">＋</span>
@@ -441,15 +501,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               >
                 إضافة للمخزن 📦
               </button>
-              
-              <div className="bg-white/60 p-4 rounded-2xl border border-dashed border-emerald-200">
-                <p className="text-[10px] text-emerald-700 font-bold text-center leading-relaxed">
-                  تلميح: آخر سعر تكلفة يتم إدخاله سيتم اعتباره "سعر الجملة الافتراضي" للمنتج.
-                </p>
-              </div>
             </div>
 
-            {/* عرض الدفعات الحالية */}
             <div className="space-y-6">
                <h4 className="font-black text-slate-700 text-sm flex items-center justify-between px-2">
                  <span>تفصيل الدفعات (تاريخياً)</span>
@@ -557,8 +610,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
         <button 
           type="submit" 
-          disabled={isSubmitting}
-          className={`w-full py-7 rounded-[3rem] font-black text-3xl shadow-2xl transition-all transform active:scale-[0.97] flex items-center justify-center gap-6 ${isSubmitting ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-slate-900 hover:-translate-y-1'}`}
+          disabled={isSubmitting || isCompressing}
+          className={`w-full py-7 rounded-[3rem] font-black text-3xl shadow-2xl transition-all transform active:scale-[0.97] flex items-center justify-center gap-6 ${isSubmitting || isCompressing ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-slate-900 hover:-translate-y-1'}`}
         >
            {isSubmitting ? (
              <>
