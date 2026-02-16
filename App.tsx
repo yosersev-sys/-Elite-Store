@@ -28,14 +28,26 @@ import { WhatsAppService } from './services/whatsappService.ts';
 const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const App: React.FC = () => {
+  // دالة ذكية لتحديد الواجهة الأولية بناءً على الرابط
   const getInitialView = (): View => {
-    const hash = window.location.hash;
-    if (hash.includes('admincp')) return 'admin-auth';
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'admin' || hash === 'admincp') return 'admin';
+    if (hash === 'admin-invoice') return 'admin-invoice';
+    if (hash === 'cart') return 'cart';
+    if (hash === 'my-orders') return 'my-orders';
+    if (hash === 'profile') return 'profile';
     return 'store';
   };
 
+  // استرجاع المستخدم من الكاش فوراً لتجنب الصفحة البيضاء
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('souq_user_profile');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
   const [view, setView] = useState<View>(getInitialView());
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [adminPhone, setAdminPhone] = useState('201026034170'); 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -69,94 +81,67 @@ const App: React.FC = () => {
   const prevOrderIds = useRef<Set<string>>(new Set());
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
 
+  // تحديث الـ Hash عند تغيير الـ View لضمان عمل الـ Refresh بشكل صحيح
   useEffect(() => {
-    if (!audioObj.current) {
-      audioObj.current = new Audio(NOTIFICATION_SOUND_URL);
-      audioObj.current.load();
+    const currentHash = window.location.hash.replace('#', '');
+    if (view === 'store') {
+        if (currentHash !== '') window.history.replaceState(null, '', ' ');
+    } else {
+        window.location.hash = view;
     }
+  }, [view]);
 
-    const unlockAudio = () => {
-      if (audioObj.current && !isAudioUnlocked) {
-        audioObj.current.play().then(() => {
-          audioObj.current!.pause();
-          audioObj.current!.currentTime = 0;
-          setIsAudioUnlocked(true);
-        }).catch(() => {});
-        window.removeEventListener('click', unlockAudio);
-        window.removeEventListener('touchstart', unlockAudio);
-      }
-    };
+  // مراقبة تغيير الـ Hash يدوياً (أزرار الرجوع في المتصفح)
+  useEffect(() => {
+    const handleHashChange = () => setView(getInitialView());
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
-    window.addEventListener('click', unlockAudio);
-    window.addEventListener('touchstart', unlockAudio);
-
-    return () => {
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('touchstart', unlockAudio);
-    };
-  }, [isAudioUnlocked]);
-
-  const playNotificationSound = useCallback(() => {
-    if (currentUser?.role !== 'admin' || !soundEnabled || !audioObj.current) return;
-    audioObj.current.currentTime = 0;
-    audioObj.current.play().catch(e => console.warn("Audio play blocked"));
-  }, [soundEnabled, currentUser]);
-
-  const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ message, type });
-  };
-
-  /**
-   * دالة محسنة لجلب البيانات بالتوازي لتقليل وقت التحميل
-   */
   const loadData = async (isSilent: boolean = false) => {
     try {
       if (!isSilent) setIsLoading(true);
       
-      // 1. جلب بيانات المستخدم أولاً لمعرفة الصلاحيات
+      // جلب بيانات المستخدم الحقيقية من السيرفر للتأكد من الجلسة
       const user = await ApiService.getCurrentUser();
       setCurrentUser(user);
 
-      // 2. بناء قائمة الطلبات المتوازية بناءً على نوع المستخدم
       const tasks: Promise<any>[] = [
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
         ApiService.getCategories()
       ];
 
-      // إذا كان المستخدم مسجلاً، نضيف طلب الطلبات
       if (user) {
         tasks.push(ApiService.getOrders());
-        // إذا كان مديراً، نضيف طلب الأعضاء أيضاً في نفس الوقت
         if (user.role === 'admin') {
           tasks.push(ApiService.getUsers());
         }
       }
 
-      // 3. تنفيذ جميع المهام بالتوازي
       const results = await Promise.all(tasks);
       
-      // 4. توزيع النتائج (الترتيب مهم بناءً على ما دفعناه في الـ tasks)
-      const [adminInfo, fetchedProducts, fetchedCats] = results;
+      const adminInfo = results[0];
+      const fetchedProducts = results[1] || [];
+      const fetchedCats = results[2] || [];
+
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
-      setProducts(fetchedProducts || []);
-      setCategories(fetchedCats || []);
+      setProducts(fetchedProducts);
+      setCategories(fetchedCats);
 
       if (user) {
         const fetchedOrders = results[3] || [];
         setOrders(fetchedOrders);
 
-        if (user.role === 'admin') {
+        if (user.role === 'admin' && results[4]) {
           const fetchedUsers = results[4] || [];
           setUsers(fetchedUsers);
 
-          // مراقبة الطلبات الجديدة للتنبيهات
           if (prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
-              playNotificationSound();
+              if (soundEnabled && audioObj.current) audioObj.current.play().catch(() => {});
               setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
           }
@@ -164,7 +149,7 @@ const App: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error("Critical Data Loading Error:", err);
+      console.error("Critical Refresh Load Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -173,10 +158,7 @@ const App: React.FC = () => {
   useEffect(() => {
     loadData();
     const interval = setInterval(() => {
-      // تحديث صامت للمدير فقط لمراقبة الطلبات الجديدة
-      if (currentUser?.role === 'admin') {
-        loadData(true);
-      }
+      if (currentUser?.role === 'admin') loadData(true);
     }, 30000); 
     return () => clearInterval(interval);
   }, [currentUser?.role]);
@@ -186,15 +168,13 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
-    // عند الانتقال لصفحات الإدارة، نحدث البيانات فوراً
-    if (v === 'admin' || v === 'admin-invoice' || v === 'quick-invoice') {
-      loadData(true);
+    // حماية لوحة التحكم
+    if ((v === 'admin' || v === 'admin-invoice') && (!currentUser || currentUser.role !== 'admin')) {
+      setView('admin-auth');
+      return;
     }
-    if (v === 'quick-invoice') {
-      setView('admin-invoice');
-    } else {
-      setView(v);
-    }
+    
+    setView(v);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -214,7 +194,7 @@ const App: React.FC = () => {
       }
       return [...prev, { ...product, quantity: qty }];
     });
-    showNotify('تمت الإضافة للسلة');
+    setNotification({ message: 'تمت الإضافة للسلة', type: 'success' });
   };
 
   useEffect(() => {
@@ -223,13 +203,23 @@ const App: React.FC = () => {
 
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
 
-  if (isLoading && products.length === 0 && view === 'store') {
+  // شاشة تحميل محسنة تمنع الرندر الخاطئ
+  if (isLoading && products.length === 0) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-         <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="font-black text-slate-400 text-sm">جاري مزامنة بيانات المتجر...</p>
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6">
+         <div className="w-16 h-16 bg-emerald-500 rounded-3xl flex items-center justify-center mb-6 animate-bounce shadow-xl">
+            <img src="https://soqelasr.com/shopping-bag.png" className="w-10 h-10 object-contain" alt="" />
          </div>
+         <div className="flex flex-col items-center gap-2">
+            <div className="w-12 h-1 border-2 border-emerald-100 rounded-full overflow-hidden">
+               <div className="w-1/2 h-full bg-emerald-500 animate-shimmer"></div>
+            </div>
+            <p className="font-black text-slate-800 text-sm">جاري مزامنة بياناتك الآمنة...</p>
+         </div>
+         <style>{`
+            @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+            .animate-shimmer { animation: shimmer 1.5s infinite linear; }
+         `}</style>
       </div>
     );
   }
@@ -258,7 +248,7 @@ const App: React.FC = () => {
             onSuccess={(user) => {
               setCurrentUser(user);
               onNavigateAction('admin');
-              loadData(); // تحميل كامل البيانات فور النجاح
+              loadData();
             }}
             onClose={() => onNavigateAction('store')}
           />
@@ -306,28 +296,28 @@ const App: React.FC = () => {
               onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
               onOpenInvoiceForm={() => onNavigateAction('admin-invoice')}
               onDeleteProduct={async (id) => { 
-                  if(await ApiService.deleteProduct(id)) { showNotify('تم الحذف'); loadData(true); }
+                  if(await ApiService.deleteProduct(id)) { setNotification({message: 'تم الحذف', type: 'success'}); loadData(true); }
               }}
               onAddCategory={async (c) => { 
-                  if(await ApiService.addCategory(c)) { showNotify('تم الإضافة'); loadData(true); }
+                  if(await ApiService.addCategory(c)) { setNotification({message: 'تم الإضافة', type: 'success'}); loadData(true); }
               }}
               onUpdateCategory={async (c) => { 
-                  if(await ApiService.updateCategory(c)) { showNotify('تم التحديث'); loadData(true); }
+                  if(await ApiService.updateCategory(c)) { setNotification({message: 'تم التحديث', type: 'success'}); loadData(true); }
               }}
               onDeleteCategory={async (id) => { 
-                  if(await ApiService.deleteCategory(id)) { showNotify('تم الحذف'); loadData(true); }
+                  if(await ApiService.deleteCategory(id)) { setNotification({message: 'تم الحذف', type: 'success'}); loadData(true); }
               }}
               onViewOrder={(order) => {
                 setLastCreatedOrder(order);
                 onNavigateAction('order-success');
               }}
               onUpdateOrderPayment={async (id, method) => {
-                if(await ApiService.updateOrderPayment(id, method)) { showNotify('تم التحديث'); loadData(true); }
+                if(await ApiService.updateOrderPayment(id, method)) { setNotification({message: 'تم التحديث', type: 'success'}); loadData(true); }
               }}
               onReturnOrder={async (id) => {
                 if(!confirm('تأكيد الاسترجاع؟')) return;
                 const res = await ApiService.returnOrder(id);
-                if(res.status === 'success') { showNotify('تم الاسترجاع'); loadData(true); }
+                if(res.status === 'success') { setNotification({message: 'تم الاسترجاع', type: 'success'}); loadData(true); }
               }}
               soundEnabled={soundEnabled}
               onToggleSound={() => setSoundEnabled(!soundEnabled)}
@@ -342,7 +332,7 @@ const App: React.FC = () => {
               onSubmit={async (p) => {
                 const success = products.find(prod => prod.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
                 if (success) {
-                  showNotify('تم الحفظ');
+                  setNotification({message: 'تم الحفظ بنجاح', type: 'success'});
                   await loadData(true);
                   setProductForBarcode(p);
                 }
@@ -357,8 +347,7 @@ const App: React.FC = () => {
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
-                  playNotificationSound(); 
-                  showNotify('تم حفظ الفاتورة');
+                  setNotification({message: 'تم حفظ الفاتورة', type: 'success'});
                   WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   await loadData(true);
                   onNavigateAction('order-success');
@@ -406,7 +395,7 @@ const App: React.FC = () => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
                   setCart([]);
-                  showNotify('تم الطلب بنجاح');
+                  setNotification({message: 'تم الطلب بنجاح', type: 'success'});
                   WhatsAppService.sendOrderNotification(order, adminPhone);
                   onNavigateAction('order-success');
                   loadData(true);

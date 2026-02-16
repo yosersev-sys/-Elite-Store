@@ -1,5 +1,5 @@
 
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -10,8 +10,8 @@ interface State {
   error: Error | null;
 }
 
-// Using React.Component explicitly helps TypeScript correctly identify inherited members like 'this.props' and 'this.state'.
-class ErrorBoundary extends React.Component<Props, State> {
+// Importing Component directly and extending it helps TypeScript correctly identify inherited members like 'this.props' and 'this.state' from the base React class.
+class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null
@@ -62,7 +62,7 @@ class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // In a React class component, children must be accessed through this.props.
+    // Explicitly accessing children through this.props to ensure compatibility with standard React class component structures.
     return this.props.children;
   }
 }
