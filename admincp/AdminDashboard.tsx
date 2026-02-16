@@ -43,12 +43,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   });
   
   const [adminSearch, setAdminSearch] = useState('');
+  const [adminFilter, setAdminFilter] = useState<string>('all');
 
-  const handleTabChange = (tab: AdminTab, searchVal?: string) => {
+  const handleTabChange = (tab: AdminTab, searchVal?: string, filterVal?: string) => {
     setActiveTab(tab);
-    if (searchVal !== undefined) {
-      setAdminSearch(searchVal);
-    }
+    if (searchVal !== undefined) setAdminSearch(searchVal);
+    if (filterVal !== undefined) setAdminFilter(filterVal);
+    else setAdminFilter('all'); // العودة للوضع الافتراضي عند التنقل العادي
+    
     localStorage.setItem('admin_active_tab', tab);
   };
 
@@ -77,7 +79,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'members':
         return <MembersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'suppliers':
-        return <SuppliersTab isLoading={props.isLoading} suppliersData={props.suppliers} onRefresh={props.onRefreshData} />;
+        return <SuppliersTab isLoading={props.isLoading} suppliersData={props.suppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
       case 'reports':
         return <ReportsTab {...props} />;
       case 'settings':

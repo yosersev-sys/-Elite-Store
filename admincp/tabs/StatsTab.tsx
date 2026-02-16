@@ -7,7 +7,7 @@ interface StatsTabProps {
   orders: Order[];
   categories: Category[];
   suppliers: Supplier[];
-  onNavigateToTab: (tab: any, search?: string) => void;
+  onNavigateToTab: (tab: any, search?: string, filter?: string) => void;
   onOpenAddForm: () => void;
 }
 
@@ -95,9 +95,9 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, suppl
               </div>
             </div>
             <button 
-              onClick={() => onNavigateToTab('suppliers')} 
+              onClick={() => onNavigateToTab('suppliers', '', 'debtors')} 
               className="relative z-10 bg-slate-900 text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl hover:bg-white hover:text-rose-600 transition-all active:scale-95"
-              title="عرض حسابات الموردين"
+              title="عرض الموردين المدينين"
             >
               📋
             </button>

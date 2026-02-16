@@ -7,15 +7,16 @@ interface SuppliersTabProps {
   isLoading: boolean;
   suppliersData?: Supplier[];
   onRefresh?: () => void;
+  initialFilter?: FilterStatus;
 }
 
 type FilterStatus = 'all' | 'debtors' | 'paid';
 
-const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, suppliersData, onRefresh }) => {
+const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, suppliersData, onRefresh, initialFilter }) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>(suppliersData || []);
   const [localLoading, setLocalLoading] = useState(!suppliersData);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(initialFilter || 'all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -34,6 +35,13 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     rating: 5,
     status: 'active' as any
   });
+
+  // مزامنة الفلتر مع الباراميتر القادم من الخارج (مثل صفحة الإحصائيات)
+  useEffect(() => {
+    if (initialFilter) {
+      setFilterStatus(initialFilter);
+    }
+  }, [initialFilter]);
 
   useEffect(() => {
     if (suppliersData) {
