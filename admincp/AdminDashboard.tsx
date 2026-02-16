@@ -6,6 +6,7 @@ import ProductsTab from './tabs/ProductsTab.tsx';
 import CategoriesTab from './tabs/CategoriesTab.tsx';
 import OrdersTab from './tabs/OrdersTab.tsx';
 import MembersTab from './tabs/MembersTab.tsx';
+import SuppliersTab from './tabs/SuppliersTab.tsx';
 import ReportsTab from './tabs/ReportsTab.tsx';
 import SettingsTab from './tabs/SettingsTab.tsx';
 import ApiKeysTab from './tabs/ApiKeysTab.tsx';
@@ -33,7 +34,7 @@ interface AdminDashboardProps {
   onRefreshData?: () => void;
 }
 
-export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'reports' | 'settings' | 'api-keys';
+export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'settings' | 'api-keys';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
@@ -56,6 +57,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     categories: 'الأقسام',
     orders: 'الطلبات',
     members: 'الأعضاء',
+    suppliers: 'الموردين',
     reports: 'الأرباح',
     settings: 'الإعدادات',
     'api-keys': 'مفاتيح API'
@@ -73,6 +75,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         return <OrdersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
       case 'members':
         return <MembersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
+      case 'suppliers':
+        return <SuppliersTab isLoading={props.isLoading} />;
       case 'reports':
         return <ReportsTab {...props} />;
       case 'settings':
@@ -108,6 +112,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => handleTabChange('orders', '')} icon="🛍️" label="الطلبات" />
           <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
+          <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
           <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon="🛠️" label="الإعدادات" />
         </nav>

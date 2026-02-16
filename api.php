@@ -2,7 +2,7 @@
 <?php
 /**
  * API Backend for Souq Al-Asr - Batch System Edition (FIFO)
- * Updated with Auto-Migration System
+ * Updated with Auto-Migration System & Suppliers Management
  */
 session_start();
 error_reporting(E_ALL); 
@@ -31,14 +31,17 @@ function isAdmin() {
 }
 
 function initDatabase($pdo) {
-    // 1. إنشاء الجداول الأساسية إذا لم تكن موجودة
+    // إنشاء الجداول الأساسية
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive BOOLEAN DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), categoryId VARCHAR(50), images LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), total DECIMAL(10,2), items LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
+    
+    // إنشاء جدول الموردين
+    $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) NOT NULL, companyName VARCHAR(255), address TEXT, notes TEXT, createdAt BIGINT)");
 
-    // 2. نظام التحديث التلقائي (Migration) للأعمدة الناقصة
+    // التحديث التلقائي للأعمدة
     $columnsToAdd = [
         'products' => [
             'wholesalePrice' => "DECIMAL(10,2) DEFAULT 0 AFTER price",
@@ -94,6 +97,34 @@ try {
             sendRes($products);
             break;
 
+        case 'add_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("INSERT INTO suppliers (id, name, phone, companyName, address, notes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$input['id'], $input['name'], $input['phone'], $input['companyName'] ?? null, $input['address'] ?? null, $input['notes'] ?? null, $input['createdAt']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'update_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("UPDATE suppliers SET name=?, phone=?, companyName=?, address=?, notes=? WHERE id=?");
+            $stmt->execute([$input['name'], $input['phone'], $input['companyName'] ?? null, $input['address'] ?? null, $input['notes'] ?? null, $input['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $id = $_GET['id'] ?? $input['id'] ?? '';
+            $stmt = $pdo->prepare("DELETE FROM suppliers WHERE id = ?");
+            $stmt->execute([$id]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'get_suppliers':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY createdAt DESC");
+            sendRes($stmt->fetchAll() ?: []);
+            break;
+
         case 'generate_sitemap':
             if (!isAdmin()) sendErr('غير مصرح', 403);
             
@@ -101,16 +132,13 @@ try {
             $xml = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
             $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
 
-            // الصفحة الرئيسية
             $xml .= '  <url><loc>' . $baseUrl . '/</loc><priority>1.0</priority></url>' . PHP_EOL;
 
-            // روابط الأقسام
             $cats = $pdo->query("SELECT id FROM categories WHERE isActive = 1")->fetchAll(PDO::FETCH_COLUMN);
             foreach ($cats as $catId) {
                 $xml .= '  <url><loc>' . $baseUrl . '/#category-' . $catId . '</loc><priority>0.8</priority></url>' . PHP_EOL;
             }
 
-            // روابط المنتجات
             $prods = $pdo->query("SELECT id, createdAt FROM products")->fetchAll();
             foreach ($prods as $p) {
                 $xml .= '  <url><loc>' . $baseUrl . '/#product-' . $p['id'] . '</loc><priority>0.6</priority><lastmod>' . date('Y-m-d', $p['createdAt']/1000) . '</lastmod></url>' . PHP_EOL;

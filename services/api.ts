@@ -1,5 +1,5 @@
 
-import { Product, Category, Order, User } from '../types.ts';
+import { Product, Category, Order, User, Supplier } from '../types.ts';
 
 const API_URL = 'api.php';
 const USER_CACHE_KEY = 'souq_user_profile';
@@ -99,6 +99,31 @@ export const ApiService = {
 
   async getUsers(): Promise<User[]> {
     return await safeFetch('get_users') || [];
+  },
+
+  async getSuppliers(): Promise<Supplier[]> {
+    return await safeFetch('get_suppliers') || [];
+  },
+
+  async addSupplier(supplier: Supplier): Promise<boolean> {
+    const result = await safeFetch('add_supplier', {
+      method: 'POST',
+      body: JSON.stringify(supplier)
+    });
+    return result?.status === 'success';
+  },
+
+  async updateSupplier(supplier: Supplier): Promise<boolean> {
+    const result = await safeFetch('update_supplier', {
+      method: 'POST',
+      body: JSON.stringify(supplier)
+    });
+    return result?.status === 'success';
+  },
+
+  async deleteSupplier(id: string): Promise<boolean> {
+    const result = await safeFetch(`delete_supplier&id=${id}`, { method: 'DELETE' });
+    return result?.status === 'success';
   },
 
   async addProduct(product: Product): Promise<boolean> {

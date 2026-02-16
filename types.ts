@@ -7,6 +7,16 @@ export interface User {
   createdAt: number;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  phone: string;
+  companyName?: string;
+  address?: string;
+  notes?: string;
+  createdAt: number;
+}
+
 export interface SeoSettings {
   metaTitle: string;
   metaDescription: string;
@@ -34,7 +44,7 @@ export interface Product {
   name: string;
   description: string;
   price: number; 
-  wholesalePrice: number; // السعر الافتراضي أو لآخر دفعة
+  wholesalePrice: number; 
   categoryId: string;
   images: string[];
   sizes?: string[]; 
@@ -45,14 +55,14 @@ export interface Product {
   createdAt: number;
   salesCount?: number;
   seoSettings?: SeoSettings;
-  batches?: StockBatch[]; // مصفوفة الدفعات الجديدة
+  batches?: StockBatch[]; 
 }
 
 export interface CartItem extends Product {
   quantity: number;
   selectedSize?: string;
   selectedColor?: string;
-  actualWholesalePrice?: number; // السعر الذي تم الحساب عليه فعلياً عند البيع
+  actualWholesalePrice?: number; 
 }
 
 export interface Order {
