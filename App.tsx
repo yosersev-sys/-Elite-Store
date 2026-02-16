@@ -22,6 +22,7 @@ import MobileNav from './components/MobileNav.tsx';
 import PullToRefresh from './components/PullToRefresh.tsx';
 import NewOrderPopup from './components/NewOrderPopup.tsx';
 import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
+import Footer from './components/Footer.tsx'; // Import Footer
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
@@ -403,6 +404,11 @@ const App: React.FC = () => {
 
         {!isAdminPath && (
           <>
+            <Footer 
+              categories={categories} 
+              onNavigate={onNavigateAction} 
+              onCategorySelect={setSelectedCategoryId} 
+            />
             <FloatingCartButton count={cart.length} onClick={() => setView('cart')} isVisible={!isAdminPath} />
             <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
             
