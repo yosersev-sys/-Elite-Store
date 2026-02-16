@@ -56,41 +56,87 @@ try {
         :root { --primary: #10b981; }
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 99999; transition: opacity 0.5s; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
-        .animate-slideUp { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        #error-display { display: none; padding: 20px; color: #e11d48; text-align: center; font-weight: bold; background: #fff1f2; border: 2px solid #fda4af; border-radius: 20px; margin: 20px; }
+        @keyframes pulse-soft { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.95); opacity: 0.8; } }
         
-        /* مخصص للوحة التحكم لضمان عدم وجود تباعد بين الحروف */
-        .admin-no-tracking, .admin-no-tracking * { 
-            letter-spacing: 0em !important; 
+        #splash-screen {
+            position: fixed; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; background: #f8fafc; z-index: 9999;
         }
+        .splash-container { display: flex; flex-direction: column; align-items: center; width: 280px; text-align: center; }
+        .splash-logo {
+            width: 100px; height: 100px; background: #10b981; border-radius: 32px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15);
+            animation: pulse-soft 2s infinite ease-in-out; margin-bottom: 24px;
+        }
+        .splash-logo img { width: 60px; height: 60px; object-fit: contain; }
+        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.6rem; line-height: 1.2; }
+        .splash-tagline { color: #10b981; font-weight: 800; font-size: 0.75rem; margin-bottom: 12px; opacity: 0.9; letter-spacing: 0.5px; }
+        .splash-status { color: #94a3b8; font-size: 0.65rem; font-weight: 700; margin-bottom: 20px; height: 1rem; text-transform: uppercase; }
+        
+        .progress-box { width: 100%; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; position: relative; }
+        #progress-bar {
+            position: absolute; top: 0; right: 0; height: 100%; width: 0%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            transition: width 0.3s cubic-bezier(0.1, 0.5, 0.5, 1);
+            border-radius: 10px;
+        }
+        #progress-text { margin-top: 12px; font-weight: 900; color: #10b981; font-size: 1.1rem; }
     </style>
 </head>
 <body>
-    <div id="initial-loader">
-        <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">سوق العصر - جاري التحميل...</p>
-        <div id="error-display"></div>
+    <div id="root">
+        <div id="splash-screen">
+            <div class="splash-container">
+                <div class="splash-logo">
+                    <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
+                </div>
+                <div class="splash-text">سوق العصر</div>
+                <div class="splash-tagline">اول سوق الكتروني في فاقوس</div>
+                <div id="splash-status-text" class="splash-status">جاري الاتصال...</div>
+                <div class="progress-box">
+                    <div id="progress-bar"></div>
+                </div>
+                <div id="progress-text">0%</div>
+            </div>
+        </div>
     </div>
-    <div id="root"></div>
 
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
 
-        // تهيئة كائن process وحقن مفتاح API المجلوب من PHP
-        window.process = window.process || { env: {} };
-        window.process.env.API_KEY = '<?php echo $gemini_key; ?>';
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const statusText = document.getElementById('splash-status-text');
+
+        let visualProgress = 0;
+        let targetProgress = 0;
+
+        function smoothUpdate() {
+            if (visualProgress < targetProgress) {
+                visualProgress += (targetProgress - visualProgress) * 0.1;
+                if (targetProgress - visualProgress < 0.5) visualProgress = targetProgress;
+                
+                const displayVal = Math.floor(visualProgress);
+                if (progressBar) progressBar.style.width = displayVal + '%';
+                if (progressText) progressText.innerText = displayVal + '%';
+            }
+            if (visualProgress < 100) requestAnimationFrame(smoothUpdate);
+        }
+        smoothUpdate();
+
+        function setProgress(percent, status) {
+            targetProgress = percent;
+            if (statusText && status) statusText.innerText = status;
+        }
+
+        window.process = window.process || { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
 
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
+        let filesProcessed = 0;
+        const estimatedTotalFiles = 25; 
 
         async function fetchWithFallback(url) {
             const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
@@ -105,7 +151,7 @@ try {
                     }
                 } catch (e) {}
             }
-            throw new Error(`تعذر العثور على الملف: ${url}`);
+            throw new Error(`الملف مفقود: ${url}`);
         }
 
         async function getTranspiledUrl(filePath) {
@@ -115,6 +161,19 @@ try {
             try {
                 const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
                 let code = rawCode;
+                
+                filesProcessed++;
+                // إخفاء أسماء الملفات واستخدام عبارات عامة احترافية
+                const calcPercent = 10 + Math.min(filesProcessed / estimatedTotalFiles * 75, 75);
+                
+                // رسائل متغيرة بناءً على نسبة التقدم بدلاً من أسماء الملفات
+                let loadingMsg = "جاري معالجة البيانات...";
+                if (calcPercent > 20) loadingMsg = "تحسين تجربة التصفح...";
+                if (calcPercent > 40) loadingMsg = "تجهيز مكونات المتجر...";
+                if (calcPercent > 60) loadingMsg = "تأمين الاتصال المشفر...";
+                if (calcPercent > 80) loadingMsg = "تنسيق واجهة المستخدم...";
+                
+                setProgress(calcPercent, loadingMsg);
 
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
                 const matches = [...code.matchAll(importRegex)];
@@ -136,31 +195,28 @@ try {
                 const blobUrl = URL.createObjectURL(blob);
                 blobCache.set(absolutePath, blobUrl);
                 return blobUrl;
-            } catch (err) {
-                throw err;
-            }
+            } catch (err) { throw err; }
         }
 
         async function startApp() {
             try {
+                setProgress(5, "بدء تشغيل المحرك الذكي...");
                 const appBlobUrl = await getTranspiledUrl('App.tsx');
+                
+                setProgress(90, "فتح أبواب المتجر...");
                 const module = await import(appBlobUrl);
                 const App = module.default;
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(React.createElement(App));
+                setProgress(100, "جاهز للتسوق!");
+                
+                setTimeout(() => {
+                    root.render(React.createElement(App));
+                }, 300);
 
-                document.getElementById('initial-loader').style.opacity = '0';
-                setTimeout(() => document.getElementById('initial-loader').remove(), 500);
             } catch (err) {
-                console.error("Critical Load Error:", err);
-                const errorDisplay = document.getElementById('error-display');
-                const loaderText = document.getElementById('loader-text');
-                if (errorDisplay) {
-                    errorDisplay.style.display = 'block';
-                    errorDisplay.innerHTML = `حدث خطأ تقني: <br/> ${err.message}`;
-                    if (loaderText) loaderText.style.display = 'none';
-                }
+                console.error(err);
+                document.getElementById('root').innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">خطأ في تحميل المتجر: <br/> يرجى التأكد من اتصال الإنترنت</div>`;
             }
         }
 
