@@ -66,6 +66,11 @@ try {
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         #error-display { display: none; padding: 20px; color: #e11d48; text-align: center; font-weight: bold; background: #fff1f2; border: 2px solid #fda4af; border-radius: 20px; margin: 20px; }
+        
+        /* مخصص للوحة التحكم لضمان عدم وجود تباعد بين الحروف */
+        .admin-no-tracking, .admin-no-tracking * { 
+            letter-spacing: 0em !important; 
+        }
     </style>
 </head>
 <body>

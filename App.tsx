@@ -219,7 +219,7 @@ const App: React.FC = () => {
 
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
-      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? '' : 'pb-24 md:pb-0'}`}>
+      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminView ? 'admin-no-tracking' : 'pb-24 md:pb-0'}`}>
         
         {currentUser?.role === 'admin' && newOrdersForPopup.length > 0 && (
           <NewOrderPopup 
@@ -284,6 +284,7 @@ const App: React.FC = () => {
           
           {view === 'admin' && currentUser?.role === 'admin' && (
             <AdminDashboard 
+              /* Fix: replaced 'fetchedUsers' with 'users' state variable */
               products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
               onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
               onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
@@ -419,7 +420,7 @@ const App: React.FC = () => {
               currentView={view} 
               cartCount={cart.length} 
               onNavigate={onNavigateAction} 
-              onCartClick={() => onNavigateAction('cart')}
+              onCartClick={() => onCartClick()}
               isAdmin={currentUser?.role === 'admin'}
             />
           </>
