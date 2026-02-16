@@ -1,3 +1,4 @@
+
 <?php
 /**
  * سوق العصر - المحرك الذكي v4.1 (Mobile APK Optimized)
@@ -35,7 +36,7 @@ header('Content-Type: text/html; charset=utf-8');
         "react-dom": "https://esm.sh/react-dom@19.0.0",
         "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
         "react-router-dom": "https://esm.sh/react-router-dom@7.1.0?external=react,react-dom",
-        "@google/genai": "https://esm.sh/@google/genai@1.38.0"
+        "@google/genai": "https://esm.sh/@google/genai@1.41.0"
       }
     }
     </script>
@@ -68,8 +69,11 @@ header('Content-Type: text/html; charset=utf-8');
         import React from 'react';
         import ReactDOM from 'react-dom/client';
 
-        // تعريف الكائن process لمنع ReferenceError في المتصفح
+        // تهيئة كائن process لضمان وصول مفتاح API من البيئة الخارجية
         window.process = window.process || { env: {} };
+        if (typeof API_KEY !== 'undefined') {
+            window.process.env.API_KEY = API_KEY;
+        }
 
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();

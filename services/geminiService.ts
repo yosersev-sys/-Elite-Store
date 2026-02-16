@@ -4,16 +4,14 @@ import { GoogleGenAI, Type } from "@google/genai";
 export const parseUserShoppingList = async (userInput: string): Promise<{item: string, qty: number}[] | null> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // استخدام نموذج Gemini 3 Flash للسرعة والدقة في استخراج البيانات
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `حلل قائمة المشتريات التالية باللهجة المصرية أو العربية الفصحى: "${userInput}".
-      استخرج منها الأصناف والكميات.
-      يجب أن يكون الناتج مصفوفة JSON فقط. 
-      - item: اسم الصنف (كلمة واحدة أو كلمتين بحد أقصى، مثلاً "طماطم" بدلاً من "2 كيلو طماطم").
-      - qty: الرقم فقط (مثلاً 2).
-      إذا لم يذكر رقم، افترضه 1.
-      مثال: [{"item": "سكر", "qty": 3}]`,
+      contents: `حلل قائمة المشتريات التالية: "${userInput}".
+      استخرج الأصناف والكميات بصيغة JSON فقط.
+      يجب أن يكون الناتج مصفوفة JSON تحتوي على كائنات بها:
+      - item: اسم الصنف (نص قصير)
+      - qty: الكمية (رقم، الافتراضي هو 1)
+      أجب بـ JSON فقط بدون علامات markdown.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -33,11 +31,10 @@ export const parseUserShoppingList = async (userInput: string): Promise<{item: s
     const text = response.text?.trim();
     if (!text) return null;
 
-    // في وضع application/json، يعيد Gemini نص JSON خالصاً
     try {
       return JSON.parse(text);
     } catch (e) {
-      // محاولة احتياطية في حال وجود علامات Markdown
+      console.error("Manual fallback parsing needed");
       const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
       return JSON.parse(cleanJson);
     }
@@ -52,10 +49,10 @@ export const generateProductDescription = async (productName: string, category: 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `قم بكتابة وصف تسويقي جذاب ومختصر باللغة العربية لمنتج يسمى "${productName}" في قسم "${category}". ركز على الفوائد والجودة وسرعة التوصيل في فاقوس.`,
+      contents: `اكتب وصفاً تسويقياً موجزاً وجذاباً لمنتج "${productName}" في قسم "${category}". ركز على الجودة والتوصيل السريع لفاقوس.`,
       config: { temperature: 0.7 }
     });
-    return response.text || "وصف منتج عالي الجودة متوفر في سوق العصر.";
+    return response.text || "وصف منتج عالي الجودة متاح الآن في متجرنا.";
   } catch (error) {
     return "منتج طازج ومميز متاح الآن لعملاء فاقوس الكرام.";
   }
@@ -67,7 +64,9 @@ export const generateSeoData = async (productName: string, description: string) 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `أنت خبير SEO. ولد بيانات SEO لمنتج: "${productName}". الوصف: "${description}". أجب بـ JSON فقط يحتوي على metaTitle, metaDescription, metaKeywords, slug.`,
-      config: { responseMimeType: "application/json" }
+      config: { 
+        responseMimeType: "application/json" 
+      }
     });
     const text = response.text?.trim();
     return text ? JSON.parse(text) : null;
@@ -81,20 +80,18 @@ export const generateProductImage = async (productName: string, category: string
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const translationResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Translate this Arabic grocery item to 2 English keywords: "${productName}"`
+      contents: `Translate to 2 English words: "${productName}"`
     });
-    const simpleEnglishName = translationResponse.text?.trim() || "grocery item";
-    const finalPrompt = `Professional product photography of ${simpleEnglishName}, bright studio lighting, white background, 4k resolution.`;
+    const simpleEnglishName = translationResponse.text?.trim() || "grocery";
+    const finalPrompt = `Professional product photo of ${simpleEnglishName}, bright studio lighting, white background, 4k.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: finalPrompt }] },
       config: { imageConfig: { aspectRatio: "1:1" } }
-    } as any);
+    });
 
-    if (!response.candidates?.[0]?.content?.parts) return null;
-    const parts = response.candidates[0].content.parts;
-    for (const part of parts) {
+    for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
     return null;
