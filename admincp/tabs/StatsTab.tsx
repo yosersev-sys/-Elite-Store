@@ -7,16 +7,18 @@ interface StatsTabProps {
   orders: Order[];
   categories: Category[];
   suppliers: Supplier[];
+  isLoading: boolean;
   onNavigateToTab: (tab: any, search?: string, filter?: string) => void;
   onOpenAddForm: () => void;
 }
 
-const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, suppliers, onNavigateToTab, onOpenAddForm }) => {
+const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, suppliers, isLoading, onNavigateToTab, onOpenAddForm }) => {
   const stats = useMemo(() => {
+    if (isLoading) return null;
+
     const activeOrders = orders.filter(o => o.status !== 'cancelled');
     const totalSales = activeOrders.reduce((s, o) => s + Number(o.total || 0), 0);
     
-    // حساب التكلفة والربح الصافي
     let totalCost = 0;
     activeOrders.forEach(o => {
       (o.items || []).forEach(item => {
@@ -28,15 +30,12 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, suppl
     const avgOrderValue = activeOrders.length > 0 ? totalSales / activeOrders.length : 0;
     const lowStock = products.filter(p => Number(p.stockQuantity || 0) < 5);
     
-    // مديونيات العملاء
     const debtOrders = activeOrders.filter(o => o.paymentMethod && o.paymentMethod.includes('آجل'));
     const totalDebtAmount = debtOrders.reduce((s, o) => s + Number(o.total || 0), 0);
 
-    // مديونيات الموردين (المبالغ التي علينا دفعها لهم)
     const debtorSuppliers = suppliers.filter(s => s.balance > 0);
     const totalSupplierDebt = debtorSuppliers.reduce((s, sup) => s + (sup.balance || 0), 0);
 
-    // الأقسام الأكثر طلباً
     const catStats = categories.map(cat => {
       const count = products.filter(p => p.categoryId === cat.id).reduce((s, p) => s + (p.salesCount || 0), 0);
       return { name: cat.name, count };
@@ -56,7 +55,54 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, suppl
       debtorSuppliersCount: debtorSuppliers.length,
       catStats
     };
-  }, [products, orders, categories, suppliers]);
+  }, [products, orders, categories, suppliers, isLoading]);
+
+  // واجهة التحميل
+  if (isLoading || !stats) {
+    return (
+      <div className="space-y-10 animate-fadeIn">
+        {/* Skeleton for Alerts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div className="h-32 bg-white rounded-[2.5rem] border border-slate-100 animate-pulse flex items-center p-8 gap-4">
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl"></div>
+              <div className="space-y-2">
+                <div className="w-32 h-4 bg-slate-100 rounded-lg"></div>
+                <div className="w-48 h-3 bg-slate-50 rounded-lg"></div>
+              </div>
+           </div>
+           <div className="h-32 bg-white rounded-[2.5rem] border border-slate-100 animate-pulse flex items-center p-8 gap-4">
+              <div className="w-14 h-14 bg-slate-100 rounded-2xl"></div>
+              <div className="space-y-2">
+                <div className="w-32 h-4 bg-slate-100 rounded-lg"></div>
+                <div className="w-48 h-3 bg-slate-50 rounded-lg"></div>
+              </div>
+           </div>
+        </div>
+
+        {/* Skeleton for Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+           {[...Array(4)].map((_, i) => (
+             <div key={i} className="h-44 bg-white rounded-[3rem] border border-slate-100 animate-pulse p-8">
+                <div className="flex justify-between mb-6">
+                  <div className="w-12 h-12 bg-slate-100 rounded-xl"></div>
+                  <div className="w-12 h-4 bg-slate-50 rounded-full"></div>
+                </div>
+                <div className="space-y-2">
+                   <div className="w-20 h-2 bg-slate-50 rounded"></div>
+                   <div className="w-28 h-6 bg-slate-100 rounded"></div>
+                </div>
+             </div>
+           ))}
+        </div>
+
+        {/* Skeleton for Main Analysis */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           <div className="lg:col-span-2 h-80 bg-white rounded-[3rem] border border-slate-100 animate-pulse"></div>
+           <div className="h-80 bg-white rounded-[3rem] border border-slate-100 animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10 animate-fadeIn">

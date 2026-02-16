@@ -69,7 +69,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'stats':
-        return <StatsTab {...props} onNavigateToTab={handleTabChange} />;
+        // نمرر isLoading هنا بوضوح لـ StatsTab
+        return <StatsTab {...props} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
       case 'products':
         return <ProductsTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} />;
       case 'categories':
@@ -87,7 +88,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'api-keys':
         return <ApiKeysTab />;
       default:
-        return <StatsTab {...props} onNavigateToTab={handleTabChange} />;
+        return <StatsTab {...props} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
     }
   };
 
