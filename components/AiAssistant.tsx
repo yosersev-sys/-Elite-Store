@@ -13,7 +13,7 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ products, onAddToCart, showNo
   const [isOpen, setIsOpen] = useState(false);
   const [userInput, setUserInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [history, setHistory] = useState<{role: 'user' | 'ai', text: string}[]>([]);
+  const [history, setHistory] = useState<{role: 'user' | 'ai', text: string, type?: 'error' | 'info'}[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -22,13 +22,23 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ products, onAddToCart, showNo
     }
   }, [history]);
 
-  // وظيفة لتنظيف النص للبحث (إزالة ال التعريف والزيادات)
   const cleanForMatch = (text: string) => {
     return text.toLowerCase()
-      .replace(/^(ال)/, '') // إزالة ال التعريف في البداية
-      .replace(/(ى)$/, 'ي') // توحيد الياء والألف اللينة
-      .replace(/(ة)$/, 'ه') // توحيد التاء المربوطة
+      .replace(/^(ال)/, '')
+      .replace(/(ى)$/, 'ي')
+      .replace(/(ة)$/, 'ه')
       .trim();
+  };
+
+  const handleOpenKeySelector = async () => {
+    if (window.aistudio) {
+      try {
+        await window.aistudio.openSelectKey();
+        setHistory(prev => [...prev, { role: 'ai', text: "تم تحديث مفتاح API بنجاح! يمكنك تجربة إرسال طلبك الآن.", type: 'info' }]);
+      } catch (err) {
+        console.error("Failed to open key selector:", err);
+      }
+    }
   };
 
   const handleProcess = async (e: React.FormEvent) => {
@@ -56,7 +66,6 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ products, onAddToCart, showNo
         for (const req of parsedItems) {
           const reqItemClean = cleanForMatch(req.item);
           
-          // محرك بحث مرن: يبحث عن الكلمة داخل اسم المنتج أو العكس
           const match = products.find(p => {
             const pNameClean = cleanForMatch(p.name);
             return pNameClean.includes(reqItemClean) || reqItemClean.includes(pNameClean);
@@ -88,8 +97,35 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ products, onAddToCart, showNo
         setHistory(prev => [...prev, { role: 'ai', text: aiResponse }]);
         if (foundCount > 0) showNotification(`تمت إضافة ${foundCount} صنف بواسطة المساعد`);
       }
-    } catch (err) {
-      setHistory(prev => [...prev, { role: 'ai', text: "حدث خطأ غير متوقع. يرجى التأكد من اتصال الإنترنت والمحاولة مرة أخرى." }]);
+    } catch (err: any) {
+      console.error("AI Chat Error:", err);
+      
+      let errorMsg = "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.";
+      let isQuotaError = false;
+
+      // كشف خطأ تجاوز الحصة (429)
+      if (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) {
+        errorMsg = "عذراً، انتهت حصة استخدام الذكاء الاصطناعي المجانية (Quota Exceeded).";
+        isQuotaError = true;
+      } else if (err.message === "API_KEY_MISSING") {
+        errorMsg = "عذراً، مفتاح API غير متوفر حالياً.";
+        isQuotaError = true;
+      }
+
+      setHistory(prev => [...prev, { 
+        role: 'ai', 
+        text: errorMsg,
+        type: 'error'
+      }]);
+
+      // إذا كان هناك خطأ في المفتاح وكان النظام يدعم اختيار مفتاح يدوي
+      if (isQuotaError && window.aistudio) {
+        setHistory(prev => [...prev, { 
+          role: 'ai', 
+          text: "يمكنك استخدام مفتاح API خاص بك للمتابعة:", 
+          type: 'info' 
+        }]);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -123,9 +159,21 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ products, onAddToCart, showNo
             {history.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
                 <div className={`max-w-[85%] px-4 py-3 rounded-[1.5rem] text-xs font-bold leading-relaxed shadow-sm ${
-                  msg.role === 'user' ? 'bg-white text-slate-700 border border-slate-100' : 'bg-emerald-600 text-white'
+                  msg.role === 'user' ? 'bg-white text-slate-700 border border-slate-100' : 
+                  msg.type === 'error' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 
+                  msg.type === 'info' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' :
+                  'bg-emerald-600 text-white'
                 }`}>
                   {msg.text.split('\n').map((line, j) => <p key={j} className={j > 0 ? "mt-1" : ""}>{line}</p>)}
+                  
+                  {msg.text.includes("مفتاح API خاص بك") && window.aistudio && (
+                    <button 
+                      onClick={handleOpenKeySelector}
+                      className="mt-3 w-full bg-indigo-600 text-white py-2 rounded-xl text-[10px] font-black shadow-lg active:scale-95 transition-all"
+                    >
+                      ربط مفتاح API جديد 🔑
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

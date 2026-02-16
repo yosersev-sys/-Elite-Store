@@ -1,9 +1,20 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+/**
+ * دالة مساعدة لإنشاء عميل Gemini باستخدام أحدث مفتاح متاح في البيئة
+ */
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY_MISSING");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
 export const parseUserShoppingList = async (userInput: string): Promise<{item: string, qty: number}[] | null> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `حلل قائمة المشتريات التالية: "${userInput}".
@@ -34,19 +45,19 @@ export const parseUserShoppingList = async (userInput: string): Promise<{item: s
     try {
       return JSON.parse(text);
     } catch (e) {
-      console.error("Manual fallback parsing needed");
       const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
       return JSON.parse(cleanJson);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Parsing Error:", error);
-    return null;
+    // نمرر الخطأ الأصلي ليتمكن المكون من معرفة كود الحالة (مثلاً 429)
+    throw error;
   }
 };
 
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `اكتب وصفاً تسويقياً موجزاً وجذاباً لمنتج "${productName}" في قسم "${category}". ركز على الجودة والتوصيل السريع لفاقوس.`,
@@ -60,7 +71,7 @@ export const generateProductDescription = async (productName: string, category: 
 
 export const generateSeoData = async (productName: string, description: string) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `أنت خبير SEO. ولد بيانات SEO لمنتج: "${productName}". الوصف: "${description}". أجب بـ JSON فقط يحتوي على metaTitle, metaDescription, metaKeywords, slug.`,
@@ -77,7 +88,7 @@ export const generateSeoData = async (productName: string, description: string) 
 
 export const generateProductImage = async (productName: string, category: string): Promise<string | null> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAiClient();
     const translationResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Translate to 2 English words: "${productName}"`
