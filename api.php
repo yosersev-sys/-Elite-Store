@@ -37,13 +37,11 @@ function ensureSchema($pdo) {
     static $checked = false;
     if ($checked) return;
     
-    // إنشاء الجداول الأساسية
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive BOOLEAN DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) NOT NULL, companyName VARCHAR(255), address TEXT, notes TEXT, type VARCHAR(50) DEFAULT 'wholesale', balance DECIMAL(10,2) DEFAULT 0, rating INT DEFAULT 5, status VARCHAR(20) DEFAULT 'active', createdAt BIGINT)");
 
-    // جدول المنتجات
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (
         id VARCHAR(50) PRIMARY KEY, 
         name VARCHAR(255) NOT NULL, 
@@ -61,7 +59,6 @@ function ensureSchema($pdo) {
         createdAt BIGINT
     )");
 
-    // جدول الطلبات - التأكد من وجود كافة الأعمدة
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (
         id VARCHAR(50) PRIMARY KEY, 
         customerName VARCHAR(255), 
@@ -77,7 +74,6 @@ function ensureSchema($pdo) {
         createdAt BIGINT
     )");
     
-    // تحديث تلقائي للأعمدة في حال وجود جداول قديمة
     $columns = [
         'paymentMethod' => "VARCHAR(100) DEFAULT 'نقدي (تم الدفع)'",
         'city' => "VARCHAR(100) DEFAULT 'فاقوس'",
@@ -88,7 +84,7 @@ function ensureSchema($pdo) {
     foreach ($columns as $col => $type) {
         try {
             $pdo->exec("ALTER TABLE orders ADD COLUMN $col $type");
-        } catch (Exception $e) { /* Column already exists */ }
+        } catch (Exception $e) { }
     }
 
     $checked = true;
@@ -139,6 +135,14 @@ try {
             sendRes(['status' => 'success']);
             break;
 
+        case 'delete_product':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $id = $_GET['id'] ?? $input['id'] ?? '';
+            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
+            $stmt->execute([$id]);
+            sendRes(['status' => 'success']);
+            break;
+
         case 'save_order':
             $pdo->beginTransaction();
             try {
@@ -178,11 +182,94 @@ try {
             } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
             break;
 
-        case 'update_order_payment':
+        case 'return_order':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            if (!isset($input['id']) || !isset($input['paymentMethod'])) sendErr('بيانات ناقصة');
-            $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
-            $stmt->execute([$input['paymentMethod'], $input['id']]);
+            $id = $input['id'] ?? '';
+            $stmt = $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?");
+            $stmt->execute([$id]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'get_users':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->query("SELECT id, name, phone, role, createdAt FROM users ORDER BY createdAt DESC");
+            sendRes($stmt->fetchAll() ?: []);
+            break;
+
+        case 'admin_update_user':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            if (isset($input['password']) && !empty($input['password'])) {
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ?, password = ? WHERE id = ?");
+                $stmt->execute([$input['name'], $input['phone'], password_hash($input['password'], PASSWORD_DEFAULT), $input['id']]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ? WHERE id = ?");
+                $stmt->execute([$input['name'], $input['phone'], $input['id']]);
+            }
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'update_profile':
+            if (!isset($_SESSION['user']['id'])) sendErr('يجب تسجيل الدخول');
+            if (isset($input['password']) && !empty($input['password'])) {
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ?, password = ? WHERE id = ?");
+                $stmt->execute([$input['name'], $input['phone'], password_hash($input['password'], PASSWORD_DEFAULT), $_SESSION['user']['id']]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ? WHERE id = ?");
+                $stmt->execute([$input['name'], $input['phone'], $_SESSION['user']['id']]);
+            }
+            $_SESSION['user']['name'] = $input['name'];
+            $_SESSION['user']['phone'] = $input['phone'];
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'get_suppliers':
+            if (!isAdmin()) sendErr('403');
+            $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY createdAt DESC");
+            sendRes($stmt->fetchAll() ?: []);
+            break;
+
+        case 'add_supplier':
+        case 'update_supplier':
+            if (!isAdmin()) sendErr('403');
+            if ($action === 'add_supplier') {
+                $stmt = $pdo->prepare("INSERT INTO suppliers (id, name, phone, companyName, address, notes, type, balance, rating, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$input['id'], $input['name'], $input['phone'], $input['companyName'] ?? '', $input['address'] ?? '', $input['notes'] ?? '', $input['type'], (float)$input['balance'], (int)$input['rating'], $input['status'], $input['createdAt']]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE suppliers SET name=?, phone=?, companyName=?, address=?, notes=?, type=?, balance=?, rating=?, status=? WHERE id=?");
+                $stmt->execute([$input['name'], $input['phone'], $input['companyName'] ?? '', $input['address'] ?? '', $input['notes'] ?? '', $input['type'], (float)$input['balance'], (int)$input['rating'], $input['status'], $input['id']]);
+            }
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_supplier':
+            if (!isAdmin()) sendErr('403');
+            $id = $_GET['id'] ?? '';
+            $stmt = $pdo->prepare("DELETE FROM suppliers WHERE id = ?");
+            $stmt->execute([$id]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'add_category':
+            if (!isAdmin()) sendErr('403');
+            $stmt = $pdo->prepare("INSERT INTO categories (id, name, image, isActive, sortOrder) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$input['id'], $input['name'], $input['image'] ?? '', (int)($input['isActive'] ?? 1), (int)($input['sortOrder'] ?? 0)]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'update_category':
+            if (!isAdmin()) sendErr('403');
+            $stmt = $pdo->prepare("UPDATE categories SET name = ?, image = ?, isActive = ?, sortOrder = ? WHERE id = ?");
+            $stmt->execute([$input['name'], $input['image'] ?? '', (int)($input['isActive'] ?? 1), (int)($input['sortOrder'] ?? 0), $input['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_category':
+            if (!isAdmin()) sendErr('403');
+            $id = $_GET['id'] ?? '';
+            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+            $stmt->execute([$id]);
+            $stmt = $pdo->prepare("UPDATE products SET categoryId = 'uncategorized' WHERE categoryId = ?");
+            $stmt->execute([$id]);
             sendRes(['status' => 'success']);
             break;
 
@@ -239,11 +326,12 @@ try {
             }
             sendRes($library);
             break;
-            
-        case 'get_suppliers':
-            if (!isAdmin()) sendErr('403');
-            $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY createdAt DESC");
-            sendRes($stmt->fetchAll() ?: []);
+
+        case 'update_order_payment':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
+            $stmt->execute([$input['paymentMethod'], $input['id']]);
+            sendRes(['status' => 'success']);
             break;
 
         case 'get_store_settings':
@@ -260,6 +348,11 @@ try {
                 $stmt->execute([$key, $val, $val]);
             }
             sendRes(['status' => 'success']);
+            break;
+
+        case 'generate_sitemap':
+            if (!isAdmin()) sendErr('403');
+            sendRes(['status' => 'success']); // Placeholder
             break;
 
         default: sendErr('Unknown action: ' . $action);
