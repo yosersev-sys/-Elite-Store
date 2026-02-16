@@ -108,43 +108,63 @@ const App: React.FC = () => {
     setNotification({ message, type });
   };
 
+  /**
+   * دالة محسنة لجلب البيانات بالتوازي لتقليل وقت التحميل
+   */
   const loadData = async (isSilent: boolean = false) => {
     try {
       if (!isSilent) setIsLoading(true);
       
-      const [user, adminInfo, fetchedProducts, fetchedCats] = await Promise.all([
-        ApiService.getCurrentUser(),
+      // 1. جلب بيانات المستخدم أولاً لمعرفة الصلاحيات
+      const user = await ApiService.getCurrentUser();
+      setCurrentUser(user);
+
+      // 2. بناء قائمة الطلبات المتوازية بناءً على نوع المستخدم
+      const tasks: Promise<any>[] = [
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
         ApiService.getCategories()
-      ]);
+      ];
 
-      setCurrentUser(user);
+      // إذا كان المستخدم مسجلاً، نضيف طلب الطلبات
+      if (user) {
+        tasks.push(ApiService.getOrders());
+        // إذا كان مديراً، نضيف طلب الأعضاء أيضاً في نفس الوقت
+        if (user.role === 'admin') {
+          tasks.push(ApiService.getUsers());
+        }
+      }
+
+      // 3. تنفيذ جميع المهام بالتوازي
+      const results = await Promise.all(tasks);
+      
+      // 4. توزيع النتائج (الترتيب مهم بناءً على ما دفعناه في الـ tasks)
+      const [adminInfo, fetchedProducts, fetchedCats] = results;
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
       setProducts(fetchedProducts || []);
       setCategories(fetchedCats || []);
-      
+
       if (user) {
-        const fetchedOrders = await ApiService.getOrders();
-        const ordersList = fetchedOrders || [];
-        
+        const fetchedOrders = results[3] || [];
+        setOrders(fetchedOrders);
+
         if (user.role === 'admin') {
+          const fetchedUsers = results[4] || [];
+          setUsers(fetchedUsers);
+
+          // مراقبة الطلبات الجديدة للتنبيهات
           if (prevOrderIds.current.size > 0) {
-            const trulyNew = ordersList.filter(o => !prevOrderIds.current.has(o.id));
+            const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
               playNotificationSound();
               setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
           }
-          prevOrderIds.current = new Set(ordersList.map(o => o.id));
-          
-          const fetchedUsers = await ApiService.getUsers();
-          setUsers(fetchedUsers || []);
+          prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
         }
-        setOrders(ordersList);
       }
     } catch (err) {
-      console.error("Data loading error:", err);
+      console.error("Critical Data Loading Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -153,10 +173,11 @@ const App: React.FC = () => {
   useEffect(() => {
     loadData();
     const interval = setInterval(() => {
+      // تحديث صامت للمدير فقط لمراقبة الطلبات الجديدة
       if (currentUser?.role === 'admin') {
         loadData(true);
       }
-    }, 45000); // زيادة المهلة قليلاً لتخفيف ضغط السيرفر
+    }, 30000); 
     return () => clearInterval(interval);
   }, [currentUser?.role]);
 
@@ -165,6 +186,7 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
+    // عند الانتقال لصفحات الإدارة، نحدث البيانات فوراً
     if (v === 'admin' || v === 'admin-invoice' || v === 'quick-invoice') {
       loadData(true);
     }
@@ -179,6 +201,8 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     await ApiService.logout();
     setCurrentUser(null);
+    setOrders([]);
+    setUsers([]);
     onNavigateAction('store');
   };
 
@@ -199,8 +223,7 @@ const App: React.FC = () => {
 
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
 
-  // حالة تحميل مركزية تمنع الرندر غير المكتمل
-  if (isLoading && !products.length && view === 'store') {
+  if (isLoading && products.length === 0 && view === 'store') {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
          <div className="flex flex-col items-center gap-4">
@@ -235,7 +258,7 @@ const App: React.FC = () => {
             onSuccess={(user) => {
               setCurrentUser(user);
               onNavigateAction('admin');
-              loadData();
+              loadData(); // تحميل كامل البيانات فور النجاح
             }}
             onClose={() => onNavigateAction('store')}
           />

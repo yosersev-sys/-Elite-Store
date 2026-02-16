@@ -1,5 +1,5 @@
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -10,7 +10,8 @@ interface State {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+// Using React.Component explicitly helps TypeScript correctly identify inherited members like 'this.props' and 'this.state'.
+class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null
@@ -24,7 +25,7 @@ class ErrorBoundary extends Component<Props, State> {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  public render() {
+  public render(): ReactNode {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
@@ -61,7 +62,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Fix: Access children from props in class component
+    // In a React class component, children must be accessed through this.props.
     return this.props.children;
   }
 }
