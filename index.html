@@ -4,13 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <title>سوق العصر - جاري التوجيه...</title>
-    <script>
-        // التوجيه فقط إذا لم نكن بالفعل في صفحة index.php
-        if (!window.location.pathname.endsWith('index.php')) {
-            var currentHash = window.location.hash;
-            window.location.href = 'index.php' + currentHash;
-        }
-    </script>
 <script type="importmap">
 {
   "imports": {
@@ -23,6 +16,10 @@
 </script>
 </head>
 <body style="background: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
-    <p>جاري تحميل المتجر...</p>
+    <div style="text-align: center;">
+        <div style="width: 50px; height: 50px; border: 5px solid #10b981; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+        <p style="font-weight: bold; color: #64748b;">جاري تحميل المتجر...</p>
+    </div>
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 </body>
 </html>

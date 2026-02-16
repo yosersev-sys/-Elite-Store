@@ -70,5 +70,4 @@ export interface Order {
   userId?: string;
 }
 
-// إضافة admincp للقائمة
 export type View = 'store' | 'admin' | 'admincp' | 'cart' | 'product-details' | 'admin-form' | 'admin-invoice' | 'auth' | 'checkout' | 'wishlist' | 'order-success' | 'category-page' | 'admin-auth' | 'my-orders' | 'profile' | 'quick-invoice';

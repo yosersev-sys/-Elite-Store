@@ -28,18 +28,28 @@ import { WhatsAppService } from './services/whatsappService.ts';
 const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 const App: React.FC = () => {
-  // قائمة المسارات الإدارية المسموحة
+  // قائمة المسارات الإدارية التي يجب حمايتها وعدم التوجيه منها للمتجر
   const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
+  // دالة قوية لتحديد الواجهة من الرابط مباشرة
   const getInitialView = (): View => {
-    const hash = window.location.hash.replace('#', '');
+    const hash = window.location.hash.replace('#', '').split('?')[0];
+    
+    // إذا كان الرابط يحتوي على أي كلمة تخص الإدارة، نعتبره مسار إدارة
     if (ADMIN_VIEWS.includes(hash as View)) {
       return hash as View;
     }
-    const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice'];
+    
+    // دعم الروابط القديمة أو المختصرة
+    if (hash === 'admin' || hash === 'admincp' || window.location.href.includes('admin')) {
+      return 'admin';
+    }
+
+    const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success'];
     if (publicViews.includes(hash as View)) {
       return hash as View;
     }
+    
     return 'store';
   };
 
@@ -85,20 +95,22 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // مزامنة الـ Hash مع الـ View
+  // مزامنة الـ Hash مع الـ View المختار بشكل دقيق
   useEffect(() => {
-    const currentHash = window.location.hash.replace('#', '');
+    const currentHash = window.location.hash.replace('#', '').split('?')[0];
     if (view === 'store') {
-        // لا تمسح الـ Hash إذا كان يحتوي على مسار إداري (لمنع التوجيه الخاطئ أثناء التحميل)
+        // لا تمسح الـ Hash إذا كان يحتوي على مسار إداري (لحماية المستخدم من فقدان مكانه أثناء التحميل)
         if (currentHash !== '' && !ADMIN_VIEWS.includes(currentHash as View)) {
             window.history.replaceState(null, '', window.location.pathname);
         }
     } else {
-        if (currentHash !== view) window.location.hash = view;
+        if (currentHash !== view) {
+          window.location.hash = view;
+        }
     }
   }, [view]);
 
-  // مراقبة تغيير الـ Hash
+  // مراقبة تغيير الـ Hash يدوياً (أزرار المتصفح)
   useEffect(() => {
     const handleHashChange = () => {
       const newView = getInitialView();
@@ -157,7 +169,7 @@ const App: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error("Load Error:", err);
+      console.error("Critical Refresh Load Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -207,7 +219,7 @@ const App: React.FC = () => {
   const isAdminPath = ADMIN_VIEWS.includes(view);
   const isActuallyAdmin = currentUser?.role === 'admin';
 
-  // شاشة التحميل تظهر فقط في أول مرة ولا تعيق عرض الإدارة إذا كان المسار محدداً
+  // شاشة التحميل تظهر فقط في الواجهة العامة لمنع توجيه مسار الإدارة
   if (isLoading && products.length === 0 && !isAdminPath) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6">
@@ -229,7 +241,7 @@ const App: React.FC = () => {
             onClose={(id) => setNewOrdersForPopup(prev => prev.filter(o => o.id !== id))}
             onView={(order) => {
               setLastCreatedOrder(order);
-              setView('order-success');
+              onNavigateAction('order-success');
             }}
           />
         )}
@@ -238,12 +250,13 @@ const App: React.FC = () => {
           <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
         )}
 
-        {/* إذا كان المسار إداري والمستخدم غير مسجل كمدير، نعرض دائماً صفحة تسجيل دخول المدير */}
+        {/* بوابة الحماية: إذا كان المسار إداري والمستخدم غير مسجل كمدير، نعرض دائماً صفحة تسجيل دخول المدير */}
         {isAdminPath && !isActuallyAdmin && (
           <AdminAuthView 
             onSuccess={(user) => {
               setCurrentUser(user);
               loadData();
+              // نبقى في نفس الـ View الذي طلبه المستخدم
             }}
             onClose={() => setView('store')}
           />

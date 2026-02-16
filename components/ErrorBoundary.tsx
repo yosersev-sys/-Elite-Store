@@ -1,8 +1,9 @@
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 
 interface Props {
-  children: ReactNode;
+  // Make children optional to resolve "missing children" error when used in JSX
+  children?: ReactNode;
 }
 
 interface State {
@@ -13,11 +14,13 @@ interface State {
 /**
  * ErrorBoundary component to catch rendering errors and show a fallback UI.
  */
-class ErrorBoundary extends Component<Props, State> {
+// Explicitly extend React.Component to ensure props and state properties are inherited correctly
+class ErrorBoundary extends React.Component<Props, State> {
   // Explicitly defining the constructor and calling super(props) ensures 
   // that 'this.props' is correctly typed and accessible in all methods.
   constructor(props: Props) {
     super(props);
+    // Initialize component state
     this.state = {
       hasError: false,
       error: null
@@ -33,7 +36,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public render(): ReactNode {
-    // Access state and props via destructuring
+    // Access state and props via destructuring from the component instance
     const { hasError, error } = this.state;
     const { children } = this.props;
 
