@@ -56,9 +56,6 @@ try {
         :root { --primary: #10b981; }
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        #initial-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; z-index: 99999; transition: opacity 0.5s; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
@@ -74,11 +71,6 @@ try {
     </style>
 </head>
 <body>
-    <div id="initial-loader">
-        <div class="spinner"></div>
-        <p id="loader-text" style="margin-top:20px; font-weight:900; color:#10b981; text-align:center;">سوق العصر - جاري التحميل...</p>
-        <div id="error-display"></div>
-    </div>
     <div id="root"></div>
 
     <script type="module">
@@ -149,17 +141,12 @@ try {
 
                 const root = ReactDOM.createRoot(document.getElementById('root'));
                 root.render(React.createElement(App));
-
-                document.getElementById('initial-loader').style.opacity = '0';
-                setTimeout(() => document.getElementById('initial-loader').remove(), 500);
             } catch (err) {
                 console.error("Critical Load Error:", err);
-                const errorDisplay = document.getElementById('error-display');
-                const loaderText = document.getElementById('loader-text');
-                if (errorDisplay) {
-                    errorDisplay.style.display = 'block';
-                    errorDisplay.innerHTML = `حدث خطأ تقني: <br/> ${err.message}`;
-                    if (loaderText) loaderText.style.display = 'none';
+                // إظهار الخطأ فقط في حال فشل التطبيق تماماً
+                const root = document.getElementById('root');
+                if (root) {
+                    root.innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">حدث خطأ تقني في التحميل: <br/> ${err.message}</div>`;
                 }
             }
         }
