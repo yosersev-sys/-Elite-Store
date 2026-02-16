@@ -14,6 +14,7 @@ interface OrdersTabProps {
 
 const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const ordersPerPage = 10;
 
   const filteredOrders = useMemo(() => {
@@ -33,6 +34,13 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
   }, [filteredOrders, orderPage]);
 
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
+
+  const handleUpdatePayment = async (id: string, method: string) => {
+    if (processingId === id) return;
+    setProcessingId(id);
+    await onUpdateOrderPayment(id, method);
+    setProcessingId(null);
+  };
 
   if (isLoading && orders.length === 0) {
     return (
@@ -72,7 +80,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
             placeholder="رقم الطلب أو الهاتف أو 'آجل'..." 
             value={adminSearch} 
             onChange={e => { setAdminSearch(e.target.value); setOrderPage(1); }} 
-            className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none shadow-sm font-bold" 
+            className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none shadow-sm font-bold focus:ring-4 focus:ring-emerald-500/10 transition-all" 
           />
           <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
         </div>
@@ -92,6 +100,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
               const currentPayment = o.paymentMethod || 'نقدي (تم الدفع)';
               const isDebt = String(currentPayment).includes('آجل');
               const isCancelled = o.status === 'cancelled';
+              const isProcessing = processingId === o.id;
               
               return (
                 <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
@@ -104,15 +113,17 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                     {isCancelled ? (
                       <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
                     ) : (
-                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50">
+                      <div className={`flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50 ${isProcessing ? 'animate-pulse opacity-60' : ''}`}>
                         <button 
-                          onClick={() => onUpdateOrderPayment(o.id, 'نقدي (تم الدفع)')}
+                          disabled={isProcessing}
+                          onClick={() => handleUpdatePayment(o.id, 'نقدي (تم الدفع)')}
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
                           نقدي 💰
                         </button>
                         <button 
-                          onClick={() => onUpdateOrderPayment(o.id, 'آجل (مديونية)')}
+                          disabled={isProcessing}
+                          onClick={() => handleUpdatePayment(o.id, 'آجل (مديونية)')}
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
                           آجل ⏳

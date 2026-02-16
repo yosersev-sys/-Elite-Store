@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
 import Header from './components/Header.tsx';
@@ -22,7 +21,7 @@ import MobileNav from './components/MobileNav.tsx';
 import PullToRefresh from './components/PullToRefresh.tsx';
 import NewOrderPopup from './components/NewOrderPopup.tsx';
 import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
-import Footer from './components/Footer.tsx'; // Import Footer
+import Footer from './components/Footer.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
@@ -304,12 +303,20 @@ const App: React.FC = () => {
                 setView('order-success');
               }}
               onUpdateOrderPayment={async (id, method) => {
-                if(await ApiService.updateOrderPayment(id, method)) { setNotification({message: 'تم التحديث', type: 'success'}); loadData(true); }
+                // تحسين: تحديث محلي فوري بدلاً من loadData الكاملة
+                const success = await ApiService.updateOrderPayment(id, method);
+                if(success) { 
+                  setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentMethod: method } : o));
+                  setNotification({message: 'تم تحديث حالة الدفع بنجاح', type: 'success'}); 
+                }
               }}
               onReturnOrder={async (id) => {
                 if(!confirm('تأكيد الاسترجاع؟')) return;
                 const res = await ApiService.returnOrder(id);
-                if(res.status === 'success') { setNotification({message: 'تم الاسترجاع', type: 'success'}); loadData(true); }
+                if(res.status === 'success') { 
+                  setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' as any } : o));
+                  setNotification({message: 'تم الاسترجاع بنجاح', type: 'success'}); 
+                }
               }}
               soundEnabled={soundEnabled}
               onToggleSound={() => setSoundEnabled(!soundEnabled)}
