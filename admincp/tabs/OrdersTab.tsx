@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Order } from '../../types';
 import { WhatsAppService } from '../../services/whatsappService';
@@ -24,7 +23,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
       o.id.toLowerCase().includes(q) || 
       (o.customerName && o.customerName.toLowerCase().includes(q)) ||
       (o.phone && o.phone.includes(q)) ||
-      (o.paymentMethod && o.paymentMethod.toLowerCase().includes(q))
+      (o.paymentMethod && String(o.paymentMethod).toLowerCase().includes(q))
     );
   }, [orders, adminSearch]);
 
@@ -35,7 +34,6 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
 
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
-  // هيكل التحميل لصفوف الجدول
   if (isLoading && orders.length === 0) {
     return (
       <div className="space-y-8 animate-fadeIn">
@@ -91,7 +89,8 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
           </thead>
           <tbody className="divide-y divide-slate-50">
             {paginatedOrders.map(o => {
-              const isDebt = o.paymentMethod.includes('آجل');
+              const currentPayment = o.paymentMethod || 'نقدي (تم الدفع)';
+              const isDebt = String(currentPayment).includes('آجل');
               const isCancelled = o.status === 'cancelled';
               
               return (
