@@ -104,7 +104,7 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ products, onAddToCart, showNo
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-xl animate-bounce">🤖</div>
               <div>
-                <h4 className="font-black text-sm leading-none">مساعد سوق العصر</h4>
+                <h4 className="font-black text-sm leading-none">مساعد السوق الذكي</h4>
                 <p className="text-[9px] text-emerald-400 font-bold uppercase mt-1">ذكي، سريع، ومن فاقوس</p>
               </div>
             </div>
