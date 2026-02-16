@@ -1,16 +1,17 @@
 
 import React, { useMemo } from 'react';
-import { Product, Order, Category } from '../../types';
+import { Product, Order, Category, Supplier } from '../../types';
 
 interface StatsTabProps {
   products: Product[];
   orders: Order[];
   categories: Category[];
+  suppliers: Supplier[];
   onNavigateToTab: (tab: any, search?: string) => void;
   onOpenAddForm: () => void;
 }
 
-const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, onNavigateToTab, onOpenAddForm }) => {
+const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, suppliers, onNavigateToTab, onOpenAddForm }) => {
   const stats = useMemo(() => {
     const activeOrders = orders.filter(o => o.status !== 'cancelled');
     const totalSales = activeOrders.reduce((s, o) => s + Number(o.total || 0), 0);
@@ -26,8 +27,14 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, onNav
     const netProfit = totalSales - totalCost;
     const avgOrderValue = activeOrders.length > 0 ? totalSales / activeOrders.length : 0;
     const lowStock = products.filter(p => Number(p.stockQuantity || 0) < 5);
+    
+    // مديونيات العملاء
     const debtOrders = activeOrders.filter(o => o.paymentMethod && o.paymentMethod.includes('آجل'));
     const totalDebtAmount = debtOrders.reduce((s, o) => s + Number(o.total || 0), 0);
+
+    // مديونيات الموردين (المبالغ التي علينا دفعها لهم)
+    const debtorSuppliers = suppliers.filter(s => s.balance > 0);
+    const totalSupplierDebt = debtorSuppliers.reduce((s, sup) => s + (sup.balance || 0), 0);
 
     // الأقسام الأكثر طلباً
     const catStats = categories.map(cat => {
@@ -45,39 +52,65 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, onNav
       totalProducts: products.length,
       debtCount: debtOrders.length,
       totalDebtAmount,
+      totalSupplierDebt,
+      debtorSuppliersCount: debtorSuppliers.length,
       catStats
     };
-  }, [products, orders, categories]);
+  }, [products, orders, categories, suppliers]);
 
   return (
     <div className="space-y-10 animate-fadeIn">
       
-      {/* قسم المديونيات المحذر (يظهر فقط عند وجود ديون) */}
-      {stats.debtCount > 0 && (
-        <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white p-6 md:p-8 rounded-[2.5rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden group">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700"></div>
-          <div className="flex items-center gap-6 relative z-10">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center text-4xl shadow-xl border border-white/30 animate-pulse">⏳</div>
-            <div>
-              <h4 className="text-2xl font-black">مديونيات معلقة!</h4>
-              <p className="text-orange-50 font-bold text-sm mt-1">يوجد {stats.debtCount} عملاء بانتظار تحصيل مبالغ إجمالية: {stats.totalDebtAmount.toLocaleString()} ج.م</p>
+      {/* صف المربعات التحذيرية / الربط السريع */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* مديونيات العملاء */}
+        {stats.debtCount > 0 && (
+          <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white p-6 md:p-8 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-6 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700"></div>
+            <div className="flex items-center gap-5 relative z-10">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl shadow-xl border border-white/30 animate-pulse">⏳</div>
+              <div>
+                <h4 className="text-xl font-black leading-tight">ديون العملاء</h4>
+                <p className="text-orange-50 font-bold text-[10px] mt-1 tracking-wide">مطلوب تحصيل {stats.totalDebtAmount.toLocaleString()} ج.م</p>
+              </div>
             </div>
+            <button 
+              onClick={() => onNavigateToTab('orders', 'آجل')} 
+              className="relative z-10 bg-white text-orange-600 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl hover:bg-slate-900 hover:text-white transition-all active:scale-95"
+            >
+              🔍
+            </button>
           </div>
-          <button 
-            onClick={() => onNavigateToTab('orders', 'آجل')} 
-            className="relative z-10 bg-white text-orange-600 px-10 py-4 rounded-2xl font-black text-sm shadow-xl hover:bg-slate-900 hover:text-white transition-all active:scale-95"
-          >
-            جرد الديون الآن 🔍
-          </button>
-        </div>
-      )}
+        )}
+
+        {/* مديونيات الموردين - المربع المطلوب */}
+        {stats.debtorSuppliersCount > 0 && (
+          <div className="bg-gradient-to-r from-rose-600 to-rose-400 text-white p-6 md:p-8 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-6 relative overflow-hidden group">
+            <div className="absolute left-0 bottom-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2 group-hover:scale-150 transition-transform duration-700"></div>
+            <div className="flex items-center gap-5 relative z-10">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl shadow-xl border border-white/30">🚛</div>
+              <div>
+                <h4 className="text-xl font-black leading-tight">حسابات الموردين</h4>
+                <p className="text-rose-50 font-bold text-[10px] mt-1 tracking-wide">مستحق دفع {stats.totalSupplierDebt.toLocaleString()} ج.م</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => onNavigateToTab('suppliers')} 
+              className="relative z-10 bg-slate-900 text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl hover:bg-white hover:text-rose-600 transition-all active:scale-95"
+              title="عرض حسابات الموردين"
+            >
+              📋
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* صف الكروت الرئيسية */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
          <StatCard title="إجمالي المبيعات" value={`${stats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" trend="+12% اليوم" />
          <StatCard title="صافي الأرباح" value={`${stats.netProfit.toLocaleString()} ج.م`} icon="📈" color="indigo" isDark />
          <StatCard title="نواقص المخزن" value={stats.lowStockCount} icon="⚠️" color="rose" onClick={() => onNavigateToTab('products')} trend="بحاجة لطلب" />
-         <StatCard title="متوسط الفاتورة" value={`${stats.avgOrderValue.toFixed(0)} ج.م`} icon="🎯" color="amber" />
+         <StatCard title="ديون الموردين" value={`${stats.totalSupplierDebt.toLocaleString()} ج.م`} icon="💸" color="amber" onClick={() => onNavigateToTab('suppliers')} />
       </div>
 
       {/* منطقة التحليل والبيانات التفصيلية */}
@@ -100,17 +133,17 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, onNav
               <div className="space-y-4">
                  <div className="flex justify-between items-end px-2">
                     <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">هيكل الدخل الحالي</span>
-                    <span className="text-xs font-bold text-emerald-600">الربح الصافي: {((stats.netProfit/stats.totalSales)*100).toFixed(1)}%</span>
+                    <span className="text-xs font-bold text-emerald-600">الربح الصافي: {stats.totalSales > 0 ? ((stats.netProfit/stats.totalSales)*100).toFixed(1) : 0}%</span>
                  </div>
                  <div className="h-14 w-full bg-slate-100 rounded-2xl overflow-hidden flex shadow-inner border-4 border-white">
                     <div 
-                      style={{ width: `${(stats.totalCost / stats.totalSales) * 100}%` }} 
+                      style={{ width: `${stats.totalSales > 0 ? (stats.totalCost / stats.totalSales) * 100 : 0}%` }} 
                       className="h-full bg-slate-300 flex items-center justify-center text-[9px] text-white font-black transition-all duration-1000"
                     >
                       التكلفة
                     </div>
                     <div 
-                      style={{ width: `${(stats.netProfit / stats.totalSales) * 100}%` }} 
+                      style={{ width: `${stats.totalSales > 0 ? (stats.netProfit / stats.totalSales) * 100 : 0}%` }} 
                       className="h-full bg-emerald-500 flex items-center justify-center text-[9px] text-white font-black transition-all duration-1000"
                     >
                       صافي الربح ✨
@@ -123,16 +156,16 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, onNav
                  <QuickActionButton label="المخزن" icon="📦" onClick={() => onNavigateToTab('products')} />
                  <QuickActionButton label="الطلبات" icon="🛍️" onClick={() => onNavigateToTab('orders')} />
                  <QuickActionButton label="الأعضاء" icon="👥" onClick={() => onNavigateToTab('members')} />
-                 <QuickActionButton label="التقارير" icon="📊" onClick={() => onNavigateToTab('reports')} />
+                 <QuickActionButton label="الموردين" icon="🚛" onClick={() => onNavigateToTab('suppliers')} />
               </div>
            </div>
         </div>
 
-        {/* الأقسام الأكثر مبيعاً */}
+        {/* الأقسام الأكثر طلباً */}
         <div className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-100">
            <h4 className="font-black text-xl text-slate-800 mb-8">الأكثر طلباً 🏆</h4>
            <div className="space-y-6">
-              {stats.catStats.map((cat, idx) => (
+              {stats.catStats.length > 0 ? stats.catStats.map((cat, idx) => (
                 <div key={idx} className="space-y-2">
                    <div className="flex justify-between items-center px-1">
                       <span className="text-sm font-black text-slate-700">{cat.name}</span>
@@ -141,11 +174,11 @@ const StatsTab: React.FC<StatsTabProps> = ({ products, orders, categories, onNav
                    <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden">
                       <div 
                         className={`h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-1000 delay-${idx*200}`}
-                        style={{ width: `${(cat.count / stats.catStats[0].count) * 100}%` }}
+                        style={{ width: `${stats.catStats[0].count > 0 ? (cat.count / stats.catStats[0].count) * 100 : 0}%` }}
                       ></div>
                    </div>
                 </div>
-              ))}
+              )) : <p className="text-center py-10 text-slate-300 font-bold">لا توجد بيانات مبيعات</p>}
            </div>
            <button onClick={() => onNavigateToTab('categories')} className="w-full mt-10 py-3 bg-slate-50 text-slate-500 rounded-2xl font-black text-[10px] hover:bg-emerald-50 hover:text-emerald-600 transition-colors">إدارة الأقسام ←</button>
         </div>

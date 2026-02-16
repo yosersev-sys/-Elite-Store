@@ -5,13 +5,15 @@ import { ApiService } from '../../services/api';
 
 interface SuppliersTabProps {
   isLoading: boolean;
+  suppliersData?: Supplier[];
+  onRefresh?: () => void;
 }
 
 type FilterStatus = 'all' | 'debtors' | 'paid';
 
-const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading }) => {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [localLoading, setLocalLoading] = useState(true);
+const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, suppliersData, onRefresh }) => {
+  const [suppliers, setSuppliers] = useState<Supplier[]>(suppliersData || []);
+  const [localLoading, setLocalLoading] = useState(!suppliersData);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,8 +36,13 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
   });
 
   useEffect(() => {
-    fetchSuppliers();
-  }, []);
+    if (suppliersData) {
+      setSuppliers(suppliersData);
+      setLocalLoading(false);
+    } else {
+      fetchSuppliers();
+    }
+  }, [suppliersData]);
 
   const fetchSuppliers = async () => {
     setLocalLoading(true);
@@ -61,12 +68,10 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
   const filteredSuppliers = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
     return suppliers.filter(s => {
-      // فلترة بالبحث
       const matchesSearch = s.name.toLowerCase().includes(q) || 
                            (s.companyName && s.companyName.toLowerCase().includes(q)) ||
                            s.phone.includes(q);
       
-      // فلترة بالحالة
       let matchesStatus = true;
       if (filterStatus === 'debtors') matchesStatus = s.balance > 0;
       else if (filterStatus === 'paid') matchesStatus = s.balance <= 0;
@@ -117,7 +122,8 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
         : await ApiService.addSupplier(payload);
 
       if (success) {
-        await fetchSuppliers();
+        if (onRefresh) onRefresh();
+        else fetchSuppliers();
         setIsModalOpen(false);
       } else {
         alert('فشل حفظ بيانات المورد');
@@ -142,7 +148,8 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
       };
       const success = await ApiService.updateSupplier(updatedSupplier);
       if (success) {
-        await fetchSuppliers();
+        if (onRefresh) onRefresh();
+        else fetchSuppliers();
         setIsPaymentModalOpen(false);
         setPaymentAmount('');
       }
@@ -157,7 +164,10 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
     if (!window.confirm('هل أنت متأكد من حذف هذا المورد نهائياً؟')) return;
     try {
       const success = await ApiService.deleteSupplier(id);
-      if (success) fetchSuppliers();
+      if (success) {
+        if (onRefresh) onRefresh();
+        else fetchSuppliers();
+      }
     } catch (err) {
       alert('خطأ في عملية الحذف');
     }
@@ -195,7 +205,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
 
       {/* Search & Filter Bar */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm">
-        {/* Filter Tabs */}
         <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full md:w-auto">
           <button 
             onClick={() => setFilterStatus('all')}
@@ -217,7 +226,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
           </button>
         </div>
 
-        {/* Search Input */}
         <div className="relative w-full md:w-80">
           <input 
             type="text" 
@@ -235,7 +243,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
         {filteredSuppliers.map(s => (
           <div key={s.id} className={`bg-white p-8 rounded-[3rem] border-2 transition-all group relative overflow-hidden ${s.balance > 0 ? 'border-rose-50 shadow-rose-100/20' : 'border-slate-50 shadow-sm'}`}>
             <div className="flex flex-col md:flex-row gap-6 relative z-10">
-              {/* Left Side: Avatar & Badge */}
               <div className="flex flex-col items-center gap-3">
                  <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center text-3xl shadow-inner transition-colors ${s.balance > 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
                    {s.type === 'farm' ? '🚜' : s.type === 'factory' ? '🏭' : '🚛'}
@@ -247,7 +254,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
                  </div>
               </div>
 
-              {/* Middle: Info */}
               <div className="flex-grow space-y-4">
                  <div>
                     <div className="flex items-center gap-2">
@@ -270,7 +276,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
                  </div>
               </div>
 
-              {/* Right: Actions */}
               <div className="flex flex-row md:flex-col justify-center gap-2">
                  <button onClick={() => openEditModal(s)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="تعديل">✎</button>
                  <button 
@@ -287,18 +292,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading })
           </div>
         ))}
       </div>
-
-      {filteredSuppliers.length === 0 && (
-        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-100 animate-fadeIn">
-           <div className="text-6xl mb-6 opacity-10">🔍</div>
-           <p className="text-slate-300 font-black italic text-xl">
-             {searchTerm ? 'لا توجد نتائج مطابقة لبحثك' : 'لا يوجد موردين في هذا القسم حالياً'}
-           </p>
-           {filterStatus !== 'all' && (
-             <button onClick={() => setFilterStatus('all')} className="mt-4 text-emerald-600 font-black text-sm hover:underline">عرض جميع الموردين</button>
-           )}
-        </div>
-      )}
 
       {/* Payment Modal */}
       {isPaymentModalOpen && activeSupplierForPayment && (

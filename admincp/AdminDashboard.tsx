@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Product, Category, Order, User } from '../types';
+import { Product, Category, Order, User, Supplier } from '../types';
 import StatsTab from './tabs/StatsTab.tsx';
 import ProductsTab from './tabs/ProductsTab.tsx';
 import CategoriesTab from './tabs/CategoriesTab.tsx';
@@ -16,6 +16,7 @@ interface AdminDashboardProps {
   categories: Category[];
   orders: Order[];
   users: User[];
+  suppliers: Supplier[];
   currentUser: User | null;
   isLoading: boolean;
   onOpenAddForm: () => void;
@@ -76,7 +77,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'members':
         return <MembersTab {...props} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'suppliers':
-        return <SuppliersTab isLoading={props.isLoading} />;
+        return <SuppliersTab isLoading={props.isLoading} suppliersData={props.suppliers} onRefresh={props.onRefreshData} />;
       case 'reports':
         return <ReportsTab {...props} />;
       case 'settings':

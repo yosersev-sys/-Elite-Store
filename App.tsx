@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Product, CartItem, Category, Order, User } from './types.ts';
+import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
 import Header from './components/Header.tsx';
 import StoreView from './components/StoreView.tsx';
 import AdminDashboard from './admincp/AdminDashboard.tsx';
@@ -51,6 +51,7 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [newOrdersForPopup, setNewOrdersForPopup] = useState<Order[]>([]);
   const [productForBarcode, setProductForBarcode] = useState<Product | null>(null);
   
@@ -121,6 +122,7 @@ const App: React.FC = () => {
         baseTasks.push(ApiService.getOrders());
         if (activeUser.role === 'admin') {
           baseTasks.push(ApiService.getUsers());
+          baseTasks.push(ApiService.getSuppliers());
         }
       }
 
@@ -138,9 +140,9 @@ const App: React.FC = () => {
         const fetchedOrders = results[3] || [];
         setOrders(fetchedOrders);
 
-        if (activeUser.role === 'admin' && results[4]) {
-          const fetchedUsers = results[4] || [];
-          setUsers(fetchedUsers);
+        if (activeUser.role === 'admin') {
+          if (results[4]) setUsers(results[4]);
+          if (results[5]) setSuppliers(results[5]);
 
           if (prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
@@ -181,6 +183,7 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setOrders([]);
     setUsers([]);
+    setSuppliers([]);
     setView('store');
   };
 
@@ -278,7 +281,7 @@ const App: React.FC = () => {
           
           {(view === 'admin' || view === 'admincp') && isActuallyAdmin && (
             <AdminDashboard 
-              products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
+              products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser}
               isLoading={isLoading}
               onOpenAddForm={() => { setSelectedProduct(null); setView('admin-form'); }}
               onOpenEditForm={(p) => { setSelectedProduct(p); setView('admin-form'); }}
