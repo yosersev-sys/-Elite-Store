@@ -84,7 +84,7 @@ const App: React.FC = () => {
           audioObj.current!.pause();
           audioObj.current!.currentTime = 0;
           setIsAudioUnlocked(true);
-          console.log("Audio Unlocked Successfully");
+          console.log("Audio Unlocked for Manager");
         }).catch(() => {});
         window.removeEventListener('click', unlockAudio);
         window.removeEventListener('touchstart', unlockAudio);
@@ -101,13 +101,15 @@ const App: React.FC = () => {
   }, [isAudioUnlocked]);
 
   const playNotificationSound = useCallback(() => {
-    if (!soundEnabled || !audioObj.current) return;
+    // تشغيل الصوت فقط إذا كان المستخدم أدمن والصوت مفعّل
+    if (currentUser?.role !== 'admin' || !soundEnabled || !audioObj.current) return;
+    
     audioObj.current.currentTime = 0;
     const playPromise = audioObj.current.play();
     if (playPromise !== undefined) {
       playPromise.catch(e => console.error("Sound play failed:", e));
     }
-  }, [soundEnabled]);
+  }, [soundEnabled, currentUser]);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
@@ -132,11 +134,12 @@ const App: React.FC = () => {
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
         
-        // التحقق من وجود طلبات جديدة للمدير
+        // التحقق من وجود طلبات جديدة للمدير حصراً
         if (user.role === 'admin') {
           if (prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter(o => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
+              // هذا المكان هو المسؤول عن الصوت عند وصول طلب من زائر خارجي
               playNotificationSound();
               setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
@@ -155,7 +158,7 @@ const App: React.FC = () => {
     }
   };
 
-  // تحديث البيانات تلقائياً كل 30 ثانية للمدير
+  // تحديث البيانات تلقائياً كل 30 ثانية للمدير فقط
   useEffect(() => {
     loadData();
     const interval = setInterval(() => {
@@ -337,6 +340,7 @@ const App: React.FC = () => {
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
+                  // تشغيل الصوت للمدير عند حفظ فاتورة كاشير
                   playNotificationSound(); 
                   showNotify('تم حفظ الفاتورة');
                   WhatsAppService.sendInvoiceToCustomer(order, order.phone);
@@ -385,7 +389,8 @@ const App: React.FC = () => {
                 };
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
-                  playNotificationSound();
+                  // ملاحظة: لا يوجد تشغيل صوت هنا، لأن الزائر هو من يطلب من السلة.
+                  // المدير سيسمع الصوت من خلال التحديث التلقائي في الخلفية.
                   setCart([]);
                   showNotify('تم الطلب بنجاح');
                   WhatsAppService.sendOrderNotification(order, adminPhone);
