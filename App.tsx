@@ -71,7 +71,6 @@ const App: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
 
-  // تهيئة الصوت وفك القفل عند أول تفاعل
   useEffect(() => {
     if (!audioObj.current) {
       audioObj.current = new Audio(NOTIFICATION_SOUND_URL);
@@ -84,7 +83,6 @@ const App: React.FC = () => {
           audioObj.current!.pause();
           audioObj.current!.currentTime = 0;
           setIsAudioUnlocked(true);
-          console.log("Audio Unlocked for Manager");
         }).catch(() => {});
         window.removeEventListener('click', unlockAudio);
         window.removeEventListener('touchstart', unlockAudio);
@@ -101,14 +99,9 @@ const App: React.FC = () => {
   }, [isAudioUnlocked]);
 
   const playNotificationSound = useCallback(() => {
-    // تشغيل الصوت فقط إذا كان المستخدم أدمن والصوت مفعّل
     if (currentUser?.role !== 'admin' || !soundEnabled || !audioObj.current) return;
-    
     audioObj.current.currentTime = 0;
-    const playPromise = audioObj.current.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(e => console.error("Sound play failed:", e));
-    }
+    audioObj.current.play().catch(e => console.warn("Audio play blocked"));
   }, [soundEnabled, currentUser]);
 
   const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
@@ -128,27 +121,27 @@ const App: React.FC = () => {
 
       setCurrentUser(user);
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
-      setProducts(fetchedProducts);
-      setCategories(fetchedCats);
+      setProducts(fetchedProducts || []);
+      setCategories(fetchedCats || []);
       
       if (user) {
         const fetchedOrders = await ApiService.getOrders();
+        const ordersList = fetchedOrders || [];
         
-        // التحقق من وجود طلبات جديدة للمدير حصراً
         if (user.role === 'admin') {
           if (prevOrderIds.current.size > 0) {
-            const trulyNew = fetchedOrders.filter(o => !prevOrderIds.current.has(o.id));
+            const trulyNew = ordersList.filter(o => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
               playNotificationSound();
               setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
           }
-          prevOrderIds.current = new Set(fetchedOrders.map(o => o.id));
+          prevOrderIds.current = new Set(ordersList.map(o => o.id));
           
           const fetchedUsers = await ApiService.getUsers();
-          setUsers(fetchedUsers);
+          setUsers(fetchedUsers || []);
         }
-        setOrders(fetchedOrders);
+        setOrders(ordersList);
       }
     } catch (err) {
       console.error("Data loading error:", err);
@@ -157,14 +150,13 @@ const App: React.FC = () => {
     }
   };
 
-  // تحديث البيانات تلقائياً كل 30 ثانية للمدير فقط
   useEffect(() => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') {
         loadData(true);
       }
-    }, 30000);
+    }, 45000); // زيادة المهلة قليلاً لتخفيف ضغط السيرفر
     return () => clearInterval(interval);
   }, [currentUser?.role]);
 
@@ -206,6 +198,18 @@ const App: React.FC = () => {
   }, [cart]);
 
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
+
+  // حالة تحميل مركزية تمنع الرندر غير المكتمل
+  if (isLoading && !products.length && view === 'store') {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+         <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="font-black text-slate-400 text-sm">جاري مزامنة بيانات المتجر...</p>
+         </div>
+      </div>
+    );
+  }
 
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
