@@ -1,4 +1,3 @@
-
 import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { Product, Category } from '../types';
 import ProductCard from './ProductCard';
@@ -33,7 +32,7 @@ const StoreView: React.FC<StoreViewProps> = ({
 }) => {
   const productsListRef = useRef<HTMLDivElement>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(12);
+  const [visibleCount, setVisibleCount] = useState(12); // الحالة الجديدة للتحكم في العدد
   
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
@@ -58,8 +57,10 @@ const StoreView: React.FC<StoreViewProps> = ({
     window.requestAnimationFrame(step);
   };
 
+  // إعادة ضبط العداد عند تغيير البحث أو القسم
   useEffect(() => {
-    // لا نحتاج لتعطيل العرض الأولي، فقط نحدّث عند الحاجة
+    setVisibleCount(12);
+    
     if (selectedCategoryId !== 'all' || searchQuery || minPrice || maxPrice) {
       const timer = setTimeout(() => {
         const element = document.getElementById('products-list');
@@ -89,6 +90,7 @@ const StoreView: React.FC<StoreViewProps> = ({
     });
   }, [products, searchQuery, selectedCategoryId, minPrice, maxPrice]);
 
+  // المنتجات التي سيتم عرضها فعلياً بناءً على العداد
   const displayedProducts = useMemo(() => {
     return filteredProducts.slice(0, visibleCount);
   }, [filteredProducts, visibleCount]);
@@ -101,6 +103,7 @@ const StoreView: React.FC<StoreViewProps> = ({
   const resetFilters = () => {
     onCategorySelect('all');
     setMinPrice('');
+    // Fix: use setMaxPrice setter instead of maxPrice string variable
     setMaxPrice('');
     onSearch('');
     setVisibleCount(12);
@@ -109,6 +112,8 @@ const StoreView: React.FC<StoreViewProps> = ({
   const loadMore = () => {
     setVisibleCount(prev => prev + 12);
   };
+
+  const hasActiveFilters = selectedCategoryId !== 'all' || minPrice !== '' || maxPrice !== '' || searchQuery !== '';
 
   return (
     <div className="space-y-12 md:space-y-20 animate-fadeIn">
@@ -127,19 +132,24 @@ const StoreView: React.FC<StoreViewProps> = ({
                {searchQuery ? `نتائج البحث عن: ${searchQuery}` : activeCategoryName}
              </h2>
              <p className="text-gray-400 text-sm md:text-lg font-bold">
-               {products.length === 0 ? 'جاري تحديث المخزن...' : `عرض ${displayedProducts.length} من أصل ${filteredProducts.length} منتج`}
+               عرض {displayedProducts.length} من أصل {filteredProducts.length} منتج
              </p>
           </div>
           
           <div className="flex items-center gap-3">
-             {(selectedCategoryId !== 'all' || minPrice || maxPrice || searchQuery) && (
-               <button onClick={resetFilters} className="text-rose-500 font-black text-xs px-4 py-2 hover:bg-rose-50 rounded-xl transition">إعادة ضبط ✕</button>
+             {hasActiveFilters && (
+               <button 
+                onClick={resetFilters}
+                className="text-rose-500 font-black text-xs px-4 py-2 hover:bg-rose-50 rounded-xl transition"
+               >
+                 إعادة ضبط الفلاتر ✕
+               </button>
              )}
              <button 
                onClick={() => setShowFilters(!showFilters)}
-               className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-sm transition-all shadow-lg ${showFilters ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}
+               className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95 ${showFilters ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}
              >
-               <span>الفلترة</span>
+               <span>{showFilters ? 'إخفاء الفلاتر' : 'خيارات الفلترة'}</span>
                <svg className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                </svg>
@@ -148,61 +158,113 @@ const StoreView: React.FC<StoreViewProps> = ({
         </div>
 
         {showFilters && (
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl animate-slideUp grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-emerald-900/5 animate-slideDown grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase">نطاق السعر</label>
-              <div className="flex items-center gap-2">
-                <input type="number" placeholder="من" value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none font-bold text-sm" />
-                <input type="number" placeholder="إلى" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none font-bold text-sm" />
+              <label className="text-[10px] font-black text-slate-400 uppercase mr-2">بحث سريع</label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="ابحث عن اسم المنتج..." 
+                  value={searchQuery}
+                  onChange={(e) => onSearch(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-50 font-bold text-sm pr-10"
+                />
+                <span className="absolute right-3 top-3 text-slate-300">🔍</span>
               </div>
             </div>
+
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase">القسم</label>
-              <select value={selectedCategoryId} onChange={e => onCategorySelect(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none font-black text-sm">
+              <label className="text-[10px] font-black text-slate-400 uppercase mr-2">نطاق السعر (ج.م)</label>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="number" 
+                  placeholder="من" 
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-emerald-50 font-bold text-sm text-center"
+                />
+                <span className="text-slate-300">-</span>
+                <input 
+                  type="number" 
+                  placeholder="إلى" 
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-emerald-50 font-bold text-sm text-center"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase mr-2">القسم</label>
+              <select 
+                value={selectedCategoryId}
+                onChange={(e) => onCategorySelect(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-50 font-black text-sm text-slate-700 cursor-pointer appearance-none"
+              >
                 <option value="all">كل الأقسام</option>
-                {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
               </select>
             </div>
+
             <div className="flex items-end">
-               <button onClick={resetFilters} className="w-full py-3 rounded-xl font-black text-xs bg-slate-100 text-slate-500 hover:bg-rose-50 transition">مسح الفلاتر</button>
+               <button 
+                 onClick={resetFilters}
+                 className="w-full py-3 rounded-xl font-black text-xs bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
+               >
+                 مسح كل الفلاتر
+               </button>
             </div>
           </div>
         )}
 
-        {/* شبكة المنتجات - تظهر فارغة (Skeletons) إذا كانت البيانات تحمل */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-10">
-          {products.length === 0 ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="aspect-[4/5] bg-slate-100 rounded-[2.5rem] animate-pulse"></div>
-            ))
-          ) : (
-            displayedProducts.map(product => (
-              <ProductCard 
-                key={product.id} 
-                product={product} 
-                category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
-                onAddToCart={onAddToCart} 
-                onView={() => onViewProduct(product)}
-                isFavorite={wishlist.includes(product.id)}
-                onToggleFavorite={() => onToggleFavorite(product.id)}
-              />
-            ))
-          )}
+          {displayedProducts.map(product => (
+            <ProductCard 
+              key={product.id} 
+              product={product} 
+              category={categories.find(c => c.id === product.categoryId)?.name || 'عام'}
+              onAddToCart={onAddToCart} 
+              onView={() => onViewProduct(product)}
+              isFavorite={wishlist.includes(product.id)}
+              onToggleFavorite={() => onToggleFavorite(product.id)}
+            />
+          ))}
         </div>
 
+        {/* زر عرض المزيد */}
         {filteredProducts.length > visibleCount && (
-          <div className="flex justify-center pt-8">
+          <div className="flex justify-center pt-8 md:pt-12">
             <button 
               onClick={loadMore}
-              className="bg-white border-2 border-emerald-500 text-emerald-600 px-12 py-4 rounded-[2rem] font-black hover:bg-emerald-600 hover:text-white transition-all shadow-xl active:scale-95"
+              className="group relative flex items-center gap-3 bg-white border-2 border-emerald-500 text-emerald-600 px-12 py-4 rounded-[2rem] font-black text-lg shadow-xl shadow-emerald-900/5 hover:bg-emerald-600 hover:text-white transition-all duration-300 active:scale-95"
             >
-              عرض المزيد من المنتجات 🛍️
+              <span>تحميل المزيد من المنتجات</span>
+              <svg className="w-6 h-6 transition-transform group-hover:translate-y-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
+          </div>
+        )}
+
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-20 md:py-32 bg-gray-50 rounded-[2rem] md:rounded-[3rem] border-2 border-dashed border-gray-200">
+             <div className="text-4xl md:text-6xl mb-4">🔍</div>
+             <p className="text-gray-400 font-black text-base md:text-xl">عذراً، لم نجد منتجات تطابق اختيارك وفلاتر البحث.</p>
+             <button 
+               onClick={resetFilters}
+               className="mt-6 bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black transition-transform active:scale-95"
+             >
+               عرض كل المنتجات
+             </button>
           </div>
         )}
       </div>
 
-      <BrandsSection />
+      <div className="pt-10">
+        <BrandsSection />
+      </div>
     </div>
   );
 };

@@ -139,6 +139,7 @@ const App: React.FC = () => {
           if (prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter(o => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
+              // هذا المكان هو المسؤول عن الصوت عند وصول طلب من زائر خارجي
               playNotificationSound();
               setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
@@ -153,7 +154,7 @@ const App: React.FC = () => {
     } catch (err) {
       console.error("Data loading error:", err);
     } finally {
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
     }
   };
 
@@ -204,6 +205,15 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-black text-emerald-600 italic">سوق العصر - جاري التحميل...</p>
+      </div>
+    );
+  }
 
   const isAdminView = view === 'admin' || view === 'admin-auth' || view === 'admin-form' || view === 'admin-invoice';
 
@@ -274,6 +284,7 @@ const App: React.FC = () => {
           
           {view === 'admin' && currentUser?.role === 'admin' && (
             <AdminDashboard 
+              /* Fix: replaced 'fetchedUsers' with 'users' state variable */
               products={products} categories={categories} orders={orders} users={users} currentUser={currentUser}
               onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
               onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
@@ -330,6 +341,7 @@ const App: React.FC = () => {
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
+                  // تشغيل الصوت للمدير عند حفظ فاتورة كاشير
                   playNotificationSound(); 
                   showNotify('تم حفظ الفاتورة');
                   WhatsAppService.sendInvoiceToCustomer(order, order.phone);
@@ -378,6 +390,8 @@ const App: React.FC = () => {
                 };
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
+                  // ملاحظة: لا يوجد تشغيل صوت هنا، لأن الزائر هو من يطلب من السلة.
+                  // المدير سيسمع الصوت من خلال التحديث التلقائي في الخلفية.
                   setCart([]);
                   showNotify('تم الطلب بنجاح');
                   WhatsAppService.sendOrderNotification(order, adminPhone);
@@ -406,6 +420,7 @@ const App: React.FC = () => {
               currentView={view} 
               cartCount={cart.length} 
               onNavigate={onNavigateAction} 
+              /* Fix: Define onCartClick correctly by navigating to cart view */
               onCartClick={() => onNavigateAction('cart')}
               isAdmin={currentUser?.role === 'admin'}
             />
