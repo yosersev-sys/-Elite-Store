@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Order } from '../../types';
 import { WhatsAppService } from '../../services/whatsappService';
@@ -14,7 +15,8 @@ interface OrdersTabProps {
 
 const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
-  const [processingId, setProcessingId] = useState<string | null>(null);
+  // تحديث: كائن لمتابعة أي طلب وأي حالة يتم تحديثها الآن
+  const [updatingStatus, setUpdatingStatus] = useState<{id: string, method: string} | null>(null);
   const ordersPerPage = 10;
 
   const filteredOrders = useMemo(() => {
@@ -36,10 +38,16 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
   const handleUpdatePayment = async (id: string, method: string) => {
-    if (processingId === id) return;
-    setProcessingId(id);
-    await onUpdateOrderPayment(id, method);
-    setProcessingId(null);
+    if (updatingStatus) return; // منع النقر المتعدد
+    setUpdatingStatus({ id, method });
+    try {
+      // انتظار استجابة السيرفر الفعلية
+      await onUpdateOrderPayment(id, method);
+    } catch (err) {
+      console.error("Update Payment Error:", err);
+    } finally {
+      setUpdatingStatus(null); // إخفاء المؤشر بعد انتهاء العملية
+    }
   };
 
   if (isLoading && orders.length === 0) {
@@ -71,6 +79,11 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
     );
   }
 
+  // مكون Spinner صغير للاستخدام داخل الأزرار
+  const ButtonLoader = () => (
+    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+  );
+
   return (
     <div className="space-y-8">
       <div className="flex justify-end">
@@ -100,7 +113,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
               const currentPayment = o.paymentMethod || 'نقدي (تم الدفع)';
               const isDebt = String(currentPayment).includes('آجل');
               const isCancelled = o.status === 'cancelled';
-              const isProcessing = processingId === o.id;
+              const isProcessingThisOrder = updatingStatus?.id === o.id;
               
               return (
                 <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
@@ -113,20 +126,20 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                     {isCancelled ? (
                       <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
                     ) : (
-                      <div className={`flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50 ${isProcessing ? 'animate-pulse opacity-60' : ''}`}>
+                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50">
                         <button 
-                          disabled={isProcessing}
+                          disabled={isProcessingThisOrder}
                           onClick={() => handleUpdatePayment(o.id, 'نقدي (تم الدفع)')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
+                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all flex items-center justify-center gap-2 min-w-[65px] ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
-                          نقدي 💰
+                          {isProcessingThisOrder && updatingStatus?.method === 'نقدي (تم الدفع)' ? <ButtonLoader /> : 'نقدي 💰'}
                         </button>
                         <button 
-                          disabled={isProcessing}
+                          disabled={isProcessingThisOrder}
                           onClick={() => handleUpdatePayment(o.id, 'آجل (مديونية)')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
+                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all flex items-center justify-center gap-2 min-w-[65px] ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
-                          آجل ⏳
+                          {isProcessingThisOrder && updatingStatus?.method === 'آجل (مديونية)' ? <ButtonLoader /> : 'آجل ⏳'}
                         </button>
                       </div>
                     )}
