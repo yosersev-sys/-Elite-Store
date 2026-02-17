@@ -54,7 +54,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
-  // وظيفة لضغط الصور برمجياً
   const compressImage = (base64Str: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -83,7 +82,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.7)); // ضغط الجودة لـ 70%
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); 
         } else {
           resolve(base64Str);
         }
@@ -127,8 +126,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   }, [categories, product, formData.categoryId]);
 
   useEffect(() => {
-    const total = formData.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
-    setFormData(prev => ({ ...prev, stockQuantity: total.toString() }));
+    // تحديث: استخدام parseFloat لضمان جمع الكميات العشرية بدقة في المخزن
+    const total = formData.batches.reduce((sum, b) => sum + parseFloat(String(b.quantity || 0)), 0);
+    setFormData(prev => ({ ...prev, stockQuantity: total.toFixed(3).replace(/\.?0+$/, '') }));
   }, [formData.batches]);
 
   const openLibrary = async () => {
@@ -218,6 +218,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalPrice = parseFloat(formData.price);
+    // تحديث: استخدام parseFloat بدلاً من parseInt لدعم الأوزان
     const finalStock = parseFloat(formData.stockQuantity);
 
     if (formData.images.length === 0) return alert('يرجى إضافة صورة واحدة على الأقل للمنتج');
@@ -268,7 +269,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       {(isSubmitting || isCompressing) && (
         <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-md">
            <div className="bg-white p-10 rounded-[3rem] text-center space-y-4 shadow-2xl">
-              {/* نافذة ثابتة بدون animate-bounce */}
               <div className="w-16 h-16 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin mx-auto"></div>
               <p className="font-black text-slate-800 text-lg">
                 {isCompressing ? 'جاري تحسين الصور...' : 'جاري نشر المنتج في المتجر...'}
