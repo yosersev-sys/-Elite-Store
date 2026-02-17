@@ -3,19 +3,18 @@ DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
-
-    # 1. استثناء ملفات الـ API والمجلدات الحقيقية والملفات الموجودة بالفعل من التوجيه لـ index.php
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
+    
+    # السماح بالوصول المباشر للملفات الموجودة فعلياً
+    RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
-
-    # 2. ضمان توجيه كافة الطلبات الأخرى لمحرك التطبيق الرئيسي
+    
+    # توجيه أي طلب آخر إلى index.php
     RewriteRule ^ index.php [L]
 </IfModule>
 
 <IfModule mod_headers.c>
-    <FilesMatch "\.(ts|tsx|js|jsx|php)$">
+    <FilesMatch "\.(ts|tsx|js|jsx)$">
         Header set Access-Control-Allow-Origin "*"
+        Header set Content-Type "application/javascript"
     </FilesMatch>
 </IfModule>

@@ -6,82 +6,104 @@ import { Order } from '../types';
  */
 const formatWhatsAppPhone = (phone: string) => {
   if (!phone) return '';
+  // إزالة أي مسافات أو رموز
   let clean = phone.replace(/\D/g, '');
+  // إذا بدأ بـ 0 وكان مصرياً (11 رقم)
   if (clean.length === 11 && clean.startsWith('0')) {
     return '2' + clean;
   }
+  // إذا لم يبدأ بـ 20 (كود مصر) نضيفه افتراضياً
   if (!clean.startsWith('20') && clean.length >= 10) {
     return '20' + (clean.startsWith('0') ? clean.slice(1) : clean);
   }
   return clean;
 };
 
-const safeFixed = (num: any) => {
-  const n = parseFloat(num);
-  return isNaN(n) ? "0.00" : n.toFixed(2);
-};
-
 export const WhatsAppService = {
-  getOrderWhatsAppUrl: (order: Order | null, adminPhone: string) => {
-    if (!order || typeof order !== 'object') return '#';
-    
+  /**
+   * إرسال تفاصيل الطلب إلى واتساب المدير
+   */
+  sendOrderNotification: (order: Order, adminPhone: string) => {
     const targetPhone = formatWhatsAppPhone(adminPhone);
-    const items = Array.isArray(order?.items) ? order.items : [];
-    
-    const itemsList = items
-      .map(item => `• ${item?.name || 'صنف'} (الكمية: ${item?.quantity || 0}) - ${safeFixed((item?.price || 0) * (item?.quantity || 0))} ج.م`)
+    const itemsList = order.items
+      .map(item => `• ${item.name} (الكمية: ${item.quantity}) - ${item.price * item.quantity} ج.م`)
       .join('\n');
 
     const message = `
 🛍️ *طلب جديد من سوق العصر*
 -------------------------
-*رقم الطلب:* #${order?.id || '---'}
-*اسم العميل:* ${order?.customerName || '---'}
-*رقم الهاتف:* ${order?.phone || '---'}
-*العنوان:* ${order?.address || '---'}
+*رقم الطلب:* #${order.id}
+*اسم العميل:* ${order.customerName}
+*رقم الهاتف:* ${order.phone}
+*العنوان:* ${order.address}
 
 *الأصناف المطلوبة:*
 ${itemsList}
 
-*المجموع الفرعي:* ${safeFixed(order?.subtotal)} ج.م
-*الإجمالي النهائي:* ${safeFixed(order?.total)} ج.م
-*طريقة الدفع:* ${order?.paymentMethod || 'عند الاستلام'}
+*المجموع الفرعي:* ${order.subtotal} ج.م
+*الإجمالي النهائي:* ${order.total} ج.م
+*طريقة الدفع:* ${order.paymentMethod}
 -------------------------
-تاريخ الطلب: ${order?.createdAt ? new Date(order.createdAt).toLocaleString('ar-EG') : '---'}
+تاريخ الطلب: ${new Date(order.createdAt).toLocaleString('ar-EG')}
     `.trim();
 
-    return `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
-  },
-
-  sendOrderNotification: (order: Order, adminPhone: string) => {
-    const url = WhatsAppService.getOrderWhatsAppUrl(order, adminPhone);
-    if (url !== '#') window.open(url, '_blank');
-  },
-
-  sendInvoiceToCustomer: (order: Order, customerPhone: string) => {
-    if (!order) return;
-    const targetPhone = formatWhatsAppPhone(customerPhone);
-    const items = Array.isArray(order?.items) ? order.items : [];
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodedMessage}`;
     
-    const itemsList = items
-      .map(item => `• ${item?.name || 'صنف'} (${item?.quantity || 0} × ${item?.price || 0})`)
+    window.open(whatsappUrl, '_blank');
+  },
+
+  /**
+   * إرسال نسخة من الفاتورة (للكاشير)
+   */
+  sendInvoiceToCustomer: (order: Order, customerPhone: string) => {
+    const targetPhone = formatWhatsAppPhone(customerPhone);
+    
+    const itemsList = order.items
+      .map(item => `• ${item.name} (${item.quantity} × ${item.price})`)
       .join('\n');
 
     const message = `
 🧾 *فاتورة مبيعات - سوق العصر*
 -------------------------
-*رقم الفاتورة:* #${order?.id || '---'}
-*التاريخ:* ${order?.createdAt ? new Date(order.createdAt).toLocaleDateString('ar-EG') : '---'}
+*رقم الفاتورة:* #${order.id}
+*التاريخ:* ${new Date(order.createdAt).toLocaleDateString('ar-EG')}
 
 *البيان:*
 ${itemsList}
 
-*الإجمالي:* ${safeFixed(order?.total)} ج.م
-*الحالة:* ${order?.paymentMethod || '---'}
+*الإجمالي:* ${order.total} ج.م
+*الحالة:* ${order.paymentMethod}
 -------------------------
 شكراً لثقتكم بنا ✨
     `.trim();
 
-    window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`, '_blank');
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${targetPhone}?text=${encodedMessage}`, '_blank');
+  },
+
+  /**
+   * إرسال رسالة تنبيه مديونية (للطلبات الآجل)
+   */
+  sendDebtReminderToCustomer: (order: Order) => {
+    const targetPhone = formatWhatsAppPhone(order.phone);
+    
+    const message = `
+⚠️ *تذكير بمديونية - سوق العصر*
+-------------------------
+عزيزنا العميل: *${order.customerName}*
+نود تذكيركم بطلبكم رقم: *#${order.id}*
+المسجل بتاريخ: ${new Date(order.createdAt).toLocaleDateString('ar-EG')}
+
+*تفاصيل المديونية:*
+الإجمالي: *${order.total} ج.م*
+حالة الدفع: *آجل (لم يتم السداد بعد)*
+
+يرجى التكرم بزيارة الفرع أو التواصل معنا لإتمام عملية السداد.
+شاكرين لكم حسن تعاونكم ✨
+    `.trim();
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${targetPhone}?text=${encodedMessage}`, '_blank');
   }
 };

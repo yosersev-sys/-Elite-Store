@@ -29,10 +29,8 @@ self.addEventListener('activate', (event) => {
 
 // استراتيجية جلب البيانات: البحث في الكاش أولاً ثم الإنترنت
 self.addEventListener('fetch', (event) => {
-  const url = event.request.url;
-
-  // تجاهل كافة طلبات الـ API والملفات البرمجية تماماً واتركها للمتصفح
-  if (url.includes('.php') || url.includes('/api/') || event.request.method !== 'GET') {
+  // تخطي طلبات الـ API لترك معالجتها للـ ApiService في فرونت إند
+  if (event.request.url.includes('api.php')) {
     return;
   }
 
@@ -42,8 +40,8 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse;
       }
       return fetch(event.request).then((networkResponse) => {
-        // تخزين نسخة من الملفات الثابتة والناجحة فقط (مثل الصور)
-        if (networkResponse && networkResponse.status === 200 && url.startsWith('http')) {
+        // تخزين نسخة من الملفات الجديدة تلقائياً (مثل صور المنتجات)
+        if (event.request.url.startsWith('http')) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
@@ -52,7 +50,7 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       });
     }).catch(() => {
-      // في حالة عدم وجود إنترنت وفشل جلب مورد أساسي
+      // إذا فشل كل شيء (أوفلاين تماماً ولم يجد الملف في الكاش)
       if (event.request.mode === 'navigate') {
         return caches.match('index.php');
       }
