@@ -55,7 +55,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       if (product.seoSettings) setSeoData(product.seoSettings);
       prevProductIdRef.current = product.id;
     } else if (!product && prevProductIdRef.current !== null) {
-      // إعادة ضبط النموذج للإضافة الجديدة
       setFormData({
         name: '', description: '', price: '', wholesalePrice: '', categoryId: categories[0]?.id || '', 
         stockQuantity: '10', barcode: '', unit: 'piece', sizes: '', colors: '', images: [] 
@@ -106,7 +105,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       price: parseFloat(formData.price) || 0,
       wholesalePrice: parseFloat(formData.wholesalePrice) || 0,
       categoryId: formData.categoryId,
-      stockQuantity: parseInt(formData.stockQuantity) || 0,
+      // تم التعديل هنا لـ parseFloat لضمان عدم تقريب الـ 1.5 لـ 2
+      stockQuantity: parseFloat(formData.stockQuantity) || 0,
       barcode: formData.barcode.trim(),
       unit: formData.unit,
       sizes: formData.sizes ? formData.sizes.split(',').map(s => s.trim()).filter(s => s !== '') : undefined,
@@ -171,7 +171,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">سعر البيع</label>
-              <input required type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none" />
+              <input required type="number" step="any" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none" />
             </div>
             <div className="space-y-2 md:col-span-2 relative">
               <label className="text-sm font-bold text-slate-500 mr-2">الوصف</label>

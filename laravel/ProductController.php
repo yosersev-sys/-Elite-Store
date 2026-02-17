@@ -20,7 +20,7 @@ class ProductController extends Controller
             'description' => 'required|string',
             'price' => 'required|numeric',
             'categoryId' => 'required|string',
-            'stockQuantity' => 'required|integer|min:0', // إضافة التحقق
+            'stockQuantity' => 'required|numeric|min:0', // تم التغيير من integer إلى numeric
             'images' => 'required|array',
             'sizes' => 'nullable|array',
             'colors' => 'nullable|array',
@@ -40,7 +40,7 @@ class ProductController extends Controller
             'description' => 'required|string',
             'price' => 'required|numeric',
             'categoryId' => 'required|string',
-            'stockQuantity' => 'required|integer|min:0', // إضافة التحقق
+            'stockQuantity' => 'required|numeric|min:0', // تم التغيير من integer إلى numeric
             'images' => 'required|array',
             'sizes' => 'nullable|array',
             'colors' => 'nullable|array',
