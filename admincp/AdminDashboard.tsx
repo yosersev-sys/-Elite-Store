@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Product, Category, Order, User, Supplier } from '../types';
 import StatsTab from './tabs/StatsTab.tsx';
@@ -146,10 +147,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            </div>
         </div>
 
-        {props.isLoading && safeProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 animate-fadeIn">
+        {/* مؤشر التحميل المركزي عند الدخول الأول للوحة التحكم */}
+        {props.isLoading && activeTab !== 'stats' && safeProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 animate-fadeIn bg-white rounded-[3rem] shadow-sm border border-slate-100">
             <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="font-black text-slate-400 text-sm">جاري جلب البيانات...</p>
+            <p className="font-black text-slate-800 text-lg">جاري جلب البيانات...</p>
+            <p className="text-slate-400 text-xs font-bold">يتم الآن تحديث قاعدة بيانات المتجر الذكي</p>
           </div>
         ) : (
           <div className="animate-fadeIn">

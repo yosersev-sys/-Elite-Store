@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Product, Order, Category, Supplier } from '../../types';
 
@@ -13,7 +14,6 @@ interface StatsTabProps {
 
 const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categories = [], suppliers = [], isLoading, onNavigateToTab, onOpenAddForm }) => {
   const stats = useMemo(() => {
-    // التأكد من أن جميع المدخلات مصفوفات
     const safeProducts = Array.isArray(products) ? products : [];
     const safeOrders = Array.isArray(orders) ? orders : [];
     const safeCategories = Array.isArray(categories) ? categories : [];
@@ -64,10 +64,17 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
     };
   }, [products, orders, categories, suppliers]);
 
+  // واجهة التحميل عند فتح الإحصائيات لأول مرة
   if (isLoading && (!stats || stats.totalProducts === 0)) {
     return (
       <div className="space-y-10 animate-fadeIn">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex flex-col items-center justify-center py-10 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+           <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+           <p className="font-black text-slate-800 text-lg">جاري جلب أحدث بيانات فاقوس...</p>
+           <p className="text-slate-400 text-xs font-bold mt-1">تتم الآن مزامنة المخزن والطلبات والديون</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-40">
            <div className="h-32 bg-white rounded-[2.5rem] border border-slate-100 animate-pulse flex items-center p-8 gap-4">
               <div className="w-14 h-14 bg-slate-100 rounded-2xl"></div>
               <div className="space-y-2">
@@ -83,7 +90,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
               </div>
            </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 opacity-40">
            {[...Array(4)].map((_, i) => (
              <div key={i} className="h-44 bg-white rounded-[3rem] border border-slate-100 animate-pulse p-8">
                 <div className="flex justify-between mb-6">
