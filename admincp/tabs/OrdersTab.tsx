@@ -35,20 +35,13 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
 
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
-  // دالة ذكية للتحقق من حالة الدفع تتجاهل الفروقات الطفيفة في ترميز الأحرف
-  const isDebtStatus = (method: string) => {
-    if (!method) return false;
-    const m = method.toLowerCase();
-    return m.includes('آجل') || m.includes('اجل') || m.includes('debt');
-  };
-
-  const handleUpdatePayment = async (id: string, methodKey: 'cash' | 'debt') => {
+  const handleUpdatePayment = async (id: string, method: string) => {
     if (processingId === id) return;
     
-    // إرسال الكلمة المفتاحية "cash" أو "debt" للسيرفر وهو يتولى تحويلها للنص العربي الصحيح
+    // تأكيد بصري سريع قبل انتظار الرد من السيرفر
     setProcessingId(id);
     try {
-        await onUpdateOrderPayment(id, methodKey);
+        await onUpdateOrderPayment(id, method);
     } catch (err) {
         console.error("Update payment error:", err);
     } finally {
@@ -112,7 +105,8 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
           <tbody className="divide-y divide-slate-50">
             {paginatedOrders.map(o => {
               const currentPayment = o.paymentMethod || 'نقدي (تم الدفع)';
-              const isDebt = isDebtStatus(currentPayment);
+              // منطق أكثر دقة للتحقق من الحالة
+              const isDebt = String(currentPayment).includes('آجل');
               const isCancelled = o.status === 'cancelled';
               const isProcessing = processingId === o.id;
               
@@ -130,14 +124,14 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                       <div className={`flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50 ${isProcessing ? 'animate-pulse opacity-60' : ''}`}>
                         <button 
                           disabled={isProcessing}
-                          onClick={() => handleUpdatePayment(o.id, 'cash')}
+                          onClick={() => handleUpdatePayment(o.id, 'نقدي (تم الدفع)')}
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
                           نقدي 💰
                         </button>
                         <button 
                           disabled={isProcessing}
-                          onClick={() => handleUpdatePayment(o.id, 'debt')}
+                          onClick={() => handleUpdatePayment(o.id, 'آجل (مديونية)')}
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
                           آجل ⏳

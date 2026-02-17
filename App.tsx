@@ -295,12 +295,11 @@ const App: React.FC = () => {
                 setLastCreatedOrder(order);
                 setView('order-success');
               }}
-              onUpdateOrderPayment={async (id, methodKey) => {
-                const success = await ApiService.updateOrderPayment(id, methodKey);
+              onUpdateOrderPayment={async (id, method) => {
+                const success = await ApiService.updateOrderPayment(id, method);
                 if(success) { 
-                  // تحديث الحالة المحلية بنصوص موحدة فوراً لضمان انسجام الواجهة
-                  const finalArabicLabel = methodKey === 'debt' ? 'آجل (مديونية)' : 'نقدي (تم الدفع)';
-                  setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentMethod: finalArabicLabel } : o));
+                  // تحديث الحالة المحلية فوراً لضمان سرعة الواجهة
+                  setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentMethod: method } : o));
                   setNotification({message: 'تم تحديث حالة الدفع بنجاح', type: 'success'}); 
                 } else {
                   setNotification({message: 'فشل تحديث حالة الدفع', type: 'error'});
