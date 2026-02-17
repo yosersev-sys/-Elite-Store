@@ -1,35 +1,28 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Supplier, Product } from '../../types';
+import { Supplier } from '../../types';
 import { ApiService } from '../../services/api';
 
 interface SuppliersTabProps {
   isLoading: boolean;
   suppliersData?: Supplier[];
-  productsData?: Product[];
-  onRefresh?: () => Promise<void> | void;
+  onRefresh?: () => void;
   initialFilter?: FilterStatus;
 }
 
 type FilterStatus = 'all' | 'debtors' | 'paid';
 
-const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, suppliersData, productsData = [], onRefresh, initialFilter }) => {
+const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, suppliersData, onRefresh, initialFilter }) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>(suppliersData || []);
   const [localLoading, setLocalLoading] = useState(!suppliersData);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>(initialFilter || 'all');
-  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [activeSupplierForPayment, setActiveSupplierForPayment] = useState<Supplier | null>(null);
-
-  // New states for Statement of Account (كشف الحساب)
-  const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
-  const [selectedSupplierForStatement, setSelectedSupplierForStatement] = useState<Supplier | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -43,8 +36,11 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     status: 'active' as any
   });
 
+  // مزامنة الفلتر مع الباراميتر القادم من الخارج (مثل صفحة الإحصائيات)
   useEffect(() => {
-    if (initialFilter) setFilterStatus(initialFilter);
+    if (initialFilter) {
+      setFilterStatus(initialFilter);
+    }
   }, [initialFilter]);
 
   useEffect(() => {
@@ -92,48 +88,34 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     });
   }, [suppliers, searchTerm, filterStatus]);
 
-  // منطق استخراج كشف الحساب من شحنات المنتجات
-  const supplierTransactions = useMemo(() => {
-    if (!selectedSupplierForStatement) return [];
-
-    // جلب كافة الشحنات (Batches) من كافة المنتجات المرتبطة بهذا المورد
-    const transactions: any[] = [];
-    
-    productsData.forEach(p => {
-      if (p.batches && Array.isArray(p.batches)) {
-        p.batches.forEach(batch => {
-          // في حال كان المنتج مرتبط بالمورد أو الشحنة نفسها بها معرف مورد
-          if (p.supplierId === selectedSupplierForStatement.id || batch.supplierId === selectedSupplierForStatement.id) {
-            transactions.push({
-              id: batch.id,
-              date: batch.createdAt,
-              type: 'purchase', // توريد بضاعة
-              label: `توريد: ${p.name}`,
-              amount: (batch.quantity || 0) * (batch.wholesalePrice || 0),
-              qty: batch.quantity,
-              price: batch.wholesalePrice
-            });
-          }
-        });
-      }
+  const openAddModal = () => {
+    setEditingSupplier(null);
+    setFormData({ 
+      name: '', phone: '', companyName: '', address: '', notes: '', 
+      type: 'wholesale', balance: '0', rating: 5, status: 'active' 
     });
-
-    // ترتيب العمليات حسب التاريخ (الأحدث أولاً)
-    return transactions.sort((a, b) => b.date - a.date);
-  }, [selectedSupplierForStatement, productsData]);
+    setIsModalOpen(true);
+  };
 
   const openEditModal = (s: Supplier) => {
     setEditingSupplier(s);
     setFormData({
-      name: s.name, phone: s.phone, companyName: s.companyName || '', address: s.address || '',
-      notes: s.notes || '', type: s.type || 'wholesale', balance: s.balance?.toString() || '0',
-      rating: s.rating || 5, status: s.status || 'active'
+      name: s.name,
+      phone: s.phone,
+      companyName: s.companyName || '',
+      address: s.address || '',
+      notes: s.notes || '',
+      type: s.type || 'wholesale',
+      balance: s.balance?.toString() || '0',
+      rating: s.rating || 5,
+      status: s.status || 'active'
     });
     setIsModalOpen(true);
   };
 
   const handleSave = async () => {
     if (!formData.name || !formData.phone) return alert('الاسم ورقم الهاتف مطلوبان');
+    
     setIsSaving(true);
     try {
       const payload: Supplier = {
@@ -143,11 +125,19 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         createdAt: editingSupplier ? editingSupplier.createdAt : Date.now()
       } as any;
 
-      const success = editingSupplier ? await ApiService.updateSupplier(payload) : await ApiService.addSupplier(payload);
+      const success = editingSupplier 
+        ? await ApiService.updateSupplier(payload)
+        : await ApiService.addSupplier(payload);
+
       if (success) {
-        if (onRefresh) await onRefresh(); else await fetchSuppliers();
+        if (onRefresh) onRefresh();
+        else fetchSuppliers();
         setIsModalOpen(false);
+      } else {
+        alert('فشل حفظ بيانات المورد');
       }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
     } finally {
       setIsSaving(false);
     }
@@ -157,17 +147,37 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     if (!activeSupplierForPayment || !paymentAmount) return;
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) return alert('أدخل مبلغ صحيح');
+
     setIsSaving(true);
     try {
-      const updatedSupplier = { ...activeSupplierForPayment, balance: activeSupplierForPayment.balance - amount };
+      const updatedSupplier = {
+        ...activeSupplierForPayment,
+        balance: activeSupplierForPayment.balance - amount
+      };
       const success = await ApiService.updateSupplier(updatedSupplier);
       if (success) {
-        if (onRefresh) await onRefresh(); else await fetchSuppliers();
+        if (onRefresh) onRefresh();
+        else fetchSuppliers();
         setIsPaymentModalOpen(false);
         setPaymentAmount('');
       }
+    } catch (err) {
+      alert('خطأ في الاتصال');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المورد نهائياً؟')) return;
+    try {
+      const success = await ApiService.deleteSupplier(id);
+      if (success) {
+        if (onRefresh) onRefresh();
+        else fetchSuppliers();
+      }
+    } catch (err) {
+      alert('خطأ في عملية الحذف');
     }
   };
 
@@ -177,12 +187,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
   };
 
   if (localLoading || (globalLoading && suppliers.length === 0)) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32">
-        <div className="w-16 h-16 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin mb-6"></div>
-        <p className="text-slate-400 font-black">جاري مزامنة الموردين...</p>
-      </div>
-    );
+    return <div className="p-20 text-center animate-pulse text-slate-400 font-black">جاري تحميل شبكة الموردين...</div>;
   }
 
   return (
@@ -202,19 +207,41 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">إضافة مورد</p>
               <h4 className="font-black text-sm">توسيع شبكة فاقوس</h4>
             </div>
-            <button onClick={() => { setEditingSupplier(null); setFormData({ name: '', phone: '', companyName: '', address: '', notes: '', type: 'wholesale', balance: '0', rating: 5, status: 'active' }); setIsModalOpen(true); }} className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-2xl hover:bg-emerald-400 transition-all shadow-lg">＋</button>
+            <button onClick={openAddModal} className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-2xl hover:bg-emerald-400 transition-all shadow-lg">＋</button>
          </div>
       </div>
 
       {/* Search & Filter Bar */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm">
         <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full md:w-auto">
-          <button onClick={() => setFilterStatus('all')} className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>الكل ({suppliers.length})</button>
-          <button onClick={() => setFilterStatus('debtors')} className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'debtors' ? 'bg-rose-500 text-white shadow-lg shadow-rose-200' : 'text-slate-400 hover:text-rose-500'}`}>مديونية ({totals.debtorsCount})</button>
-          <button onClick={() => setFilterStatus('paid')} className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'paid' ? 'bg-emerald-50 text-white shadow-lg shadow-emerald-200' : 'text-slate-400 hover:text-emerald-600'}`}>خالص ({totals.paidCount})</button>
+          <button 
+            onClick={() => setFilterStatus('all')}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            الكل ({suppliers.length})
+          </button>
+          <button 
+            onClick={() => setFilterStatus('debtors')}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'debtors' ? 'bg-rose-500 text-white shadow-lg shadow-rose-200' : 'text-slate-400 hover:text-rose-500'}`}
+          >
+            مديونية ({totals.debtorsCount})
+          </button>
+          <button 
+            onClick={() => setFilterStatus('paid')}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'paid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'text-slate-400 hover:text-emerald-600'}`}
+          >
+            خالص ({totals.paidCount})
+          </button>
         </div>
+
         <div className="relative w-full md:w-80">
-          <input type="text" placeholder="بحث بالاسم أو الشركة..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-50 border-none rounded-2xl px-6 py-3 text-sm outline-none font-bold pr-12 focus:ring-2 focus:ring-emerald-500/20 transition-all" />
+          <input 
+            type="text" 
+            placeholder="بحث بالاسم أو الشركة..." 
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full bg-slate-50 border-none rounded-2xl px-6 py-3 text-sm outline-none font-bold pr-12 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+          />
           <span className="absolute right-4 top-2.5 text-slate-300 text-lg">🔍</span>
         </div>
       </div>
@@ -229,9 +256,12 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                    {s.type === 'farm' ? '🚜' : s.type === 'factory' ? '🏭' : '🚛'}
                  </div>
                  <div className="flex gap-0.5">
-                   {[...Array(5)].map((_, i) => (<span key={i} className={`text-[10px] ${i < (s.rating || 5) ? 'text-amber-400' : 'text-slate-200'}`}>★</span>))}
+                   {[...Array(5)].map((_, i) => (
+                     <span key={i} className={`text-[10px] ${i < (s.rating || 5) ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
+                   ))}
                  </div>
               </div>
+
               <div className="flex-grow space-y-4">
                  <div>
                     <div className="flex items-center gap-2">
@@ -247,100 +277,55 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                     </div>
                     <div>
                       <p className="text-[8px] font-black text-slate-400 uppercase">المديونية</p>
-                      <p className={`font-black text-sm ${s.balance > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{s.balance > 0 ? `${s.balance.toLocaleString()} ج.م` : 'خالص ✅'}</p>
+                      <p className={`font-black text-sm ${s.balance > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        {s.balance > 0 ? `${s.balance.toLocaleString()} ج.م` : 'خالص ✅'}
+                      </p>
                     </div>
                  </div>
               </div>
+
               <div className="flex flex-row md:flex-col justify-center gap-2">
                  <button onClick={() => openEditModal(s)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="تعديل">✎</button>
-                 <button onClick={() => { setActiveSupplierForPayment(s); setIsPaymentModalOpen(true); }} className="p-3 bg-amber-50 text-amber-600 rounded-2xl hover:bg-amber-600 hover:text-white transition-all shadow-sm" title="دفع مبلع">💸</button>
-                 <button onClick={() => { setSelectedSupplierForStatement(s); setIsStatementModalOpen(true); }} className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm" title="كشف الحساب التاريخي">📜</button>
-                 <button onClick={() => window.open(`https://wa.me/2${s.phone.replace(/\D/g, '')}`, '_blank')} className="p-3 bg-emerald-500 text-white rounded-2xl hover:bg-slate-900 transition-all shadow-lg">📱</button>
+                 <button 
+                  onClick={() => { setActiveSupplierForPayment(s); setIsPaymentModalOpen(true); }}
+                  className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" 
+                  title="دفع مبلع"
+                 >💸</button>
+                 <button 
+                  onClick={() => window.open(`https://wa.me/2${s.phone.replace(/\D/g, '')}`, '_blank')}
+                  className="p-3 bg-emerald-500 text-white rounded-2xl hover:bg-slate-900 transition-all shadow-lg"
+                 >📱</button>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Statement of Account Modal (كشف الحساب) */}
-      {isStatementModalOpen && selectedSupplierForStatement && (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setIsStatementModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-slideUp flex flex-col max-h-[85vh]">
-            <div className="bg-indigo-600 p-8 text-white relative">
-              <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">📜</div>
-              <div className="relative z-10">
-                <h3 className="text-2xl font-black mb-1">كشف حساب تاريخي</h3>
-                <p className="text-indigo-100 font-bold text-sm">{selectedSupplierForStatement.name} - {selectedSupplierForStatement.companyName || 'تاجر حر'}</p>
-              </div>
-            </div>
-            
-            <div className="flex-grow overflow-y-auto p-6 md:p-8 no-scrollbar">
-               <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">إجمالي التوريدات</p>
-                     <p className="text-xl font-black text-slate-800">{supplierTransactions.reduce((s,t) => s + t.amount, 0).toLocaleString()} <small className="text-xs">ج.م</small></p>
-                  </div>
-                  <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100">
-                     <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">الرصيد المستحق حالياً</p>
-                     <p className="text-xl font-black text-rose-600">{selectedSupplierForStatement.balance.toLocaleString()} <small className="text-xs">ج.م</small></p>
-                  </div>
-               </div>
-
-               <div className="space-y-4">
-                  <h4 className="font-black text-slate-800 border-b border-slate-100 pb-3">سجل العمليات (توريد بضاعة)</h4>
-                  {supplierTransactions.length > 0 ? supplierTransactions.map(t => (
-                    <div key={t.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-colors">
-                       <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-white rounded-xl flex flex-col items-center justify-center text-slate-400 shadow-sm border border-slate-100">
-                             <span className="text-[8px] font-black leading-none">{new Date(t.date).toLocaleDateString('ar-EG', {month: 'short'})}</span>
-                             <span className="text-sm font-black">{new Date(t.date).getDate()}</span>
-                          </div>
-                          <div>
-                             <p className="font-black text-slate-800 text-sm">{t.label}</p>
-                             <p className="text-[10px] text-slate-400 font-bold">{t.qty} وحدة × {t.price} ج.م</p>
-                          </div>
-                       </div>
-                       <div className="text-left">
-                          <p className="text-sm font-black text-rose-600">+{t.amount.toLocaleString()} ج.م</p>
-                          <span className="text-[8px] font-black text-rose-300 uppercase">مديونية توريد</span>
-                       </div>
-                    </div>
-                  )) : (
-                    <div className="text-center py-12 opacity-30">
-                       <p className="text-4xl mb-2">📄</p>
-                       <p className="font-black text-sm">لا توجد عمليات توريد مسجلة حالياً</p>
-                    </div>
-                  )}
-               </div>
-            </div>
-
-            <div className="p-6 bg-slate-50 border-t border-slate-100">
-              <button onClick={() => setIsStatementModalOpen(false)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-all">إغلاق الكشف</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Payment Modal */}
       {isPaymentModalOpen && activeSupplierForPayment && (
         <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsPaymentModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden">
-             {isSaving && (
-               <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-                 <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                 <p className="text-emerald-600 font-black text-sm">جاري تحديث الحساب...</p>
-               </div>
-             )}
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsPaymentModalOpen(false)}></div>
+          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp">
              <h3 className="text-xl font-black text-slate-800 mb-6 text-center">تسجيل دفعة لـ {activeSupplierForPayment.name}</h3>
              <div className="space-y-4">
                 <div className="bg-rose-50 p-4 rounded-2xl text-center mb-6">
                    <p className="text-[10px] font-black text-rose-400 uppercase">المديونية الحالية</p>
-                   <p className="text-2xl font-black text-rose-600">{activeSupplierForPayment.balance.toLocaleString()} ج.m</p>
+                   <p className="text-2xl font-black text-rose-600">{activeSupplierForPayment.balance.toLocaleString()} ج.م</p>
                 </div>
-                <input type="number" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="أدخل المبلغ المدفوع..." className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none font-black text-center text-lg" disabled={isSaving} />
-                <button onClick={handleQuickPayment} disabled={isSaving} className={`w-full py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400 cursor-not-allowed opacity-50' : 'bg-slate-900 text-white hover:bg-emerald-600'}`}>{isSaving ? 'جاري الاتصال...' : 'تأكيد دفع المبلغ ✅'}</button>
+                <input 
+                  type="number" 
+                  value={paymentAmount}
+                  onChange={e => setPaymentAmount(e.target.value)}
+                  placeholder="أدخل المبلغ المدفوع..."
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none font-black text-center text-lg"
+                />
+                <button 
+                  onClick={handleQuickPayment}
+                  disabled={isSaving}
+                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl shadow-slate-200"
+                >
+                  {isSaving ? 'جاري التسجيل...' : 'تأكيد دفع المبلغ ✅'}
+                </button>
              </div>
           </div>
         </div>
@@ -349,35 +334,26 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
           <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 md:p-12 animate-slideUp overflow-hidden max-h-[90vh] overflow-y-auto no-scrollbar">
-            {isSaving && (
-              <div className="absolute inset-0 bg-white/95 backdrop-blur-md z-[3000] flex flex-col items-center justify-center animate-fadeIn">
-                <div className="relative mb-6">
-                   <div className="w-20 h-20 border-4 border-emerald-100 rounded-full"></div>
-                   <div className="w-20 h-20 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
-                   <div className="absolute inset-0 flex items-center justify-center text-2xl">🚛</div>
-                </div>
-                <h4 className="text-xl font-black text-slate-800">جاري الحفظ والمزامنة...</h4>
-                <p className="text-slate-400 font-bold text-xs mt-2 animate-pulse">يتم الآن تحديث قاعدة البيانات وجلب القائمة الجديدة</p>
-              </div>
-            )}
             <h3 className="text-2xl font-black text-slate-800 mb-8 text-center">{editingSupplier ? 'تعديل بيانات المورد' : 'إضافة مورد جديد'}</h3>
+            
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">اسم المورد</label>
-                  <input disabled={isSaving} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold border-2 border-transparent focus:border-emerald-500" />
+                  <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold border-2 border-transparent focus:border-emerald-500" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال</label>
-                  <input disabled={isSaving} type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold text-left" dir="ltr" />
+                  <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold text-left" dir="ltr" />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">نوع المورد</label>
-                  <select disabled={isSaving} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold">
+                  <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold">
                     <option value="wholesale">تاجر جملة</option>
                     <option value="factory">مصنع / علامة تجارية</option>
                     <option value="farm">مزرعة / إنتاج مباشر</option>
@@ -386,26 +362,28 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">التقييم (1-5)</label>
-                  <input disabled={isSaving} type="number" min="1" max="5" value={formData.rating} onChange={e => setFormData({...formData, rating: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold" />
+                  <input type="number" min="1" max="5" value={formData.rating} onChange={e => setFormData({...formData, rating: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold" />
                 </div>
               </div>
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">المديونية الحالية (ج.م)</label>
-                <input disabled={isSaving} type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-black text-rose-600" placeholder="0.00" />
+                <input type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-black text-rose-600" placeholder="0.00" />
               </div>
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">اسم الشركة (اختياري)</label>
-                <input disabled={isSaving} value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold" />
+                <input value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold" />
               </div>
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">ملاحظات / عنوان</label>
-                <textarea disabled={isSaving} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold min-h-[80px]" />
+                <textarea value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold min-h-[80px]" />
               </div>
+
               <div className="flex gap-3 pt-6">
-                <button onClick={handleSave} disabled={isSaving} className={`flex-grow py-4 rounded-2xl font-black text-sm active:scale-95 shadow-xl transition-all flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400 cursor-not-allowed opacity-50' : 'bg-emerald-600 text-white hover:bg-slate-900'}`}>
-                  {isSaving ? (<><div className="w-5 h-5 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>جاري المعالجة...</>) : ('حفظ بيانات المورد ✨')}
-                </button>
-                <button disabled={isSaving} onClick={() => setIsModalOpen(false)} className="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm hover:bg-slate-200">إلغاء</button>
+                <button onClick={handleSave} disabled={isSaving} className="flex-grow bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-xl disabled:opacity-50">حفظ المورد ✨</button>
+                <button onClick={() => setIsModalOpen(false)} className="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm">إلغاء</button>
               </div>
             </div>
           </div>

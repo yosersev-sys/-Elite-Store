@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Order } from '../../types';
 import { WhatsAppService } from '../../services/whatsappService';
@@ -9,14 +8,13 @@ interface OrdersTabProps {
   isLoading: boolean;
   setAdminSearch: (val: string) => void;
   onViewOrder: (order: Order) => void;
-  onUpdateOrderPayment: (id: string, paymentMethod: string) => Promise<void> | void;
+  onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
   onReturnOrder: (id: string) => void;
 }
 
 const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
-  // حالة لمتابعة أي طلب وأي طريقة دفع يتم تحديثها الآن
-  const [updatingStatus, setUpdatingStatus] = useState<{id: string, method: string} | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const ordersPerPage = 10;
 
   const filteredOrders = useMemo(() => {
@@ -38,16 +36,10 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
   const handleUpdatePayment = async (id: string, method: string) => {
-    if (updatingStatus) return; // منع النقر المتعدد أثناء المعالجة
-    setUpdatingStatus({ id, method });
-    try {
-      // انتظار استجابة السيرفر الفعلية (Promise)
-      await onUpdateOrderPayment(id, method);
-    } catch (err) {
-      console.error("Update Payment Error:", err);
-    } finally {
-      setUpdatingStatus(null); // إخفاء المؤشر بعد الانتهاء
-    }
+    if (processingId === id) return;
+    setProcessingId(id);
+    await onUpdateOrderPayment(id, method);
+    setProcessingId(null);
   };
 
   if (isLoading && orders.length === 0) {
@@ -71,15 +63,13 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                 </div>
               ))}
            </div>
+           <div className="bg-slate-50 p-4 text-center">
+              <p className="text-slate-400 font-black text-xs animate-bounce">جاري جلب أحدث الطلبات من فاقوس...</p>
+           </div>
         </div>
       </div>
     );
   }
-
-  // مكون Spinner صغير للاستخدام داخل الأزرار
-  const ButtonLoader = () => (
-    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-  );
 
   return (
     <div className="space-y-8">
@@ -110,7 +100,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
               const currentPayment = o.paymentMethod || 'نقدي (تم الدفع)';
               const isDebt = String(currentPayment).includes('آجل');
               const isCancelled = o.status === 'cancelled';
-              const isProcessingThisOrder = updatingStatus?.id === o.id;
+              const isProcessing = processingId === o.id;
               
               return (
                 <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
@@ -123,20 +113,20 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                     {isCancelled ? (
                       <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
                     ) : (
-                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50">
+                      <div className={`flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50 ${isProcessing ? 'animate-pulse opacity-60' : ''}`}>
                         <button 
-                          disabled={isProcessingThisOrder}
+                          disabled={isProcessing}
                           onClick={() => handleUpdatePayment(o.id, 'نقدي (تم الدفع)')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all flex items-center justify-center gap-2 min-w-[70px] ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
+                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
-                          {isProcessingThisOrder && updatingStatus?.method === 'نقدي (تم الدفع)' ? <ButtonLoader /> : 'نقدي 💰'}
+                          نقدي 💰
                         </button>
                         <button 
-                          disabled={isProcessingThisOrder}
+                          disabled={isProcessing}
                           onClick={() => handleUpdatePayment(o.id, 'آجل (مديونية)')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all flex items-center justify-center gap-2 min-w-[70px] ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
+                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
-                          {isProcessingThisOrder && updatingStatus?.method === 'آجل (مديونية)' ? <ButtonLoader /> : 'آجل ⏳'}
+                          آجل ⏳
                         </button>
                       </div>
                     )}
@@ -153,17 +143,26 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                 </tr>
               );
             })}
+            {!isLoading && paginatedOrders.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">
+                  لا توجد طلبات مسجلة حالياً
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
       {totalOrderPages > 1 && (
         <div className="flex justify-center items-center gap-4 py-4">
-           <button disabled={orderPage === 1} onClick={() => setOrderPage(p => p - 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30">🡒</button>
+           <button disabled={orderPage === 1} onClick={() => setOrderPage(p => p - 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-colors">🡒</button>
            <div className="flex items-center gap-2">
-              <span className="font-black text-xs text-slate-400">صفحة {orderPage} من {totalOrderPages}</span>
+              <span className="font-black text-xs text-slate-400 uppercase tracking-widest">صفحة</span>
+              <span className="bg-slate-900 text-white w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black">{orderPage}</span>
+              <span className="font-black text-xs text-slate-400 uppercase tracking-widest">من {totalOrderPages}</span>
            </div>
-           <button disabled={orderPage === totalOrderPages} onClick={() => setOrderPage(p => p + 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30">🡐</button>
+           <button disabled={orderPage === totalOrderPages} onClick={() => setOrderPage(p => p + 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-colors">🡐</button>
         </div>
       )}
     </div>

@@ -338,7 +338,10 @@ const App: React.FC = () => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
-                  WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                  // لا يتم فتح واتساب تلقائياً إذا كان المدير هو من يقوم بالعملية من لوحة التحكم
+                  if (!isActuallyAdmin) {
+                    WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                  }
                   await loadData(true);
                   setView('order-success');
                 }

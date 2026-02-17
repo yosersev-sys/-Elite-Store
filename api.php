@@ -1,4 +1,3 @@
-
 <?php
 /**
  * API Backend for Souq Al-Asr - Full Feature Version v5.0
@@ -36,16 +35,12 @@ function ensureSchema($pdo) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) NOT NULL, companyName VARCHAR(255), address TEXT, notes TEXT, type VARCHAR(50) DEFAULT 'wholesale', balance DECIMAL(10,2) DEFAULT 0, rating INT DEFAULT 5, status VARCHAR(20) DEFAULT 'active', createdAt BIGINT)");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), wholesalePrice DECIMAL(10,2) DEFAULT 0, categoryId VARCHAR(50), supplierId VARCHAR(50), images LONGTEXT, stockQuantity DECIMAL(10,3) DEFAULT 0, unit VARCHAR(20) DEFAULT 'piece', barcode VARCHAR(100), salesCount DECIMAL(10,3) DEFAULT 0, seoSettings LONGTEXT, batches LONGTEXT, createdAt BIGINT)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), wholesalePrice DECIMAL(10,2) DEFAULT 0, categoryId VARCHAR(50), supplierId VARCHAR(50), images LONGTEXT, stockQuantity DECIMAL(10,2) DEFAULT 0, unit VARCHAR(20) DEFAULT 'piece', barcode VARCHAR(100), salesCount INT DEFAULT 0, seoSettings LONGTEXT, batches LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), city VARCHAR(100) DEFAULT 'فاقوس', address TEXT, subtotal DECIMAL(10,2), total DECIMAL(10,2), items LONGTEXT, paymentMethod VARCHAR(100) DEFAULT 'نقدي (تم الدفع)', status VARCHAR(50) DEFAULT 'completed', userId VARCHAR(50), createdAt BIGINT)");
-
-    // تصحيح الأعمدة لتكون DECIMAL بدلاً من INT لضمان الكسور العشرية
-    $pdo->exec("ALTER TABLE products MODIFY stockQuantity DECIMAL(10,3) DEFAULT 0");
-    $pdo->exec("ALTER TABLE products MODIFY salesCount DECIMAL(10,3) DEFAULT 0");
 
     // Self-Healing Columns
     $cols = [
-        'products' => ['wholesalePrice' => "DECIMAL(10,2) DEFAULT 0", 'unit' => "VARCHAR(20) DEFAULT 'piece'", 'barcode' => "VARCHAR(100)", 'salesCount' => "DECIMAL(10,3) DEFAULT 0", 'seoSettings' => "LONGTEXT", 'batches' => "LONGTEXT", 'supplierId' => "VARCHAR(50)"],
+        'products' => ['wholesalePrice' => "DECIMAL(10,2) DEFAULT 0", 'unit' => "VARCHAR(20) DEFAULT 'piece'", 'barcode' => "VARCHAR(100)", 'salesCount' => "INT DEFAULT 0", 'seoSettings' => "LONGTEXT", 'batches' => "LONGTEXT", 'supplierId' => "VARCHAR(50)"],
         'orders' => ['city' => "VARCHAR(100) DEFAULT 'فاقوس'", 'address' => "TEXT", 'subtotal' => "DECIMAL(10,2)", 'paymentMethod' => "VARCHAR(100) DEFAULT 'نقدي (تم الدفع)'", 'status' => "VARCHAR(50) DEFAULT 'completed'", 'userId' => "VARCHAR(50)"],
         'categories' => ['isActive' => "TINYINT(1) DEFAULT 1", 'sortOrder' => "INT DEFAULT 0"]
     ];
@@ -104,7 +99,7 @@ try {
                 $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ? WHERE id = ?");
                 $stmt->execute([$input['name'], $input['phone'], $uid]);
             }
-            session_destroy(); 
+            session_destroy(); // إجبار على تسجيل الدخول بالبيانات الجديدة
             sendRes(['status' => 'success']);
             break;
 
@@ -247,9 +242,8 @@ try {
             $pdo->beginTransaction();
             try {
                 foreach ($input['items'] as $item) {
-                    // تم التعديل هنا لاستخدام (float) للكميات والمبيعات لضمان الكسور
                     $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")
-                        ->execute([(float)$item['quantity'], (float)$item['quantity'], $item['id']]);
+                        ->execute([(float)$item['quantity'], (int)$item['quantity'], $item['id']]);
                 }
                 $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$input['id'], $input['customerName'], $input['phone'], $input['city'], $input['address'], $input['subtotal'], $input['total'], json_encode($input['items']), $input['paymentMethod'], $input['status'], $input['userId'], time() * 1000]);
@@ -273,9 +267,8 @@ try {
             if ($o && $o['status'] !== 'cancelled') {
                 $items = json_decode($o['items'], true) ?: [];
                 foreach ($items as $item) {
-                    // تم التعديل هنا لاستخدام (float) للكميات والمبيعات
                     $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?")
-                        ->execute([(float)$item['quantity'], (float)$item['quantity'], $item['id']]);
+                        ->execute([(float)$item['quantity'], (int)$item['quantity'], $item['id']]);
                 }
                 $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?")->execute([$id]);
             }
