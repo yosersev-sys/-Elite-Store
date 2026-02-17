@@ -363,15 +363,7 @@ const App: React.FC = () => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
-                  
-                  // التوجيه الفوري
                   setView('order-success');
-                  
-                  // محاولة فتح الواتساب (قد يتم حظرها تلقائياً، لذا نعتمد على زر الإرسال في صفحة النجاح أيضاً)
-                  setTimeout(() => {
-                    WhatsAppService.sendOrderNotification(order, adminPhone);
-                  }, 100);
-                  
                   await loadData(true);
                 }
               }}
@@ -424,15 +416,7 @@ const App: React.FC = () => {
                   setLastCreatedOrder(order);
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
-                  
-                  // التوجيه لصفحة الفاتورة أولاً
                   setView('order-success');
-
-                  // محاولة فتح الواتساب للمدير
-                  setTimeout(() => {
-                    WhatsAppService.sendOrderNotification(order, adminPhone);
-                  }, 100);
-                  
                   loadData(true);
                 }
               }}
