@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Supplier } from '../../types';
 import { ApiService } from '../../services/api';
@@ -156,11 +157,13 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       if (success) {
         if (onRefresh) onRefresh();
         else fetchSuppliers();
+        // تأخير طفيف لضمان رؤية أيقونة التحميل قبل إغلاق النافذة
         setTimeout(() => {
             setIsPaymentModalOpen(false);
             setPaymentAmount('');
             setIsSaving(false);
-        }, 600);
+            setActiveSupplierForPayment(null);
+        }, 800);
       } else {
           setIsSaving(false);
           alert('فشل تحديث الرصيد');
@@ -195,7 +198,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
 
   return (
     <div className="space-y-8 animate-fadeIn relative">
-      {/* نافذة "جاري التعديل" العامة */}
+      {/* نافذة "جاري التعديل" المركزية */}
       {isSaving && (
         <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] animate-fadeIn"></div>
@@ -203,7 +206,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
              <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
              <div className="text-center">
                 <p className="font-black text-slate-800 text-lg">جاري تحديث البيانات...</p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">يرجى الانتظار لحظة</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">يرجى الانتظار حتى اكتمال التعديل في قاعدة البيانات</p>
              </div>
           </div>
         </div>
@@ -243,38 +246,54 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
 
       {/* Suppliers List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredSuppliers.map(s => (
-          <div key={s.id} className={`bg-white p-8 rounded-[3rem] border-2 transition-all group relative overflow-hidden ${s.balance > 0 ? 'border-rose-50 shadow-rose-100/20' : 'border-slate-50 shadow-sm'}`}>
-            <div className="flex flex-col md:flex-row gap-6 relative z-10">
-              <div className="flex flex-col items-center gap-3">
-                 <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center text-3xl shadow-inner transition-colors ${s.balance > 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
-                   {s.type === 'farm' ? '🚜' : s.type === 'factory' ? '🏭' : '🚛'}
-                 </div>
-                 <div className="flex gap-0.5">
-                   {[...Array(5)].map((_, i) => (<span key={i} className={`text-[10px] ${i < (s.rating || 5) ? 'text-amber-400' : 'text-slate-200'}`}>★</span>))}
-                 </div>
-              </div>
-              <div className="flex-grow space-y-4">
-                 <div>
-                    <div className="flex items-center gap-2">
-                       <h4 className="text-xl font-black text-slate-800">{s.name}</h4>
-                       {s.balance > 0 && <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>}
-                    </div>
-                    <p className="text-emerald-600 font-bold text-xs">{s.companyName || 'فرد / تاجر حر'} • {getTypeText(s.type)}</p>
-                 </div>
-                 <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-4">
-                    <div><p className="text-[8px] font-black text-slate-400 uppercase">رقم التواصل</p><p className="font-bold text-xs text-slate-700">{s.phone}</p></div>
-                    <div><p className="text-[8px] font-black text-slate-400 uppercase">المديونية</p><p className={`font-black text-sm ${s.balance > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{s.balance > 0 ? `${s.balance.toLocaleString()} ج.م` : 'خالص ✅'}</p></div>
-                 </div>
-              </div>
-              <div className="flex flex-row md:flex-col justify-center gap-2">
-                 <button onClick={() => openEditModal(s)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm">✎</button>
-                 <button onClick={() => { setActiveSupplierForPayment(s); setIsPaymentModalOpen(true); }} className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm">💸</button>
-                 <button onClick={() => window.open(`https://wa.me/2${s.phone.replace(/\D/g, '')}`, '_blank')} className="p-3 bg-emerald-500 text-white rounded-2xl hover:bg-slate-900 transition-all shadow-lg">📱</button>
+        {filteredSuppliers.map(s => {
+          const isCurrentlyProcessing = isSaving && activeSupplierForPayment?.id === s.id;
+          
+          return (
+            <div key={s.id} className={`bg-white p-8 rounded-[3rem] border-2 transition-all group relative overflow-hidden ${s.balance > 0 ? 'border-rose-50 shadow-rose-100/20' : 'border-slate-50 shadow-sm'}`}>
+              <div className="flex flex-col md:flex-row gap-6 relative z-10">
+                <div className="flex flex-col items-center gap-3">
+                   <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center text-3xl shadow-inner transition-colors ${s.balance > 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
+                     {s.type === 'farm' ? '🚜' : s.type === 'factory' ? '🏭' : '🚛'}
+                   </div>
+                   <div className="flex gap-0.5">
+                     {[...Array(5)].map((_, i) => (<span key={i} className={`text-[10px] ${i < (s.rating || 5) ? 'text-amber-400' : 'text-slate-200'}`}>★</span>))}
+                   </div>
+                </div>
+                <div className="flex-grow space-y-4">
+                   <div>
+                      <div className="flex items-center gap-2">
+                         <h4 className="text-xl font-black text-slate-800">{s.name}</h4>
+                         {s.balance > 0 && <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>}
+                      </div>
+                      <p className="text-emerald-600 font-bold text-xs">{s.companyName || 'فرد / تاجر حر'} • {getTypeText(s.type)}</p>
+                   </div>
+                   <div className="grid grid-cols-2 gap-4 border-t border-slate-50 pt-4">
+                      <div><p className="text-[8px] font-black text-slate-400 uppercase">رقم التواصل</p><p className="font-bold text-xs text-slate-700">{s.phone}</p></div>
+                      <div>
+                        <p className="text-[8px] font-black text-slate-400 uppercase">المديونية</p>
+                        {isCurrentlyProcessing ? (
+                          <div className="flex items-center gap-2 py-1">
+                             <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                             <span className="text-[10px] font-black text-emerald-600 animate-pulse">جاري التعديل...</span>
+                          </div>
+                        ) : (
+                          <p className={`font-black text-sm ${s.balance > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            {s.balance > 0 ? `${s.balance.toLocaleString()} ج.م` : 'خالص ✅'}
+                          </p>
+                        )}
+                      </div>
+                   </div>
+                </div>
+                <div className="flex flex-row md:flex-col justify-center gap-2">
+                   <button onClick={() => openEditModal(s)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm">✎</button>
+                   <button onClick={() => { setActiveSupplierForPayment(s); setIsPaymentModalOpen(true); }} className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm">💸</button>
+                   <button onClick={() => window.open(`https://wa.me/2${s.phone.replace(/\D/g, '')}`, '_blank')} className="p-3 bg-emerald-500 text-white rounded-2xl hover:bg-slate-900 transition-all shadow-lg">📱</button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Payment Modal */}
@@ -282,6 +301,14 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsPaymentModalOpen(false)}></div>
           <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden">
+             
+             {isSaving && (
+               <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 animate-fadeIn">
+                 <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                 <p className="font-black text-slate-800 text-sm">جاري التعديل في قاعدة البيانات...</p>
+               </div>
+             )}
+
              <h3 className="text-xl font-black text-slate-800 mb-6 text-center">تسجيل دفعة لـ {activeSupplierForPayment.name}</h3>
              <div className="space-y-4">
                 <div className="bg-rose-50 p-4 rounded-2xl text-center mb-6">
@@ -289,7 +316,9 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                    <p className="text-2xl font-black text-rose-600">{activeSupplierForPayment.balance.toLocaleString()} ج.م</p>
                 </div>
                 <input type="number" disabled={isSaving} value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder="أدخل المبلغ المدفوع..." className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none font-black text-center text-lg disabled:opacity-50" />
-                <button onClick={handleQuickPayment} disabled={isSaving || !paymentAmount} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl disabled:opacity-50">تأكيد دفع المبلغ ✅</button>
+                <button onClick={handleQuickPayment} disabled={isSaving || !paymentAmount} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl disabled:opacity-50">
+                  {isSaving ? 'لحظة واحدة...' : 'تأكيد دفع المبلغ ✅'}
+                </button>
                 <button onClick={() => setIsPaymentModalOpen(false)} disabled={isSaving} className="w-full text-slate-400 font-bold text-xs pt-2">إلغاء</button>
              </div>
           </div>
@@ -300,7 +329,15 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       {isModalOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 md:p-12 animate-slideUp overflow-hidden max-h-[90vh] overflow-y-auto no-scrollbar">
+          <div className="relative bg-white w-full max-lg rounded-[3rem] shadow-2xl p-8 md:p-12 animate-slideUp overflow-hidden max-h-[90vh] overflow-y-auto no-scrollbar">
+            
+            {isSaving && (
+               <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 animate-fadeIn">
+                 <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                 <p className="font-black text-slate-800 text-sm">جاري الحفظ...</p>
+               </div>
+            )}
+
             <h3 className="text-2xl font-black text-slate-800 mb-8 text-center">{editingSupplier ? 'تعديل بيانات المورد' : 'إضافة مورد جديد'}</h3>
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
