@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const [adminPhone, setAdminPhone] = useState('201026034170'); 
   const [showAuthModal, setShowAuthModal] = useState(false);
   
+  // تهيئة المصفوفات بمصفوفات فارغة لضمان عدم حدوث أخطاء filter/map
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -114,6 +115,7 @@ const App: React.FC = () => {
           activeUser = userFromServer;
       }
 
+      // جلب البيانات الأساسية
       const [adminInfo, fetchedProducts, fetchedCats] = await Promise.all([
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
@@ -124,6 +126,7 @@ const App: React.FC = () => {
       setProducts(fetchedProducts || []);
       setCategories(fetchedCats || []);
 
+      // جلب بيانات المستخدم والمدير
       if (activeUser) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
@@ -137,6 +140,7 @@ const App: React.FC = () => {
           setUsers(fetchedUsers || []);
           setSuppliers(fetchedSuppliers || []);
 
+          // فحص الطلبات الجديدة للتنبيهات
           if (fetchedOrders && prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
@@ -298,11 +302,8 @@ const App: React.FC = () => {
               onUpdateOrderPayment={async (id, method) => {
                 const success = await ApiService.updateOrderPayment(id, method);
                 if(success) { 
-                  // تحديث الحالة المحلية فوراً لضمان سرعة الواجهة
                   setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentMethod: method } : o));
                   setNotification({message: 'تم تحديث حالة الدفع بنجاح', type: 'success'}); 
-                } else {
-                  setNotification({message: 'فشل تحديث حالة الدفع', type: 'error'});
                 }
               }}
               onReturnOrder={async (id) => {

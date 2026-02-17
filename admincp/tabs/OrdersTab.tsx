@@ -37,16 +37,9 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
 
   const handleUpdatePayment = async (id: string, method: string) => {
     if (processingId === id) return;
-    
-    // تأكيد بصري سريع قبل انتظار الرد من السيرفر
     setProcessingId(id);
-    try {
-        await onUpdateOrderPayment(id, method);
-    } catch (err) {
-        console.error("Update payment error:", err);
-    } finally {
-        setProcessingId(null);
-    }
+    await onUpdateOrderPayment(id, method);
+    setProcessingId(null);
   };
 
   if (isLoading && orders.length === 0) {
@@ -105,7 +98,6 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
           <tbody className="divide-y divide-slate-50">
             {paginatedOrders.map(o => {
               const currentPayment = o.paymentMethod || 'نقدي (تم الدفع)';
-              // منطق أكثر دقة للتحقق من الحالة
               const isDebt = String(currentPayment).includes('آجل');
               const isCancelled = o.status === 'cancelled';
               const isProcessing = processingId === o.id;

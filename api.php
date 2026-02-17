@@ -1,6 +1,6 @@
 <?php
 /**
- * API Backend for Souq Al-Asr - Full Version v4.7
+ * API Backend for Souq Al-Asr - Full Version v4.5
  */
 session_start();
 error_reporting(0); 
@@ -80,35 +80,11 @@ try {
     ensureSchema($pdo);
 
     switch ($action) {
-        case 'get_orders':
-            if (isAdmin()) { $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); } 
-            else if (isset($_SESSION['user']['phone'])) { 
-                $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? OR phone = ? ORDER BY createdAt DESC"); 
-                $stmt->execute([$_SESSION['user']['id'], $_SESSION['user']['phone']]); 
-            } else { sendRes([]); }
-            $orders = $stmt->fetchAll() ?: [];
-            foreach ($orders as &$o) { 
-                $o['items'] = json_decode($o['items'] ?? '[]', true) ?: []; 
-                $o['total'] = (float)$o['total']; 
-                $o['paymentMethod'] = $o['paymentMethod'] ?: 'نقدي (تم الدفع)';
-            }
-            sendRes($orders);
-            break;
-
-        case 'update_order_payment':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            if (!$input['id'] || !$input['paymentMethod']) sendErr('بيانات ناقصة');
-            
-            $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
-            $stmt->execute([$input['paymentMethod'], $input['id']]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'return_order':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?");
-            $stmt->execute([$input['id']]);
-            sendRes(['status' => 'success']);
+        case 'get_admin_phone':
+            $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'whatsapp_number' LIMIT 1");
+            $stmt->execute();
+            $phone = $stmt->fetchColumn() ?: '201026034170';
+            sendRes(['phone' => $phone]);
             break;
 
         case 'get_products':
@@ -123,51 +99,9 @@ try {
             sendRes($products);
             break;
 
-        case 'add_product':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, wholesalePrice, categoryId, supplierId, images, stockQuantity, unit, barcode, createdAt, seoSettings, batches) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$input['id'], $input['name'], $input['description'], $input['price'], $input['wholesalePrice'], $input['categoryId'], $input['supplierId'], json_encode($input['images']), $input['stockQuantity'], $input['unit'], $input['barcode'], $input['createdAt'], json_encode($input['seoSettings']), json_encode($input['batches'])]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'update_product':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("UPDATE products SET name = ?, description = ?, price = ?, wholesalePrice = ?, categoryId = ?, supplierId = ?, images = ?, stockQuantity = ?, unit = ?, barcode = ?, seoSettings = ?, batches = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['description'], $input['price'], $input['wholesalePrice'], $input['categoryId'], $input['supplierId'], json_encode($input['images']), $input['stockQuantity'], $input['unit'], $input['barcode'], json_encode($input['seoSettings']), json_encode($input['batches']), $input['id']]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'delete_product':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-            $stmt->execute([$_GET['id']]);
-            sendRes(['status' => 'success']);
-            break;
-
         case 'get_categories':
             $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC");
             sendRes($stmt->fetchAll() ?: []);
-            break;
-
-        case 'add_category':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("INSERT INTO categories (id, name, image, isActive, sortOrder) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$input['id'], $input['name'], $input['image'], $input['isActive'] ? 1 : 0, $input['sortOrder']]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'update_category':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("UPDATE categories SET name = ?, image = ?, isActive = ?, sortOrder = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['image'], $input['isActive'] ? 1 : 0, $input['sortOrder'], $input['id']]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'delete_category':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
-            $stmt->execute([$_GET['id']]);
-            sendRes(['status' => 'success']);
             break;
 
         case 'get_users':
@@ -192,7 +126,12 @@ try {
         case 'get_suppliers':
             if (!isAdmin()) sendErr('غير مصرح', 403);
             $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY createdAt DESC");
-            sendRes($stmt->fetchAll() ?: []);
+            $sups = $stmt->fetchAll() ?: [];
+            foreach ($sups as &$s) {
+                $s['balance'] = (float)$s['balance'];
+                $s['rating'] = (int)$s['rating'];
+            }
+            sendRes($sups);
             break;
 
         case 'add_supplier':
@@ -209,6 +148,13 @@ try {
             sendRes(['status' => 'success']);
             break;
 
+        case 'delete_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("DELETE FROM suppliers WHERE id = ?");
+            $stmt->execute([$_GET['id']]);
+            sendRes(['status' => 'success']);
+            break;
+
         case 'login':
             $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ?");
             $stmt->execute([$input['phone']]);
@@ -222,11 +168,20 @@ try {
 
         case 'get_current_user': sendRes($_SESSION['user'] ?? null); break;
         case 'logout': session_destroy(); sendRes(['status' => 'success']); break;
-        case 'get_admin_phone':
-            $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'whatsapp_number' LIMIT 1");
-            $stmt->execute();
-            $phone = $stmt->fetchColumn() ?: '201026034170';
-            sendRes(['phone' => $phone]);
+
+        case 'get_orders':
+            if (isAdmin()) { $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); } 
+            else if (isset($_SESSION['user']['phone'])) { 
+                $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? OR phone = ? ORDER BY createdAt DESC"); 
+                $stmt->execute([$_SESSION['user']['id'], $_SESSION['user']['phone']]); 
+            } else { sendRes([]); }
+            $orders = $stmt->fetchAll() ?: [];
+            foreach ($orders as &$o) { 
+                $o['items'] = json_decode($o['items'] ?? '[]', true) ?: []; 
+                $o['total'] = (float)$o['total']; 
+                $o['paymentMethod'] = $o['paymentMethod'] ?: 'نقدي (تم الدفع)';
+            }
+            sendRes($orders);
             break;
 
         case 'save_order':
@@ -242,8 +197,9 @@ try {
                     $batches = json_decode($product['batches'] ?? '[]', true) ?: [];
                     $qtyToDeduct = (int)$cartItem['quantity'];
                     $totalWholesaleCost = 0;
-                    if (empty($batches)) { $totalWholesaleCost = ($cartItem['wholesalePrice'] ?? 0) * $qtyToDeduct; } 
-                    else {
+                    if (empty($batches)) {
+                        $totalWholesaleCost = ($cartItem['wholesalePrice'] ?? 0) * $qtyToDeduct;
+                    } else {
                         for ($i = 0; $i < count($batches); $i++) {
                             if ($qtyToDeduct <= 0) break;
                             if ($batches[$i]['quantity'] > 0) {
