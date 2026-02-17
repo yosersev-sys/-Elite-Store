@@ -9,13 +9,13 @@ interface OrdersTabProps {
   isLoading: boolean;
   setAdminSearch: (val: string) => void;
   onViewOrder: (order: Order) => void;
-  onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
+  onUpdateOrderPayment: (id: string, paymentMethod: string) => Promise<void> | void;
   onReturnOrder: (id: string) => void;
 }
 
 const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
-  // تحديث: كائن لمتابعة أي طلب وأي حالة يتم تحديثها الآن
+  // حالة لمتابعة أي طلب وأي طريقة دفع يتم تحديثها الآن
   const [updatingStatus, setUpdatingStatus] = useState<{id: string, method: string} | null>(null);
   const ordersPerPage = 10;
 
@@ -38,15 +38,15 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
   const handleUpdatePayment = async (id: string, method: string) => {
-    if (updatingStatus) return; // منع النقر المتعدد
+    if (updatingStatus) return; // منع النقر المتعدد أثناء المعالجة
     setUpdatingStatus({ id, method });
     try {
-      // انتظار استجابة السيرفر الفعلية
+      // انتظار استجابة السيرفر الفعلية (Promise)
       await onUpdateOrderPayment(id, method);
     } catch (err) {
       console.error("Update Payment Error:", err);
     } finally {
-      setUpdatingStatus(null); // إخفاء المؤشر بعد انتهاء العملية
+      setUpdatingStatus(null); // إخفاء المؤشر بعد الانتهاء
     }
   };
 
@@ -70,9 +70,6 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                   <div className="w-20 h-6 bg-slate-100 rounded-full animate-pulse"></div>
                 </div>
               ))}
-           </div>
-           <div className="bg-slate-50 p-4 text-center">
-              <p className="text-slate-400 font-black text-xs animate-bounce">جاري جلب أحدث الطلبات من فاقوس...</p>
            </div>
         </div>
       </div>
@@ -130,14 +127,14 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                         <button 
                           disabled={isProcessingThisOrder}
                           onClick={() => handleUpdatePayment(o.id, 'نقدي (تم الدفع)')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all flex items-center justify-center gap-2 min-w-[65px] ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
+                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all flex items-center justify-center gap-2 min-w-[70px] ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
                           {isProcessingThisOrder && updatingStatus?.method === 'نقدي (تم الدفع)' ? <ButtonLoader /> : 'نقدي 💰'}
                         </button>
                         <button 
                           disabled={isProcessingThisOrder}
                           onClick={() => handleUpdatePayment(o.id, 'آجل (مديونية)')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all flex items-center justify-center gap-2 min-w-[65px] ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
+                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all flex items-center justify-center gap-2 min-w-[70px] ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
                           {isProcessingThisOrder && updatingStatus?.method === 'آجل (مديونية)' ? <ButtonLoader /> : 'آجل ⏳'}
                         </button>
@@ -156,26 +153,17 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                 </tr>
               );
             })}
-            {!isLoading && paginatedOrders.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">
-                  لا توجد طلبات مسجلة حالياً
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
 
       {totalOrderPages > 1 && (
         <div className="flex justify-center items-center gap-4 py-4">
-           <button disabled={orderPage === 1} onClick={() => setOrderPage(p => p - 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-colors">🡒</button>
+           <button disabled={orderPage === 1} onClick={() => setOrderPage(p => p - 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30">🡒</button>
            <div className="flex items-center gap-2">
-              <span className="font-black text-xs text-slate-400 uppercase tracking-widest">صفحة</span>
-              <span className="bg-slate-900 text-white w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black">{orderPage}</span>
-              <span className="font-black text-xs text-slate-400 uppercase tracking-widest">من {totalOrderPages}</span>
+              <span className="font-black text-xs text-slate-400">صفحة {orderPage} من {totalOrderPages}</span>
            </div>
-           <button disabled={orderPage === totalOrderPages} onClick={() => setOrderPage(p => p + 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-colors">🡐</button>
+           <button disabled={orderPage === totalOrderPages} onClick={() => setOrderPage(p => p + 1)} className="p-3 bg-white rounded-xl shadow-sm disabled:opacity-30">🡐</button>
         </div>
       )}
     </div>
