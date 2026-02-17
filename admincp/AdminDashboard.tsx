@@ -99,12 +99,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const lowStockCount = safeProducts.filter(p => Number(p.stockQuantity || 0) < 5).length;
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen bg-[#f8fafc] animate-fadeIn overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-full w-full bg-[#f8fafc] animate-fadeIn overflow-hidden">
       
       {/* Sidebar Navigation */}
-      <aside className="w-full lg:w-72 bg-slate-900 text-white flex flex-col shrink-0 z-50">
+      <aside className="w-full lg:w-72 bg-slate-900 text-white flex flex-col shrink-0 z-50 h-auto lg:h-full">
         <div className="p-6 md:p-8 flex items-center justify-between lg:block">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-2 cursor-pointer" onClick={() => window.location.href = 'index.php'}>
             <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
               <span className="text-xl">🏪</span>
             </div>
@@ -113,7 +113,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
               <p className="text-emerald-500 text-[8px] font-black tracking-[0.2em] uppercase mt-1">لوحة التحكم</p>
             </div>
           </div>
-          <button className="lg:hidden p-2 text-slate-400">☰</button>
+          <button className="lg:hidden p-2 text-slate-400 bg-slate-800 rounded-lg">☰</button>
         </div>
         
         <nav className="flex lg:flex-col flex-row gap-1 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-3 lg:pb-0 px-2 lg:px-4 flex-grow">
@@ -136,7 +136,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-grow flex flex-col min-w-0 bg-[#f8fafc]">
+      <main className="flex-grow flex flex-col min-w-0 bg-[#f8fafc] h-full overflow-hidden">
         {/* Header Strip */}
         <header className="bg-white border-b border-slate-100 py-4 px-6 md:px-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
            <div>
@@ -153,15 +153,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            </div>
         </header>
 
-        {/* Content Section (Scrollable) */}
-        <div className="flex-grow overflow-y-auto p-4 md:p-10 no-scrollbar">
+        {/* Content Section (Scrollable Area) */}
+        <div className="flex-grow overflow-y-auto p-4 md:p-10 no-scrollbar bg-[#f1f5f9]">
           {props.isLoading && safeProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 animate-fadeIn">
+            <div className="flex flex-col items-center justify-center h-full animate-fadeIn">
               <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="font-black text-slate-400 text-xs">جاري مزامنة قاعدة البيانات...</p>
             </div>
           ) : (
-            <div className="max-w-[1600px] mx-auto animate-fadeIn">
+            <div className="max-w-[1600px] mx-auto animate-fadeIn pb-10">
               {renderTabContent()}
             </div>
           )}
@@ -172,7 +172,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 };
 
 const AdminNavButton = ({ active, onClick, icon, label, badge }: any) => (
-  <button onClick={onClick} className={`flex flex-col lg:flex-row items-center gap-1 lg:gap-4 px-3 lg:px-6 py-2.5 lg:py-3.5 rounded-xl lg:rounded-2xl font-black transition-all relative shrink-0 min-w-[70px] lg:min-w-0 mb-1 ${active ? 'bg-emerald-600 text-white shadow-xl lg:scale-[1.02] z-10' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}>
+  <button onClick={onClick} className={`flex flex-col lg:flex-row items-center gap-1 lg:gap-4 px-3 lg:px-6 py-2.5 lg:py-3.5 rounded-xl lg:rounded-2xl font-black transition-all relative shrink-0 min-w-[75px] lg:min-w-0 mb-1 ${active ? 'bg-emerald-600 text-white shadow-xl lg:scale-[1.02] z-10' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}>
     <span className="text-lg lg:text-xl">{icon}</span>
     <span className="text-[8px] lg:text-[13px] whitespace-nowrap">{label}</span>
     {badge && <span className="absolute -top-1 -left-1 lg:top-auto lg:left-4 bg-rose-500 text-white text-[7px] lg:text-[9px] w-4 h-4 lg:w-5 lg:h-5 flex items-center justify-center rounded-full border-2 border-slate-900 font-black">{badge}</span>}

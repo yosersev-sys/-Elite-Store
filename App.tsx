@@ -30,7 +30,8 @@ const App: React.FC = () => {
   const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
   const getInitialView = (): View => {
-    const hash = window.location.hash.replace('#', '').split('?')[0];
+    // تحسين معالجة الهاش لإزالة أي رموز مائلة زائدة قد يضيفها المتصفح
+    const hash = window.location.hash.replace('#', '').replace(/^\//, '').split('?')[0];
     if (ADMIN_VIEWS.includes(hash as View)) return hash as View;
     const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success'];
     if (publicViews.includes(hash as View)) return hash as View;
@@ -83,6 +84,7 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // تحديث الـ View عند تغيير الهاش يدوياً
   useEffect(() => {
     const handleHashChange = () => {
       const newView = getInitialView();
@@ -201,7 +203,7 @@ const App: React.FC = () => {
 
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
-      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminPath ? 'admin-no-tracking h-screen overflow-hidden' : 'pb-24 md:pb-0'}`}>
+      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminPath ? 'admin-layout' : 'pb-24 md:pb-0'}`}>
         
         {isActuallyAdmin && newOrdersForPopup.length > 0 && (
           <NewOrderPopup 
@@ -218,6 +220,7 @@ const App: React.FC = () => {
           <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
         )}
 
+        {/* عرض شاشة تسجيل دخول الإدارة إذا كان المسار للإدارة والمستخدم ليس مديراً */}
         {isAdminPath && !isActuallyAdmin && (
           <AdminAuthView 
             onSuccess={handleAuthSuccess}
@@ -243,7 +246,7 @@ const App: React.FC = () => {
           />
         )}
 
-        <main className={`flex-grow ${isAdminPath ? 'w-full h-full p-0' : 'container mx-auto px-2 md:px-4 pt-24 md:pt-32'}`}>
+        <main className={`flex-grow ${isAdminPath ? 'w-full h-screen overflow-hidden' : 'container mx-auto px-2 md:px-4 pt-24 md:pt-32'}`}>
           {view === 'store' && (
             <>
               <StoreView 
@@ -256,6 +259,7 @@ const App: React.FC = () => {
             </>
           )}
           
+          {/* لوحة التحكم الرئيسية */}
           {(view === 'admin' || view === 'admincp') && isActuallyAdmin && (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser}
@@ -389,6 +393,12 @@ const App: React.FC = () => {
           <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigateAction('admin'); }} />
         )}
       </div>
+      <style>{`
+        .admin-layout { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        @media (min-width: 1024px) {
+          .admin-layout main { padding: 0 !important; }
+        }
+      `}</style>
     </PullToRefresh>
   );
 };
