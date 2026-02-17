@@ -1,25 +1,26 @@
 <?php
 /**
- * Shared API Initialization - Stability Fix v5.5
+ * Shared API Initialization - Stability Fix v5.6
  */
 
 // منع ظهور أي تحذيرات قد تظهر في وسط الـ JSON وتفسده
 error_reporting(0);
 ini_set('display_errors', 0);
 
-// بدء الجلسة بأمان
+// ترويسات الاستجابة و CORS يجب أن تكون في البداية تماماً
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, Cache-Control');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
+
+// بدء الجلسة بأمان بعد إرسال الترويسات
 if (session_status() === PHP_SESSION_NONE) {
     if (!headers_sent()) {
         @session_start();
     }
 }
-
-header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
 require_once __DIR__ . '/../config.php';
 
@@ -27,7 +28,6 @@ function sendRes($data) {
     if (!headers_sent()) {
         http_response_code(200);
     }
-    // استخدام خيارات ترميز قوية لضمان عدم فشل الـ JSON
     $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_NUMERIC_CHECK);
     if ($json === false) {
         echo json_encode(['status' => 'error', 'message' => 'JSON encoding failed']);
@@ -50,7 +50,7 @@ function isAdmin() {
 }
 
 function ensureSchema($pdo) {
-    // تشغيل الصيانة فقط مرة واحدة كل ساعة لتقليل ضغط السيرفر
+    // تشغيل الصيانة بشكل دوري لتقليل ضغط السيرفر
     $cacheFile = sys_get_temp_dir() . '/souq_db_schema_' . md5(DB_NAME) . '.lock';
     if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 3600)) return;
 
@@ -63,9 +63,7 @@ function ensureSchema($pdo) {
         $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), city VARCHAR(100) DEFAULT 'فاقوس', address TEXT, subtotal DECIMAL(10,2), total DECIMAL(10,2), items LONGTEXT, paymentMethod VARCHAR(100) DEFAULT 'نقدي (تم الدفع)', status VARCHAR(50) DEFAULT 'completed', userId VARCHAR(50), createdAt BIGINT)");
 
         @file_put_contents($cacheFile, time());
-    } catch (Exception $e) {
-        // لا تعطل الـ API في حال فشل فحص الجداول، اترك الأمر لـ PDO عند الطلب الفعلي
-    }
+    } catch (Exception $e) { }
 }
 
 if (isset($pdo)) {

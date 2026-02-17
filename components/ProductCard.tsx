@@ -39,10 +39,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div className="bg-white rounded-[1.25rem] md:rounded-[2.5rem] border border-slate-100/50 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col h-full group">
-      {/* منطقة الصورة مع Lazy Loading */}
+      {/* منطقة الصورة - قابلة للنقر */}
       <div className="relative aspect-[4/5] overflow-hidden bg-slate-100 cursor-pointer" onClick={onView}>
         
-        {/* Skeleton Loader - يظهر فقط حتى تحمل الصورة */}
         {!imageLoaded && (
           <div className="absolute inset-0 bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100 animate-shimmer" style={{ backgroundSize: '200% 100%' }}></div>
         )}
@@ -76,7 +75,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </div>
       
       <div className="p-2.5 md:p-6 flex flex-col flex-grow bg-white">
-        <h3 className="font-black text-xs md:text-lg text-slate-800 line-clamp-2 mb-2 md:mb-3 h-8 md:h-14 group-hover:text-emerald-600 transition-colors leading-tight">
+        {/* اسم المنتج - قابل للنقر أيضاً */}
+        <h3 
+          onClick={onView}
+          className="font-black text-xs md:text-lg text-slate-800 line-clamp-2 mb-2 md:mb-3 h-8 md:h-14 group-hover:text-emerald-600 transition-colors leading-tight cursor-pointer"
+        >
           {product.name}
         </h3>
         

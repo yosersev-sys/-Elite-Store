@@ -1,4 +1,3 @@
-
 import { Product, Category, Order, User, Supplier } from '../types.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
@@ -7,14 +6,16 @@ const USER_CACHE_KEY = 'souq_user_profile';
  * دالة للحصول على الرابط الأساسي للـ API بشكل ديناميكي ومطلق
  */
 const getBaseUrl = () => {
+  const origin = window.location.origin;
   const path = window.location.pathname;
-  const directory = path.substring(0, path.lastIndexOf('/') + 1);
-  return window.location.origin + directory;
+  // استخراج المجلد الحالي حتى لو كان التطبيق في مجلد فرعي
+  const dir = path.substring(0, path.lastIndexOf('/'));
+  const fullBase = `${origin}${dir}/`.replace(/\/+$/, '/');
+  return fullBase;
 };
 
 const safeFetch = async (file: string, action: string, options?: RequestInit) => {
   try {
-    // توجيه الطلب للملف الموديولي الصحيح داخل مجلد api/
     const baseUrl = getBaseUrl();
     const url = `${baseUrl}api/${file}.php?action=${action}`;
     

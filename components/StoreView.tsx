@@ -5,7 +5,8 @@ import ProductCard from './ProductCard';
 import Slider from './Slider';
 import BrandsSection from './BrandsSection';
 import CategorySection from './CategorySection';
-import AboutSection from './AboutSection'; // Import the new section
+import AboutSection from './AboutSection';
+import BestSellers from './BestSellers';
 
 interface StoreViewProps {
   products: Product[];
@@ -120,6 +121,17 @@ const StoreView: React.FC<StoreViewProps> = ({
         onCategorySelect={onCategorySelect} 
       />
 
+      {/* قسم الأكثر مبيعاً يظهر فقط في الصفحة الرئيسية وبدون بحث */}
+      {selectedCategoryId === 'all' && !searchQuery && products.length > 0 && (
+        <BestSellers 
+          products={products}
+          onAddToCart={onAddToCart}
+          onViewProduct={onViewProduct}
+          wishlist={wishlist}
+          onToggleFavorite={onToggleFavorite}
+        />
+      )}
+
       <div className="space-y-8 md:space-y-12" id="products-list" ref={productsListRef}>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-t border-gray-100 pt-10 md:pt-16">
           <div className="space-y-1 md:space-y-2">
@@ -202,8 +214,6 @@ const StoreView: React.FC<StoreViewProps> = ({
       </div>
 
       <BrandsSection />
-
-      {/* Adding the new About Section at the end */}
       <AboutSection />
     </div>
   );
