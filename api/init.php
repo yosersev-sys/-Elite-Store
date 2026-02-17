@@ -30,10 +30,8 @@ function isAdmin() {
     return ($_SESSION['user']['role'] ?? '') === 'admin';
 }
 
-/**
- * وظيفة تأمين الهيكل وإضافة الأعمدة المفقودة تلقائياً
- */
 function ensureSchema($pdo) {
+    // إنشاء الجداول إذا لم تكن موجودة
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive TINYINT(1) DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
@@ -41,22 +39,43 @@ function ensureSchema($pdo) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), wholesalePrice DECIMAL(10,2) DEFAULT 0, categoryId VARCHAR(50), supplierId VARCHAR(50), images LONGTEXT, stockQuantity DECIMAL(10,2) DEFAULT 0, unit VARCHAR(20) DEFAULT 'piece', barcode VARCHAR(100), salesCount INT DEFAULT 0, seoSettings LONGTEXT, batches LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), city VARCHAR(100) DEFAULT 'فاقوس', address TEXT, subtotal DECIMAL(10,2), total DECIMAL(10,2), items LONGTEXT, paymentMethod VARCHAR(100) DEFAULT 'نقدي (تم الدفع)', status VARCHAR(50) DEFAULT 'completed', userId VARCHAR(50), createdAt BIGINT)");
 
-    // Self-Healing Columns
-    $cols = [
-        'products' => ['wholesalePrice' => "DECIMAL(10,2) DEFAULT 0", 'unit' => "VARCHAR(20) DEFAULT 'piece'", 'barcode' => "VARCHAR(100)", 'salesCount' => "INT DEFAULT 0", 'seoSettings' => "LONGTEXT", 'batches' => "LONGTEXT", 'supplierId' => "VARCHAR(50)"],
-        'orders' => ['city' => "VARCHAR(100) DEFAULT 'فاقوس'", 'address' => "TEXT", 'subtotal' => "DECIMAL(10,2)", 'paymentMethod' => "VARCHAR(100) DEFAULT 'نقدي (تم الدفع)'", 'status' => "VARCHAR(50) DEFAULT 'completed'", 'userId' => "VARCHAR(50)"],
-        'categories' => ['isActive' => "TINYINT(1) DEFAULT 1", 'sortOrder' => "INT DEFAULT 0"]
+    // صيانة الأعمدة تلقائياً
+    $tables = [
+        'products' => [
+            'wholesalePrice' => "DECIMAL(10,2) DEFAULT 0",
+            'unit' => "VARCHAR(20) DEFAULT 'piece'",
+            'barcode' => "VARCHAR(100)",
+            'salesCount' => "INT DEFAULT 0",
+            'seoSettings' => "LONGTEXT",
+            'batches' => "LONGTEXT",
+            'supplierId' => "VARCHAR(50)"
+        ],
+        'orders' => [
+            'city' => "VARCHAR(100) DEFAULT 'فاقوس'",
+            'address' => "TEXT",
+            'subtotal' => "DECIMAL(10,2)",
+            'paymentMethod' => "VARCHAR(100) DEFAULT 'نقدي (تم الدفع)'",
+            'status' => "VARCHAR(50) DEFAULT 'completed'",
+            'userId' => "VARCHAR(50)"
+        ],
+        'categories' => [
+            'isActive' => "TINYINT(1) DEFAULT 1",
+            'sortOrder' => "INT DEFAULT 0",
+            'image' => "LONGTEXT"
+        ]
     ];
-    foreach ($cols as $table => $cList) {
-        foreach ($cList as $cName => $cDef) {
+
+    foreach ($tables as $table => $columns) {
+        foreach ($columns as $col => $def) {
             try {
-                $check = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$cName'");
-                if ($check->rowCount() == 0) $pdo->exec("ALTER TABLE `$table` ADD `$cName` $cDef");
+                $check = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$col'");
+                if ($check->rowCount() == 0) {
+                    $pdo->exec("ALTER TABLE `$table` ADD `$col` $def");
+                }
             } catch (Exception $e) {}
         }
     }
 }
 
-// تنفيذ فحص الهيكل عند كل استدعاء لضمان استقرار النظام
 ensureSchema($pdo);
 ?>
