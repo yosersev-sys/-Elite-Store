@@ -1,15 +1,29 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Order } from '../types';
+import { WhatsAppService } from '../services/whatsappService';
 
 interface OrderSuccessViewProps {
   order: Order;
+  adminPhone?: string;
   onContinueShopping: () => void;
 }
 
-const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueShopping }) => {
+const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone = '201026034170', onContinueShopping }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
+
+  // محاولة فتح واتساب المدير تلقائياً بمجرد وصول الزائر للصفحة
+  useEffect(() => {
+    if (!hasAutoOpened) {
+      const timer = setTimeout(() => {
+        WhatsAppService.sendOrderNotification(order, adminPhone);
+        setHasAutoOpened(true);
+      }, 800); // تأخير بسيط للسماح للواجهة بالتحميل
+      return () => clearTimeout(timer);
+    }
+  }, [order, adminPhone, hasAutoOpened]);
 
   const handlePrint = () => {
     window.print();
@@ -49,9 +63,12 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
     }
   };
 
+  const handleManualWhatsApp = () => {
+    WhatsAppService.sendOrderNotification(order, adminPhone);
+  };
+
   return (
     <div className="max-w-xl mx-auto py-8 px-4 animate-fadeIn print:m-0 print:p-0">
-      {/* تعليمات الطباعة والأنماط الخاصة بالفاتورة */}
       <style>{`
         @media print {
           @page { size: 80mm auto; margin: 0; }
@@ -71,9 +88,22 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
       <div className="flex flex-col items-center gap-6 mb-10 no-print">
          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl shadow-inner animate-bounce">✅</div>
          <div className="text-center">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">تم إرسال طلبك بنجاح!</h2>
-            <p className="text-slate-400 font-bold text-sm mt-1">احتفظ بنسخة من الفاتورة للمتابعة</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">تم إرسال طلبك!</h2>
+            <p className="text-slate-400 font-bold text-sm mt-1">جاري فتح واتساب المدير لتأكيد طلبك..</p>
          </div>
+      </div>
+
+      {/* زر واتساب المدير - بارز جداً كحل بديل في حال الحظر */}
+      <div className="no-print mb-8">
+        <button 
+          onClick={handleManualWhatsApp}
+          className="w-full bg-[#25D366] text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-green-200 flex items-center justify-center gap-3 animate-pulse active:scale-95 transition-all"
+        >
+          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.587-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793 0-.852.448-1.271.607-1.445.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298L11 11.23c.044.103.073.222.004.36-.069.138-.104.225-.207.346-.104.121-.219.27-.312.364-.103.104-.21.218-.091.423.119.205.529.873 1.139 1.414.785.698 1.446.915 1.652 1.018.205.103.326.087.447-.052.121-.138.52-.605.659-.812.138-.208.277-.173.466-.104.19.069 1.205.57 1.413.674.208.104.346.156.397.242.052.088.052.509-.092.914z"/>
+          </svg>
+          تواصل مع المدير الآن
+        </button>
       </div>
 
       {/* حاوية الفاتورة - مصممة كإيصال حراري */}
@@ -82,7 +112,6 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
         className="thermal-receipt bg-white receipt-shadow mx-auto overflow-hidden relative border border-slate-100"
         style={{ width: '100%', maxWidth: '350px', padding: '24px' }}
       >
-        {/* تصميم ورقي متعرج من الأعلى */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-[url('https://www.transparenttextures.com/patterns/pinstriped-suit.png')] opacity-10"></div>
 
         {/* رأس الإيصال */}
@@ -129,7 +158,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
                       <span className="text-sm font-black text-slate-900 mr-4">{(item.price * item.quantity).toFixed(2)}</span>
                    </div>
                    <div className="text-[10px] font-bold text-slate-400">
-                      {item.quantity} {item.unit === 'kg' ? 'كيلو' : item.unit === 'gram' ? 'جرام' : 'قطعة'} × {item.price.toFixed(2)}
+                      {item.quantity} × {item.price.toFixed(2)}
                    </div>
                 </div>
               ))}
@@ -141,10 +170,6 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
            <div className="flex justify-between text-xs font-bold text-slate-500">
               <span>المجموع الفرعي:</span>
               <span>{order.subtotal.toFixed(2)} ج.م</span>
-           </div>
-           <div className="flex justify-between text-xs font-bold text-slate-500">
-              <span>مصاريف التوصيل:</span>
-              <span>{(order.total - order.subtotal).toFixed(2)} ج.م</span>
            </div>
            <div className="flex justify-between items-center pt-3 border-t border-slate-50">
               <span className="text-sm font-black text-slate-800">الإجمالي النهائي:</span>
@@ -160,33 +185,29 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
               </div>
               <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">شكراً لثقتكم بنا!</p>
            </div>
-           <p className="text-[12px] text-emerald-600 font-black uppercase tracking-[0.3em] italic">WWW.SOUQALASR.COM</p>
         </div>
-        
-        {/* علامة ورقية في الأسفل */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-[url('https://www.transparenttextures.com/patterns/gray-paper.png')] opacity-20"></div>
       </div>
 
       {/* أزرار التحكم */}
-      <div className="no-print mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
+      <div className="no-print mt-12 grid grid-cols-2 gap-4 max-w-lg mx-auto">
         <button 
           onClick={handlePrint} 
-          className="flex items-center justify-center gap-3 bg-slate-900 text-white py-5 rounded-[1.5rem] font-black text-sm hover:bg-slate-800 transition shadow-xl"
+          className="flex items-center justify-center gap-2 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-800 shadow-lg"
         >
-          <span>🖨️</span> طباعة 
+          🖨️ طباعة 
         </button>
         <button 
           onClick={handleShareScreenshot} 
           disabled={isCapturing}
-          className="flex items-center justify-center gap-3 bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black text-sm hover:bg-indigo-700 transition shadow-xl disabled:opacity-50"
+          className="flex items-center justify-center gap-2 bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm shadow-lg disabled:opacity-50"
         >
-          <span>📸</span> {isCapturing ? 'جاري الحفظ...' : 'حفظ كصورة'}
+          📸 {isCapturing ? 'جاري الحفظ...' : 'حفظ كصورة'}
         </button>
         <button 
           onClick={onContinueShopping} 
-          className="flex items-center justify-center gap-3 bg-emerald-600 text-white py-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-700 transition shadow-xl"
+          className="col-span-2 flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm shadow-lg"
         >
-          الرئيسية
+          العودة للمتجر الرئيسي
         </button>
       </div>
     </div>
