@@ -32,7 +32,6 @@ const App: React.FC = () => {
   const getInitialView = (): View => {
     const hash = window.location.hash.replace('#', '').split('?')[0];
     if (ADMIN_VIEWS.includes(hash as View)) return hash as View;
-    if (hash === 'admin' || hash === 'admincp' || window.location.href.includes('admin')) return 'admin';
     const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success'];
     if (publicViews.includes(hash as View)) return hash as View;
     return 'store';
@@ -76,13 +75,26 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
+  
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('souq_last_order');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
   const prevOrderIds = useRef<Set<string>>(new Set());
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  useEffect(() => {
+    if (lastCreatedOrder) {
+      sessionStorage.setItem('souq_last_order', JSON.stringify(lastCreatedOrder));
+    }
+  }, [lastCreatedOrder]);
 
   useEffect(() => {
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3');
@@ -99,7 +111,12 @@ const App: React.FC = () => {
     } else {
         if (currentHash !== view) window.location.hash = view;
     }
-  }, [view]);
+    
+    // إذا كانت الصفحة الحالية هي "النجاح" ولكن البيانات مفقودة، ارجع للرئيسية
+    if (view === 'order-success' && !lastCreatedOrder) {
+      setView('store');
+    }
+  }, [view, lastCreatedOrder]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -118,8 +135,10 @@ const App: React.FC = () => {
       
       if (forcedUser === undefined) {
           const userFromServer = await ApiService.getCurrentUser();
-          setCurrentUser(userFromServer);
-          activeUser = userFromServer;
+          if (userFromServer) {
+            setCurrentUser(userFromServer);
+            activeUser = userFromServer;
+          }
       }
 
       const [storeSettings, fetchedProducts, fetchedCats] = await Promise.all([
@@ -152,7 +171,7 @@ const App: React.FC = () => {
             if (trulyNew.length > 0) {
               if (soundEnabled && audioObj.current) {
                 audioObj.current.currentTime = 0;
-                audioObj.current.play().catch(e => console.log("Audio blocked."));
+                audioObj.current.play().catch(() => {});
               }
               setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
@@ -318,7 +337,7 @@ const App: React.FC = () => {
               onReturnOrder={async (id) => {
                 if(!confirm('تأكيد الاسترجاع؟')) return;
                 const res = await ApiService.returnOrder(id);
-                if(res.status === 'success') { 
+                if(res?.status === 'success') { 
                   setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' as any } : o));
                   setNotification({message: 'تم الاسترجاع بنجاح', type: 'success'}); 
                 }
@@ -363,15 +382,7 @@ const App: React.FC = () => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
-                  
-                  // التوجيه الفوري
                   setView('order-success');
-                  
-                  // محاولة فتح الواتساب (قد يتم حظرها تلقائياً، لذا نعتمد على زر الإرسال في صفحة النجاح أيضاً)
-                  setTimeout(() => {
-                    WhatsAppService.sendOrderNotification(order, adminPhone);
-                  }, 100);
-                  
                   await loadData(true);
                 }
               }}
@@ -424,15 +435,7 @@ const App: React.FC = () => {
                   setLastCreatedOrder(order);
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
-                  
-                  // التوجيه لصفحة الفاتورة أولاً
                   setView('order-success');
-
-                  // محاولة فتح الواتساب للمدير
-                  setTimeout(() => {
-                    WhatsAppService.sendOrderNotification(order, adminPhone);
-                  }, 100);
-                  
                   loadData(true);
                 }
               }}

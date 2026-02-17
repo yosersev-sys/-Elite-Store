@@ -1,41 +1,36 @@
+
 import { Product, Category, Order, User, Supplier } from '../types.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
 
 /**
- * دالة للحصول على الرابط الأساسي للـ API بشكل ديناميكي ومطلق
+ * الحصول على المسار الأساسي بشكل موثوق
  */
-const getBaseUrl = () => {
-  const origin = window.location.origin;
-  const path = window.location.pathname;
-  // استخراج المجلد الحالي حتى لو كان التطبيق في مجلد فرعي
-  const dir = path.substring(0, path.lastIndexOf('/'));
-  const fullBase = `${origin}${dir}/`.replace(/\/+$/, '/');
-  return fullBase;
+const getApiEndpoint = (file: string, action: string) => {
+  // استخدام المسار النسبي المباشر لضمان التوافق مع كافة المتصفحات
+  return `api/${file}.php?action=${action}`;
 };
 
 const safeFetch = async (file: string, action: string, options?: RequestInit) => {
   try {
-    const baseUrl = getBaseUrl();
-    const url = `${baseUrl}api/${file}.php?action=${action}`;
+    const url = getApiEndpoint(file, action);
     
     const response = await fetch(url, {
       ...options,
+      // مهم جداً لحفظ تسجيل الدخول ومنع NetworkError في بعض المتصفحات
+      credentials: 'include',
       headers: { 
         'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
+        'X-Requested-With': 'XMLHttpRequest',
         ...options?.headers 
       },
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API Server Error (${file}/${action}) - Status: ${response.status}:`, errorText);
-      throw new Error(`Server returned ${response.status}`);
+      throw new Error(`HTTP Error: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error(`API Fetch Failure (${file}/${action}):`, error);
     return null;
@@ -43,7 +38,6 @@ const safeFetch = async (file: string, action: string, options?: RequestInit) =>
 };
 
 export const ApiService = {
-  // --- USERS MODULE ---
   async getCurrentUser(): Promise<User | null> {
     const user = await safeFetch('users', 'get_current_user');
     if (user && user.id) {
@@ -103,7 +97,6 @@ export const ApiService = {
     return await safeFetch('users', 'get_users') || [];
   },
 
-  // --- PRODUCTS MODULE ---
   async getProducts(): Promise<Product[]> {
     return await safeFetch('products', 'get_products') || [];
   },
@@ -133,7 +126,6 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  // --- SUPPLIERS MODULE ---
   async getSuppliers(): Promise<Supplier[]> {
     return await safeFetch('suppliers', 'get_suppliers') || [];
   },
@@ -159,7 +151,6 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  // --- CATEGORIES MODULE ---
   async getCategories(): Promise<Category[]> {
     return await safeFetch('categories', 'get_categories') || [];
   },
@@ -185,7 +176,6 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  // --- ORDERS MODULE ---
   async getOrders(): Promise<Order[]> {
     return await safeFetch('orders', 'get_orders') || [];
   },
@@ -211,12 +201,6 @@ export const ApiService = {
       method: 'POST',
       body: JSON.stringify({ id })
     });
-  },
-
-  // --- SETTINGS MODULE ---
-  async getAdminPhone(): Promise<{phone: string} | null> {
-    const settings = await this.getStoreSettings();
-    return { phone: settings.whatsapp_number || '201026034170' };
   },
 
   async getStoreSettings(): Promise<Record<string, string>> {
