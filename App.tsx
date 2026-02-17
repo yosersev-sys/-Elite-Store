@@ -349,6 +349,7 @@ const App: React.FC = () => {
               products={products}
               initialCustomerName={currentUser?.name || 'عميل نقدي'}
               initialPhone={currentUser?.phone || ''}
+              defaultDeliveryFee={deliveryFee}
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);

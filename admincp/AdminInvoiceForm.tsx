@@ -9,12 +9,16 @@ interface AdminInvoiceFormProps {
   onCancel: () => void;
   initialCustomerName?: string;
   initialPhone?: string;
+  defaultDeliveryFee?: number;
 }
 
 const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ 
-  products, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '' 
+  products, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '', defaultDeliveryFee = 0 
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
+  const [isDelivery, setIsDelivery] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(defaultDeliveryFee.toString());
+  
   const [customerInfo, setCustomerInfo] = useState({
     name: initialCustomerName,
     phone: initialPhone,
@@ -22,6 +26,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     address: '',
     paymentMethod: 'نقدي (تم الدفع)'
   });
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -78,16 +83,29 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     }));
   };
 
+  const totals = useMemo(() => {
+    const subtotal = invoiceItems.reduce((s, i) => s + (i.price * i.quantity), 0);
+    const shipping = isDelivery ? parseFloat(deliveryFee || '0') : 0;
+    return { subtotal, shipping, total: subtotal + shipping };
+  }, [invoiceItems, isDelivery, deliveryFee]);
+
   const handleFinalSubmit = () => {
     if (!isOnline) return alert('يرجى الاتصال بالإنترنت');
-    if (invoiceItems.length === 0) return alert('أضف منتجات');
-    if (!customerInfo.phone) return alert('أدخل رقم الهاتف');
-    const total = invoiceItems.reduce((s, i) => s + (i.price * i.quantity), 0);
+    if (invoiceItems.length === 0) return alert('أضف منتجات للفاتورة أولاً');
+    if (isDelivery && !customerInfo.phone) return alert('أدخل رقم الهاتف لطلبات التوصيل');
+    
     const order: Order = {
       id: 'INV-' + Date.now().toString().slice(-8),
-      customerName: customerInfo.name, phone: customerInfo.phone, city: customerInfo.city, address: customerInfo.address || 'فرع',
-      items: invoiceItems, subtotal: total, total: total,
-      paymentMethod: customerInfo.paymentMethod, status: 'completed', createdAt: Date.now()
+      customerName: customerInfo.name, 
+      phone: customerInfo.phone, 
+      city: customerInfo.city, 
+      address: isDelivery ? (customerInfo.address || 'تحتاج عنوان') : 'استلام فرع',
+      items: invoiceItems, 
+      subtotal: totals.subtotal, 
+      total: totals.total,
+      paymentMethod: customerInfo.paymentMethod, 
+      status: 'completed', 
+      createdAt: Date.now()
     };
     onSubmit(order);
   };
@@ -104,7 +122,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
             <h3 className="text-2xl font-black text-slate-800 mb-2">تجاهل الفاتورة؟</h3>
             <p className="text-slate-400 font-bold text-sm mb-8">سيتم حذف جميع الأصناف المضافة والعودة للقائمة الرئيسية.</p>
             <div className="flex gap-3 mt-6">
-              <button onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-rose-100 active:scale-95 transition-all">نعم، إلغاء</button>
+              <button onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all">نعم، إلغاء</button>
               <button onClick={() => setShowCancelConfirm(false)} className="flex-grow bg-slate-100 text-slate-500 py-4 rounded-2xl font-black active:scale-95 transition-all">تراجع</button>
             </div>
           </div>
@@ -182,20 +200,67 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         <div className="lg:col-span-4 space-y-6">
            <section className="bg-white p-8 md:p-10 rounded-[2rem] shadow-xl border border-slate-100 space-y-6">
               <h3 className="text-xl font-black text-slate-800 border-b pb-4">بيانات الفاتورة</h3>
+              
               <div className="space-y-4">
                  <input value={customerInfo.name} onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})} placeholder="اسم العميل" className="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none" />
                  <input value={customerInfo.phone} onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})} placeholder="رقم الهاتف" className="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none text-left" dir="ltr" />
+                 
                  <div className="flex bg-slate-100 p-1 rounded-2xl">
-                    <button onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'نقدي (تم الدفع)'})} className={`flex-grow py-3 rounded-xl font-black text-xs ${customerInfo.paymentMethod.includes('نقدي') ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>نقدي 💰</button>
-                    <button onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'آجل (مديونية)'})} className={`flex-grow py-3 rounded-xl font-black text-xs ${customerInfo.paymentMethod.includes('آجل') ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>آجل ⏳</button>
+                    <button onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'نقدي (تم الدفع)'})} className={`flex-grow py-3 rounded-xl font-black text-xs ${customerInfo.paymentMethod.includes('نقدي') ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400'}`}>نقدي 💰</button>
+                    <button onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'آجل (مديونية)'})} className={`flex-grow py-3 rounded-xl font-black text-xs ${customerInfo.paymentMethod.includes('آجل') ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400'}`}>آجل ⏳</button>
+                 </div>
+
+                 {/* خيار التوصيل */}
+                 <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 space-y-4">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                       <input 
+                        type="checkbox" 
+                        checked={isDelivery} 
+                        onChange={e => setIsDelivery(e.target.checked)}
+                        className="w-6 h-6 accent-indigo-600 cursor-pointer"
+                       />
+                       <span className="font-black text-indigo-900 text-sm">طلب توصيل للمنزل 🚚</span>
+                    </label>
+                    
+                    {isDelivery && (
+                       <div className="space-y-3 animate-slideDown">
+                          <div className="relative">
+                             <input 
+                              type="number"
+                              value={deliveryFee}
+                              onChange={e => setDeliveryFee(e.target.value)}
+                              placeholder="رسوم التوصيل..."
+                              className="w-full p-4 bg-white rounded-xl font-black border-2 border-indigo-100 outline-none focus:border-indigo-500"
+                             />
+                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">ج.م</span>
+                          </div>
+                          <textarea 
+                            value={customerInfo.address} 
+                            onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})}
+                            placeholder="العنوان بالتفصيل..."
+                            className="w-full p-4 bg-white rounded-xl font-bold border-2 border-indigo-100 outline-none focus:border-indigo-500 min-h-[80px] resize-none"
+                          />
+                       </div>
+                    )}
                  </div>
               </div>
-              <div className="pt-6 border-t space-y-4">
-                 <div className="flex justify-between items-baseline">
-                    <span className="text-slate-400 font-black text-xs">الإجمالي النهائي:</span>
-                    <span className="text-4xl font-black text-emerald-600">{invoiceItems.reduce((s, i) => s + (i.price * i.quantity), 0).toFixed(2)} ج.م</span>
+
+              <div className="pt-6 border-t space-y-3">
+                 <div className="flex justify-between items-center text-slate-400 font-bold text-sm">
+                    <span>المجموع الفرعي:</span>
+                    <span>{totals.subtotal.toFixed(2)} ج.م</span>
                  </div>
-                 <button onClick={handleFinalSubmit} className="w-full py-6 bg-slate-900 text-white rounded-3xl font-black text-xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95">حفظ وإصدار الفاتورة 🧾</button>
+                 {isDelivery && (
+                   <div className="flex justify-between items-center text-indigo-500 font-bold text-sm">
+                      <span>مصاريف الشحن:</span>
+                      <span>{totals.shipping.toFixed(2)} ج.م</span>
+                   </div>
+                 )}
+                 <div className="flex justify-between items-baseline pt-2">
+                    <span className="text-slate-800 font-black text-sm">الإجمالي النهائي:</span>
+                    <span className="text-4xl font-black text-emerald-600">{totals.total.toFixed(2)} ج.م</span>
+                 </div>
+                 <button onClick={handleFinalSubmit} className="w-full py-6 bg-slate-900 text-white rounded-3xl font-black text-xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95 mt-4">حفظ وإصدار الفاتورة 🧾</button>
               </div>
            </section>
         </div>
