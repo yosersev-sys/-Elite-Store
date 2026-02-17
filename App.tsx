@@ -48,7 +48,6 @@ const App: React.FC = () => {
   const [adminPhone, setAdminPhone] = useState('201026034170'); 
   const [showAuthModal, setShowAuthModal] = useState(false);
   
-  // تهيئة المصفوفات بمصفوفات فارغة لضمان عدم حدوث أخطاء filter/map
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -115,7 +114,6 @@ const App: React.FC = () => {
           activeUser = userFromServer;
       }
 
-      // جلب البيانات الأساسية
       const [adminInfo, fetchedProducts, fetchedCats] = await Promise.all([
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
@@ -126,7 +124,6 @@ const App: React.FC = () => {
       setProducts(fetchedProducts || []);
       setCategories(fetchedCats || []);
 
-      // جلب بيانات المستخدم والمدير
       if (activeUser) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
@@ -140,7 +137,6 @@ const App: React.FC = () => {
           setUsers(fetchedUsers || []);
           setSuppliers(fetchedSuppliers || []);
 
-          // فحص الطلبات الجديدة للتنبيهات
           if (fetchedOrders && prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
@@ -266,7 +262,7 @@ const App: React.FC = () => {
           />
         )}
 
-        <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminPath ? 'pt-4' : 'pt-24 md:pt-32'}`}>
+        <main className={`flex-grow ${isAdminPath ? 'w-full pt-0' : 'container mx-auto px-2 md:px-4 pt-24 md:pt-32'}`}>
           {view === 'store' && (
             <StoreView 
               products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
