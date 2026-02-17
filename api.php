@@ -1,6 +1,6 @@
 <?php
 /**
- * API Backend for Souq Al-Asr - Full Version v4.7
+ * API Backend for Souq Al-Asr - Full Version v4.8
  */
 session_start();
 error_reporting(0); 
@@ -99,9 +99,16 @@ try {
             if (!isAdmin()) sendErr('غير مصرح', 403);
             if (!$input['id'] || !$input['paymentMethod']) sendErr('بيانات ناقصة');
             
+            // توحيد القيم لتجنب خلل المسافات أو نوع الياء والألف
+            $method = $input['paymentMethod'];
+            $finalStatus = 'نقدي (تم الدفع)';
+            if (strpos($method, 'آجل') !== false || strpos($method, 'اجل') !== false || $method === 'debt') {
+                $finalStatus = 'آجل (مديونية)';
+            }
+            
             $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
-            $stmt->execute([$input['paymentMethod'], $input['id']]);
-            sendRes(['status' => 'success']);
+            $stmt->execute([$finalStatus, $input['id']]);
+            sendRes(['status' => 'success', 'paymentMethod' => $finalStatus]);
             break;
 
         case 'return_order':
