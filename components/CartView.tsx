@@ -4,15 +4,17 @@ import { CartItem } from '../types';
 
 interface CartViewProps {
   cart: CartItem[];
+  deliveryFee: number;
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemove: (id: string) => void;
   onCheckout: () => void;
   onContinueShopping: () => void;
 }
 
-const CartView: React.FC<CartViewProps> = ({ cart, onUpdateQuantity, onRemove, onCheckout, onContinueShopping }) => {
+const CartView: React.FC<CartViewProps> = ({ cart, deliveryFee, onUpdateQuantity, onRemove, onCheckout, onContinueShopping }) => {
   const safeCart = Array.isArray(cart) ? cart : [];
-  const total = safeCart.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0);
+  const subtotal = safeCart.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0);
+  const total = subtotal + deliveryFee;
 
   if (safeCart.length === 0) {
     return (
@@ -113,11 +115,13 @@ const CartView: React.FC<CartViewProps> = ({ cart, onUpdateQuantity, onRemove, o
           <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
             <div className="flex justify-between text-slate-500 font-bold text-xs md:text-sm">
               <span>المجموع الفرعي</span>
-              <span>{total.toLocaleString(undefined, {minimumFractionDigits: 2})} ج.م</span>
+              <span>{subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})} ج.م</span>
             </div>
             <div className="flex justify-between text-slate-500 font-bold text-xs md:text-sm">
               <span>التوصيل والشحن</span>
-              <span className="text-emerald-600">مجاني لفترة محدودة</span>
+              <span className={deliveryFee === 0 ? "text-emerald-600" : "text-slate-800"}>
+                {deliveryFee === 0 ? "توصيل مجاني" : `${deliveryFee.toLocaleString()} ج.م`}
+              </span>
             </div>
             <div className="flex justify-between text-xl md:text-2xl font-black text-slate-900 pt-4 md:pt-5 border-t border-slate-50">
               <span>الإجمالي</span>

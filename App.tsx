@@ -47,6 +47,7 @@ const App: React.FC = () => {
 
   const [view, setView] = useState<View>(getInitialView());
   const [adminPhone, setAdminPhone] = useState('201026034170'); 
+  const [deliveryFee, setDeliveryFee] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -97,13 +98,15 @@ const App: React.FC = () => {
       if (!isSilent) setIsLoading(true);
       let activeUser = forcedUser !== undefined ? forcedUser : currentUser;
       
-      const [adminInfo, fetchedProducts, fetchedCats] = await Promise.all([
+      const [adminInfo, fetchedProducts, fetchedCats, storeSettings] = await Promise.all([
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
-        ApiService.getCategories()
+        ApiService.getCategories(),
+        ApiService.getStoreSettings()
       ]);
 
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
+      if (storeSettings?.delivery_fee) setDeliveryFee(parseFloat(storeSettings.delivery_fee));
       setProducts(fetchedProducts || []);
       setCategories(fetchedCats || []);
 
@@ -319,6 +322,7 @@ const App: React.FC = () => {
           {view === 'cart' && (
             <CartView 
               cart={cart} 
+              deliveryFee={deliveryFee}
               onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.001, Number((i.quantity + d).toFixed(3)))} : i))}
               onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
               onCheckout={() => setView('checkout')} onContinueShopping={() => setView('store')}
@@ -340,12 +344,14 @@ const App: React.FC = () => {
           {view === 'checkout' && (
              <CheckoutView 
               cart={cart} currentUser={currentUser} onBack={() => setView('cart')}
+              deliveryFee={deliveryFee}
               onPlaceOrder={async (details) => {
-                const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+                const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+                const total = subtotal + deliveryFee;
                 const order: Order = {
                   id: 'ORD-' + Date.now().toString().slice(-6),
                   customerName: details.fullName, phone: details.phone, city: 'فاقوس', address: details.address,
-                  items: cart, total, subtotal: total, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
+                  items: cart, total, subtotal, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
                 };
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);

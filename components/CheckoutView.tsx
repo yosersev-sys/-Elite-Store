@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { CartItem, User } from '../types';
 
 interface CheckoutViewProps {
   cart: CartItem[];
   currentUser: User | null;
+  deliveryFee: number;
   onPlaceOrder: (details: any) => void;
   onBack: () => void;
 }
@@ -14,7 +16,7 @@ interface FormErrors {
   address?: string;
 }
 
-const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceOrder, onBack }) => {
+const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, deliveryFee, onPlaceOrder, onBack }) => {
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -34,7 +36,8 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
     }
   }, [currentUser]);
 
-  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const total = subtotal + deliveryFee;
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
@@ -150,7 +153,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
              <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center text-xl">🚚</div>
              <div>
                 <p className="font-black text-emerald-800 text-sm">توصيل سريع لجميع انحاء فاقوس - شرقية</p>
-                <p className="text-emerald-600 text-[10px] font-bold">يصلك طلبك في خلال 30 دقيقة بمجرد التأكيد.</p>
+                <p className="text-emerald-600 text-[10px] font-bold">يصلك طلبك في أسرع وقت بمجرد التأكيد.</p>
              </div>
           </div>
         </div>
@@ -177,15 +180,17 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
             <div className="space-y-4 pt-4 border-t border-slate-50">
               <div className="flex justify-between text-slate-400 font-black text-xs uppercase tracking-widest">
                 <span>المجموع</span>
-                <span>{total.toLocaleString()} ج.م</span>
+                <span>{subtotal.toLocaleString()} ج.م</span>
               </div>
-              <div className="flex justify-between text-emerald-600 font-black text-xs uppercase tracking-widest">
-                <span>الشحن</span>
-                <span>مجاني لفترة محدودة</span>
+              <div className="flex justify-between text-slate-600 font-black text-xs uppercase tracking-widest">
+                <span>الشحن والتوصيل</span>
+                <span className={deliveryFee === 0 ? "text-emerald-600" : ""}>
+                  {deliveryFee === 0 ? "توصيل مجاني" : `${deliveryFee.toLocaleString()} ج.م`}
+                </span>
               </div>
               <div className="flex justify-between text-3xl font-black text-slate-900 pt-4 border-t border-slate-50">
                 <span>الإجمالي</span>
-                <span className="text-emerald-600">{total.toLocaleString()} ج.م</span>
+                <span className="text-indigo-600">{total.toLocaleString()} ج.م</span>
               </div>
             </div>
 
