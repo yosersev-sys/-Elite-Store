@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { Order } from '../types';
 
@@ -13,6 +14,8 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
   const handlePrint = () => {
     window.print();
   };
+
+  const deliveryFee = (order.total || 0) - (order.subtotal || 0);
 
   const handleShareScreenshot = async () => {
     if (!invoiceRef.current) return;
@@ -89,7 +92,6 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             line-height: 1.2 !important;
             color: #000 !important;
           }
-          /* استثناء تكبير الرابط في الطباعة */
           .thermal-invoice .store-link {
             font-size: 11pt !important;
             font-weight: 900 !important;
@@ -135,6 +137,11 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             <span className="text-gray-400">الهاتف:</span>
             <span className="font-bold">{order.phone}</span>
           </div>
+          {order.address && order.address !== 'استلام فرع (كاشير)' && (
+             <div className="text-[9px] text-gray-500 mt-1 border-t border-gray-100 pt-1">
+               <span className="font-bold">العنوان: </span>{order.address}
+             </div>
+          )}
         </div>
 
         {/* جدول الأصناف */}
@@ -161,15 +168,25 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
         {/* ملخص الحساب */}
         <div className="border-t-2 border-dashed border-gray-300 pt-2 space-y-1">
           <div className="flex justify-between text-[11px]">
-            <span className="font-bold">المجموع:</span>
-            <span>{order.total.toFixed(2)}</span>
+            <span className="text-gray-500">المجموع الفرعي:</span>
+            <span className="font-bold">{(order.subtotal || 0).toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-[13px] font-black pt-1 border-t border-gray-100">
+          
+          {/* بند التوصيل المطلب */}
+          {deliveryFee > 0 && (
+            <div className="flex justify-between text-[11px] text-emerald-700">
+              <span className="font-bold">رسوم التوصيل 🚚:</span>
+              <span className="font-bold">+{deliveryFee.toFixed(2)}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between text-[14px] font-black pt-1 border-t border-gray-200 mt-1">
             <span>الإجمالي:</span>
-            <span className="text-emerald-700">{order.total.toFixed(2)} ج.م</span>
+            <span className="text-slate-900">{order.total.toFixed(2)} ج.م</span>
           </div>
-          <div className="text-center pt-2 text-[9px] font-bold text-gray-400 italic">
-            طريقة الدفع: {order.paymentMethod.split(' ')[0]}
+          
+          <div className="text-center pt-3 text-[9px] font-bold text-gray-400 italic">
+            طريقة الدفع: {order.paymentMethod}
           </div>
         </div>
 
@@ -186,7 +203,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
           onClick={handlePrint} 
           className="flex items-center justify-center gap-2 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition active:scale-95 shadow-xl"
         >
-          <span>🖨️</span> طباعة (5 سم)
+          <span>🖨️</span> طباعة الفاتورة
         </button>
         <button 
           onClick={handleShareScreenshot} 
