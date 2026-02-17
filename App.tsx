@@ -76,7 +76,6 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
-  // حفظ الطلب الأخير في sessionStorage لضمان بقائه عند تحديث الصفحة
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(() => {
     try {
       const saved = sessionStorage.getItem('souq_last_order');
@@ -93,7 +92,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (lastCreatedOrder) {
-      sessionStorage.setItem('souq_last_order', JSON.stringify(lastCreatedOrder));
+      try {
+        sessionStorage.setItem('souq_last_order', JSON.stringify(lastCreatedOrder));
+      } catch(e) { console.error("Session storage error", e); }
     }
   }, [lastCreatedOrder]);
 
@@ -113,20 +114,10 @@ const App: React.FC = () => {
         if (currentHash !== view) window.location.hash = view;
     }
     
-    // إذا كانت الصفحة الحالية هي "النجاح" ولكن البيانات مفقودة، ارجع للرئيسية
     if (view === 'order-success' && !lastCreatedOrder) {
       setView('store');
     }
   }, [view, lastCreatedOrder]);
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      const newView = getInitialView();
-      if (newView !== view) setView(newView);
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [view]);
 
   const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
@@ -380,10 +371,12 @@ const App: React.FC = () => {
               initialPhone={currentUser?.phone || ''}
               defaultDeliveryFee={deliveryFee}
               onSubmit={async (order) => {
-                if (await ApiService.saveOrder(order)) {
+                const success = await ApiService.saveOrder(order);
+                if (success) {
                   setLastCreatedOrder(order);
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
-                  setView('order-success');
+                  // نضمن تحديث الحالة أولاً قبل الانتقال لمنع الصفحة البيضاء
+                  setTimeout(() => setView('order-success'), 100);
                   await loadData(true);
                 }
               }}
@@ -412,7 +405,7 @@ const App: React.FC = () => {
             />
           )}
 
-          {view === 'order-success' && lastCreatedOrder && (
+          {view === 'order-success' && (
             <OrderSuccessView 
               order={lastCreatedOrder} 
               adminPhone={adminPhone}
@@ -432,12 +425,12 @@ const App: React.FC = () => {
                   customerName: details.fullName, phone: details.phone, city: 'فاقوس', address: details.address,
                   items: [...cart], total, subtotal, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
                 };
-                if (await ApiService.saveOrder(order)) {
-                  // ترتيب مهم: تعيين الطلب أولاً ثم مسح السلة ثم الانتقال
+                const success = await ApiService.saveOrder(order);
+                if (success) {
                   setLastCreatedOrder(order);
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
-                  setView('order-success');
+                  setTimeout(() => setView('order-success'), 100);
                   loadData(true);
                 }
               }}

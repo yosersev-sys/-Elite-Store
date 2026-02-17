@@ -10,18 +10,18 @@ interface NewOrderPopupProps {
 }
 
 const NewOrderPopup: React.FC<NewOrderPopupProps> = ({ orders, onClose, onView }) => {
-  if (orders.length === 0) return null;
+  if (!Array.isArray(orders) || orders.length === 0) return null;
 
-  // نعرض أحدث طلب وصل في القائمة
   const order = orders[0];
-  const isQuickInvoice = order.id.startsWith('INV-') || order.id.startsWith('OFF-');
+  if (!order) return null;
+  
+  const isQuickInvoice = order.id?.startsWith('INV-') || order.id?.startsWith('OFF-');
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-fadeIn">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"></div>
       
       <div className="relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border border-white/20 overflow-hidden animate-slideUp">
-        {/* Header Section */}
         <div className={`${isQuickInvoice ? 'bg-indigo-600' : 'bg-emerald-600'} p-6 text-white relative`}>
           <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">{isQuickInvoice ? '🧾' : '🛍️'}</div>
           <div className="flex items-center gap-4 relative z-10">
@@ -33,24 +33,23 @@ const NewOrderPopup: React.FC<NewOrderPopupProps> = ({ orders, onClose, onView }
                 {isQuickInvoice ? 'فاتورة سريعة جديدة!' : 'وصل طلب جديد الآن!'}
               </h3>
               <p className={`${isQuickInvoice ? 'text-indigo-100' : 'text-emerald-100'} text-[10px] font-bold uppercase tracking-widest`}>
-                {isQuickInvoice ? 'بيان فوري' : 'طلب من المتجر'} : #{order.id}
+                {isQuickInvoice ? 'بيان فوري' : 'طلب من المتجر'} : #{order.id || '---'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Content Section */}
         <div className="p-8 space-y-6">
           <div className="flex justify-between items-start border-b border-slate-50 pb-6">
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase mb-1">العميل</p>
-              <p className="text-xl font-black text-slate-800">{order.customerName}</p>
-              <p className={`${isQuickInvoice ? 'text-indigo-600' : 'text-emerald-600'} font-bold text-sm`}>{order.phone}</p>
+              <p className="text-xl font-black text-slate-800">{order.customerName || '---'}</p>
+              <p className={`${isQuickInvoice ? 'text-indigo-600' : 'text-emerald-600'} font-bold text-sm`}>{order.phone || '---'}</p>
             </div>
             <div className="text-left">
               <p className="text-[10px] font-black text-slate-400 uppercase mb-1">إجمالي الفاتورة</p>
               <p className={`text-2xl font-black ${isQuickInvoice ? 'text-indigo-600' : 'text-emerald-600'}`}>
-                {order.total.toLocaleString()} ج.م
+                {(order.total || 0).toLocaleString()} ج.م
               </p>
             </div>
           </div>
@@ -63,13 +62,15 @@ const NewOrderPopup: React.FC<NewOrderPopupProps> = ({ orders, onClose, onView }
                 </span>
              </div>
              <div className="max-h-40 overflow-y-auto no-scrollbar space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-               {order.items.map((item, idx) => (
+               {(order.items || []).map((item, idx) => (
                  <div key={idx} className="flex items-center justify-between gap-3 text-sm">
                    <div className="flex items-center gap-3">
-                     <img src={item.images[0]} className="w-8 h-8 rounded-lg object-cover shadow-sm" alt="" />
-                     <span className="font-bold text-slate-700 truncate max-w-[180px]">{item.name}</span>
+                     <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-200 shadow-sm shrink-0">
+                        {item?.images?.[0] && <img src={item.images[0]} className="w-full h-full object-cover" alt="" />}
+                     </div>
+                     <span className="font-bold text-slate-700 truncate max-w-[180px]">{item?.name || 'منتج'}</span>
                    </div>
-                   <span className="text-slate-400 font-black">×{item.quantity}</span>
+                   <span className="text-slate-400 font-black">×{item?.quantity || 0}</span>
                  </div>
                ))}
              </div>
@@ -77,7 +78,7 @@ const NewOrderPopup: React.FC<NewOrderPopupProps> = ({ orders, onClose, onView }
 
           <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex items-center gap-3">
              <span className="text-xl">📍</span>
-             <p className="text-amber-800 text-[11px] font-bold leading-relaxed">العنوان: {order.address}</p>
+             <p className="text-amber-800 text-[11px] font-bold leading-relaxed">العنوان: {order.address || 'فاقوس'}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-2">
