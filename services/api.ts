@@ -4,18 +4,17 @@ import { Product, Category, Order, User, Supplier } from '../types.ts';
 const USER_CACHE_KEY = 'souq_user_profile';
 
 /**
- * الحصول على المسار الصحيح للمجلد المقسم
- * نستخدم ملفات منفصلة لكل موديول لضمان أداء أسرع
+ * الحصول على المسار الموحد للـ API
+ * نستخدم api.php الرئيسي في الجذر لأنه يحتوي على كافة الوظائف المطلوبة
  */
-const getApiEndpoint = (file: string, action: string) => {
-  // إضافة timestamp لمنع المتصفح من جلب نسخة قديمة (Cache)
+const getApiEndpoint = (action: string) => {
   const nocache = `&_t=${Date.now()}`;
-  return `api/${file}.php?action=${action}${nocache}`;
+  return `api.php?action=${action}${nocache}`;
 };
 
 const safeFetch = async (file: string, action: string, options?: RequestInit) => {
   try {
-    const url = getApiEndpoint(file, action);
+    const url = getApiEndpoint(action);
     
     const response = await fetch(url, {
       ...options,
@@ -28,19 +27,13 @@ const safeFetch = async (file: string, action: string, options?: RequestInit) =>
     });
 
     if (!response.ok) {
-      // إذا فشل المجلد المقسم (404)، نحاول المناداة من الملف الموحد كخطة بديلة (Fallback)
-      console.warn(`Modular API 404, falling back to root api.php for: ${action}`);
-      const fallbackUrl = `api.php?action=${action}&_t=${Date.now()}`;
-      const fallbackRes = await fetch(fallbackUrl, options);
-      if (fallbackRes.ok) return await fallbackRes.json();
-      
-      throw new Error(`HTTP Error: ${response.status}`);
+      throw new Error(`HTTP ${response.status}`);
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error(`CRITICAL API FAILURE (${file}/${action}):`, error);
+    console.error(`API Error on ${action}:`, error);
     return null;
   }
 };
