@@ -1,21 +1,33 @@
+
 import { Product, Category, Order, User, Supplier } from '../types.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
 
+/**
+ * دالة للحصول على الرابط الأساسي للـ API بشكل ديناميكي ومطلق
+ */
+const getBaseUrl = () => {
+  const path = window.location.pathname;
+  const directory = path.substring(0, path.lastIndexOf('/') + 1);
+  return window.location.origin + directory;
+};
+
 const safeFetch = async (file: string, action: string, options?: RequestInit) => {
   try {
-    const url = `api/${file}.php?action=${action}`;
+    // توجيه الطلب للملف الموديولي الصحيح داخل مجلد api/
+    const baseUrl = getBaseUrl();
+    const url = `${baseUrl}api/${file}.php?action=${action}`;
+    
     const response = await fetch(url, {
       ...options,
       headers: { 
         'Accept': 'application/json',
-        'Cache-Control': 'no-cache', // منع المتصفح من تخزين ردود خاطئة
+        'Cache-Control': 'no-cache',
         ...options?.headers 
       },
     });
 
     if (!response.ok) {
-      // محاولة جلب رسالة الخطأ من السيرفر (سواء كانت JSON أو نص)
       const errorText = await response.text();
       console.error(`API Server Error (${file}/${action}) - Status: ${response.status}:`, errorText);
       throw new Error(`Server returned ${response.status}`);

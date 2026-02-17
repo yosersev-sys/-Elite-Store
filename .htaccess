@@ -1,18 +1,16 @@
+
 DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
 
-    # 1. استثناء ملفات الـ API والمجلدات الحقيقية من التوجيه لـ index.php
+    # 1. استثناء ملفات الـ API والمجلدات الحقيقية والملفات الموجودة بالفعل من التوجيه لـ index.php
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # 2. ضمان أن أي طلب يبدأ بـ api/ يذهب للمجلد الفعلي
-    RewriteRule ^api/(.*)$ api/$1 [L,NC]
-
-    # 3. توجيه أي طلبات أخرى إلى المحرك الرئيسي
+    # 2. ضمان توجيه كافة الطلبات الأخرى لمحرك التطبيق الرئيسي
     RewriteRule ^ index.php [L]
 </IfModule>
 
