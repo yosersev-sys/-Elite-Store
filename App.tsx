@@ -375,8 +375,8 @@ const App: React.FC = () => {
                 if (success) {
                   setLastCreatedOrder(order);
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
-                  // نضمن تحديث الحالة أولاً قبل الانتقال لمنع الصفحة البيضاء
-                  setTimeout(() => setView('order-success'), 100);
+                  // نضمن تحديث الحالة أولاً قبل الانتقال
+                  setTimeout(() => setView('order-success'), 50);
                   await loadData(true);
                 }
               }}
@@ -430,7 +430,7 @@ const App: React.FC = () => {
                   setLastCreatedOrder(order);
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
-                  setTimeout(() => setView('order-success'), 100);
+                  setTimeout(() => setView('order-success'), 50);
                   loadData(true);
                 }
               }}

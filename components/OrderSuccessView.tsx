@@ -13,24 +13,28 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
-  // حماية فورية لمنع الـ White Screen
-  if (!order || typeof order !== 'object') {
+  // 1. حماية قصوى: إذا لم توجد بيانات، اظهر رسالة بديلة بدلاً من انهيار الصفحة
+  if (!order) {
     return (
       <div className="flex flex-col items-center justify-center py-32 px-6 text-center animate-fadeIn">
-        <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mb-6">⚠️</div>
-        <h2 className="text-2xl font-black text-slate-800 mb-2">عذراً، لم نتمكن من عرض تفاصيل الطلب</h2>
-        <p className="text-slate-400 font-bold text-sm mb-8">تم تسجيل طلبك بنجاح ولكن هناك مشكلة في عرض الإيصال حالياً.</p>
+        <div className="w-20 h-20 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center text-4xl mb-6">⏳</div>
+        <h2 className="text-2xl font-black text-slate-800 mb-2">جاري تجهيز بيانات الطلب...</h2>
+        <p className="text-slate-400 font-bold text-sm mb-8">إذا استمرت هذه الرسالة، يرجى العودة للمتجر.</p>
         <button onClick={onContinueShopping} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all">العودة للمتجر الرئيسي</button>
       </div>
     );
   }
 
-  const subtotal = Number(order.subtotal || 0);
-  const total = Number(order.total || 0);
+  // 2. العمليات الحسابية تتم فقط بعد التأكد من وجود الـ order
+  const subtotal = Number(order?.subtotal || 0);
+  const total = Number(order?.total || 0);
   const deliveryFee = Math.max(0, total - subtotal);
-  const items = Array.isArray(order.items) ? order.items : [];
+  const items = Array.isArray(order?.items) ? order.items : [];
   
-  const whatsappUrl = useMemo(() => WhatsAppService.getOrderWhatsAppUrl(order, adminPhone), [order, adminPhone]);
+  const whatsappUrl = useMemo(() => {
+    if (!order) return '#';
+    return WhatsAppService.getOrderWhatsAppUrl(order, adminPhone);
+  }, [order, adminPhone]);
 
   const handlePrint = () => {
     window.print();
@@ -40,6 +44,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
     if (!invoiceRef.current || isCapturing) return;
     setIsCapturing(true);
     try {
+      // إخفاء العناصر غير المرغوب فيها قبل اللقطة
       await new Promise(resolve => setTimeout(resolve, 300));
       const canvas = await (window as any).html2canvas(invoiceRef.current, {
         scale: 3,
@@ -123,26 +128,26 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
            <h1 className="text-2xl font-black text-slate-800 tracking-tighter">سوق العصر - فاقوس</h1>
            <p className="text-[11px] font-black text-emerald-600 mt-1 uppercase tracking-widest">soqelasr.com</p>
            <div className="mt-5 inline-block bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
-             إيصال مبيعات #{order.id || '---'}
+             إيصال مبيعات #{order?.id || '---'}
            </div>
         </div>
 
         <div className="space-y-2 mb-8 text-[11px] font-bold text-slate-600">
            <div className="flex justify-between">
               <span className="opacity-50">التاريخ:</span>
-              <span>{new Date(order.createdAt || Date.now()).toLocaleDateString('ar-EG')} - {new Date(order.createdAt || Date.now()).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>
+              <span>{order?.createdAt ? new Date(order.createdAt).toLocaleDateString('ar-EG') : '---'}</span>
            </div>
            <div className="flex justify-between">
               <span className="opacity-50">العميل:</span>
-              <span className="text-slate-800">{order.customerName || 'عميل نقدي'}</span>
+              <span className="text-slate-800">{order?.customerName || 'عميل نقدي'}</span>
            </div>
            <div className="flex justify-between">
               <span className="opacity-50">الهاتف:</span>
-              <span>{order.phone || '---'}</span>
+              <span>{order?.phone || '---'}</span>
            </div>
            <div className="flex justify-between items-start">
               <span className="opacity-50">العنوان:</span>
-              <span className="text-left max-w-[180px] break-words">{order.address || 'فاقوس'}</span>
+              <span className="text-left max-w-[180px] break-words">{order?.address || 'فاقوس'}</span>
            </div>
         </div>
 
@@ -184,7 +189,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
         <div className="mt-12 text-center space-y-4 border-t border-slate-50 pt-8">
            <div className="flex flex-col items-center gap-1.5 opacity-60">
               <div className="text-2xl font-black tracking-[5px] text-slate-900 border-x-4 border-slate-900 px-5">
-                {String(order.id || '000000').replace(/\D/g, '') || '000000'}
+                {String(order?.id || '000000').replace(/\D/g, '') || '000000'}
               </div>
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">شكراً لثقتكم بنا!</p>
            </div>

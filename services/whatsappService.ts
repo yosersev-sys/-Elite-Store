@@ -22,11 +22,11 @@ const safeFixed = (num: any) => {
 };
 
 export const WhatsAppService = {
-  getOrderWhatsAppUrl: (order: Order, adminPhone: string) => {
-    if (!order) return '#';
+  getOrderWhatsAppUrl: (order: Order | null, adminPhone: string) => {
+    if (!order || typeof order !== 'object') return '#';
     
     const targetPhone = formatWhatsAppPhone(adminPhone);
-    const items = Array.isArray(order.items) ? order.items : [];
+    const items = Array.isArray(order?.items) ? order.items : [];
     
     const itemsList = items
       .map(item => `• ${item?.name || 'صنف'} (الكمية: ${item?.quantity || 0}) - ${safeFixed((item?.price || 0) * (item?.quantity || 0))} ج.م`)
@@ -35,19 +35,19 @@ export const WhatsAppService = {
     const message = `
 🛍️ *طلب جديد من سوق العصر*
 -------------------------
-*رقم الطلب:* #${order.id || '---'}
-*اسم العميل:* ${order.customerName || '---'}
-*رقم الهاتف:* ${order.phone || '---'}
-*العنوان:* ${order.address || '---'}
+*رقم الطلب:* #${order?.id || '---'}
+*اسم العميل:* ${order?.customerName || '---'}
+*رقم الهاتف:* ${order?.phone || '---'}
+*العنوان:* ${order?.address || '---'}
 
 *الأصناف المطلوبة:*
 ${itemsList}
 
-*المجموع الفرعي:* ${safeFixed(order.subtotal)} ج.م
-*الإجمالي النهائي:* ${safeFixed(order.total)} ج.م
-*طريقة الدفع:* ${order.paymentMethod || 'عند الاستلام'}
+*المجموع الفرعي:* ${safeFixed(order?.subtotal)} ج.م
+*الإجمالي النهائي:* ${safeFixed(order?.total)} ج.م
+*طريقة الدفع:* ${order?.paymentMethod || 'عند الاستلام'}
 -------------------------
-تاريخ الطلب: ${new Date(order.createdAt || Date.now()).toLocaleString('ar-EG')}
+تاريخ الطلب: ${order?.createdAt ? new Date(order.createdAt).toLocaleString('ar-EG') : '---'}
     `.trim();
 
     return `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
@@ -61,7 +61,7 @@ ${itemsList}
   sendInvoiceToCustomer: (order: Order, customerPhone: string) => {
     if (!order) return;
     const targetPhone = formatWhatsAppPhone(customerPhone);
-    const items = Array.isArray(order.items) ? order.items : [];
+    const items = Array.isArray(order?.items) ? order.items : [];
     
     const itemsList = items
       .map(item => `• ${item?.name || 'صنف'} (${item?.quantity || 0} × ${item?.price || 0})`)
@@ -70,14 +70,14 @@ ${itemsList}
     const message = `
 🧾 *فاتورة مبيعات - سوق العصر*
 -------------------------
-*رقم الفاتورة:* #${order.id || '---'}
-*التاريخ:* ${new Date(order.createdAt || Date.now()).toLocaleDateString('ar-EG')}
+*رقم الفاتورة:* #${order?.id || '---'}
+*التاريخ:* ${order?.createdAt ? new Date(order.createdAt).toLocaleDateString('ar-EG') : '---'}
 
 *البيان:*
 ${itemsList}
 
-*الإجمالي:* ${safeFixed(order.total)} ج.م
-*الحالة:* ${order.paymentMethod || '---'}
+*الإجمالي:* ${safeFixed(order?.total)} ج.م
+*الحالة:* ${order?.paymentMethod || '---'}
 -------------------------
 شكراً لثقتكم بنا ✨
     `.trim();
