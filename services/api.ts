@@ -4,11 +4,13 @@ import { Product, Category, Order, User, Supplier } from '../types.ts';
 const USER_CACHE_KEY = 'souq_user_profile';
 
 /**
- * الحصول على المسار الأساسي لكل ملف API بشكل نمطي
- * تم الإصلاح لحل مشكلة الـ 404 عبر التوجيه للمجلد الصحيح
+ * الحصول على المسار الصحيح للمجلد المقسم
+ * نستخدم ملفات منفصلة لكل موديول لضمان أداء أسرع
  */
 const getApiEndpoint = (file: string, action: string) => {
-  return `api/${file}.php?action=${action}`;
+  // إضافة timestamp لمنع المتصفح من جلب نسخة قديمة (Cache)
+  const nocache = `&_t=${Date.now()}`;
+  return `api/${file}.php?action=${action}${nocache}`;
 };
 
 const safeFetch = async (file: string, action: string, options?: RequestInit) => {
@@ -26,13 +28,19 @@ const safeFetch = async (file: string, action: string, options?: RequestInit) =>
     });
 
     if (!response.ok) {
+      // إذا فشل المجلد المقسم (404)، نحاول المناداة من الملف الموحد كخطة بديلة (Fallback)
+      console.warn(`Modular API 404, falling back to root api.php for: ${action}`);
+      const fallbackUrl = `api.php?action=${action}&_t=${Date.now()}`;
+      const fallbackRes = await fetch(fallbackUrl, options);
+      if (fallbackRes.ok) return await fallbackRes.json();
+      
       throw new Error(`HTTP Error: ${response.status}`);
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error(`API Fetch Failure (${file}/${action}):`, error);
+    console.error(`CRITICAL API FAILURE (${file}/${action}):`, error);
     return null;
   }
 };

@@ -23,6 +23,7 @@ import PullToRefresh from './components/PullToRefresh.tsx';
 import NewOrderPopup from './components/NewOrderPopup.tsx';
 import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
 import Footer from './components/Footer.tsx';
+import AiAssistant from './components/AiAssistant.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
@@ -76,7 +77,12 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
-  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(() => {
+    try {
+        const saved = sessionStorage.getItem('souq_last_order');
+        return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
 
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -117,14 +123,6 @@ const App: React.FC = () => {
       
       let activeUser = forcedUser !== undefined ? forcedUser : currentUser;
       
-      if (forcedUser === undefined) {
-          const userFromServer = await ApiService.getCurrentUser();
-          if (userFromServer) {
-            setCurrentUser(userFromServer);
-            activeUser = userFromServer;
-          }
-      }
-
       const [storeSettings, fetchedProducts, fetchedCats] = await Promise.all([
         ApiService.getStoreSettings(),
         ApiService.getProducts(),
@@ -174,7 +172,7 @@ const App: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') loadData(true);
-    }, 15000); 
+    }, 20000); 
     return () => clearInterval(interval);
   }, [currentUser?.id]);
 
@@ -203,7 +201,7 @@ const App: React.FC = () => {
     loadData(false, user); 
   };
 
-  const addToCart = (product: Product, selectedSize?: string, selectedColor?: string, rect?: DOMRect, quantity: number = 1) => {
+  const addToCart = (product: Product, quantity: number = 1, selectedSize?: string, selectedColor?: string) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -242,6 +240,7 @@ const App: React.FC = () => {
             onClose={(id) => setNewOrdersForPopup(prev => prev.filter(o => o.id !== id))}
             onView={(order) => {
               setLastCreatedOrder(order);
+              sessionStorage.setItem('souq_last_order', JSON.stringify(order));
               onNavigateAction('order-success');
             }}
           />
@@ -281,12 +280,15 @@ const App: React.FC = () => {
 
         <main className={`flex-grow ${isAdminPath ? 'w-full pt-0' : 'container mx-auto px-2 md:px-4 pt-24 md:pt-32'}`}>
           {view === 'store' && (
-            <StoreView 
-              products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
-              onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => addToCart(p)} 
-              onViewProduct={(p) => { setSelectedProduct(p); setView('product-details'); }}
-              wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-            />
+            <>
+              <StoreView 
+                products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
+                onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => addToCart(p)} 
+                onViewProduct={(p) => { setSelectedProduct(p); setView('product-details'); }}
+                wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+              />
+              <AiAssistant products={products} onAddToCart={addToCart} showNotification={(m, t) => setNotification({message: m, type: t || 'success'})} />
+            </>
           )}
           
           {(view === 'admin' || view === 'admincp') && isActuallyAdmin && (
@@ -310,6 +312,7 @@ const App: React.FC = () => {
               }}
               onViewOrder={(order) => {
                 setLastCreatedOrder(order);
+                sessionStorage.setItem('souq_last_order', JSON.stringify(order));
                 onNavigateAction('order-success');
               }}
               onUpdateOrderPayment={async (id, method) => {
@@ -367,6 +370,7 @@ const App: React.FC = () => {
                 const success = await ApiService.saveOrder(order);
                 if (success) {
                   setLastCreatedOrder(order);
+                  sessionStorage.setItem('souq_last_order', JSON.stringify(order));
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
                   onNavigateAction('order-success');
                   await loadData(true);
@@ -390,7 +394,7 @@ const App: React.FC = () => {
             <ProductDetailsView 
               product={selectedProduct}
               categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-              onAddToCart={(p, s, c, rect, q) => addToCart(p, s, c, rect, q)}
+              onAddToCart={(p, s, c, rect, q) => addToCart(p, q || 1, s, c)}
               onBack={() => onNavigateAction('store')}
               isFavorite={wishlist.includes(selectedProduct.id)}
               onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
@@ -420,6 +424,7 @@ const App: React.FC = () => {
                 const success = await ApiService.saveOrder(order);
                 if (success) {
                   setLastCreatedOrder(order);
+                  sessionStorage.setItem('souq_last_order', JSON.stringify(order));
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
                   onNavigateAction('order-success');

@@ -1,14 +1,15 @@
 
 <?php
 /**
- * Shared API Initialization - Stability Fix v5.8
+ * Shared API Initialization - Stability Fix v6.0
  */
 
-// منع ظهور أي تحذيرات قد تفسد الـ JSON
+// منع أي ظهور للأخطاء أو التحذيرات التي تفسد رد الـ JSON
 error_reporting(0);
 ini_set('display_errors', 0);
+ob_start(); // بدء التخزين المؤقت للمخرجات
 
-// ترويسات الاستجابة و CORS - تعزيز الدعم للمتصفحات
+// ترويسات الاستجابة و CORS
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
 header("Access-Control-Allow-Origin: $origin");
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
@@ -21,25 +22,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 // بدء الجلسة بأمان
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_httponly', 1);
-    ini_set('session.use_only_cookies', 1);
     ini_set('session.cookie_samesite', 'Lax');
     @session_start();
 }
 
-require_once __DIR__ . '/../config.php';
+// تصحيح مسار ملف الإعدادات الرئيسي (الرجوع خطوة للخلف من مجلد api)
+$configPath = dirname(__DIR__) . '/config.php';
+if (file_exists($configPath)) {
+    require_once $configPath;
+} else {
+    echo json_encode(['status' => 'error', 'message' => 'Config file not found at: ' . $configPath]);
+    exit;
+}
 
 function sendRes($data) {
-    if (!headers_sent()) {
-        http_response_code(200);
-    }
+    ob_clean(); // مسح أي مخرجات غير مقصودة
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_NUMERIC_CHECK);
     exit;
 }
 
 function sendErr($msg, $code = 400) {
-    if (!headers_sent()) {
-        http_response_code($code);
-    }
+    ob_clean();
+    http_response_code($code);
     echo json_encode(['status' => 'error', 'message' => $msg], JSON_UNESCAPED_UNICODE);
     exit;
 }
