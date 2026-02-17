@@ -15,6 +15,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   products, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '' 
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
   const [customerInfo, setCustomerInfo] = useState({
     name: initialCustomerName,
     phone: initialPhone,
@@ -127,7 +128,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     invoiceItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   , [invoiceItems]);
 
-  const total = subtotal;
+  const total = subtotal + deliveryFee;
 
   const handleFinalSubmit = () => {
     if (!isOnline) {
@@ -144,7 +145,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       customerName: customerInfo.name,
       phone: customerInfo.phone,
       city: customerInfo.city,
-      address: customerInfo.address || 'استلام فرع (كاشير)',
+      address: customerInfo.address || (deliveryFee > 0 ? 'توصيل للمنزل' : 'استلام فرع (كاشير)'),
       items: invoiceItems,
       subtotal,
       total,
@@ -168,7 +169,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
-          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
+          <div className="relative bg-white w-full max-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
             <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
             <h3 className="text-2xl font-black text-slate-800 mb-2">إلغاء الفاتورة؟</h3>
             <p className="text-slate-500 font-bold text-sm mb-8">سيتم مسح جميع الأصناف التي قمت بإضافتها حالياً.</p>
@@ -353,7 +354,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
         <div className="lg:col-span-4 space-y-4 md:space-y-8">
            <div className="bg-white p-5 md:p-8 rounded-[1.5rem] md:rounded-[3rem] shadow-xl border border-slate-50 space-y-6">
-              <h3 className="font-black text-slate-800 text-sm md:text-xl border-b pb-4 border-slate-50 text-center uppercase tracking-tighter">بيانات العميل</h3>
+              <h3 className="font-black text-slate-800 text-sm md:text-xl border-b pb-4 border-slate-50 text-center uppercase tracking-tighter">بيانات العميل والشحن</h3>
               
               <div className="space-y-4 md:space-y-6">
                  <div className="space-y-1.5">
@@ -376,6 +377,21 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                       className="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-bold text-center text-sm shadow-inner transition-all"
                       dir="ltr"
                     />
+                 </div>
+
+                 <div className="space-y-1.5">
+                    <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">رسوم التوصيل (اختياري)</label>
+                    <div className="relative">
+                      <input 
+                        type="number"
+                        value={deliveryFee || ''}
+                        onChange={e => setDeliveryFee(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-full px-4 md:px-6 py-3 md:py-4 bg-emerald-50/50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-black text-center text-sm shadow-inner transition-all text-emerald-700"
+                      />
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-300 text-[10px] font-black">ج.م</span>
+                    </div>
+                    <p className="text-[7px] text-slate-400 font-bold mr-1 italic">أضف رسوم الشحن إذا كان الطلب يتطلب توصيل للمنزل.</p>
                  </div>
 
                  <div className="space-y-2">
@@ -403,6 +419,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                        <span className="text-slate-400 text-sm md:text-base">الإجمالي:</span>
                        <span className="text-emerald-600">{total.toFixed(2)} ج.م</span>
                     </div>
+                    {deliveryFee > 0 && (
+                      <p className="text-[9px] text-slate-400 font-bold text-center">شامل رسوم التوصيل ({deliveryFee.toFixed(2)} ج.م)</p>
+                    )}
                  </div>
 
                  <button 

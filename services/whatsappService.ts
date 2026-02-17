@@ -29,6 +29,10 @@ export const WhatsAppService = {
       .map(item => `• ${item.name} (الكمية: ${item.quantity}) - ${item.price * item.quantity} ج.م`)
       .join('\n');
 
+    const deliveryText = (order.total - order.subtotal) > 0 
+      ? `*رسوم التوصيل:* ${order.total - order.subtotal} ج.م` 
+      : `*التوصيل:* استلام من الفرع`;
+
     const message = `
 🛍️ *طلب جديد من سوق العصر*
 -------------------------
@@ -41,6 +45,7 @@ export const WhatsAppService = {
 ${itemsList}
 
 *المجموع الفرعي:* ${order.subtotal} ج.م
+${deliveryText}
 *الإجمالي النهائي:* ${order.total} ج.م
 *طريقة الدفع:* ${order.paymentMethod}
 -------------------------
@@ -63,6 +68,9 @@ ${itemsList}
       .map(item => `• ${item.name} (${item.quantity} × ${item.price})`)
       .join('\n');
 
+    const deliveryFee = order.total - order.subtotal;
+    const deliveryLine = deliveryFee > 0 ? `*رسوم التوصيل:* ${deliveryFee} ج.م\n` : '';
+
     const message = `
 🧾 *فاتورة مبيعات - سوق العصر*
 -------------------------
@@ -72,7 +80,9 @@ ${itemsList}
 *البيان:*
 ${itemsList}
 
-*الإجمالي:* ${order.total} ج.م
+-------------------------
+*المجموع:* ${order.subtotal} ج.م
+${deliveryLine}*الإجمالي:* ${order.total} ج.م
 *الحالة:* ${order.paymentMethod}
 -------------------------
 شكراً لثقتكم بنا ✨
