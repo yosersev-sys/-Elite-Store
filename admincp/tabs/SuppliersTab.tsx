@@ -6,7 +6,7 @@ import { ApiService } from '../../services/api';
 interface SuppliersTabProps {
   isLoading: boolean;
   suppliersData?: Supplier[];
-  onRefresh?: () => void;
+  onRefresh?: () => Promise<void> | void; // تحديث النوع ليدعم async
   initialFilter?: FilterStatus;
 }
 
@@ -112,10 +112,11 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     setIsModalOpen(true);
   };
 
+  // تعديل منطق الحفظ ليكون متزامناً مع تحديث البيانات
   const handleSave = async () => {
     if (!formData.name || !formData.phone) return alert('الاسم ورقم الهاتف مطلوبان');
     
-    setIsSaving(true);
+    setIsSaving(true); // تشغيل الـ Spinner
     try {
       const payload: Supplier = {
         ...formData,
@@ -129,9 +130,13 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         : await ApiService.addSupplier(payload);
 
       if (success) {
-        if (onRefresh) onRefresh();
-        else fetchSuppliers();
-        setIsModalOpen(false);
+        // الانتظار الفعلي لجلب البيانات الجديدة قبل إغلاق النافذة
+        if (onRefresh) {
+          await onRefresh(); 
+        } else {
+          await fetchSuppliers();
+        }
+        setIsModalOpen(false); // إغلاق فقط بعد اكتمال التحديث
       } else {
         alert('فشل حفظ بيانات المورد');
       }
@@ -139,7 +144,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       console.error("Save Error:", err);
       alert('خطأ في الاتصال بالسيرفر');
     } finally {
-      setIsSaving(false);
+      setIsSaving(false); // إطفاء الـ Spinner
     }
   };
 
@@ -156,8 +161,8 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       };
       const success = await ApiService.updateSupplier(updatedSupplier);
       if (success) {
-        if (onRefresh) onRefresh();
-        else fetchSuppliers();
+        if (onRefresh) await onRefresh();
+        else await fetchSuppliers();
         setIsPaymentModalOpen(false);
         setPaymentAmount('');
       }
@@ -173,8 +178,8 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     try {
       const success = await ApiService.deleteSupplier(id);
       if (success) {
-        if (onRefresh) onRefresh();
-        else fetchSuppliers();
+        if (onRefresh) await onRefresh();
+        else await fetchSuppliers();
       }
     } catch (err) {
       alert('خطأ في عملية الحذف');
@@ -188,9 +193,9 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
 
   if (localLoading || (globalLoading && suppliers.length === 0)) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 animate-pulse">
-        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-400 font-black">جاري تحميل شبكة الموردين...</p>
+      <div className="flex flex-col items-center justify-center py-32">
+        <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+        <p className="text-slate-400 font-black">جاري مزامنة الموردين...</p>
       </div>
     );
   }
@@ -312,11 +317,10 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsPaymentModalOpen(false)}></div>
           <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden">
              
-             {/* Loading Overlay inside modal */}
              {isSaving && (
-               <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center animate-fadeIn">
+               <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
                  <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                 <p className="text-emerald-600 font-black text-sm">جاري معالجة الدفعة...</p>
+                 <p className="text-emerald-600 font-black text-sm">جاري تحديث الحساب...</p>
                </div>
              )}
 
@@ -339,7 +343,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                   disabled={isSaving}
                   className={`w-full py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400 cursor-not-allowed opacity-50' : 'bg-slate-900 text-white hover:bg-emerald-600'}`}
                 >
-                  {isSaving ? 'جاري التأكيد...' : 'تأكيد دفع المبلغ ✅'}
+                  {isSaving ? 'جاري الاتصال...' : 'تأكيد دفع المبلغ ✅'}
                 </button>
              </div>
           </div>
@@ -352,12 +356,16 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsModalOpen(false)}></div>
           <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 md:p-12 animate-slideUp overflow-hidden max-h-[90vh] overflow-y-auto no-scrollbar">
             
-            {/* Loading Overlay inside modal */}
+            {/* مؤشر التحميل الكامل والمزامن */}
             {isSaving && (
-              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-[3000] flex flex-col items-center justify-center animate-fadeIn">
-                <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-                <p className="text-emerald-600 font-black text-xl">جاري حفظ بيانات المورد...</p>
-                <p className="text-slate-400 font-bold text-xs mt-2">يرجى الانتظار قليلاً</p>
+              <div className="absolute inset-0 bg-white/95 backdrop-blur-md z-[3000] flex flex-col items-center justify-center animate-fadeIn">
+                <div className="relative mb-6">
+                   <div className="w-20 h-20 border-4 border-emerald-100 rounded-full"></div>
+                   <div className="w-20 h-20 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                   <div className="absolute inset-0 flex items-center justify-center text-2xl">🚛</div>
+                </div>
+                <h4 className="text-xl font-black text-slate-800">جاري الحفظ والمزامنة...</h4>
+                <p className="text-slate-400 font-bold text-xs mt-2 animate-pulse">يتم الآن تحديث قاعدة البيانات وجلب القائمة الجديدة</p>
               </div>
             )}
 
@@ -412,7 +420,14 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                   disabled={isSaving} 
                   className={`flex-grow py-4 rounded-2xl font-black text-sm active:scale-95 shadow-xl transition-all flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400 cursor-not-allowed opacity-50' : 'bg-emerald-600 text-white hover:bg-slate-900'}`}
                 >
-                  {isSaving ? 'جاري الحفظ...' : 'حفظ المورد ✨'}
+                  {isSaving ? (
+                    <>
+                      <div className="w-5 h-5 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      جاري المعالجة...
+                    </>
+                  ) : (
+                    'حفظ بيانات المورد ✨'
+                  )}
                 </button>
                 <button disabled={isSaving} onClick={() => setIsModalOpen(false)} className="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm hover:bg-slate-200">إلغاء</button>
               </div>
