@@ -5,6 +5,7 @@ import BarcodeScanner from '../components/BarcodeScanner';
 
 interface AdminInvoiceFormProps {
   products: Product[];
+  globalDeliveryFee: number;
   onSubmit: (order: Order) => void;
   onCancel: () => void;
   initialCustomerName?: string;
@@ -12,10 +13,10 @@ interface AdminInvoiceFormProps {
 }
 
 const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ 
-  products, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '' 
+  products, globalDeliveryFee, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '' 
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
-  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  const [isDeliveryEnabled, setIsDeliveryEnabled] = useState<boolean>(false);
   const [customerInfo, setCustomerInfo] = useState({
     name: initialCustomerName,
     phone: initialPhone,
@@ -128,6 +129,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     invoiceItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   , [invoiceItems]);
 
+  const deliveryFee = isDeliveryEnabled ? globalDeliveryFee : 0;
   const total = subtotal + deliveryFee;
 
   const handleFinalSubmit = () => {
@@ -145,7 +147,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       customerName: customerInfo.name,
       phone: customerInfo.phone,
       city: customerInfo.city,
-      address: customerInfo.address || (deliveryFee > 0 ? 'توصيل للمنزل' : 'استلام فرع (كاشير)'),
+      address: customerInfo.address || (isDeliveryEnabled ? 'توصيل للمنزل' : 'استلام فرع (كاشير)'),
       items: invoiceItems,
       subtotal,
       total,
@@ -379,19 +381,19 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     />
                  </div>
 
-                 <div className="space-y-1.5">
-                    <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">رسوم التوصيل (اختياري)</label>
-                    <div className="relative">
-                      <input 
-                        type="number"
-                        value={deliveryFee || ''}
-                        onChange={e => setDeliveryFee(parseFloat(e.target.value) || 0)}
-                        placeholder="0.00"
-                        className="w-full px-4 md:px-6 py-3 md:py-4 bg-emerald-50/50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-black text-center text-sm shadow-inner transition-all text-emerald-700"
-                      />
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-300 text-[10px] font-black">ج.م</span>
+                 {/* خيار رسوم التوصيل - Toggle Switch */}
+                 <div className="flex items-center justify-between bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 transition-all">
+                    <div>
+                      <p className="font-black text-emerald-800 text-xs">خدمة توصيل للمنزل؟</p>
+                      <p className="text-[9px] text-emerald-600 font-bold">سيتم إضافة {globalDeliveryFee} ج.م للفاتورة</p>
                     </div>
-                    <p className="text-[7px] text-slate-400 font-bold mr-1 italic">أضف رسوم الشحن إذا كان الطلب يتطلب توصيل للمنزل.</p>
+                    <button 
+                      type="button"
+                      onClick={() => setIsDeliveryEnabled(!isDeliveryEnabled)}
+                      className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${isDeliveryEnabled ? 'bg-emerald-600' : 'bg-slate-300'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isDeliveryEnabled ? 'right-7' : 'right-1'}`}></div>
+                    </button>
                  </div>
 
                  <div className="space-y-2">
@@ -419,8 +421,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                        <span className="text-slate-400 text-sm md:text-base">الإجمالي:</span>
                        <span className="text-emerald-600">{total.toFixed(2)} ج.م</span>
                     </div>
-                    {deliveryFee > 0 && (
-                      <p className="text-[9px] text-slate-400 font-bold text-center">شامل رسوم التوصيل ({deliveryFee.toFixed(2)} ج.م)</p>
+                    {isDeliveryEnabled && (
+                      <p className="text-[9px] text-slate-400 font-bold text-center">شامل رسوم التوصيل ({globalDeliveryFee.toFixed(2)} ج.م)</p>
                     )}
                  </div>
 

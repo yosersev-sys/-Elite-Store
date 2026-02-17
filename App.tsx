@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
 import Header from './components/Header.tsx';
@@ -311,6 +312,7 @@ const App: React.FC = () => {
           {(view === 'admin-invoice' || view === 'quick-invoice') && (
             <AdminInvoiceForm 
               products={products} initialCustomerName={currentUser?.name || 'عميل نقدي'} initialPhone={currentUser?.phone || ''}
+              globalDeliveryFee={deliveryFee}
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
@@ -338,7 +340,6 @@ const App: React.FC = () => {
           {view === 'product-details' && selectedProduct && (
             <ProductDetailsView 
               product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-              // Fixed: Updated to match corrected ProductDetailsViewProps onAddToCart signature.
               onAddToCart={(p, qty, size, color) => addToCart(p, qty)} 
               onBack={() => setView('store')}
               isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
