@@ -146,10 +146,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            </div>
         </div>
 
-        {/* تم تعديل هذا الشرط: إزالة activeTab !== 'stats' ليظهر التحميل في قسم الإحصائيات أيضاً عند أول فتح */}
+        {/* ظهور مؤشر التحميل المركزي إذا كانت البيانات لم تصل بعد */}
         {props.isLoading && safeProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 animate-fadeIn bg-white rounded-[3rem] shadow-sm border-2 border-dashed border-slate-100">
-            <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+            <div className="w-16 h-16 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin mb-6"></div>
             <h4 className="font-black text-slate-800 text-xl">جاري جلب أحدث البيانات...</h4>
             <p className="text-slate-400 text-sm font-bold mt-2">يتم الآن مزامنة بيانات المتجر من السيرفر الرئيسي</p>
           </div>

@@ -268,6 +268,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       {(isSubmitting || isCompressing) && (
         <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-md">
            <div className="bg-white p-10 rounded-[3rem] text-center space-y-4 shadow-2xl">
+              {/* نافذة ثابتة بدون animate-bounce */}
               <div className="w-16 h-16 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin mx-auto"></div>
               <p className="font-black text-slate-800 text-lg">
                 {isCompressing ? 'جاري تحسين الصور...' : 'جاري نشر المنتج في المتجر...'}

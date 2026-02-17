@@ -4,27 +4,28 @@ import { Product, Category, Order, User, Supplier } from '../types.ts';
 const USER_CACHE_KEY = 'souq_user_profile';
 
 /**
- * دالة جلب البيانات مع معالجة الأخطاء والمسارات الذكية
+ * دالة مساعدة لإنشاء رابط مطلق للملف api.php بشكل آمن تماماً
+ */
+const getAbsoluteApiUrl = (action: string): string => {
+  const loc = window.location;
+  // استخراج المسار المجلد الحالي (مثلاً /store/ إذا كان الموقع في مجلد)
+  const currentDir = loc.pathname.substring(0, loc.pathname.lastIndexOf('/') + 1);
+  const baseUrl = loc.origin + currentDir + 'api.php';
+  
+  const url = new URL(baseUrl);
+  url.searchParams.set('action', action);
+  url.searchParams.set('_t', Date.now().toString()); // منع التخزين المؤقت (Cache-busting)
+  return url.toString();
+};
+
+/**
+ * دالة جلب البيانات الأساسية مع معالجة الأخطاء
  */
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
-    // الحصول على المسار الأساسي المحقون أو افتراض الملف في نفس المجلد
-    let apiBase = (window as any).__SOUQ_API_PATH__ || 'api.php';
-    
-    // بناء رابط مطلق يحترم المجلد الحالي (Subdirectory support)
-    const currentPath = window.location.pathname;
-    const currentDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
-    
-    // إذا كان apiBase يبدأ بـ / فهو مطلق من الجذر، وإلا فهو من المجلد الحالي
-    const baseUrl = apiBase.startsWith('/') 
-      ? window.location.origin + apiBase
-      : window.location.origin + currentDir + apiBase;
+    const url = getAbsoluteApiUrl(action);
 
-    const url = new URL(baseUrl);
-    url.searchParams.set('action', action);
-    url.searchParams.set('_t', Date.now().toString()); // منع الكاش
-
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       ...options,
       headers: { 
         'Accept': 'application/json',
@@ -37,11 +38,10 @@ const safeFetch = async (action: string, options?: RequestInit) => {
       throw new Error(`HTTP Error: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error(`API Error (${action}):`, error);
-    // إرجاع مصفوفة فارغة لعمليات الجلب لتجنب تعطل الواجهة في حال 404
+    // إرجاع مصفوفة فارغة لعمليات الجلب لتجنب تعطل الواجهة
     if (action.startsWith('get_')) return [];
     return null;
   }
