@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { CartItem, User } from '../types';
 
 interface CheckoutViewProps {
   cart: CartItem[];
   currentUser: User | null;
+  deliveryFee: number;
   onPlaceOrder: (details: any) => void;
   onBack: () => void;
 }
@@ -14,7 +16,7 @@ interface FormErrors {
   address?: string;
 }
 
-const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceOrder, onBack }) => {
+const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, deliveryFee, onPlaceOrder, onBack }) => {
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -23,7 +25,6 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
 
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // التعبئة التلقائية عند التحميل أو عند تغير المستخدم المسجل
   useEffect(() => {
     if (currentUser) {
       setFormData(prev => ({
@@ -34,25 +35,20 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
     }
   }, [currentUser]);
 
-  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const total = subtotal + deliveryFee;
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
-    
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'يرجى إدخال اسم المستلم كاملاً';
-    }
-    
+    if (!formData.fullName.trim()) newErrors.fullName = 'يرجى إدخال اسم المستلم كاملاً';
     if (!formData.phone.trim()) {
       newErrors.phone = 'يرجى إدخال رقم الجوال';
     } else if (!/^(01)\d{9}$/.test(formData.phone.trim())) {
-      newErrors.phone = 'يرجى إدخال رقم جوال مصري صحيح (11 رقم)';
+      newErrors.phone = 'يرجى إدخال رقم جوال مصري صحيح';
     }
-
     if (!formData.address.trim() || formData.address.trim().length < 5) {
       newErrors.address = 'يرجى إدخال عنوان واضح للتوصيل';
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -89,7 +85,6 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* نموذج البيانات الرئيسي */}
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-50">
             <div className="flex items-center gap-4 mb-8">
@@ -105,42 +100,21 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
             </div>
 
             <div className="space-y-6">
-              {/* الاسم الكامل */}
               <div className="space-y-2">
                 <label className="text-sm font-black text-slate-600 mr-2">اسم المستلم</label>
-                <input 
-                  type="text"
-                  value={formData.fullName}
-                  onChange={(e) => handleChange('fullName', e.target.value)}
-                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all ${errors.fullName ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} 
-                  placeholder="اكتب اسمك هنا" 
-                />
+                <input type="text" value={formData.fullName} onChange={(e) => handleChange('fullName', e.target.value)} className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all ${errors.fullName ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} placeholder="اكتب اسمك هنا" />
                 {errors.fullName && <p className="text-xs text-rose-500 font-bold mr-2">{errors.fullName}</p>}
               </div>
 
-              {/* رقم الجوال */}
               <div className="space-y-2">
                 <label className="text-sm font-black text-slate-600 mr-2">رقم الجوال</label>
-                <input 
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all text-left ${errors.phone ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} 
-                  placeholder="01xxxxxxxxx" 
-                  dir="ltr"
-                />
+                <input type="tel" value={formData.phone} onChange={(e) => handleChange('phone', e.target.value)} className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all text-left ${errors.phone ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} placeholder="01xxxxxxxxx" dir="ltr" />
                 {errors.phone && <p className="text-xs text-rose-500 font-bold mr-2">{errors.phone}</p>}
               </div>
 
-              {/* العنوان التفصيلي */}
               <div className="space-y-2">
                 <label className="text-sm font-black text-slate-600 mr-2">العنوان بالتفصيل</label>
-                <textarea 
-                  value={formData.address}
-                  onChange={(e) => handleChange('address', e.target.value)}
-                  className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all min-h-[120px] resize-none ${errors.address ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} 
-                  placeholder="اكتب الحي، الشارع، أو علامة مميزة بالقرب منك..."
-                />
+                <textarea value={formData.address} onChange={(e) => handleChange('address', e.target.value)} className={`w-full px-6 py-4 rounded-2xl border-2 outline-none transition-all min-h-[120px] resize-none ${errors.address ? 'border-rose-200 bg-rose-50' : 'border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400'}`} placeholder="اكتب الحي، الشارع، أو علامة مميزة بالقرب منك..." />
                 {errors.address && <p className="text-xs text-rose-500 font-bold mr-2">{errors.address}</p>}
               </div>
             </div>
@@ -150,12 +124,11 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
              <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center text-xl">🚚</div>
              <div>
                 <p className="font-black text-emerald-800 text-sm">توصيل سريع لجميع انحاء فاقوس - شرقية</p>
-                <p className="text-emerald-600 text-[10px] font-bold">يصلك طلبك في خلال 30 دقيقة بمجرد التأكيد.</p>
+                <p className="text-emerald-600 text-[10px] font-bold">يصلك طلبك في خلال دقائق بمجرد التأكيد.</p>
              </div>
           </div>
         </div>
 
-        {/* ملخص الطلب الجانبي */}
         <div className="lg:col-span-5">
           <div className="bg-white p-8 rounded-[3rem] border border-slate-50 shadow-xl shadow-slate-200/50 sticky top-24 space-y-8">
             <h3 className="text-xl font-black text-slate-900 border-b border-slate-50 pb-5">ملخص الطلب</h3>
@@ -177,11 +150,11 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
             <div className="space-y-4 pt-4 border-t border-slate-50">
               <div className="flex justify-between text-slate-400 font-black text-xs uppercase tracking-widest">
                 <span>المجموع</span>
-                <span>{total.toLocaleString()} ج.م</span>
+                <span>{subtotal.toLocaleString()} ج.م</span>
               </div>
-              <div className="flex justify-between text-emerald-600 font-black text-xs uppercase tracking-widest">
-                <span>الشحن</span>
-                <span>مجاني لفترة محدودة</span>
+              <div className="flex justify-between text-slate-500 font-black text-xs uppercase tracking-widest">
+                <span>مصاريف التوصيل</span>
+                <span className={deliveryFee === 0 ? 'text-emerald-600' : ''}>{deliveryFee === 0 ? 'مجاني' : `${deliveryFee} ج.م`}</span>
               </div>
               <div className="flex justify-between text-3xl font-black text-slate-900 pt-4 border-t border-slate-50">
                 <span>الإجمالي</span>
@@ -195,9 +168,6 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, onPlaceO
               className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95 flex items-center justify-center gap-3 group"
             >
               تأكيد الطلب الآن
-              <svg className="w-6 h-6 transition-transform group-hover:translate-x-[-4px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-              </svg>
             </button>
           </div>
         </div>
