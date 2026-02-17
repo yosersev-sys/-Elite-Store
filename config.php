@@ -17,12 +17,13 @@ try {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::ATTR_TIMEOUT => 5, // تقليل وقت الانتظار عند الفشل
+            PDO::ATTR_TIMEOUT => 5,
         ]
     );
 } catch (PDOException $e) {
+    // تعيين كود الخطأ 500 لكي يفهم المتصفح أن هناك مشكلة في السيرفر
+    http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
-    // إرجاع كائن خطأ بدلاً من 500 في حالة DB لكي لا تظهر رسالة Network Error غامضة
     echo json_encode([
         'status' => 'error',
         'type' => 'db_error',

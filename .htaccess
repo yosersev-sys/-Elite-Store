@@ -3,15 +3,15 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
-    # السماح بالوصول المباشر لمجلد API ومحتوياته
-    RewriteCond %{REQUEST_URI} ^/api/ [NC]
-    RewriteRule ^ - [L]
+    # استثناء مجلد الـ API من إعادة التوجيه
+    # نستخدم ^api/ بدون شرط الـ URI ليكون متوافقاً مع المجلدات الفرعية
+    RewriteRule ^api/ - [L]
 
-    # السماح بالوصول المباشر للملفات الموجودة فعلياً
+    # السماح بالوصول للملفات الموجودة فعلياً
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
     
-    # توجيه أي طلب آخر إلى index.php
+    # توجيه كل شيء آخر إلى المحرك الرئيسي
     RewriteRule ^ index.php [L]
 </IfModule>
 

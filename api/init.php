@@ -1,8 +1,13 @@
 <?php
 /**
- * Shared API Initialization - Optimized for Stability & Speed
+ * Shared API Initialization - Global Fixes
  */
-session_start();
+
+// بدء الجلسة مع فحص بسيط لمنع الأخطاء في بعض الاستضافات
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
+
 error_reporting(0); 
 ini_set('display_errors', 0);
 ini_set('memory_limit', '256M'); 
@@ -14,9 +19,10 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
-require_once '../config.php';
+require_once __DIR__ . '/../config.php';
 
 function sendRes($data) {
+    http_response_code(200);
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_NUMERIC_CHECK);
     exit;
 }
@@ -32,8 +38,10 @@ function isAdmin() {
 }
 
 function ensureSchema($pdo) {
-    // استخدام ملف محلي للكاش بدلاً من المجلد المؤقت للنظام لتجنب مشاكل الصلاحيات
-    $cacheFile = __DIR__ . '/schema_lock.txt';
+    // محاولة استخدام مجلد مؤقت إذا كان مجلد الـ API غير قابل للكتابة
+    $dir = is_writable(__DIR__) ? __DIR__ : sys_get_temp_dir();
+    $cacheFile = $dir . '/schema_lock_' . md5(DB_NAME) . '.txt';
+    
     if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 3600)) {
         return;
     }
@@ -55,20 +63,23 @@ function ensureSchema($pdo) {
 
         foreach ($tables as $table => $cols) {
             foreach ($cols as $col => $def) {
-                $check = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$col'");
-                if ($check->rowCount() == 0) {
-                    $pdo->exec("ALTER TABLE `$table` ADD `$col` $def");
-                }
+                try {
+                    $check = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$col'");
+                    if ($check && $check->rowCount() == 0) {
+                        $pdo->exec("ALTER TABLE `$table` ADD `$col` $def");
+                    }
+                } catch (Exception $e) {}
             }
         }
 
-        file_put_contents($cacheFile, time());
+        @file_put_contents($cacheFile, time());
     } catch (Exception $e) {
-        // لا نوقف الـ API إذا فشل فحص الهيكل، فقط نسجل الخطأ
         error_log("Schema Check Failed: " . $e->getMessage());
     }
 }
 
 // تفعيل فحص الهيكل
-ensureSchema($pdo);
+if (isset($pdo)) {
+    ensureSchema($pdo);
+}
 ?>
