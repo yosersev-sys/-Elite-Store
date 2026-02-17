@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Order } from '../types';
 import { WhatsAppService } from '../services/whatsappService';
 
@@ -12,41 +12,48 @@ interface OrderSuccessViewProps {
 const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone = '201026034170', onContinueShopping }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
-  // توليد الرابط لاستخدامه في وسم <a>
-  const whatsappUrl = WhatsAppService.getOrderWhatsAppUrl(order, adminPhone);
+  // حماية فورية: إذا لم يتوفر الطلب، لا تعرض شيئاً ولا تسمح بتنفيذ الأكواد التالية
+  if (!order) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="font-black text-slate-400">جاري تحميل بيانات الطلب...</p>
+        <button onClick={onContinueShopping} className="mt-4 text-emerald-600 font-bold underline">العودة للمتجر</button>
+      </div>
+    );
+  }
 
-  // محاولة الفتح التلقائي كخيار إضافي (قد يمنعه المتصفح، لذا نعتمد على الزر كحل أساسي)
-  useEffect(() => {
-    if (!hasAutoOpened && order) {
-      const timer = setTimeout(() => {
-        // نستخدم location.href للتحويل التلقائي فهو أكثر قبولاً من window.open في بعض الحالات
-        // لكننا لا نعتمد عليه كلياً، الزر أدناه هو الأهم.
-        setHasAutoOpened(true);
-      }, 1000); 
-      return () => clearTimeout(timer);
-    }
-  }, [order, adminPhone, hasAutoOpened]);
+  // حساب القيم بأمان
+  const subtotal = Number(order.subtotal || 0);
+  const total = Number(order.total || 0);
+  const deliveryFee = total - subtotal;
+  const items = Array.isArray(order.items) ? order.items : [];
+  
+  // توليد رابط الواتساب بأمان
+  const whatsappUrl = useMemo(() => WhatsAppService.getOrderWhatsAppUrl(order, adminPhone), [order, adminPhone]);
 
   const handlePrint = () => {
     window.print();
   };
 
   const handleShareScreenshot = async () => {
-    if (!invoiceRef.current) return;
+    if (!invoiceRef.current || isCapturing) return;
     setIsCapturing(true);
     try {
+      // إخفاء العناصر غير المرغوب فيها مؤقتاً
       await new Promise(resolve => setTimeout(resolve, 300));
+      
       const canvas = await (window as any).html2canvas(invoiceRef.current, {
-        scale: 4,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false
       });
+      
       canvas.toBlob(async (blob: Blob | null) => {
         if (!blob) return;
         const file = new File([blob], `Receipt-${order.id}.png`, { type: 'image/png' });
+        
         if (navigator.share && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
@@ -66,8 +73,6 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
       setIsCapturing(false);
     }
   };
-
-  if (!order) return null;
 
   return (
     <div className="max-w-xl mx-auto py-8 px-4 animate-fadeIn print:m-0 print:p-0">
@@ -96,7 +101,6 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
          </div>
       </div>
 
-      {/* زر واتساب المدير - تم تحويله لرابط صريح لضمان الفتح في كل المتصفحات */}
       <div className="no-print mb-8">
         <a 
           href={whatsappUrl}
@@ -123,26 +127,26 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
            <h1 className="text-2xl font-black text-slate-800 tracking-tighter">سوق العصر - فاقوس</h1>
            <p className="text-[11px] font-black text-emerald-600 mt-1 uppercase tracking-widest">soqelasr.com</p>
            <div className="mt-5 inline-block bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
-             إيصال مبيعات #{order.id}
+             إيصال مبيعات #{order.id || '---'}
            </div>
         </div>
 
         <div className="space-y-2 mb-8 text-[11px] font-bold text-slate-600">
            <div className="flex justify-between">
               <span className="opacity-50">التاريخ:</span>
-              <span>{new Date(order.createdAt).toLocaleDateString('ar-EG')} - {new Date(order.createdAt).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>
+              <span>{new Date(order.createdAt || Date.now()).toLocaleDateString('ar-EG')} - {new Date(order.createdAt || Date.now()).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>
            </div>
            <div className="flex justify-between">
               <span className="opacity-50">العميل:</span>
-              <span className="text-slate-800">{order.customerName}</span>
+              <span className="text-slate-800">{order.customerName || '---'}</span>
            </div>
            <div className="flex justify-between">
               <span className="opacity-50">الهاتف:</span>
-              <span>{order.phone}</span>
+              <span>{order.phone || '---'}</span>
            </div>
            <div className="flex justify-between items-start">
               <span className="opacity-50">العنوان:</span>
-              <span className="text-left max-w-[180px] break-words">{order.address}</span>
+              <span className="text-left max-w-[180px] break-words">{order.address || '---'}</span>
            </div>
         </div>
 
@@ -152,14 +156,14 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
               <span>الإجمالي</span>
            </div>
            <div className="space-y-5">
-              {order.items.map((item, idx) => (
+              {items.map((item, idx) => (
                 <div key={idx} className="flex flex-col gap-1.5">
                    <div className="flex justify-between items-start">
-                      <span className="text-xs font-black text-slate-800 leading-tight flex-grow">{item.name}</span>
-                      <span className="text-xs font-black text-slate-900 mr-4">{(item.price * item.quantity).toFixed(2)}</span>
+                      <span className="text-xs font-black text-slate-800 leading-tight flex-grow">{item.name || 'منتج'}</span>
+                      <span className="text-xs font-black text-slate-900 mr-4">{((item.price || 0) * (item.quantity || 0)).toFixed(2)}</span>
                    </div>
                    <div className="text-[10px] font-bold text-slate-400">
-                      {item.quantity} × {item.price.toFixed(2)} ج.م
+                      {item.quantity || 0} × {(item.price || 0).toFixed(2)} ج.م
                    </div>
                 </div>
               ))}
@@ -169,22 +173,22 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
         <div className="border-t-2 border-dashed border-slate-200 pt-6 space-y-3">
            <div className="flex justify-between text-xs font-bold text-slate-500">
               <span>المجموع الفرعي:</span>
-              <span>{order.subtotal.toFixed(2)} ج.م</span>
+              <span>{subtotal.toFixed(2)} ج.م</span>
            </div>
            <div className="flex justify-between text-xs font-bold text-slate-500">
               <span>مصاريف التوصيل:</span>
-              <span>{(order.total - order.subtotal).toFixed(2)} ج.م</span>
+              <span>{deliveryFee.toFixed(2)} ج.م</span>
            </div>
            <div className="flex justify-between items-center pt-4 border-t border-slate-50">
               <span className="text-sm font-black text-slate-800">الإجمالي النهائي:</span>
-              <span className="text-2xl font-black text-emerald-600">{order.total.toFixed(2)} ج.م</span>
+              <span className="text-2xl font-black text-emerald-600">{total.toFixed(2)} ج.م</span>
            </div>
         </div>
 
         <div className="mt-12 text-center space-y-4 border-t border-slate-50 pt-8">
            <div className="flex flex-col items-center gap-1.5 opacity-60">
               <div className="text-2xl font-black tracking-[5px] text-slate-900 border-x-4 border-slate-900 px-5">
-                {String(order.id).replace(/\D/g, '')}
+                {String(order.id || '000000').replace(/\D/g, '') || '000000'}
               </div>
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">شكراً لثقتكم بنا!</p>
            </div>
@@ -192,7 +196,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
         </div>
       </div>
 
-      <div className="no-print mt-12 grid grid-cols-2 gap-4 max-w-lg mx-auto">
+      <div className="no-print mt-12 grid grid-cols-2 gap-4 max-w-lg mx-auto pb-20">
         <button 
           onClick={handlePrint} 
           className="flex items-center justify-center gap-2 bg-slate-900 text-white py-4.5 rounded-2xl font-black text-sm hover:bg-slate-800 shadow-lg active:scale-95 transition-all"

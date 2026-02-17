@@ -76,6 +76,7 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
+  // حفظ الطلب الأخير في sessionStorage لضمان بقائه عند تحديث الصفحة
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(() => {
     try {
       const saved = sessionStorage.getItem('souq_last_order');
@@ -432,6 +433,7 @@ const App: React.FC = () => {
                   items: [...cart], total, subtotal, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
                 };
                 if (await ApiService.saveOrder(order)) {
+                  // ترتيب مهم: تعيين الطلب أولاً ثم مسح السلة ثم الانتقال
                   setLastCreatedOrder(order);
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
