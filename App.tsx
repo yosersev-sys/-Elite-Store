@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
 import Header from './components/Header.tsx';
 import StoreView from './components/StoreView.tsx';
@@ -30,7 +30,6 @@ const App: React.FC = () => {
   const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
   const getInitialView = (): View => {
-    // تحسين معالجة الهاش لإزالة أي رموز مائلة زائدة قد يضيفها المتصفح
     const hash = window.location.hash.replace('#', '').replace(/^\//, '').split('?')[0];
     if (ADMIN_VIEWS.includes(hash as View)) return hash as View;
     const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success'];
@@ -76,7 +75,14 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
+  
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(() => {
+    try {
+        const saved = sessionStorage.getItem('souq_last_order');
+        return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
@@ -84,7 +90,6 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // تحديث الـ View عند تغيير الهاش يدوياً
   useEffect(() => {
     const handleHashChange = () => {
       const newView = getInitialView();
@@ -113,7 +118,6 @@ const App: React.FC = () => {
       if (activeUser) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
-
         if (activeUser.role === 'admin') {
           const [fetchedUsers, fetchedSuppliers] = await Promise.all([
             ApiService.getUsers(),
@@ -121,7 +125,6 @@ const App: React.FC = () => {
           ]);
           setUsers(fetchedUsers || []);
           setSuppliers(fetchedSuppliers || []);
-
           if (fetchedOrders && prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
@@ -176,7 +179,7 @@ const App: React.FC = () => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + quantity} : item);
+        return prev.map(item => item.id === product.id ? {...item, quantity: Number((item.quantity + quantity).toFixed(3))} : item);
       }
       return [...prev, { ...product, quantity }];
     });
@@ -211,6 +214,7 @@ const App: React.FC = () => {
             onClose={(id) => setNewOrdersForPopup(prev => prev.filter(o => o.id !== id))}
             onView={(order) => {
               setLastCreatedOrder(order);
+              sessionStorage.setItem('souq_last_order', JSON.stringify(order));
               onNavigateAction('order-success');
             }}
           />
@@ -220,12 +224,8 @@ const App: React.FC = () => {
           <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
         )}
 
-        {/* عرض شاشة تسجيل دخول الإدارة إذا كان المسار للإدارة والمستخدم ليس مديراً */}
         {isAdminPath && !isActuallyAdmin && (
-          <AdminAuthView 
-            onSuccess={handleAuthSuccess}
-            onClose={() => onNavigateAction('store')}
-          />
+          <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => onNavigateAction('store')} />
         )}
 
         {showAuthModal && (
@@ -234,15 +234,9 @@ const App: React.FC = () => {
 
         {!isAdminPath && (
           <Header 
-            cartCount={cart.length} 
-            wishlistCount={wishlist.length} 
-            categories={categories}
-            currentUser={currentUser}
-            onNavigate={onNavigateAction}
-            onLoginClick={() => setShowAuthModal(true)}
-            onLogout={handleLogout}
-            onSearch={setSearchQuery} 
-            onCategorySelect={(id) => { setSelectedCategoryId(id); setView('store'); }}
+            cartCount={cart.length} wishlistCount={wishlist.length} categories={categories} currentUser={currentUser}
+            onNavigate={onNavigateAction} onLoginClick={() => setShowAuthModal(true)} onLogout={handleLogout}
+            onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); setView('store'); }}
           />
         )}
 
@@ -259,7 +253,6 @@ const App: React.FC = () => {
             </>
           )}
           
-          {/* لوحة التحكم الرئيسية */}
           {(view === 'admin' || view === 'admincp') && isActuallyAdmin && (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser}
@@ -281,6 +274,7 @@ const App: React.FC = () => {
               }}
               onViewOrder={(order) => {
                 setLastCreatedOrder(order);
+                sessionStorage.setItem('souq_last_order', JSON.stringify(order));
                 onNavigateAction('order-success');
               }}
               onUpdateOrderPayment={async (id, method) => {
@@ -319,12 +313,13 @@ const App: React.FC = () => {
             />
           )}
 
-          {view === 'admin-invoice' && (
+          {(view === 'admin-invoice' || view === 'quick-invoice') && (
             <AdminInvoiceForm 
               products={products} initialCustomerName={currentUser?.name || 'عميل نقدي'} initialPhone={currentUser?.phone || ''}
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
+                  sessionStorage.setItem('souq_last_order', JSON.stringify(order));
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
                   onNavigateAction('order-success');
                   await loadData(true);
@@ -336,7 +331,9 @@ const App: React.FC = () => {
 
           {view === 'cart' && (
             <CartView 
-              cart={cart} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
+              cart={cart} 
+              deliveryFee={deliveryFee}
+              onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, Number((i.quantity + d).toFixed(3)))} : i))}
               onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
               onCheckout={() => onNavigateAction('checkout')} onContinueShopping={() => onNavigateAction('store')}
             />
@@ -345,7 +342,7 @@ const App: React.FC = () => {
           {view === 'product-details' && selectedProduct && (
             <ProductDetailsView 
               product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-              onAddToCart={(p) => addToCart(p)} onBack={() => onNavigateAction('store')}
+              onAddToCart={(p, s, c, rect) => addToCart(p, 1)} onBack={() => onNavigateAction('store')}
               isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
             />
           )}
@@ -358,14 +355,16 @@ const App: React.FC = () => {
              <CheckoutView 
               cart={cart} currentUser={currentUser} onBack={() => onNavigateAction('cart')}
               onPlaceOrder={async (details) => {
-                const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+                const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+                const total = subtotal + deliveryFee;
                 const order: Order = {
                   id: 'ORD-' + Date.now().toString().slice(-6),
                   customerName: details.fullName, phone: details.phone, city: 'فاقوس', address: details.address,
-                  items: [...cart], total, subtotal: total, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
+                  items: [...cart], total, subtotal, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
                 };
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
+                  sessionStorage.setItem('souq_last_order', JSON.stringify(order));
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
                   onNavigateAction('order-success');
