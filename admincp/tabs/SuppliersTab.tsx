@@ -36,7 +36,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     status: 'active' as any
   });
 
-  // مزامنة الفلتر مع الباراميتر القادم من الخارج (مثل صفحة الإحصائيات)
   useEffect(() => {
     if (initialFilter) {
       setFilterStatus(initialFilter);
@@ -116,7 +115,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
   const handleSave = async () => {
     if (!formData.name || !formData.phone) return alert('الاسم ورقم الهاتف مطلوبان');
     
-    setIsSaving(true); // بدء حالة التحميل
+    setIsSaving(true);
     try {
       const payload: Supplier = {
         ...formData,
@@ -137,9 +136,10 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         alert('فشل حفظ بيانات المورد');
       }
     } catch (err) {
+      console.error("Save Error:", err);
       alert('خطأ في الاتصال بالسيرفر');
     } finally {
-      setIsSaving(false); // إنهاء حالة التحميل بعد رد السيرفر (نجاح أو فشل)
+      setIsSaving(false);
     }
   };
 
@@ -187,7 +187,12 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
   };
 
   if (localLoading || (globalLoading && suppliers.length === 0)) {
-    return <div className="p-20 text-center animate-pulse text-slate-400 font-black">جاري تحميل شبكة الموردين...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-32 animate-pulse">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-slate-400 font-black">جاري تحميل شبكة الموردين...</p>
+      </div>
+    );
   }
 
   return (
@@ -322,11 +327,11 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                 <button 
                   onClick={handleQuickPayment}
                   disabled={isSaving}
-                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-2"
+                  className={`w-full py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-emerald-600'}`}
                 >
                   {isSaving ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <div className="w-5 h-5 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
                       جاري المعالجة...
                     </>
                   ) : (
@@ -392,18 +397,18 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                 <button 
                   onClick={handleSave} 
                   disabled={isSaving} 
-                  className="flex-grow bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                  className={`flex-grow py-4 rounded-2xl font-black text-sm active:scale-95 shadow-xl transition-all flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-slate-900'}`}
                 >
                   {isSaving ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <div className="w-5 h-5 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
                       جاري الحفظ والاتصال...
                     </>
                   ) : (
                     'حفظ المورد ✨'
                   )}
                 </button>
-                <button onClick={() => setIsModalOpen(false)} className="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm">إلغاء</button>
+                <button onClick={() => setIsModalOpen(false)} className="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm hover:bg-slate-200">إلغاء</button>
               </div>
             </div>
           </div>
