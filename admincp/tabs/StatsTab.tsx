@@ -13,7 +13,6 @@ interface StatsTabProps {
 
 const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categories = [], suppliers = [], isLoading, onNavigateToTab, onOpenAddForm }) => {
   const stats = useMemo(() => {
-    // التأكد من أن جميع المدخلات مصفوفات
     const safeProducts = Array.isArray(products) ? products : [];
     const safeOrders = Array.isArray(orders) ? orders : [];
     const safeCategories = Array.isArray(categories) ? categories : [];
@@ -64,31 +63,32 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
     };
   }, [products, orders, categories, suppliers]);
 
+  const formatNum = (num: number) => {
+    return Number(num || 0).toLocaleString('ar-EG', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+  };
+
   if (isLoading && (!stats || stats.totalProducts === 0)) {
     return (
       <div className="space-y-10 animate-fadeIn">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-           <div className="h-32 bg-white rounded-[2.5rem] border border-slate-100 animate-pulse flex items-center p-8 gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl"></div>
-              <div className="space-y-2">
-                <div className="w-32 h-4 bg-slate-100 rounded-lg"></div>
-                <div className="w-48 h-3 bg-slate-50 rounded-lg"></div>
-              </div>
-           </div>
-           <div className="h-32 bg-white rounded-[2.5rem] border border-slate-100 animate-pulse flex items-center p-8 gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl"></div>
-              <div className="space-y-2">
-                <div className="w-32 h-4 bg-slate-100 rounded-lg"></div>
-                <div className="w-48 h-3 bg-slate-50 rounded-lg"></div>
-              </div>
-           </div>
+           {[...Array(2)].map((_, i) => (
+             <div key={i} className="h-32 bg-white rounded-[2.5rem] border border-slate-100 animate-pulse flex items-center p-8 gap-4">
+                <div className="w-14 h-14 bg-slate-100 rounded-2xl"></div>
+                <div className="space-y-2">
+                  <div className="w-32 h-4 bg-slate-100 rounded-lg"></div>
+                  <div className="w-48 h-3 bg-slate-50 rounded-lg"></div>
+                </div>
+             </div>
+           ))}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
            {[...Array(4)].map((_, i) => (
              <div key={i} className="h-44 bg-white rounded-[3rem] border border-slate-100 animate-pulse p-8">
                 <div className="flex justify-between mb-6">
                   <div className="w-12 h-12 bg-slate-100 rounded-xl"></div>
-                  <div className="w-12 h-4 bg-slate-50 rounded-full"></div>
                 </div>
                 <div className="space-y-2">
                    <div className="w-20 h-2 bg-slate-50 rounded"></div>
@@ -111,15 +111,10 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
               <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl shadow-xl border border-white/30 animate-pulse">⏳</div>
               <div>
                 <h4 className="text-xl font-black leading-tight">ديون العملاء</h4>
-                <p className="text-orange-50 font-bold text-[10px] mt-1 tracking-wide">مطلوب تحصيل {stats.totalDebtAmount.toLocaleString()} ج.م</p>
+                <p className="text-orange-50 font-bold text-[10px] mt-1 tracking-wide">مطلوب تحصيل {formatNum(stats.totalDebtAmount)} ج.م</p>
               </div>
             </div>
-            <button 
-              onClick={() => onNavigateToTab('orders', 'آجل')} 
-              className="relative z-10 bg-white text-orange-600 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl hover:bg-slate-900 hover:text-white transition-all active:scale-95"
-            >
-              🔍
-            </button>
+            <button onClick={() => onNavigateToTab('orders', 'آجل')} className="relative z-10 bg-white text-orange-600 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl hover:bg-slate-900 hover:text-white transition-all active:scale-95">🔍</button>
           </div>
         )}
 
@@ -130,25 +125,19 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
               <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl shadow-xl border border-white/30">🚛</div>
               <div>
                 <h4 className="text-xl font-black leading-tight">حسابات الموردين</h4>
-                <p className="text-rose-50 font-bold text-[10px] mt-1 tracking-wide">مستحق دفع {stats.totalSupplierDebt.toLocaleString()} ج.م</p>
+                <p className="text-rose-50 font-bold text-[10px] mt-1 tracking-wide">مستحق دفع {formatNum(stats.totalSupplierDebt)} ج.م</p>
               </div>
             </div>
-            <button 
-              onClick={() => onNavigateToTab('suppliers', '', 'debtors')} 
-              className="relative z-10 bg-slate-900 text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl hover:bg-white hover:text-rose-600 transition-all active:scale-95"
-              title="عرض الموردين المدينين"
-            >
-              📋
-            </button>
+            <button onClick={() => onNavigateToTab('suppliers', '', 'debtors')} className="relative z-10 bg-slate-900 text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl hover:bg-white hover:text-rose-600 transition-all active:scale-95">📋</button>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-         <StatCard title="إجمالي المبيعات" value={`${stats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" trend="+12% اليوم" />
-         <StatCard title="صافي الأرباح" value={`${stats.netProfit.toLocaleString()} ج.م`} icon="📈" color="indigo" isDark />
+         <StatCard title="إجمالي المبيعات" value={`${formatNum(stats.totalSales)} ج.م`} icon="💰" color="emerald" trend="+12% اليوم" />
+         <StatCard title="صافي الأرباح" value={`${formatNum(stats.netProfit)} ج.م`} icon="📈" color="indigo" isDark />
          <StatCard title="نواقص المخزن" value={stats.lowStockCount} icon="⚠️" color="rose" onClick={() => onNavigateToTab('products', '', 'low_stock')} trend="بحاجة لطلب" />
-         <StatCard title="ديون الموردين" value={`${stats.totalSupplierDebt.toLocaleString()} ج.م`} icon="💸" color="amber" onClick={() => onNavigateToTab('suppliers')} />
+         <StatCard title="ديون الموردين" value={`${formatNum(stats.totalSupplierDebt)} ج.م`} icon="💸" color="amber" onClick={() => onNavigateToTab('suppliers')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -158,9 +147,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
                 <h4 className="font-black text-xl text-slate-800">تحليل المبيعات والمخزون</h4>
                 <p className="text-slate-400 text-xs font-bold mt-1">مقارنة بين التكلفة وصافي الربح</p>
               </div>
-              <div className="flex gap-2">
-                <button onClick={onOpenAddForm} className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-black text-[10px]">إضافة صنف +</button>
-              </div>
+              <button onClick={onOpenAddForm} className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-black text-[10px]">إضافة صنف +</button>
            </div>
 
            <div className="space-y-8">
@@ -170,18 +157,8 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
                     <span className="text-xs font-bold text-emerald-600">الربح الصافي: {stats.totalSales > 0 ? ((stats.netProfit/stats.totalSales)*100).toFixed(1) : 0}%</span>
                  </div>
                  <div className="h-14 w-full bg-slate-100 rounded-2xl overflow-hidden flex shadow-inner border-4 border-white">
-                    <div 
-                      style={{ width: `${stats.totalSales > 0 ? (stats.totalCost / stats.totalSales) * 100 : 0}%` }} 
-                      className="h-full bg-slate-300 flex items-center justify-center text-[9px] text-white font-black transition-all duration-1000"
-                    >
-                      التكلفة
-                    </div>
-                    <div 
-                      style={{ width: `${stats.totalSales > 0 ? (stats.netProfit / stats.totalSales) * 100 : 0}%` }} 
-                      className="h-full bg-emerald-500 flex items-center justify-center text-[9px] text-white font-black transition-all duration-1000"
-                    >
-                      صافي الربح ✨
-                    </div>
+                    <div style={{ width: `${stats.totalSales > 0 ? (stats.totalCost / stats.totalSales) * 100 : 0}%` }} className="h-full bg-slate-300 flex items-center justify-center text-[9px] text-white font-black transition-all duration-1000">التكلفة</div>
+                    <div style={{ width: `${stats.totalSales > 0 ? (stats.netProfit / stats.totalSales) * 100 : 0}%` }} className="h-full bg-emerald-500 flex items-center justify-center text-[9px] text-white font-black transition-all duration-1000">صافي الربح ✨</div>
                  </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -203,10 +180,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
                       <span className="text-[10px] font-bold text-slate-400">{cat.count} مبيعة</span>
                    </div>
                    <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-1000 delay-${idx*200}`}
-                        style={{ width: `${stats.catStats[0].count > 0 ? (cat.count / stats.catStats[0].count) * 100 : 0}%` }}
-                      ></div>
+                      <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-1000" style={{ width: `${stats.catStats[0].count > 0 ? (cat.count / stats.catStats[0].count) * 100 : 0}%` }}></div>
                    </div>
                 </div>
               )) : <p className="text-center py-10 text-slate-300 font-bold">لا توجد بيانات مبيعات</p>}
@@ -219,10 +193,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
 };
 
 const QuickActionButton = ({ label, icon, onClick }: any) => (
-  <button 
-    onClick={onClick}
-    className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center gap-2 hover:bg-slate-900 hover:text-white transition-all active:scale-95 group shadow-sm"
-  >
+  <button onClick={onClick} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center gap-2 hover:bg-slate-900 hover:text-white transition-all active:scale-95 group shadow-sm">
     <span className="text-xl group-hover:scale-125 transition-transform">{icon}</span>
     <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
   </button>
@@ -237,20 +208,11 @@ const StatCard = ({ title, value, icon, color, onClick, trend, isDark }: any) =>
   };
 
   return (
-    <div 
-      onClick={onClick} 
-      className={`p-8 rounded-[3rem] border shadow-xl transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl relative overflow-hidden group ${
-        isDark ? 'bg-slate-900 text-white border-slate-800' : themes[color]
-      } ${onClick ? 'cursor-pointer' : ''}`}
-    >
+    <div onClick={onClick} className={`p-8 rounded-[3rem] border shadow-xl transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl relative overflow-hidden group ${isDark ? 'bg-slate-900 text-white border-slate-800' : themes[color]} ${onClick ? 'cursor-pointer' : ''}`}>
       <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-20 group-hover:scale-150 transition-all duration-700 text-7xl">{icon}</div>
       <div className="flex justify-between items-start mb-6 relative z-10">
         <div className={`text-4xl ${isDark ? 'text-emerald-500' : ''}`}>{icon}</div>
-        {trend && (
-           <span className={`text-[8px] font-black px-2 py-1 rounded-full ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/50 text-current'}`}>
-             {trend}
-           </span>
-        )}
+        {trend && <span className={`text-[8px] font-black px-2 py-1 rounded-full ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/50 text-current'}`}>{trend}</span>}
       </div>
       <div className="relative z-10">
         <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDark ? 'text-slate-400' : 'opacity-60'}`}>{title}</p>
