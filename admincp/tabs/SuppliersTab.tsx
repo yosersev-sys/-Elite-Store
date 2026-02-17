@@ -36,7 +36,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     status: 'active' as any
   });
 
-  // مزامنة الفلتر مع الباراميتر القادم من الخارج (مثل صفحة الإحصائيات)
   useEffect(() => {
     if (initialFilter) {
       setFilterStatus(initialFilter);
@@ -304,7 +303,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       {/* Payment Modal */}
       {isPaymentModalOpen && activeSupplierForPayment && (
         <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsPaymentModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsPaymentModalOpen(false)}></div>
           <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp">
              <h3 className="text-xl font-black text-slate-800 mb-6 text-center">تسجيل دفعة لـ {activeSupplierForPayment.name}</h3>
              <div className="space-y-4">
@@ -313,18 +312,28 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                    <p className="text-2xl font-black text-rose-600">{activeSupplierForPayment.balance.toLocaleString()} ج.م</p>
                 </div>
                 <input 
+                  disabled={isSaving}
                   type="number" 
                   value={paymentAmount}
                   onChange={e => setPaymentAmount(e.target.value)}
                   placeholder="أدخل المبلغ المدفوع..."
-                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none font-black text-center text-lg"
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none font-black text-center text-lg shadow-inner transition-all disabled:opacity-50"
                 />
                 <button 
                   onClick={handleQuickPayment}
-                  disabled={isSaving}
-                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl shadow-slate-200"
+                  disabled={isSaving || !paymentAmount}
+                  className={`w-full text-white py-5 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400 shadow-none' : 'bg-slate-900 hover:bg-emerald-600 shadow-slate-200'}`}
                 >
-                  {isSaving ? 'جاري التسجيل...' : 'تأكيد دفع المبلغ ✅'}
+                  {isSaving ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>جاري المعالجة...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>تأكيد دفع المبلغ ✅</span>
+                    </>
+                  )}
                 </button>
              </div>
           </div>
@@ -334,7 +343,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsModalOpen(false)}></div>
           <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 md:p-12 animate-slideUp overflow-hidden max-h-[90vh] overflow-y-auto no-scrollbar">
             <h3 className="text-2xl font-black text-slate-800 mb-8 text-center">{editingSupplier ? 'تعديل بيانات المورد' : 'إضافة مورد جديد'}</h3>
             
@@ -342,18 +351,18 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">اسم المورد</label>
-                  <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold border-2 border-transparent focus:border-emerald-500" />
+                  <input disabled={isSaving} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold border-2 border-transparent focus:border-emerald-500 shadow-inner disabled:opacity-50" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال</label>
-                  <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold text-left" dir="ltr" />
+                  <input disabled={isSaving} type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold text-left shadow-inner disabled:opacity-50" dir="ltr" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">نوع المورد</label>
-                  <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold">
+                  <select disabled={isSaving} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold shadow-inner disabled:opacity-50">
                     <option value="wholesale">تاجر جملة</option>
                     <option value="factory">مصنع / علامة تجارية</option>
                     <option value="farm">مزرعة / إنتاج مباشر</option>
@@ -362,28 +371,45 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">التقييم (1-5)</label>
-                  <input type="number" min="1" max="5" value={formData.rating} onChange={e => setFormData({...formData, rating: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold" />
+                  <input disabled={isSaving} type="number" min="1" max="5" value={formData.rating} onChange={e => setFormData({...formData, rating: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold shadow-inner disabled:opacity-50" />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">المديونية الحالية (ج.م)</label>
-                <input type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-black text-rose-600" placeholder="0.00" />
+                <input disabled={isSaving} type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-black text-rose-600 shadow-inner disabled:opacity-50" placeholder="0.00" />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">اسم الشركة (اختياري)</label>
-                <input value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold" />
+                <input disabled={isSaving} value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold shadow-inner disabled:opacity-50" />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">ملاحظات / عنوان</label>
-                <textarea value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold min-h-[80px]" />
+                <textarea disabled={isSaving} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold min-h-[80px] shadow-inner disabled:opacity-50" />
               </div>
 
               <div className="flex gap-3 pt-6">
-                <button onClick={handleSave} disabled={isSaving} className="flex-grow bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-xl disabled:opacity-50">حفظ المورد ✨</button>
-                <button onClick={() => setIsModalOpen(false)} className="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm">إلغاء</button>
+                <button 
+                  onClick={handleSave} 
+                  disabled={isSaving} 
+                  className={`flex-grow text-white py-5 rounded-2xl font-black text-sm active:scale-95 shadow-xl flex items-center justify-center gap-3 transition-all ${isSaving ? 'bg-slate-400 shadow-none' : 'bg-emerald-600 hover:bg-slate-900 shadow-emerald-500/20'}`}
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>جاري الحفظ...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>حفظ المورد ✨</span>
+                    </>
+                  )}
+                </button>
+                {!isSaving && (
+                  <button onClick={() => setIsModalOpen(false)} className="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm hover:bg-slate-200 transition-colors">إلغاء</button>
+                )}
               </div>
             </div>
           </div>
