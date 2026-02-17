@@ -17,14 +17,14 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const [showScanner, setShowScanner] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [libraryImages, setLibraryImages] = useState<{url: string, productName: string}[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState('');
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [isLoadingSeo, setIsLoadingSeo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCompressing, setIsCompressing] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // شحنة جديدة مؤقتة
   const [newBatchQty, setNewBatchQty] = useState('');
   const [newBatchPrice, setNewBatchPrice] = useState('');
 
@@ -49,7 +49,19 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
-  // حساب الأرباح المتوقعة
+  // جلب صور المكتبة عند فتحها
+  useEffect(() => {
+    if (showLibrary) {
+      const loadLibrary = async () => {
+        setIsLoadingLibrary(true);
+        const images = await ApiService.getAllImages();
+        setLibraryImages(images || []);
+        setIsLoadingLibrary(false);
+      };
+      loadLibrary();
+    }
+  }, [showLibrary]);
+
   const profitStats = useMemo(() => {
     const sellPrice = parseFloat(formData.price) || 0;
     const lastCost = formData.batches.length > 0 
@@ -100,7 +112,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       ...formData,
       batches: updatedBatches,
       stockQuantity: totalQty.toString(),
-      wholesalePrice: price.toString() // تحديث التكلفة الحالية لآخر سعر
+      wholesalePrice: price.toString()
     });
     setNewBatchQty('');
     setNewBatchPrice('');
@@ -120,7 +132,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setIsLoadingSeo(true);
     const data = await generateSeoData(formData.name, formData.description);
     if (data) setSeoData(data);
-    // Fix: Corrected incorrect state setting (was true then false)
     setIsLoadingSeo(false);
   };
 
@@ -144,6 +155,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setIsSubmitting(false);
   };
 
+  const filteredLibrary = libraryImages.filter(img => 
+    img.productName.toLowerCase().includes(librarySearch.toLowerCase())
+  );
+
   return (
     <div className="max-w-5xl mx-auto py-10 px-4 animate-fadeIn pb-32 space-y-10">
       
@@ -163,7 +178,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
              <span className="w-1.5 h-6 bg-indigo-600 rounded-full"></span>
              1. صور المنتج والمعلومات
            </h3>
-           <button type="button" onClick={() => setShowLibrary(true)} className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-xl font-black text-[10px] flex items-center gap-2">
+           <button type="button" onClick={() => setShowLibrary(true)} className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-xl font-black text-[10px] flex items-center gap-2 hover:bg-emerald-100 transition-colors">
              مكتبة الصور 🖼️
            </button>
         </div>
@@ -176,14 +191,19 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-indigo-400 transition-all group overflow-hidden relative"
               >
                  {formData.images.length > 0 ? (
-                   <img src={formData.images[0]} className="w-full h-full object-cover" />
+                   <div className="relative w-full h-full">
+                      <img src={formData.images[0]} className="w-full h-full object-cover" />
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setFormData({...formData, images: []}); }} 
+                        className="absolute top-4 right-4 bg-rose-500 text-white w-8 h-8 rounded-full shadow-lg"
+                      >✕</button>
+                   </div>
                  ) : (
                    <>
                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-300 shadow-sm group-hover:scale-110 transition-transform">＋</div>
                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">رفع صور</p>
                    </>
                  )}
-                 {/* Fix: Explicitly type the files array and cast to File to avoid 'unknown' type error in readAsDataURL */}
                  <input type="file" ref={fileInputRef} hidden multiple accept="image/*" onChange={(e) => {
                    const fileList = e.target.files;
                    if (!fileList) return;
@@ -195,6 +215,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                    });
                  }} />
               </div>
+              {formData.images.length > 1 && (
+                <div className="flex gap-2 mt-4 overflow-x-auto pb-2 no-scrollbar">
+                   {formData.images.slice(1).map((img, idx) => (
+                     <div key={idx} className="w-16 h-16 rounded-xl overflow-hidden border shrink-0 relative group">
+                        <img src={img} className="w-full h-full object-cover" />
+                        <button onClick={() => setFormData({...formData, images: formData.images.filter((_, i) => i !== idx + 1)})} className="absolute inset-0 bg-rose-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                     </div>
+                   ))}
+                </div>
+              )}
            </div>
 
            {/* Form Inputs */}
@@ -274,7 +304,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-               {/* تفصيل الدفعات */}
                <div className="lg:col-span-5 space-y-4">
                   <div className="flex justify-between items-center px-4">
                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">تفصيل الدفعات (تاريخياً)</h4>
@@ -301,7 +330,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                   </div>
                </div>
 
-               {/* إضافة شحنة جديدة */}
                <div className="lg:col-span-7 bg-emerald-50/50 p-8 md:p-10 rounded-[2.5rem] border-2 border-emerald-100/50 space-y-6 relative group">
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition-transform">＋</div>
                   <h4 className="text-center font-black text-emerald-800 text-lg">توريد شحنة جديدة للمخزن</h4>
@@ -330,11 +358,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                   <button onClick={handleAddBatch} type="button" className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-xl hover:bg-slate-900 transition-all active:scale-95">
                      إضافة للمخزن 📦
                   </button>
-                  <p className="text-[9px] text-emerald-600/50 font-bold text-center">تلميح: آخر سعر تكلفة يتم إدخاله سيتم اعتباره "سعر الجملة الافتراضي" للمنتج.</p>
                </div>
             </div>
 
-            {/* تحديد السعر النهائي */}
             <div className="pt-10 border-t border-emerald-100 flex flex-col md:flex-row items-center justify-between gap-8">
                <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 flex items-center gap-6 flex-grow max-w-md">
                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm">💡</div>
@@ -431,7 +457,68 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         {isSubmitting ? 'جاري النشر...' : 'نشر المنتج في المتجر الآن 🚀'}
       </button>
 
+      {/* Scanner Modal */}
       {showScanner && <BarcodeScanner onScan={c => setFormData({...formData, barcode: c})} onClose={() => setShowScanner(false)} />}
+
+      {/* PHOTO LIBRARY MODAL */}
+      {showLibrary && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowLibrary(false)}></div>
+           <div className="relative bg-white w-full max-w-4xl h-[80vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-slideUp">
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between shrink-0">
+                 <div>
+                    <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر</h3>
+                    <p className="text-slate-400 font-bold text-xs mt-1">اختر من الصور المرفوعة مسبقاً لمنتجاتك</p>
+                 </div>
+                 <button onClick={() => setShowLibrary(false)} className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-xl text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors">✕</button>
+              </div>
+
+              <div className="p-6 bg-slate-50 shrink-0">
+                 <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="ابحث عن صورة باسم المنتج..." 
+                      value={librarySearch}
+                      onChange={(e) => setLibrarySearch(e.target.value)}
+                      className="w-full px-12 py-4 bg-white rounded-2xl border-none outline-none font-bold shadow-sm"
+                    />
+                    <span className="absolute left-4 top-4 text-slate-300">🔍</span>
+                 </div>
+              </div>
+
+              <div className="flex-grow overflow-y-auto p-8 no-scrollbar">
+                 {isLoadingLibrary ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-4">
+                       <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                       <p className="font-black text-slate-400">جاري تصفح الأرشيف...</p>
+                    </div>
+                 ) : filteredLibrary.length === 0 ? (
+                    <div className="text-center py-20">
+                       <p className="text-slate-300 font-black">لم يتم العثور على صور مطابقة لبحثك</p>
+                    </div>
+                 ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                       {filteredLibrary.map((img, idx) => (
+                          <div 
+                            key={idx} 
+                            onClick={() => {
+                               setFormData(prev => ({...prev, images: [...prev.images, img.url]}));
+                               setShowLibrary(false);
+                            }}
+                            className="aspect-square bg-slate-100 rounded-2xl overflow-hidden cursor-pointer hover:ring-4 hover:ring-indigo-500 transition-all group relative"
+                          >
+                             <img src={img.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                                <p className="text-[8px] text-white font-black truncate">{img.productName}</p>
+                             </div>
+                          </div>
+                       ))}
+                    </div>
+                 )}
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
