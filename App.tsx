@@ -108,11 +108,11 @@ const App: React.FC = () => {
     const isTargetingAdmin = ADMIN_VIEWS.includes(currentHash as View);
 
     if (view === 'store') {
-        if (currentHash !== '' && !isTargetingAdmin) {
+        const isSubPage = ['cart', 'my-orders', 'profile', 'checkout', 'order-success'].includes(currentHash);
+        if (currentHash !== '' && !isTargetingAdmin && !isSubPage) {
             window.history.replaceState(null, '', window.location.pathname);
         }
     } else {
-        // لا نغير الهاش إذا كنا في صفحة إدارة وننتظر تسجيل الدخول
         if (currentHash !== view && !(isTargetingAdmin && !currentUser)) {
             window.location.hash = view;
         }
@@ -378,6 +378,8 @@ const App: React.FC = () => {
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
                   onNavigateAction('order-success');
                   await loadData(true);
+                } else {
+                   setNotification({message: 'عذراً، فشل الاتصال بالسيرفر لحفظ الطلب', type: 'error'});
                 }
               }}
               onCancel={() => onNavigateAction(isActuallyAdmin ? 'admin' : 'store')}
@@ -433,6 +435,8 @@ const App: React.FC = () => {
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
                   onNavigateAction('order-success');
                   loadData(true);
+                } else {
+                   setNotification({message: 'عذراً، لم نتمكن من إرسال طلبك للسيرفر', type: 'error'});
                 }
               }}
              />
