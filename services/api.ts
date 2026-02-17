@@ -4,19 +4,25 @@ import { Product, Category, Order, User, Supplier } from '../types.ts';
 const USER_CACHE_KEY = 'souq_user_profile';
 
 /**
- * الحصول على المسار الموحد للـ API
- * نستخدم api.php الرئيسي في الجذر لأنه يحتوي على كافة الوظائف المطلوبة
+ * الحصول على رابط الـ API بشكل ديناميكي ومطلق
+ * يضمن هذاConstruct العمل حتى لو كان الموقع في مجلد فرعي
  */
-const getApiEndpoint = (action: string) => {
-  const nocache = `&_t=${Date.now()}`;
-  return `api.php?action=${action}${nocache}`;
+const getBaseUrl = () => {
+  return window.location.href.split('#')[0].split('?')[0].replace('index.php', '').replace(/\/$/, '');
 };
 
-const safeFetch = async (file: string, action: string, options?: RequestInit) => {
+const getApiUrl = (module: string, action: string) => {
+  const base = getBaseUrl();
+  const nocache = `&_t=${Date.now()}`;
+  // نحاول الوصول للمسار المقسم أولاً
+  return `${base}/api/${module}.php?action=${action}${nocache}`;
+};
+
+const safeFetch = async (module: string, action: string, options?: RequestInit) => {
   try {
-    const url = getApiEndpoint(action);
+    const url = getApiUrl(module, action);
     
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       ...options,
       credentials: 'include',
       headers: { 
@@ -26,6 +32,13 @@ const safeFetch = async (file: string, action: string, options?: RequestInit) =>
       },
     });
 
+    // خطة بديلة: إذا فشل المجلد المقسم (404)، نحاول استخدام الملف الموحد في الجذر
+    if (!response.ok && response.status === 404) {
+      console.warn(`Modular API 404 for ${module}/${action}, falling back to root api.php`);
+      const fallbackUrl = `${getBaseUrl()}/api.php?action=${action}&_t=${Date.now()}`;
+      response = await fetch(fallbackUrl, options);
+    }
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -33,12 +46,13 @@ const safeFetch = async (file: string, action: string, options?: RequestInit) =>
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error(`API Error on ${action}:`, error);
+    console.error(`API FAILURE [${module}/${action}]:`, error);
     return null;
   }
 };
 
 export const ApiService = {
+  // --- USERS ---
   async getCurrentUser(): Promise<User | null> {
     const user = await safeFetch('users', 'get_current_user');
     if (user && user.id) {
@@ -98,6 +112,7 @@ export const ApiService = {
     return await safeFetch('users', 'get_users') || [];
   },
 
+  // --- PRODUCTS ---
   async getProducts(): Promise<Product[]> {
     return await safeFetch('products', 'get_products') || [];
   },
@@ -127,6 +142,7 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
+  // --- SUPPLIERS ---
   async getSuppliers(): Promise<Supplier[]> {
     return await safeFetch('suppliers', 'get_suppliers') || [];
   },
@@ -152,6 +168,7 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
+  // --- CATEGORIES ---
   async getCategories(): Promise<Category[]> {
     return await safeFetch('categories', 'get_categories') || [];
   },
@@ -177,6 +194,7 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
+  // --- ORDERS ---
   async getOrders(): Promise<Order[]> {
     return await safeFetch('orders', 'get_orders') || [];
   },
@@ -204,6 +222,7 @@ export const ApiService = {
     });
   },
 
+  // --- SETTINGS ---
   async getStoreSettings(): Promise<Record<string, string>> {
     return await safeFetch('settings', 'get_store_settings') || {};
   },

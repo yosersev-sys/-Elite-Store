@@ -25,7 +25,6 @@ import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
 import Footer from './components/Footer.tsx';
 import AiAssistant from './components/AiAssistant.tsx';
 import { ApiService } from './services/api.ts';
-import { WhatsAppService } from './services/whatsappService.ts';
 
 const App: React.FC = () => {
   const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
@@ -106,16 +105,21 @@ const App: React.FC = () => {
     window.addEventListener('hashchange', handleHashChange);
 
     const currentHash = window.location.hash.replace('#', '').split('?')[0];
+    const isTargetingAdmin = ADMIN_VIEWS.includes(currentHash as View);
+
     if (view === 'store') {
-        if (currentHash !== '' && !ADMIN_VIEWS.includes(currentHash as View)) {
+        if (currentHash !== '' && !isTargetingAdmin) {
             window.history.replaceState(null, '', window.location.pathname);
         }
     } else {
-        if (currentHash !== view) window.location.hash = view;
+        // لا نغير الهاش إذا كنا في صفحة إدارة وننتظر تسجيل الدخول
+        if (currentHash !== view && !(isTargetingAdmin && !currentUser)) {
+            window.location.hash = view;
+        }
     }
 
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [view]);
+  }, [view, currentUser]);
 
   const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
