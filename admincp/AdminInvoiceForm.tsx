@@ -139,6 +139,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     }
     if (invoiceItems.length === 0) return alert('يرجى إضافة منتجات للفاتورة');
     if (!customerInfo.phone) return alert('يرجى إدخال رقم الهاتف لمتابعة الطلب');
+    if (isDeliveryEnabled && !customerInfo.address.trim()) return alert('يرجى إدخال عنوان التوصيل');
     
     const orderId = 'INV-' + Date.now().toString().slice(-8);
     
@@ -147,7 +148,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       customerName: customerInfo.name,
       phone: customerInfo.phone,
       city: customerInfo.city,
-      address: customerInfo.address || (isDeliveryEnabled ? 'توصيل للمنزل' : 'استلام فرع (كاشير)'),
+      address: isDeliveryEnabled ? customerInfo.address.trim() : 'استلام فرع (كاشير)',
       items: invoiceItems,
       subtotal,
       total,
@@ -395,6 +396,19 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                       <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isDeliveryEnabled ? 'right-7' : 'right-1'}`}></div>
                     </button>
                  </div>
+
+                 {/* حقل العنوان - يظهر فقط عند تفعيل التوصيل */}
+                 {isDeliveryEnabled && (
+                    <div className="space-y-1.5 animate-slideUp">
+                       <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">عنوان التوصيل بالتفصيل</label>
+                       <textarea 
+                         value={customerInfo.address}
+                         onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})}
+                         placeholder="الحي، الشارع، أو علامة مميزة..."
+                         className="w-full px-4 md:px-6 py-3 md:py-4 bg-white border-2 border-emerald-100 rounded-xl md:rounded-2xl outline-none font-bold text-sm shadow-sm transition-all focus:border-emerald-500 min-h-[80px] resize-none"
+                       />
+                    </div>
+                 )}
 
                  <div className="space-y-2">
                     <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">طريقة الدفع</label>
