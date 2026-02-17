@@ -39,7 +39,6 @@ interface AdminDashboardProps {
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'settings' | 'api-keys';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
-  // صمامات أمان نهائية لضمان وجود مصفوفات دائماً قبل العرض
   const safeProducts = Array.isArray(props.products) ? props.products : [];
   const safeCategories = Array.isArray(props.categories) ? props.categories : [];
   const safeOrders = Array.isArray(props.orders) ? props.orders : [];
@@ -89,7 +88,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'categories': return <CategoriesTab {...tabProps} />;
       case 'orders': return <OrdersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
       case 'members': return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
-      case 'suppliers': return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
+      case 'suppliers': return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} productsData={safeProducts} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
       case 'reports': return <ReportsTab orders={safeOrders} />;
       case 'settings': return <SettingsTab currentUser={props.currentUser} onLogout={props.onLogout} />;
       case 'api-keys': return <ApiKeysTab />;
@@ -101,7 +100,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[90vh] bg-white rounded-[1.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
-      
       <aside className="w-full lg:w-80 bg-slate-900 text-white p-4 lg:p-10 flex flex-col shrink-0">
         <div className="hidden lg:block mb-12">
           <div className="flex items-center gap-4 mb-2">
@@ -146,7 +144,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            </div>
         </div>
 
-        {/* ظهور مؤشر التحميل المركزي إذا كانت البيانات لم تصل بعد */}
         {props.isLoading && safeProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 animate-fadeIn bg-white rounded-[3rem] shadow-sm border-2 border-dashed border-slate-100">
             <div className="w-16 h-16 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin mb-6"></div>
