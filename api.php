@@ -1,6 +1,6 @@
 <?php
 /**
- * API Backend for Souq Al-Asr - Full Version v4.5
+ * API Backend for Souq Al-Asr - Self-Healing Version v4.8
  */
 session_start();
 error_reporting(0); 
@@ -30,10 +30,12 @@ function isAdmin() {
     return ($_SESSION['user']['role'] ?? '') === 'admin';
 }
 
+/**
+ * وظيفة تأمين الهيكل وإضافة الأعمدة المفقودة تلقائياً
+ */
 function ensureSchema($pdo) {
-    if (isset($_SESSION['schema_verified'])) return;
-    
-    $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive BOOLEAN DEFAULT 1, sortOrder INT DEFAULT 0)");
+    // 1. إنشاء الجداول الأساسية إذا لم تكن موجودة
+    $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive TINYINT(1) DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) NOT NULL, companyName VARCHAR(255), address TEXT, notes TEXT, type VARCHAR(50) DEFAULT 'wholesale', balance DECIMAL(10,2) DEFAULT 0, rating INT DEFAULT 5, status VARCHAR(20) DEFAULT 'active', createdAt BIGINT)");
@@ -43,15 +45,9 @@ function ensureSchema($pdo) {
         name VARCHAR(255) NOT NULL, 
         description TEXT, 
         price DECIMAL(10,2), 
-        wholesalePrice DECIMAL(10,2) DEFAULT 0,
         categoryId VARCHAR(50), 
         images LONGTEXT, 
-        stockQuantity INT DEFAULT 0,
-        unit VARCHAR(20) DEFAULT 'piece',
-        barcode VARCHAR(100),
-        salesCount INT DEFAULT 0,
-        seoSettings LONGTEXT,
-        batches LONGTEXT,
+        stockQuantity DECIMAL(10,2) DEFAULT 0,
         createdAt BIGINT
     )");
 
@@ -59,18 +55,46 @@ function ensureSchema($pdo) {
         id VARCHAR(50) PRIMARY KEY, 
         customerName VARCHAR(255), 
         phone VARCHAR(20), 
-        city VARCHAR(100) DEFAULT 'فاقوس',
-        address TEXT,
-        subtotal DECIMAL(10,2),
         total DECIMAL(10,2), 
         items LONGTEXT, 
-        paymentMethod VARCHAR(100) DEFAULT 'نقدي (تم الدفع)',
-        status VARCHAR(50) DEFAULT 'completed',
-        userId VARCHAR(50),
         createdAt BIGINT
     )");
-    
-    $_SESSION['schema_verified'] = true;
+
+    // 2. فحص وإضافة الأعمدة المفقودة (Self-Healing)
+    $columnsToAdd = [
+        'products' => [
+            'wholesalePrice' => "DECIMAL(10,2) DEFAULT 0",
+            'unit' => "VARCHAR(20) DEFAULT 'piece'",
+            'barcode' => "VARCHAR(100)",
+            'salesCount' => "INT DEFAULT 0",
+            'seoSettings' => "LONGTEXT",
+            'batches' => "LONGTEXT",
+            'supplierId' => "VARCHAR(50)"
+        ],
+        'orders' => [
+            'city' => "VARCHAR(100) DEFAULT 'فاقوس'",
+            'address' => "TEXT",
+            'subtotal' => "DECIMAL(10,2)",
+            'paymentMethod' => "VARCHAR(100) DEFAULT 'نقدي (تم الدفع)'",
+            'status' => "VARCHAR(50) DEFAULT 'completed'",
+            'userId' => "VARCHAR(50)"
+        ],
+        'categories' => [
+            'isActive' => "TINYINT(1) DEFAULT 1",
+            'sortOrder' => "INT DEFAULT 0"
+        ]
+    ];
+
+    foreach ($columnsToAdd as $table => $cols) {
+        foreach ($cols as $colName => $colDef) {
+            try {
+                $check = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$colName'");
+                if ($check->rowCount() == 0) {
+                    $pdo->exec("ALTER TABLE `$table` ADD `$colName` $colDef");
+                }
+            } catch (Exception $e) {}
+        }
+    }
 }
 
 $action = $_GET['action'] ?? '';
@@ -91,17 +115,22 @@ try {
             $stmt = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC");
             $products = $stmt->fetchAll() ?: [];
             foreach ($products as &$p) {
-                $p['images'] = json_decode($p['images'] ?? '[]') ?: [];
-                $p['batches'] = json_decode($p['batches'] ?? '[]') ?: [];
-                $p['price'] = (float)$p['price'];
-                $p['stockQuantity'] = (int)$p['stockQuantity'];
+                $p['images'] = json_decode($p['images'] ?? '[]', true) ?: [];
+                $p['batches'] = json_decode($p['batches'] ?? '[]', true) ?: [];
+                $p['price'] = (float)($p['price'] ?? 0);
+                $p['wholesalePrice'] = (float)($p['wholesalePrice'] ?? 0);
+                $p['stockQuantity'] = (float)($p['stockQuantity'] ?? 0);
             }
             sendRes($products);
             break;
 
         case 'get_categories':
             $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC");
-            sendRes($stmt->fetchAll() ?: []);
+            $cats = $stmt->fetchAll() ?: [];
+            foreach ($cats as &$c) {
+                $c['isActive'] = (bool)($c['isActive'] ?? true);
+            }
+            sendRes($cats);
             break;
 
         case 'get_users':
@@ -110,49 +139,47 @@ try {
             sendRes($stmt->fetchAll() ?: []);
             break;
 
-        case 'admin_update_user':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            if (isset($input['password']) && !empty($input['password'])) {
-                $hashed = password_hash($input['password'], PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ?, password = ? WHERE id = ?");
-                $stmt->execute([$input['name'], $input['phone'], $hashed, $input['id']]);
-            } else {
-                $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ? WHERE id = ?");
-                $stmt->execute([$input['name'], $input['phone'], $input['id']]);
-            }
-            sendRes(['status' => 'success']);
-            break;
-
         case 'get_suppliers':
             if (!isAdmin()) sendErr('غير مصرح', 403);
             $stmt = $pdo->query("SELECT * FROM suppliers ORDER BY createdAt DESC");
             $sups = $stmt->fetchAll() ?: [];
             foreach ($sups as &$s) {
-                $s['balance'] = (float)$s['balance'];
-                $s['rating'] = (int)$s['rating'];
+                $s['balance'] = (float)($s['balance'] ?? 0);
+                $s['rating'] = (int)($s['rating'] ?? 5);
             }
             sendRes($sups);
             break;
 
-        case 'add_supplier':
+        case 'update_order_payment':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("INSERT INTO suppliers (id, name, phone, companyName, address, notes, type, balance, rating, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$input['id'], $input['name'], $input['phone'], $input['companyName'], $input['address'], $input['notes'], $input['type'], $input['balance'], $input['rating'], $input['status'], $input['createdAt']]);
-            sendRes(['status' => 'success']);
+            $id = $input['id'];
+            $method = $input['paymentMethod'];
+            $finalMethod = (strpos($method, 'آجل') !== false) ? 'آجل (مديونية)' : 'نقدي (تم الدفع)';
+            $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
+            $stmt->execute([$finalMethod, $id]);
+            sendRes(['status' => 'success', 'paymentMethod' => $finalMethod]);
             break;
 
-        case 'update_supplier':
+        case 'return_order':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("UPDATE suppliers SET name = ?, phone = ?, companyName = ?, address = ?, notes = ?, type = ?, balance = ?, rating = ?, status = ? WHERE id = ?");
-            $stmt->execute([$input['name'], $input['phone'], $input['companyName'], $input['address'], $input['notes'], $input['type'], $input['balance'], $input['rating'], $input['status'], $input['id']]);
-            sendRes(['status' => 'success']);
-            break;
-
-        case 'delete_supplier':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
-            $stmt = $pdo->prepare("DELETE FROM suppliers WHERE id = ?");
-            $stmt->execute([$_GET['id']]);
-            sendRes(['status' => 'success']);
+            $id = $input['id'];
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("SELECT items, status FROM orders WHERE id = ?");
+                $stmt->execute([$id]);
+                $order = $stmt->fetch();
+                if ($order && $order['status'] !== 'cancelled') {
+                    $items = json_decode($order['items'], true) ?: [];
+                    foreach ($items as $item) {
+                        $up = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?");
+                        $up->execute([(float)$item['quantity'], (int)$item['quantity'], $item['id']]);
+                    }
+                    $updateOrder = $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?");
+                    $updateOrder->execute([$id]);
+                }
+                $pdo->commit();
+                sendRes(['status' => 'success']);
+            } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
             break;
 
         case 'login':
@@ -178,7 +205,7 @@ try {
             $orders = $stmt->fetchAll() ?: [];
             foreach ($orders as &$o) { 
                 $o['items'] = json_decode($o['items'] ?? '[]', true) ?: []; 
-                $o['total'] = (float)$o['total']; 
+                $o['total'] = (float)($o['total'] ?? 0); 
                 $o['paymentMethod'] = $o['paymentMethod'] ?: 'نقدي (تم الدفع)';
             }
             sendRes($orders);
@@ -190,37 +217,37 @@ try {
                 $processedItems = [];
                 $customerName = $input['customerName'] ?? ($input['fullName'] ?? 'عميل مجهول');
                 foreach ($input['items'] as $cartItem) {
-                    $stmt = $pdo->prepare("SELECT batches, stockQuantity FROM products WHERE id = ?");
+                    $stmt = $pdo->prepare("SELECT stockQuantity FROM products WHERE id = ?");
                     $stmt->execute([$cartItem['id']]);
                     $product = $stmt->fetch();
                     if (!$product) continue;
-                    $batches = json_decode($product['batches'] ?? '[]', true) ?: [];
-                    $qtyToDeduct = (int)$cartItem['quantity'];
-                    $totalWholesaleCost = 0;
-                    if (empty($batches)) {
-                        $totalWholesaleCost = ($cartItem['wholesalePrice'] ?? 0) * $qtyToDeduct;
-                    } else {
-                        for ($i = 0; $i < count($batches); $i++) {
-                            if ($qtyToDeduct <= 0) break;
-                            if ($batches[$i]['quantity'] > 0) {
-                                $deduct = min($qtyToDeduct, $batches[$i]['quantity']);
-                                $totalWholesaleCost += ($deduct * $batches[$i]['wholesalePrice']);
-                                $batches[$i]['quantity'] -= $deduct;
-                                $qtyToDeduct -= $deduct;
-                            }
-                        }
-                    }
-                    $cartItem['actualWholesalePrice'] = $cartItem['quantity'] > 0 ? ($totalWholesaleCost / $cartItem['quantity']) : 0;
+                    $newStock = max(0, (float)$product['stockQuantity'] - (float)$cartItem['quantity']);
+                    $updateStmt = $pdo->prepare("UPDATE products SET stockQuantity = ?, salesCount = salesCount + ? WHERE id = ?");
+                    $updateStmt->execute([$newStock, (int)$cartItem['quantity'], $cartItem['id']]);
                     $processedItems[] = $cartItem;
-                    $newStock = max(0, (int)$product['stockQuantity'] - (int)$cartItem['quantity']);
-                    $updateStmt = $pdo->prepare("UPDATE products SET stockQuantity = ?, batches = ?, salesCount = salesCount + ? WHERE id = ?");
-                    $updateStmt->execute([$newStock, json_encode($batches), (int)$cartItem['quantity'], $cartItem['id']]);
                 }
+                $orderId = $input['id'] ?: 'ORD-' . time();
                 $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, createdAt, userId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$input['id'], $customerName, $input['phone'] ?? '0', $input['city'] ?? 'فاقوس', $input['address'] ?? '', (float)($input['subtotal'] ?? $input['total']), (float)$input['total'], json_encode($processedItems), $input['paymentMethod'] ?? 'نقدي (تم الدفع)', 'completed', $input['createdAt'], $input['userId'] ?? null]);
+                $stmt->execute([$orderId, $customerName, $input['phone'] ?? '0', $input['city'] ?? 'فاقوس', $input['address'] ?? '', (float)($input['subtotal'] ?? $input['total']), (float)$input['total'], json_encode($processedItems), $input['paymentMethod'] ?? 'نقدي (تم الدفع)', 'completed', $input['createdAt'] ?? (time()*1000), $input['userId'] ?? null]);
                 $pdo->commit();
-                sendRes(['status' => 'success']);
+                sendRes(['status' => 'success', 'id' => $orderId]);
             } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
+            break;
+
+        case 'get_store_settings':
+            $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
+            $settings = [];
+            while ($row = $stmt->fetch()) { $settings[$row['setting_key']] = $row['setting_value']; }
+            sendRes($settings);
+            break;
+
+        case 'update_store_settings':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            foreach ($input as $key => $value) {
+                $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+                $stmt->execute([$key, $value, $value]);
+            }
+            sendRes(['status' => 'success']);
             break;
 
         default: sendRes(['status' => 'ok']);
