@@ -4,13 +4,15 @@ import { ApiService } from '../../services/api';
 
 interface MembersTabProps {
   users: User[];
+  currentUser: User | null;
   adminSearch: string;
   isLoading: boolean;
   setAdminSearch: (val: string) => void;
+  onDeleteUser: (id: string) => void;
   onRefreshData?: () => void;
 }
 
-const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, isLoading, setAdminSearch, onRefreshData }) => {
+const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch, isLoading, setAdminSearch, onDeleteUser, onRefreshData }) => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -22,10 +24,8 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, isLoading, 
     password: ''
   });
 
-  // تحصين المصفوفة لضمان عدم حدوث خطأ filter is not a function
   const safeUsers = useMemo(() => Array.isArray(users) ? users : [], [users]);
 
-  // تصفير الصفحة عند تغيير البحث
   useEffect(() => {
     setCurrentPage(1);
   }, [adminSearch]);
@@ -80,6 +80,18 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, isLoading, 
       alert('خطأ في الاتصال بالسيرفر');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteClick = (user: User) => {
+    if (user.id === 'admin_root') {
+      return alert('لا يمكن حذف الحساب الرئيسي للنظام 🛡️');
+    }
+    if (user.id === currentUser?.id) {
+      return alert('لا يمكنك حذف حسابك الشخصي أثناء تسجيل الدخول ⚠️');
+    }
+    if (confirm(`هل أنت متأكد من حذف العضو "${user.name}" نهائياً؟`)) {
+      onDeleteUser(user.id);
     }
   };
 
@@ -165,8 +177,11 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, adminSearch, isLoading, 
                     {u.role === 'admin' ? 'مدير' : 'عميل'}
                   </span>
                 </td>
-                <td className="px-8 py-5 text-center">
-                   <button onClick={() => openEditModal(u)} className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">✎</button>
+                <td className="px-8 py-5">
+                   <div className="flex justify-center gap-2">
+                     <button onClick={() => openEditModal(u)} className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm" title="تعديل">✎</button>
+                     <button onClick={() => handleDeleteClick(u)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="حذف">🗑</button>
+                   </div>
                 </td>
               </tr>
             ))}

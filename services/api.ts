@@ -80,6 +80,11 @@ export const ApiService = {
     });
   },
 
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await safeFetch(`delete_user&id=${id}`, { method: 'DELETE' });
+    return result?.status === 'success';
+  },
+
   async getProducts(): Promise<Product[]> {
     const products = await safeFetch('get_products');
     return products || [];

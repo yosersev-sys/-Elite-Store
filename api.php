@@ -1,6 +1,6 @@
 <?php
 /**
- * API Backend for Souq Al-Asr - Self-Healing Version v4.8
+ * API Backend for Souq Al-Asr - Self-Healing Version v4.9
  */
 session_start();
 error_reporting(0); 
@@ -137,6 +137,17 @@ try {
             if (!isAdmin()) sendErr('غير مصرح', 403);
             $stmt = $pdo->query("SELECT id, name, phone, role, createdAt FROM users ORDER BY createdAt DESC");
             sendRes($stmt->fetchAll() ?: []);
+            break;
+
+        case 'delete_user':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $id = $_GET['id'] ?? '';
+            if ($id === 'admin_root') sendErr('لا يمكن حذف الحساب الرئيسي للنظام');
+            if ($id === $_SESSION['user']['id']) sendErr('لا يمكنك حذف حسابك الشخصي أثناء تسجيل الدخول');
+            
+            $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->execute([$id]);
+            sendRes(['status' => 'success']);
             break;
 
         case 'get_suppliers':

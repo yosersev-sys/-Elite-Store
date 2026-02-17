@@ -314,6 +314,14 @@ const App: React.FC = () => {
                   setNotification({message: 'تم الاسترجاع بنجاح', type: 'success'}); 
                 }
               }}
+              onDeleteUser={async (id) => {
+                if(await ApiService.deleteUser(id)) {
+                  setNotification({message: 'تم حذف العضو بنجاح', type: 'success'});
+                  loadData(true);
+                } else {
+                  setNotification({message: 'فشل حذف العضو', type: 'error'});
+                }
+              }}
               soundEnabled={soundEnabled}
               onToggleSound={() => setSoundEnabled(!soundEnabled)}
               onLogout={handleLogout}

@@ -28,6 +28,7 @@ interface AdminDashboardProps {
   onViewOrder: (order: Order) => void;
   onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
   onReturnOrder: (id: string) => void;
+  onDeleteUser: (id: string) => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
   onLogout: () => void;
