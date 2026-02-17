@@ -94,12 +94,28 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     <div className="w-full py-4 md:py-8 px-2 md:px-6 animate-fadeIn">
       {showScanner && <BarcodeScanner onScan={q => {setSearchQuery(q); setShowScanner(false);}} onClose={() => setShowScanner(false)} />}
       
+      {/* نافذة تأكيد الإلغاء */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowCancelConfirm(false)}></div>
+          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 text-center animate-slideUp shadow-2xl">
+            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4">⚠️</div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">تجاهل الفاتورة؟</h3>
+            <p className="text-slate-400 font-bold text-sm mb-8">سيتم حذف جميع الأصناف المضافة والعودة للقائمة الرئيسية.</p>
+            <div className="flex gap-3 mt-6">
+              <button onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-rose-100 active:scale-95 transition-all">نعم، إلغاء</button>
+              <button onClick={() => setShowCancelConfirm(false)} className="flex-grow bg-slate-100 text-slate-500 py-4 rounded-2xl font-black active:scale-95 transition-all">تراجع</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-8 px-2">
         <div>
           <h2 className="text-3xl md:text-5xl font-black tracking-tighter">كاشير سوق العصر</h2>
           <p className="text-emerald-600 font-black text-xs uppercase tracking-widest mt-1">نظام المبيعات الفورية الذكي</p>
         </div>
-        <button type="button" onClick={() => setShowCancelConfirm(true)} className="bg-white border-2 px-8 py-3 rounded-2xl font-black text-slate-400">إلغاء</button>
+        <button type="button" onClick={() => setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 px-8 py-3 rounded-2xl font-black text-slate-400 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-100 transition-all">إلغاء</button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
