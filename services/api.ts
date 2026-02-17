@@ -1,42 +1,50 @@
 
 import { Product, Category, Order, User, Supplier } from '../types.ts';
 
-const API_URL = 'api.php';
 const USER_CACHE_KEY = 'souq_user_profile';
 
+/**
+ * دالة جلب البيانات مع معالجة الأخطاء
+ * نستخدم api.php مباشرة في المسار الحالي
+ */
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
-    const url = `${API_URL}?action=${action}`;
+    // إضافة طابع زمني لمنع الكاش المتصفح
+    const url = `api.php?action=${action}&_t=${Date.now()}`;
+    
     const response = await fetch(url, {
       ...options,
-      headers: { 'Accept': 'application/json', ...options?.headers },
+      credentials: 'include',
+      headers: { 
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        ...options?.headers 
+      },
     });
-    if (!response.ok) throw new Error('Network response was not ok');
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status}`);
+    }
+
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error(`API Fetch Error (${action}):`, error);
+    console.error(`API Error (${action}):`, error);
+    // إرجاع مصفوفة فارغة لعمليات الجلب لتجنب تعطل الواجهة
+    if (action.startsWith('get_')) return [];
     return null;
   }
 };
 
 export const ApiService = {
+  // --- AUTH ---
   async getCurrentUser(): Promise<User | null> {
     const user = await safeFetch('get_current_user');
-    if (user) {
+    if (user && user.id) {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
       return user;
     }
     return null;
-  },
-
-  async generateSitemap(): Promise<boolean> {
-    const result = await safeFetch('generate_sitemap');
-    return result?.status === 'success';
-  },
-
-  async getAdminPhone(): Promise<{phone: string} | null> {
-    return await safeFetch('get_admin_phone');
   },
 
   async login(phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
@@ -66,32 +74,39 @@ export const ApiService = {
     await safeFetch('logout');
   },
 
-  async updateProfile(data: { name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
-    return await safeFetch('update_profile', {
+  // Added updateProfile to handle profile updates in ProfileView and SettingsTab
+  async updateProfile(data: { name: string; phone: string; password?: string }): Promise<{ status: string; message?: string; user?: User }> {
+    const result = await safeFetch('update_profile', {
       method: 'POST',
       body: JSON.stringify(data)
     });
+    if (result?.status === 'success' && result.user) {
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user));
+    }
+    return result;
   },
 
-  async adminUpdateUser(data: { id: string, name: string, phone: string, password?: string }): Promise<{status: string, message?: string}> {
-    return await safeFetch('admin_update_user', {
+  // --- SETTINGS ---
+  async getStoreSettings(): Promise<Record<string, string>> {
+    return await safeFetch('get_store_settings') || {};
+  },
+
+  async updateStoreSettings(settings: Record<string, string>): Promise<boolean> {
+    const result = await safeFetch('update_store_settings', {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(settings)
     });
-  },
-
-  async deleteUser(id: string): Promise<boolean> {
-    const result = await safeFetch(`delete_user&id=${id}`, { method: 'DELETE' });
     return result?.status === 'success';
   },
 
-  async getProducts(): Promise<Product[]> {
-    const products = await safeFetch('get_products');
-    return products || [];
+  async generateSitemap(): Promise<boolean> {
+    const result = await safeFetch('generate_sitemap');
+    return result?.status === 'success';
   },
 
-  async getAllImages(): Promise<{url: string, productName: string}[]> {
-    return await safeFetch('get_all_images') || [];
+  // --- DATA FETCHING ---
+  async getProducts(): Promise<Product[]> {
+    return await safeFetch('get_products') || [];
   },
 
   async getCategories(): Promise<Category[]> {
@@ -110,27 +125,11 @@ export const ApiService = {
     return await safeFetch('get_suppliers') || [];
   },
 
-  async addSupplier(supplier: Supplier): Promise<boolean> {
-    const result = await safeFetch('add_supplier', {
-      method: 'POST',
-      body: JSON.stringify(supplier)
-    });
-    return result?.status === 'success';
+  async getAllImages(): Promise<{url: string, productName: string}[]> {
+    return await safeFetch('get_all_images') || [];
   },
 
-  async updateSupplier(supplier: Supplier): Promise<boolean> {
-    const result = await safeFetch('update_supplier', {
-      method: 'POST',
-      body: JSON.stringify(supplier)
-    });
-    return result?.status === 'success';
-  },
-
-  async deleteSupplier(id: string): Promise<boolean> {
-    const result = await safeFetch(`delete_supplier&id=${id}`, { method: 'DELETE' });
-    return result?.status === 'success';
-  },
-
+  // --- CRUD OPERATIONS ---
   async addProduct(product: Product): Promise<boolean> {
     const result = await safeFetch('add_product', {
       method: 'POST',
@@ -145,21 +144,6 @@ export const ApiService = {
       body: JSON.stringify(product)
     });
     return result?.status === 'success';
-  },
-
-  async saveOrder(order: Order): Promise<boolean> {
-    const result = await safeFetch('save_order', {
-      method: 'POST',
-      body: JSON.stringify(order)
-    });
-    return result?.status === 'success';
-  },
-
-  async returnOrder(id: string): Promise<{status: string, message?: string}> {
-    return await safeFetch('return_order', {
-      method: 'POST',
-      body: JSON.stringify({ id })
-    });
   },
 
   async deleteProduct(id: string): Promise<boolean> {
@@ -188,6 +172,14 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
+  async saveOrder(order: Order): Promise<boolean> {
+    const result = await safeFetch('save_order', {
+      method: 'POST',
+      body: JSON.stringify(order)
+    });
+    return result?.status === 'success';
+  },
+
   async updateOrderPayment(id: string, paymentMethod: string): Promise<boolean> {
     const result = await safeFetch('update_order_payment', {
       method: 'POST',
@@ -196,15 +188,44 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async getStoreSettings(): Promise<Record<string, string>> {
-    return await safeFetch('get_store_settings') || {};
+  async returnOrder(id: string): Promise<{status: string, message?: string}> {
+    return await safeFetch('return_order', {
+      method: 'POST',
+      body: JSON.stringify({ id })
+    });
   },
 
-  async updateStoreSettings(settings: Record<string, string>): Promise<boolean> {
-    const result = await safeFetch('update_store_settings', {
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await safeFetch(`delete_user&id=${id}`, { method: 'DELETE' });
+    return result?.status === 'success';
+  },
+
+  async addSupplier(supplier: Supplier): Promise<boolean> {
+    const result = await safeFetch('add_supplier', {
       method: 'POST',
-      body: JSON.stringify(settings)
+      body: JSON.stringify(supplier)
     });
     return result?.status === 'success';
+  },
+
+  async updateSupplier(supplier: Supplier): Promise<boolean> {
+    const result = await safeFetch('update_supplier', {
+      method: 'POST',
+      body: JSON.stringify(supplier)
+    });
+    return result?.status === 'success';
+  },
+
+  async deleteSupplier(id: string): Promise<boolean> {
+    const result = await safeFetch(`delete_supplier&id=${id}`, { method: 'DELETE' });
+    return result?.status === 'success';
+  },
+
+  // Added adminUpdateUser to support member data editing in MembersTab
+  async adminUpdateUser(data: { id: string; name: string; phone: string; password?: string }): Promise<{ status: string; message?: string }> {
+    return await safeFetch('admin_update_user', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 };
