@@ -2,22 +2,22 @@ DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    
-    # استثناء مجلد الـ API من إعادة التوجيه
-    # نستخدم ^api/ بدون شرط الـ URI ليكون متوافقاً مع المجلدات الفرعية
-    RewriteRule ^api/ - [L]
+    RewriteBase /
 
-    # السماح بالوصول للملفات الموجودة فعلياً
-    RewriteCond %{REQUEST_FILENAME} -f
+    # 1. استثناء مجلد الـ API والملفات الحقيقية
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
-    
-    # توجيه كل شيء آخر إلى المحرك الرئيسي
+
+    # 2. السماح بالوصول لملفات الـ API مباشرة
+    RewriteRule ^api/(.*)$ api/$1 [L,NC]
+
+    # 3. توجيه أي طلب آخر إلى المحرك الرئيسي للمتجر
     RewriteRule ^ index.php [L]
 </IfModule>
 
 <IfModule mod_headers.c>
-    <FilesMatch "\.(ts|tsx|js|jsx)$">
+    <FilesMatch "\.(ts|tsx|js|jsx|php)$">
         Header set Access-Control-Allow-Origin "*"
-        Header set Content-Type "application/javascript"
     </FilesMatch>
 </IfModule>

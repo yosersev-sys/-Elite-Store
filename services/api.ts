@@ -1,16 +1,26 @@
-
 import { Product, Category, Order, User, Supplier } from '../types.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
 
 const safeFetch = async (file: string, action: string, options?: RequestInit) => {
   try {
+    // التأكد من أن المسار يبدأ من الجذر لتجنب مشاكل الصفحات الفرعية
     const url = `api/${file}.php?action=${action}`;
     const response = await fetch(url, {
       ...options,
-      headers: { 'Accept': 'application/json', ...options?.headers },
+      headers: { 
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache',
+        ...options?.headers 
+      },
     });
-    if (!response.ok) throw new Error('Network response was not ok');
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Server Error (${response.status}):`, errorText);
+      throw new Error(`Network response was not ok: ${response.status}`);
+    }
+
     const data = await response.json();
     return data;
   } catch (error) {
@@ -23,7 +33,7 @@ export const ApiService = {
   // --- USERS MODULE ---
   async getCurrentUser(): Promise<User | null> {
     const user = await safeFetch('users', 'get_current_user');
-    if (user) {
+    if (user && user.id) {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
       return user;
     }
