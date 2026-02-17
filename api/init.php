@@ -1,13 +1,14 @@
+
 <?php
 /**
- * Shared API Initialization - Stability Fix v5.7
+ * Shared API Initialization - Stability Fix v5.8
  */
 
 // منع ظهور أي تحذيرات قد تفسد الـ JSON
 error_reporting(0);
 ini_set('display_errors', 0);
 
-// ترويسات الاستجابة و CORS
+// ترويسات الاستجابة و CORS - تعزيز الدعم للمتصفحات
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
 header("Access-Control-Allow-Origin: $origin");
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
@@ -48,6 +49,7 @@ function isAdmin() {
 }
 
 function ensureSchema($pdo) {
+    // تقليل الضغط على السيرفر بفحص الهيكل مرة واحدة كل ساعة
     $cacheFile = sys_get_temp_dir() . '/souq_db_schema_' . md5(DB_NAME) . '.lock';
     if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 3600)) return;
 

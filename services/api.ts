@@ -4,10 +4,10 @@ import { Product, Category, Order, User, Supplier } from '../types.ts';
 const USER_CACHE_KEY = 'souq_user_profile';
 
 /**
- * الحصول على المسار الأساسي بشكل موثوق
+ * الحصول على المسار الأساسي لكل ملف API بشكل نمطي
  */
 const getApiEndpoint = (file: string, action: string) => {
-  // استخدام المسار النسبي المباشر لضمان التوافق مع كافة المتصفحات
+  // التوجيه للملفات داخل مجلد api/ (مثل api/users.php)
   return `api/${file}.php?action=${action}`;
 };
 
@@ -17,7 +17,6 @@ const safeFetch = async (file: string, action: string, options?: RequestInit) =>
     
     const response = await fetch(url, {
       ...options,
-      // مهم جداً لحفظ تسجيل الدخول ومنع NetworkError في بعض المتصفحات
       credentials: 'include',
       headers: { 
         'Accept': 'application/json',
@@ -30,7 +29,8 @@ const safeFetch = async (file: string, action: string, options?: RequestInit) =>
       throw new Error(`HTTP Error: ${response.status}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error(`API Fetch Failure (${file}/${action}):`, error);
     return null;

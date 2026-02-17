@@ -1,3 +1,4 @@
+
 <?php
 /**
  * Products API Module - Souq Al-Asr
@@ -85,7 +86,7 @@ switch ($action) {
         $prods = $pdo->query("SELECT name, images FROM products")->fetchAll();
         foreach ($prods as $p) {
             $imgs = json_decode($p['images'] ?? '[]', true) ?: [];
-            foreach ($imgs as $url) { // تم إصلاح الخطأ هنا بإضافة علامة $
+            foreach ($imgs as $url) {
                 $res[] = ['url' => $url, 'productName' => $p['name']];
             }
         }
