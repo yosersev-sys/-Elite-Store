@@ -15,6 +15,7 @@ interface OrdersTabProps {
 const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
   const ordersPerPage = 10;
 
   const filteredOrders = useMemo(() => {
@@ -36,10 +37,23 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
   const handleUpdatePayment = async (id: string, method: string) => {
-    if (processingId === id) return;
+    if (isUpdating) return;
+    
+    setIsUpdating(true);
     setProcessingId(id);
-    await onUpdateOrderPayment(id, method);
-    setProcessingId(null);
+    
+    try {
+      await onUpdateOrderPayment(id, method);
+      // تأخير بسيط لإعطاء شعور بالتفاعل
+      setTimeout(() => {
+        setIsUpdating(false);
+        setProcessingId(null);
+      }, 400);
+    } catch (err) {
+      setIsUpdating(false);
+      setProcessingId(null);
+      alert('حدث خطأ أثناء التحديث');
+    }
   };
 
   if (isLoading && orders.length === 0) {
@@ -72,7 +86,21 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
+      {/* نافذة "جاري التعديل" */}
+      {isUpdating && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] animate-fadeIn"></div>
+          <div className="relative bg-white px-10 py-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-4 animate-slideUp border border-emerald-50">
+             <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+             <div className="text-center">
+                <p className="font-black text-slate-800 text-lg">جاري تحديث الحساب...</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">يرجى الانتظار لحظة</p>
+             </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-end">
         <div className="relative w-full md:w-80">
           <input 
@@ -85,6 +113,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
           <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
         </div>
       </div>
+
       <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-right text-sm">
           <thead>
@@ -100,7 +129,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
               const currentPayment = o.paymentMethod || 'نقدي (تم الدفع)';
               const isDebt = String(currentPayment).includes('آجل');
               const isCancelled = o.status === 'cancelled';
-              const isProcessing = processingId === o.id;
+              const isLocalProcessing = processingId === o.id;
               
               return (
                 <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
@@ -113,16 +142,16 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                     {isCancelled ? (
                       <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
                     ) : (
-                      <div className={`flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50 ${isProcessing ? 'animate-pulse opacity-60' : ''}`}>
+                      <div className={`flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50 ${isLocalProcessing ? 'animate-pulse opacity-60' : ''}`}>
                         <button 
-                          disabled={isProcessing}
+                          disabled={isUpdating}
                           onClick={() => handleUpdatePayment(o.id, 'نقدي (تم الدفع)')}
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
                           نقدي 💰
                         </button>
                         <button 
-                          disabled={isProcessing}
+                          disabled={isUpdating}
                           onClick={() => handleUpdatePayment(o.id, 'آجل (مديونية)')}
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
