@@ -6,7 +6,7 @@ import BarcodeScanner from '../components/BarcodeScanner';
 interface AdminInvoiceFormProps {
   products: Product[];
   globalDeliveryFee: number;
-  onSubmit: (order: Order) => void;
+  onSubmit: (order: Order) => Promise<void> | void;
   onCancel: () => void;
   initialCustomerName?: string;
   initialPhone?: string;
@@ -18,6 +18,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
   const [isDeliveryEnabled, setIsDeliveryEnabled] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [customerInfo, setCustomerInfo] = useState({
     name: initialCustomerName,
     phone: initialPhone,
@@ -74,7 +75,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   }, [products, searchQuery]);
 
   const addItemToInvoice = (product: Product) => {
-    // في وضع التعديل نسمح بالإضافة حتى لو المخزن صفر لأن الكمية الأصلية ستعاد للمخزن عند الحفظ
     if (!order && product.stockQuantity <= 0) {
       alert('عذراً، هذا المنتج غير متوفر في المخزن حالياً!');
       return;
@@ -83,7 +83,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     setInvoiceItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        // التحقق من المخزن (مع مراعاة الكمية المحجوزة في الطلب الأصلي إذا كنا نعدل)
         const availableInStock = order 
            ? product.stockQuantity + (order.items.find(i => i.id === product.id)?.quantity || 0)
            : product.stockQuantity;
@@ -164,7 +163,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const deliveryFee = isDeliveryEnabled ? globalDeliveryFee : 0;
   const total = subtotal + deliveryFee;
 
-  const handleFinalSubmit = () => {
+  const handleFinalSubmit = async () => {
+    if (isSaving) return;
     if (!isOnline) {
       alert('لا يمكن حفظ الفاتورة في وضع الأوفلاين. يرجى الاتصال بالإنترنت للمتابعة.');
       return;
@@ -173,23 +173,31 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     if (!customerInfo.phone) return alert('يرجى إدخال رقم الهاتف لمتابعة الطلب');
     if (isDeliveryEnabled && !customerInfo.address.trim()) return alert('يرجى إدخال عنوان التوصيل');
     
-    const orderId = order ? order.id : 'INV-' + Date.now().toString().slice(-8);
-    
-    const newOrder: Order = {
-      id: orderId,
-      customerName: customerInfo.name,
-      phone: customerInfo.phone,
-      city: customerInfo.city,
-      address: isDeliveryEnabled ? customerInfo.address.trim() : 'استلام فرع (كاشير)',
-      items: invoiceItems,
-      subtotal,
-      total,
-      paymentMethod: customerInfo.paymentMethod,
-      status: order ? order.status : 'completed',
-      createdAt: order ? order.createdAt : Date.now()
-    };
+    setIsSaving(true);
+    try {
+      const orderId = order ? order.id : 'INV-' + Date.now().toString().slice(-8);
+      
+      const newOrder: Order = {
+        id: orderId,
+        customerName: customerInfo.name,
+        phone: customerInfo.phone,
+        city: customerInfo.city,
+        address: isDeliveryEnabled ? customerInfo.address.trim() : 'استلام فرع (كاشير)',
+        items: invoiceItems,
+        subtotal,
+        total,
+        paymentMethod: customerInfo.paymentMethod,
+        status: order ? order.status : 'completed',
+        createdAt: order ? order.createdAt : Date.now()
+      };
 
-    onSubmit(newOrder);
+      await onSubmit(newOrder);
+    } catch (err) {
+      console.error("Save error:", err);
+      alert('حدث خطأ أثناء حفظ الفاتورة');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleScanResult = (code: string) => {
@@ -203,14 +211,14 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => !isSaving && setShowCancelConfirm(false)}></div>
           <div className="relative bg-white w-full max-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
             <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
             <h3 className="text-2xl font-black text-slate-800 mb-2">{order ? 'تجاهل التعديلات؟' : 'إلغاء الفاتورة؟'}</h3>
             <p className="text-slate-500 font-bold text-sm mb-8">سيتم مسح جميع الأصناف التي قمت بإضافتها حالياً.</p>
             <div className="flex gap-3">
-              <button onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg">نعم، {order ? 'خروج' : 'إلغاء'}</button>
-              <button onClick={() => setShowCancelConfirm(false)} className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95">تراجع</button>
+              <button disabled={isSaving} onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg">نعم، {order ? 'خروج' : 'إلغاء'}</button>
+              <button disabled={isSaving} onClick={() => setShowCancelConfirm(false)} className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95">تراجع</button>
             </div>
           </div>
         </div>
@@ -218,7 +226,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
       {showPreview && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-6 overflow-y-auto">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setShowPreview(false)}></div>
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSaving && setShowPreview(false)}></div>
           <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl relative z-10 animate-slideUp overflow-hidden max-h-[90vh] flex flex-col">
              <div className="p-6 md:p-10 text-center space-y-4 md:space-y-6 overflow-y-auto no-scrollbar flex-grow">
                 <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">🧾</div>
@@ -247,15 +255,24 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
                 <div className="flex flex-col gap-3 pt-2">
                    <button 
-                    disabled={!isOnline}
+                    disabled={!isOnline || isSaving}
                     onClick={handleFinalSubmit} 
-                    className={`w-full py-4 md:py-5 rounded-2xl font-black shadow-xl active:scale-95 text-base text-white transition-all bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700 disabled:bg-slate-300 disabled:shadow-none`}
+                    className={`w-full py-4 md:py-5 rounded-2xl font-black shadow-xl active:scale-95 text-base text-white transition-all ${isSaving ? 'bg-slate-400 shadow-none' : 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700'} disabled:opacity-50 flex items-center justify-center gap-3`}
                    >
-                     {isOnline ? (order ? 'تحديث الفاتورة الآن' : 'إتمام وحفظ الفاتورة') : 'انتظار الاتصال...'}
+                     {isSaving ? (
+                       <>
+                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                         <span>جاري الحفظ...</span>
+                       </>
+                     ) : (
+                       isOnline ? (order ? 'تحديث الفاتورة الآن' : 'إتمام وحفظ الفاتورة') : 'انتظار الاتصال...'
+                     )}
                    </button>
-                   <button onClick={() => setShowPreview(false)} className="w-full bg-slate-100 text-slate-500 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition-colors">
-                     تعديل البيانات
-                   </button>
+                   {!isSaving && (
+                     <button onClick={() => setShowPreview(false)} className="w-full bg-slate-100 text-slate-500 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition-colors">
+                       تعديل البيانات
+                     </button>
+                   )}
                 </div>
              </div>
           </div>
@@ -273,7 +290,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
             <span className="text-[10px] font-black">{isOnline ? 'متصل' : 'أوفلاين'}</span>
           </div>
         </div>
-        <button type="button" onClick={() => setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 px-4 py-1.5 md:px-8 md:py-3 rounded-xl font-black text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition text-[10px] md:text-xs">إلغاء</button>
+        <button type="button" onClick={() => !isSaving && setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 px-4 py-1.5 md:px-8 md:py-3 rounded-xl font-black text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition text-[10px] md:text-xs">إلغاء</button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 items-start">
@@ -284,15 +301,17 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                <div className="relative group">
                  <input 
                    ref={searchInputRef}
+                   disabled={isSaving}
                    type="text" 
                    placeholder="ابحث هنا..." 
                    value={searchQuery}
                    onChange={(e) => setSearchQuery(e.target.value)}
-                   className="w-full px-4 md:px-8 py-3.5 md:py-5 pr-12 md:pr-16 bg-slate-50 rounded-xl md:rounded-3xl outline-none focus:ring-4 focus:ring-emerald-500/10 font-black text-sm md:text-lg border-2 border-transparent focus:border-emerald-500 transition-all shadow-inner"
+                   className="w-full px-4 md:px-8 py-3.5 md:py-5 pr-12 md:pr-16 bg-slate-50 rounded-xl md:rounded-3xl outline-none focus:ring-4 focus:ring-emerald-500/10 font-black text-sm md:text-lg border-2 border-transparent focus:border-emerald-500 transition-all shadow-inner disabled:opacity-50"
                  />
                  <button 
+                  disabled={isSaving}
                   onClick={() => setShowScanner(true)}
-                  className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 bg-emerald-600 text-white p-2.5 md:p-3.5 rounded-xl md:rounded-2xl shadow-lg hover:bg-slate-900 transition-all"
+                  className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 bg-emerald-600 text-white p-2.5 md:p-3.5 rounded-xl md:rounded-2xl shadow-lg hover:bg-slate-900 transition-all disabled:opacity-50"
                  >
                    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -301,7 +320,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                  </button>
                </div>
                
-               {searchQuery.trim() && filteredProducts.length > 0 && (
+               {searchQuery.trim() && filteredProducts.length > 0 && !isSaving && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-[1.5rem] shadow-2xl z-50 overflow-hidden animate-slideUp">
                     {filteredProducts.map(p => (
                       <button 
@@ -328,7 +347,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
             <div className="space-y-3">
                <h3 className="font-black text-slate-800 text-sm md:text-xl px-2 flex items-center justify-between">
                  <span>الأصناف ({invoiceItems.length})</span>
-                 {invoiceItems.length > 0 && (
+                 {invoiceItems.length > 0 && !isSaving && (
                    <button onClick={() => setInvoiceItems([])} className="text-[10px] text-rose-500 font-black hover:underline">مسح الكل</button>
                  )}
                </h3>
@@ -354,21 +373,24 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                             <td className="px-4 md:px-8 py-3">
                               <div className="flex flex-col">
                                 <span className="font-black text-slate-800 text-[11px] md:text-sm leading-tight">{item.name}</span>
-                                <button onClick={() => removeItem(item.id)} className="text-[8px] text-rose-400 font-bold text-right mt-0.5 hover:text-rose-600">حذف ✕</button>
+                                {!isSaving && (
+                                  <button onClick={() => removeItem(item.id)} className="text-[8px] text-rose-400 font-bold text-right mt-0.5 hover:text-rose-600">حذف ✕</button>
+                                )}
                               </div>
                             </td>
                             <td className="px-4 md:px-8 py-3">
                               <div className="flex items-center gap-1.5 md:gap-2">
                                 <div className="flex items-center bg-slate-50 rounded-lg px-1 py-0.5 border border-slate-100">
-                                  <button onClick={() => updateQuantity(item.id, -(item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm">-</button>
+                                  <button disabled={isSaving} onClick={() => updateQuantity(item.id, -(item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">-</button>
                                   <input 
+                                    disabled={isSaving}
                                     type="number"
                                     step={item.unit === 'kg' ? "0.001" : "1"}
                                     value={item.quantity}
                                     onChange={(e) => setDirectQuantity(item.id, e.target.value)}
-                                    className="bg-transparent font-black text-[11px] md:text-xs w-14 text-center outline-none"
+                                    className="bg-transparent font-black text-[11px] md:text-xs w-14 text-center outline-none disabled:opacity-50"
                                   />
-                                  <button onClick={() => updateQuantity(item.id, (item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm">+</button>
+                                  <button disabled={isSaving} onClick={() => updateQuantity(item.id, (item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">+</button>
                                 </div>
                                 <span className="text-[8px] font-bold text-slate-400">{item.unit === 'kg' ? 'كجم' : 'ق'}</span>
                               </div>
@@ -395,21 +417,23 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                  <div className="space-y-1.5">
                     <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">اسم العميل</label>
                     <input 
+                      disabled={isSaving}
                       type="text"
                       value={customerInfo.name}
                       onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})}
-                      className="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-bold text-sm shadow-inner transition-all"
+                      className="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-bold text-sm shadow-inner transition-all disabled:opacity-50"
                     />
                  </div>
 
                  <div className="space-y-1.5">
                     <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">رقم الموبايل</label>
                     <input 
+                      disabled={isSaving}
                       type="tel"
                       value={customerInfo.phone}
                       onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
                       placeholder="01xxxxxxxxx"
-                      className="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-bold text-center text-sm shadow-inner transition-all"
+                      className="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-bold text-center text-sm shadow-inner transition-all disabled:opacity-50"
                       dir="ltr"
                     />
                  </div>
@@ -421,9 +445,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                       <p className="text-[9px] text-emerald-600 font-bold">سيتم إضافة {globalDeliveryFee} ج.م للفاتورة</p>
                     </div>
                     <button 
+                      disabled={isSaving}
                       type="button"
                       onClick={() => setIsDeliveryEnabled(!isDeliveryEnabled)}
-                      className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${isDeliveryEnabled ? 'bg-emerald-600' : 'bg-slate-300'}`}
+                      className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${isDeliveryEnabled ? 'bg-emerald-600' : 'bg-slate-300'} disabled:opacity-50`}
                     >
                       <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isDeliveryEnabled ? 'right-7' : 'right-1'}`}></div>
                     </button>
@@ -434,10 +459,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     <div className="space-y-1.5 animate-slideUp">
                        <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">عنوان التوصيل بالتفصيل</label>
                        <textarea 
+                         disabled={isSaving}
                          value={customerInfo.address}
                          onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})}
                          placeholder="الحي، الشارع، أو علامة مميزة..."
-                         className="w-full px-4 md:px-6 py-3 md:py-4 bg-white border-2 border-emerald-100 rounded-xl md:rounded-2xl outline-none font-bold text-sm shadow-sm transition-all focus:border-emerald-500 min-h-[80px] resize-none"
+                         className="w-full px-4 md:px-6 py-3 md:py-4 bg-white border-2 border-emerald-100 rounded-xl md:rounded-2xl outline-none font-bold text-sm shadow-sm transition-all focus:border-emerald-500 min-h-[80px] resize-none disabled:opacity-50"
                        />
                     </div>
                  )}
@@ -446,16 +472,18 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">طريقة الدفع</label>
                     <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border">
                        <button 
+                         disabled={isSaving}
                          type="button"
                          onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'نقدي (تم الدفع)'})}
-                         className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.paymentMethod.includes('نقدي') ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'}`}
+                         className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.paymentMethod.includes('نقدي') ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'} disabled:opacity-30`}
                        >
                          <span>💰</span> نقدي
                        </button>
                        <button 
+                         disabled={isSaving}
                          type="button"
                          onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'آجل (مديونية)'})}
-                         className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.paymentMethod.includes('آجل') ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'}`}
+                         className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.paymentMethod.includes('آجل') ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'} disabled:opacity-30`}
                        >
                          <span>⏳</span> آجل
                        </button>
@@ -473,7 +501,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                  </div>
 
                  <button 
-                   disabled={invoiceItems.length === 0 || !isOnline}
+                   disabled={invoiceItems.length === 0 || !isOnline || isSaving}
                    onClick={() => setShowPreview(true)}
                    className={`w-full text-white py-4 md:py-6 rounded-2xl md:rounded-3xl font-black text-sm md:text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-40 bg-slate-900 hover:bg-emerald-600`}
                  >
