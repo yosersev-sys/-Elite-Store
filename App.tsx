@@ -76,12 +76,7 @@ const App: React.FC = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
-  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(() => {
-    try {
-      const saved = sessionStorage.getItem('souq_last_order');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -91,20 +86,19 @@ const App: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   useEffect(() => {
-    if (lastCreatedOrder) {
-      try {
-        sessionStorage.setItem('souq_last_order', JSON.stringify(lastCreatedOrder));
-      } catch(e) { console.error("Session storage error", e); }
-    }
-  }, [lastCreatedOrder]);
-
-  useEffect(() => {
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3');
     audio.preload = 'auto';
     audioObj.current = audio;
   }, []);
 
   useEffect(() => {
+    const handleHashChange = () => {
+      const newView = getInitialView();
+      if (newView !== view) setView(newView);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+
     const currentHash = window.location.hash.replace('#', '').split('?')[0];
     if (view === 'store') {
         if (currentHash !== '' && !ADMIN_VIEWS.includes(currentHash as View)) {
@@ -113,11 +107,9 @@ const App: React.FC = () => {
     } else {
         if (currentHash !== view) window.location.hash = view;
     }
-    
-    if (view === 'order-success' && !lastCreatedOrder) {
-      setView('store');
-    }
-  }, [view, lastCreatedOrder]);
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [view]);
 
   const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
@@ -192,6 +184,7 @@ const App: React.FC = () => {
       return;
     }
     setView(v);
+    window.location.hash = v;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -201,7 +194,7 @@ const App: React.FC = () => {
     setOrders([]);
     setUsers([]);
     setSuppliers([]);
-    setView('store');
+    onNavigateAction('store');
   };
 
   const handleAuthSuccess = (user: User) => {
@@ -261,7 +254,7 @@ const App: React.FC = () => {
         {isAdminPath && !isActuallyAdmin && (
           <AdminAuthView 
             onSuccess={handleAuthSuccess}
-            onClose={() => setView('store')}
+            onClose={() => onNavigateAction('store')}
           />
         )}
 
@@ -317,7 +310,7 @@ const App: React.FC = () => {
               }}
               onViewOrder={(order) => {
                 setLastCreatedOrder(order);
-                setView('order-success');
+                onNavigateAction('order-success');
               }}
               onUpdateOrderPayment={async (id, method) => {
                 const success = await ApiService.updateOrderPayment(id, method);
@@ -360,7 +353,7 @@ const App: React.FC = () => {
                   setProductForBarcode(p);
                 }
               }}
-              onCancel={() => setView('admin')}
+              onCancel={() => onNavigateAction('admin')}
             />
           )}
 
@@ -375,12 +368,11 @@ const App: React.FC = () => {
                 if (success) {
                   setLastCreatedOrder(order);
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
-                  // نضمن تحديث الحالة أولاً قبل الانتقال
-                  setTimeout(() => setView('order-success'), 50);
+                  onNavigateAction('order-success');
                   await loadData(true);
                 }
               }}
-              onCancel={() => setView(isActuallyAdmin ? 'admin' : 'store')}
+              onCancel={() => onNavigateAction(isActuallyAdmin ? 'admin' : 'store')}
             />
           )}
 
@@ -389,8 +381,8 @@ const App: React.FC = () => {
               cart={cart} 
               onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))}
               onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
-              onCheckout={() => setView('checkout')}
-              onContinueShopping={() => setView('store')}
+              onCheckout={() => onNavigateAction('checkout')}
+              onContinueShopping={() => onNavigateAction('store')}
             />
           )}
 
@@ -399,7 +391,7 @@ const App: React.FC = () => {
               product={selectedProduct}
               categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
               onAddToCart={(p, s, c, rect, q) => addToCart(p, s, c, rect, q)}
-              onBack={() => setView('store')}
+              onBack={() => onNavigateAction('store')}
               isFavorite={wishlist.includes(selectedProduct.id)}
               onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
             />
@@ -409,13 +401,13 @@ const App: React.FC = () => {
             <OrderSuccessView 
               order={lastCreatedOrder} 
               adminPhone={adminPhone}
-              onContinueShopping={() => setView('store')} 
+              onContinueShopping={() => onNavigateAction('store')} 
             />
           )}
 
           {view === 'checkout' && (
              <CheckoutView 
-              cart={cart} currentUser={currentUser} onBack={() => setView('cart')}
+              cart={cart} currentUser={currentUser} onBack={() => onNavigateAction('cart')}
               deliveryFee={deliveryFee}
               onPlaceOrder={async (details) => {
                 const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
@@ -430,31 +422,31 @@ const App: React.FC = () => {
                   setLastCreatedOrder(order);
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
-                  setTimeout(() => setView('order-success'), 50);
+                  onNavigateAction('order-success');
                   loadData(true);
                 }
               }}
              />
           )}
 
-          {view === 'my-orders' && <MyOrdersView orders={orders} onViewDetails={(o) => {setLastCreatedOrder(o); setView('order-success');}} onBack={() => setView('store')} />}
-          {view === 'profile' && currentUser && <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => setView('store')} />}
+          {view === 'my-orders' && <MyOrdersView orders={orders} onViewDetails={(o) => {setLastCreatedOrder(o); onNavigateAction('order-success');}} onBack={() => onNavigateAction('store')} />}
+          {view === 'profile' && currentUser && <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigateAction('store')} />}
         </main>
 
         {!isAdminPath && (
           <>
             <Footer categories={categories} onNavigate={onNavigateAction} onCategorySelect={setSelectedCategoryId} />
-            <FloatingCartButton count={cart.length} onClick={() => setView('cart')} isVisible={!isAdminPath} />
+            <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={!isAdminPath} />
             <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
             {isActuallyAdmin && (
               <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
             )}
-            <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigateAction} onCartClick={() => setView('cart')} isAdmin={isActuallyAdmin} />
+            <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigateAction} onCartClick={() => onNavigateAction('cart')} isAdmin={isActuallyAdmin} />
           </>
         )}
         
         {productForBarcode && (
-          <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); setView('admin'); }} />
+          <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigateAction('admin'); }} />
         )}
       </div>
     </PullToRefresh>

@@ -13,19 +13,18 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
-  // 1. حماية قصوى: إذا لم توجد بيانات، اظهر رسالة بديلة بدلاً من انهيار الصفحة
+  // حماية قصوى: إذا لم يكتمل تحميل الطلب أو حدث خطأ، لا تعرض الصفحة البيضاء
   if (!order) {
     return (
       <div className="flex flex-col items-center justify-center py-32 px-6 text-center animate-fadeIn">
         <div className="w-20 h-20 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center text-4xl mb-6">⏳</div>
-        <h2 className="text-2xl font-black text-slate-800 mb-2">جاري تجهيز بيانات الطلب...</h2>
-        <p className="text-slate-400 font-bold text-sm mb-8">إذا استمرت هذه الرسالة، يرجى العودة للمتجر.</p>
+        <h2 className="text-2xl font-black text-slate-800 mb-2">جاري معالجة بيانات الطلب...</h2>
+        <p className="text-slate-400 font-bold text-sm mb-8">إذا استمرت هذه الرسالة، يرجى العودة للمتجر والتأكد من سلتك.</p>
         <button onClick={onContinueShopping} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all">العودة للمتجر الرئيسي</button>
       </div>
     );
   }
 
-  // 2. العمليات الحسابية تتم فقط بعد التأكد من وجود الـ order
   const subtotal = Number(order?.subtotal || 0);
   const total = Number(order?.total || 0);
   const deliveryFee = Math.max(0, total - subtotal);
@@ -42,9 +41,13 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
 
   const handleShareScreenshot = async () => {
     if (!invoiceRef.current || isCapturing) return;
+    if (!(window as any).html2canvas) {
+      alert('عذراً، لم يتم تحميل مكتبة التصوير بشكل كامل. يرجى المحاولة مرة أخرى.');
+      return;
+    }
+
     setIsCapturing(true);
     try {
-      // إخفاء العناصر غير المرغوب فيها قبل اللقطة
       await new Promise(resolve => setTimeout(resolve, 300));
       const canvas = await (window as any).html2canvas(invoiceRef.current, {
         scale: 3,
@@ -98,7 +101,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl shadow-inner animate-bounce">✅</div>
          <div className="text-center px-4">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">تم إرسال طلبك!</h2>
-            <p className="text-slate-400 font-bold text-sm mt-1">اضغط على الزر الأخضر أدناه لتأكيد طلبك</p>
+            <p className="text-slate-400 font-bold text-sm mt-1">رقم الطلب الخاص بك هو #{order.id}</p>
          </div>
       </div>
 
@@ -112,7 +115,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
           <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.587-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793 0-.852.448-1.271.607-1.445.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298L11 11.23c.044.103.073.222.004.36-.069.138-.104.225-.207.346-.104.121-.219.27-.312.364-.103.104-.21.218-.091.423.119.205.529.873 1.139 1.414.785.698 1.446.915 1.652 1.018.205.103.326.087.447-.052.121-.138.52-.605.659-.812.138-.208.277-.173.466-.104.19.069 1.205.57 1.413.674.208.104.346.156.397.242.052.088.052.509-.092.914z"/>
           </svg>
-          تأكيد الطلب الآن (واتساب)
+          تأكيد الطلب عبر واتساب
         </a>
       </div>
 
@@ -128,26 +131,22 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
            <h1 className="text-2xl font-black text-slate-800 tracking-tighter">سوق العصر - فاقوس</h1>
            <p className="text-[11px] font-black text-emerald-600 mt-1 uppercase tracking-widest">soqelasr.com</p>
            <div className="mt-5 inline-block bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
-             إيصال مبيعات #{order?.id || '---'}
+             فاتورة مبيعات #{order.id}
            </div>
         </div>
 
         <div className="space-y-2 mb-8 text-[11px] font-bold text-slate-600">
            <div className="flex justify-between">
               <span className="opacity-50">التاريخ:</span>
-              <span>{order?.createdAt ? new Date(order.createdAt).toLocaleDateString('ar-EG') : '---'}</span>
+              <span>{order.createdAt ? new Date(order.createdAt).toLocaleDateString('ar-EG') : '---'}</span>
            </div>
            <div className="flex justify-between">
               <span className="opacity-50">العميل:</span>
-              <span className="text-slate-800">{order?.customerName || 'عميل نقدي'}</span>
+              <span className="text-slate-800">{order.customerName || 'عميل نقدي'}</span>
            </div>
            <div className="flex justify-between">
               <span className="opacity-50">الهاتف:</span>
-              <span>{order?.phone || '---'}</span>
-           </div>
-           <div className="flex justify-between items-start">
-              <span className="opacity-50">العنوان:</span>
-              <span className="text-left max-w-[180px] break-words">{order?.address || 'فاقوس'}</span>
+              <span>{order.phone || '---'}</span>
            </div>
         </div>
 
@@ -161,10 +160,10 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
                 <div key={idx} className="flex flex-col gap-1.5">
                    <div className="flex justify-between items-start">
                       <span className="text-xs font-black text-slate-800 leading-tight flex-grow">{item?.name || 'صنف'}</span>
-                      <span className="text-xs font-black text-slate-900 mr-4">{((item?.price || 0) * (item?.quantity || 0)).toFixed(2)}</span>
+                      <span className="text-xs font-black text-slate-900 mr-4">{((Number(item?.price) || 0) * (Number(item?.quantity) || 0)).toFixed(2)}</span>
                    </div>
                    <div className="text-[10px] font-bold text-slate-400">
-                      {item?.quantity || 0} × {(item?.price || 0).toFixed(2)} ج.م
+                      {Number(item?.quantity) || 0} × {(Number(item?.price) || 0).toFixed(2)} ج.م
                    </div>
                 </div>
               ))}
@@ -189,11 +188,10 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
         <div className="mt-12 text-center space-y-4 border-t border-slate-50 pt-8">
            <div className="flex flex-col items-center gap-1.5 opacity-60">
               <div className="text-2xl font-black tracking-[5px] text-slate-900 border-x-4 border-slate-900 px-5">
-                {String(order?.id || '000000').replace(/\D/g, '') || '000000'}
+                {String(order.id).replace(/\D/g, '') || '000000'}
               </div>
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">شكراً لثقتكم بنا!</p>
            </div>
-           <p className="text-[11px] text-emerald-600 font-black uppercase tracking-[0.4em] italic pt-2">WWW.SOQELASR.COM</p>
         </div>
       </div>
 
@@ -202,14 +200,14 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone =
           onClick={handlePrint} 
           className="flex items-center justify-center gap-2 bg-slate-900 text-white py-4.5 rounded-2xl font-black text-sm hover:bg-slate-800 shadow-lg active:scale-95 transition-all"
         >
-          🖨️ طباعة الفاتورة
+          🖨️ طباعة
         </button>
         <button 
           onClick={handleShareScreenshot} 
           disabled={isCapturing}
           className="flex items-center justify-center gap-2 bg-indigo-600 text-white py-4.5 rounded-2xl font-black text-sm shadow-lg disabled:opacity-50 active:scale-95 transition-all"
         >
-          📸 {isCapturing ? 'جاري الحفظ...' : 'حفظ كصورة'}
+          📸 {isCapturing ? 'جاري التصوير...' : 'حفظ صورة'}
         </button>
         <button 
           onClick={onContinueShopping} 

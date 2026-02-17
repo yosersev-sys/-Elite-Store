@@ -5,9 +5,9 @@ const USER_CACHE_KEY = 'souq_user_profile';
 
 /**
  * الحصول على المسار الأساسي لكل ملف API بشكل نمطي
+ * تم الإصلاح لحل مشكلة الـ 404 عبر التوجيه للمجلد الصحيح
  */
 const getApiEndpoint = (file: string, action: string) => {
-  // التوجيه للملفات داخل مجلد api/ (مثل api/users.php)
   return `api/${file}.php?action=${action}`;
 };
 
