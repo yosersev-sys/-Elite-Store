@@ -336,12 +336,17 @@ const App: React.FC = () => {
               globalDeliveryFee={deliveryFee}
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
+                  // إضافة معرف الطلب لقائمة المعرفات المعروفة لمنع التنبيه الصوتي
+                  prevOrderIds.current.add(order.id);
+                  
                   setLastCreatedOrder(order);
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
+                  
                   // لا يتم فتح واتساب تلقائياً إذا كان المدير هو من يقوم بالعملية من لوحة التحكم
                   if (!isActuallyAdmin) {
                     WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   }
+                  
                   await loadData(true);
                   setView('order-success');
                 }
