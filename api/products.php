@@ -1,6 +1,6 @@
 <?php
 /**
- * Products API Module - Optimized for Performance and Reliability
+ * Products API Module - Performance Version
  */
 require_once 'init.php';
 $action = $_GET['action'] ?? '';
@@ -9,22 +9,18 @@ $input = json_decode(file_get_contents('php://input'), true);
 switch ($action) {
     case 'get_products':
         try {
-            // جلب البيانات الأساسية للمتجر ولوحة التحكم
-            // ملاحظة: جلب الصور بالكامل قد يكون ثقيلاً، لذا نعتمد على التحويل في الواجهة أو تقليص البيانات
-            $stmt = $pdo->query("SELECT id, name, price, wholesalePrice, categoryId, images, stockQuantity, unit, salesCount, createdAt, barcode, batches FROM products ORDER BY createdAt DESC");
+            // جلب البيانات الضرورية فقط للعرض السريع
+            $stmt = $pdo->query("SELECT id, name, price, categoryId, images, stockQuantity, unit, salesCount, createdAt FROM products ORDER BY createdAt DESC");
             $prods = $stmt->fetchAll() ?: [];
             
             foreach ($prods as &$p) {
-                // تحويل نصوص الـ JSON إلى مصفوفات
-                $p['images'] = json_decode($p['images'] ?? '[]', true) ?: [];
-                $p['batches'] = json_decode($p['batches'] ?? '[]', true) ?: [];
+                // تحسين الأداء: إرسال الصورة الأولى فقط في قائمة العرض لتقليل الحجم
+                $allImages = json_decode($p['images'] ?? '[]', true) ?: [];
+                $p['images'] = (count($allImages) > 0) ? [$allImages[0]] : [];
                 
-                // تحويل الأنواع لضمان استقرار العمليات الحسابية في React
                 $p['price'] = (float)$p['price'];
-                $p['wholesalePrice'] = (float)($p['wholesalePrice'] ?? 0);
-                $p['stockQuantity'] = (float)($p['stockQuantity'] ?? 0);
-                $p['salesCount'] = (int)($p['salesCount'] ?? 0);
-                $p['createdAt'] = (int)($p['createdAt'] ?? (time() * 1000));
+                $p['stockQuantity'] = (float)$p['stockQuantity'];
+                $p['salesCount'] = (int)$p['salesCount'];
             }
             sendRes($prods);
         } catch (Exception $e) {
@@ -42,7 +38,7 @@ switch ($action) {
             $p['batches'] = json_decode($p['batches'] ?? '[]', true) ?: [];
             $p['seoSettings'] = json_decode($p['seoSettings'] ?? '{}', true) ?: null;
             $p['price'] = (float)$p['price'];
-            $p['wholesalePrice'] = (float)$p['wholesalePrice'];
+            $p['wholesalePrice'] = (float)($p['wholesalePrice'] ?? 0);
             $p['stockQuantity'] = (float)$p['stockQuantity'];
             sendRes($p);
         } else sendErr('المنتج غير موجود');
@@ -51,9 +47,7 @@ switch ($action) {
     case 'add_product':
     case 'update_product':
         if (!isAdmin()) sendErr('غير مصرح', 403);
-        
         $isAdd = ($action === 'add_product');
-        
         if ($isAdd) {
             $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, wholesalePrice, categoryId, supplierId, images, stockQuantity, unit, barcode, seoSettings, batches, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         } else {
@@ -61,23 +55,15 @@ switch ($action) {
         }
         
         $params = [
-            $input['name'], 
-            $input['description'], 
-            (float)$input['price'], 
-            (float)($input['wholesalePrice'] ?? 0), 
-            $input['categoryId'], 
-            $input['supplierId'] ?? null, 
-            json_encode($input['images'] ?? []), 
-            (float)($input['stockQuantity'] ?? 0), 
-            $input['unit'] ?? 'piece', 
-            $input['barcode'] ?? '', 
-            json_encode($input['seoSettings'] ?? (object)[]), 
-            json_encode($input['batches'] ?? [])
+            $input['name'], $input['description'], (float)$input['price'], (float)($input['wholesalePrice'] ?? 0),
+            $input['categoryId'], $input['supplierId'] ?? null, json_encode($input['images'] ?? []),
+            (float)$input['stockQuantity'], $input['unit'] ?? 'piece', $input['barcode'] ?? '',
+            json_encode($input['seoSettings'] ?? (object)[]), json_encode($input['batches'] ?? [])
         ];
 
         if ($isAdd) {
             array_unshift($params, $input['id']);
-            $params[] = $input['createdAt'] ?? (time() * 1000);
+            $params[] = time() * 1000;
         } else {
             $params[] = $input['id'];
         }
@@ -98,7 +84,7 @@ switch ($action) {
         $prods = $pdo->query("SELECT name, images FROM products")->fetchAll();
         foreach ($prods as $p) {
             $imgs = json_decode($p['images'] ?? '[]', true) ?: [];
-            foreach ($imgs as $url) { // تم إصلاح الخطأ المطبعي هنا $url
+            foreach ($imgs as $url) {
                 $res[] = ['url' => $url, 'productName' => $p['name']];
             }
         }

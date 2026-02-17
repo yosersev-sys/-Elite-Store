@@ -1,9 +1,12 @@
-
 DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
+    # السماح بالوصول المباشر لمجلد API ومحتوياته
+    RewriteCond %{REQUEST_URI} ^/api/ [NC]
+    RewriteRule ^ - [L]
+
     # السماح بالوصول المباشر للملفات الموجودة فعلياً
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]

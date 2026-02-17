@@ -1,6 +1,6 @@
 <?php
 /**
- * سوق العصر - المحرك الذكي v5.1 (إصلاح الثبات والأداء)
+ * سوق العصر - المحرك الذكي v5.2 (إصلاح الثبات)
  */
 header('Content-Type: text/html; charset=utf-8');
 require_once 'config.php';
@@ -23,7 +23,6 @@ try {
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#10b981">
     
-    <!-- التحميل المسبق للمكتبات الأساسية لزيادة السرعة -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -43,52 +42,29 @@ try {
     <style>
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        
-        #splash-screen { 
-            position: fixed; inset: 0; display: flex; flex-direction: column; 
-            align-items: center; justify-content: center; background: #f8fafc; 
-            z-index: 9999; transition: opacity 0.5s; 
-        }
-        
-        .loader-logo {
-            width: 80px; height: 80px; background: #10b981;
-            border-radius: 24px; display: flex; align-items: center;
-            justify-content: center; box-shadow: 0 20px 40px rgba(16, 185, 129, 0.1);
-            animation: pulse 2s infinite ease-in-out;
-        }
-        
+        #splash-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; z-index: 9999; transition: opacity 0.5s; }
+        .loader-logo { width: 80px; height: 80px; background: #10b981; border-radius: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 40px rgba(16, 185, 129, 0.1); animation: pulse 2s infinite ease-in-out; }
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.95); } }
     </style>
 </head>
 <body>
     <div id="root">
         <div id="splash-screen">
-            <div class="loader-logo">
-                <img src="https://soqelasr.com/shopping-bag.png" class="w-12 h-12" alt="Logo">
-            </div>
+            <div class="loader-logo"><img src="https://soqelasr.com/shopping-bag.png" class="w-12 h-12" alt="Logo"></div>
             <div class="mt-6 text-slate-800 font-black text-xl">سوق العصر</div>
-            <div class="mt-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest">جاري تشغيل المتجر الذكي...</div>
+            <div class="mt-2 text-slate-400 text-[10px] font-bold tracking-widest uppercase">جاري التشغيل...</div>
         </div>
     </div>
 
-    <!-- تعريف متغيرات البيئة قبل تحميل التطبيق -->
-    <script>
-        window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
-    </script>
-
-    <!-- تحميل التطبيق بالطريقة التقليدية المستقرة مع دعم JSX -->
+    <script>window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };</script>
     <script type="text/babel" data-type="module" src="index.tsx"></script>
 
     <script>
-        // إخفاء شاشة التحميل بعد استقرار التطبيق
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
-                if (splash) {
-                    splash.style.opacity = '0';
-                    setTimeout(() => splash.remove(), 500);
-                }
-            }, 1500);
+                if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 500); }
+            }, 1000);
         });
     </script>
 </body>
