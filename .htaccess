@@ -1,23 +1,20 @@
+
 DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
-
-    # 1. استثناء مجلد الـ API والملفات الحقيقية
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
+    
+    # السماح بالوصول المباشر للملفات الموجودة فعلياً
+    RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
-
-    # 2. السماح بالوصول لملفات الـ API مباشرة
-    RewriteRule ^api/(.*)$ api/$1 [L,NC]
-
-    # 3. توجيه أي طلب آخر إلى المحرك الرئيسي للمتجر
+    
+    # توجيه أي طلب آخر إلى index.php
     RewriteRule ^ index.php [L]
 </IfModule>
 
 <IfModule mod_headers.c>
-    <FilesMatch "\.(ts|tsx|js|jsx|php)$">
+    <FilesMatch "\.(ts|tsx|js|jsx)$">
         Header set Access-Control-Allow-Origin "*"
+        Header set Content-Type "application/javascript"
     </FilesMatch>
 </IfModule>
