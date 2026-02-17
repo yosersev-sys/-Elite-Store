@@ -1,6 +1,6 @@
 <?php
 /**
- * API Backend for Souq Al-Asr - Full Version v4.6
+ * API Backend for Souq Al-Asr - Full Version v4.7
  */
 session_start();
 error_reporting(0); 
@@ -80,7 +80,6 @@ try {
     ensureSchema($pdo);
 
     switch ($action) {
-        // --- الطلبات والتحكم بها ---
         case 'get_orders':
             if (isAdmin()) { $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC"); } 
             else if (isset($_SESSION['user']['phone'])) { 
@@ -98,6 +97,8 @@ try {
 
         case 'update_order_payment':
             if (!isAdmin()) sendErr('غير مصرح', 403);
+            if (!$input['id'] || !$input['paymentMethod']) sendErr('بيانات ناقصة');
+            
             $stmt = $pdo->prepare("UPDATE orders SET paymentMethod = ? WHERE id = ?");
             $stmt->execute([$input['paymentMethod'], $input['id']]);
             sendRes(['status' => 'success']);
@@ -110,7 +111,6 @@ try {
             sendRes(['status' => 'success']);
             break;
 
-        // --- المنتجات ---
         case 'get_products':
             $stmt = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC");
             $products = $stmt->fetchAll() ?: [];
@@ -144,7 +144,6 @@ try {
             sendRes(['status' => 'success']);
             break;
 
-        // --- الأقسام ---
         case 'get_categories':
             $stmt = $pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC");
             sendRes($stmt->fetchAll() ?: []);
@@ -171,7 +170,6 @@ try {
             sendRes(['status' => 'success']);
             break;
 
-        // --- إدارة الموردين والأعضاء ---
         case 'get_users':
             if (!isAdmin()) sendErr('غير مصرح', 403);
             $stmt = $pdo->query("SELECT id, name, phone, role, createdAt FROM users ORDER BY createdAt DESC");
@@ -211,7 +209,6 @@ try {
             sendRes(['status' => 'success']);
             break;
 
-        // --- تسجيل الدخول والأساسيات ---
         case 'login':
             $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ?");
             $stmt->execute([$input['phone']]);
@@ -221,18 +218,6 @@ try {
                 $_SESSION['user'] = $userData;
                 sendRes(['status' => 'success', 'user' => $userData]);
             } else { sendErr('بيانات الدخول غير صحيحة'); }
-            break;
-
-        case 'register':
-            $id = 'u_' . bin2hex(random_bytes(4));
-            $hashed = password_hash($input['password'], PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("INSERT INTO users (id, name, phone, password, role, createdAt) VALUES (?, ?, ?, ?, 'user', ?)");
-            try {
-                $stmt->execute([$id, $input['name'], $input['phone'], $hashed, time()*1000]);
-                $userData = ['id' => $id, 'name' => $input['name'], 'phone' => $input['phone'], 'role' => 'user'];
-                $_SESSION['user'] = $userData;
-                sendRes(['status' => 'success', 'user' => $userData]);
-            } catch (Exception $e) { sendErr('رقم الهاتف مسجل مسبقاً'); }
             break;
 
         case 'get_current_user': sendRes($_SESSION['user'] ?? null); break;
