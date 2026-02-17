@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
 import Header from './components/Header.tsx';
@@ -48,7 +49,6 @@ const App: React.FC = () => {
   const [adminPhone, setAdminPhone] = useState('201026034170'); 
   const [showAuthModal, setShowAuthModal] = useState(false);
   
-  // تهيئة المصفوفات بمصفوفات فارغة لضمان عدم حدوث أخطاء filter/map
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -84,17 +84,6 @@ const App: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   useEffect(() => {
-    const currentHash = window.location.hash.replace('#', '').split('?')[0];
-    if (view === 'store') {
-        if (currentHash !== '' && !ADMIN_VIEWS.includes(currentHash as View)) {
-            window.history.replaceState(null, '', window.location.pathname);
-        }
-    } else {
-        if (currentHash !== view) window.location.hash = view;
-    }
-  }, [view]);
-
-  useEffect(() => {
     const handleHashChange = () => {
       const newView = getInitialView();
       if (newView !== view) setView(newView);
@@ -106,16 +95,8 @@ const App: React.FC = () => {
   const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
       if (!isSilent) setIsLoading(true);
-      
       let activeUser = forcedUser !== undefined ? forcedUser : currentUser;
       
-      if (forcedUser === undefined) {
-          const userFromServer = await ApiService.getCurrentUser();
-          setCurrentUser(userFromServer);
-          activeUser = userFromServer;
-      }
-
-      // جلب البيانات الأساسية
       const [adminInfo, fetchedProducts, fetchedCats] = await Promise.all([
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
@@ -126,21 +107,16 @@ const App: React.FC = () => {
       setProducts(fetchedProducts || []);
       setCategories(fetchedCats || []);
 
-      // جلب بيانات المستخدم والمدير
       if (activeUser) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
-
         if (activeUser.role === 'admin') {
           const [fetchedUsers, fetchedSuppliers] = await Promise.all([
             ApiService.getUsers(),
             ApiService.getSuppliers()
           ]);
-          
           setUsers(fetchedUsers || []);
           setSuppliers(fetchedSuppliers || []);
-
-          // فحص الطلبات الجديدة للتنبيهات
           if (fetchedOrders && prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
@@ -162,7 +138,7 @@ const App: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') loadData(true);
-    }, 15000); 
+    }, 20000); 
     return () => clearInterval(interval);
   }, [currentUser?.id]);
 
@@ -194,9 +170,10 @@ const App: React.FC = () => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + qty} : item);
+        const newQty = Number((existing.quantity + qty).toFixed(3));
+        return prev.map(item => item.id === product.id ? {...item, quantity: newQty} : item);
       }
-      return [...prev, { ...product, quantity: qty }];
+      return [...prev, { ...product, quantity: Number(qty.toFixed(3)) }];
     });
     setNotification({ message: 'تمت الإضافة للسلة', type: 'success' });
   };
@@ -239,30 +216,18 @@ const App: React.FC = () => {
         )}
 
         {isAdminPath && !isActuallyAdmin && (
-          <AdminAuthView 
-            onSuccess={handleAuthSuccess}
-            onClose={() => setView('store')}
-          />
+          <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => setView('store')} />
         )}
 
         {showAuthModal && (
-          <AuthView 
-            onClose={() => setShowAuthModal(false)}
-            onSuccess={handleAuthSuccess} 
-          />
+          <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
         )}
 
         {!isAdminPath && (
           <Header 
-            cartCount={cart.length} 
-            wishlistCount={wishlist.length} 
-            categories={categories}
-            currentUser={currentUser}
-            onNavigate={onNavigateAction}
-            onLoginClick={() => setShowAuthModal(true)}
-            onLogout={handleLogout}
-            onSearch={setSearchQuery} 
-            onCategorySelect={(id) => { setSelectedCategoryId(id); setView('store'); }}
+            cartCount={cart.length} wishlistCount={wishlist.length} categories={categories} currentUser={currentUser}
+            onNavigate={onNavigateAction} onLoginClick={() => setShowAuthModal(true)} onLogout={handleLogout}
+            onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); setView('store'); }}
           />
         )}
 
@@ -315,12 +280,7 @@ const App: React.FC = () => {
                 }
               }}
               onDeleteUser={async (id) => {
-                if(await ApiService.deleteUser(id)) {
-                  setNotification({message: 'تم حذف العضو بنجاح', type: 'success'});
-                  loadData(true);
-                } else {
-                  setNotification({message: 'فشل حذف العضو', type: 'error'});
-                }
+                if(await ApiService.deleteUser(id)) { setNotification({message: 'تم حذف العضو بنجاح', type: 'success'}); loadData(true); }
               }}
               soundEnabled={soundEnabled}
               onToggleSound={() => setSoundEnabled(!soundEnabled)}
@@ -334,11 +294,7 @@ const App: React.FC = () => {
               product={selectedProduct} categories={categories} suppliers={suppliers}
               onSubmit={async (p) => {
                 const success = products.find(prod => prod.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
-                if (success) {
-                  setNotification({message: 'تم الحفظ بنجاح', type: 'success'});
-                  await loadData(true);
-                  setProductForBarcode(p);
-                }
+                if (success) { setNotification({message: 'تم الحفظ بنجاح', type: 'success'}); await loadData(true); setProductForBarcode(p); }
               }}
               onCancel={() => setView('admin')}
             />
@@ -346,9 +302,7 @@ const App: React.FC = () => {
 
           {(view === 'admin-invoice' || view === 'quick-invoice') && (
             <AdminInvoiceForm 
-              products={products}
-              initialCustomerName={currentUser?.name || 'عميل نقدي'}
-              initialPhone={currentUser?.phone || ''}
+              products={products} initialCustomerName={currentUser?.name || 'عميل نقدي'} initialPhone={currentUser?.phone || ''}
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
@@ -365,21 +319,17 @@ const App: React.FC = () => {
           {view === 'cart' && (
             <CartView 
               cart={cart} 
-              onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
+              onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.001, Number((i.quantity + d).toFixed(3)))} : i))}
               onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
-              onCheckout={() => setView('checkout')}
-              onContinueShopping={() => setView('store')}
+              onCheckout={() => setView('checkout')} onContinueShopping={() => setView('store')}
             />
           )}
 
           {view === 'product-details' && selectedProduct && (
             <ProductDetailsView 
-              product={selectedProduct}
-              categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-              onAddToCart={(p) => addToCart(p)}
-              onBack={() => setView('store')}
-              isFavorite={wishlist.includes(selectedProduct.id)}
-              onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+              product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
+              onAddToCart={(p) => addToCart(p)} onBack={() => setView('store')}
+              isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
             />
           )}
 
@@ -415,24 +365,11 @@ const App: React.FC = () => {
 
         {!isAdminPath && (
           <>
-            <Footer 
-              categories={categories} 
-              onNavigate={onNavigateAction} 
-              onCategorySelect={setSelectedCategoryId} 
-            />
+            <Footer categories={categories} onNavigate={onNavigateAction} onCategorySelect={setSelectedCategoryId} />
             <FloatingCartButton count={cart.length} onClick={() => setView('cart')} isVisible={!isAdminPath} />
             <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
-            
-            {isActuallyAdmin && (
-              <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
-            )}
-            <MobileNav 
-              currentView={view} 
-              cartCount={cart.length} 
-              onNavigate={onNavigateAction} 
-              onCartClick={() => setView('cart')}
-              isAdmin={isActuallyAdmin}
-            />
+            {isActuallyAdmin && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
+            <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigateAction} onCartClick={() => setView('cart')} isAdmin={isActuallyAdmin} />
           </>
         )}
         

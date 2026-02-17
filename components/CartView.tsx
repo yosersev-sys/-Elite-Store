@@ -55,50 +55,44 @@ const CartView: React.FC<CartViewProps> = ({ cart, onUpdateQuantity, onRemove, o
             const images = Array.isArray(item.images) ? item.images : [];
             const displayImg = images.length > 0 ? images[0] : 'https://via.placeholder.com/150?text=No+Image';
             
+            // تحديد خطوة الزيادة بناءً على الوحدة
+            const isWeightUnit = item.unit === 'kg';
+            const step = isWeightUnit ? 0.1 : 1;
+
             return (
               <div key={`${item.id}-${idx}`} className="bg-white p-3 md:p-5 rounded-[1.5rem] md:rounded-[2rem] flex gap-3 md:gap-6 items-start border border-gray-100 hover:shadow-lg transition-all group relative overflow-hidden">
-                {/* صورة المنتج */}
                 <div className="w-20 h-20 md:w-28 md:h-28 rounded-xl md:rounded-2xl overflow-hidden border border-slate-50 shrink-0 shadow-sm">
                   <img src={displayImg} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={item.name} />
                 </div>
 
-                {/* تفاصيل المنتج */}
                 <div className="flex-grow flex flex-col min-w-0 h-full justify-between py-0.5">
                   <div className="space-y-1">
                     <h3 className="font-black text-gray-800 text-sm md:text-lg leading-tight line-clamp-2 md:line-clamp-1">{item.name}</h3>
-                    
-                    <div className="flex flex-wrap gap-x-2 gap-y-1">
-                      {item.selectedSize && (
-                        <span className="text-[8px] md:text-[10px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-md uppercase tracking-widest border border-slate-100">
-                          {item.selectedSize}
-                        </span>
-                      )}
-                      {item.selectedColor && (
-                        <span className="text-[8px] md:text-[10px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-md uppercase tracking-widest border border-slate-100">
-                          {item.selectedColor}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-2">
+                       <span className="text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded border">
+                         {item.unit === 'kg' ? 'كيلو' : item.unit === 'gram' ? 'جرام' : 'قطعة'}
+                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between mt-3 md:mt-4">
-                    {/* التحكم في الكمية */}
                     <div className="flex items-center bg-slate-50 rounded-lg md:rounded-xl border border-slate-100">
                       <button 
-                        onClick={() => onUpdateQuantity(item.id, 1)}
+                        onClick={() => onUpdateQuantity(item.id, step)}
                         className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-white rounded-lg transition font-black text-indigo-600 active:scale-90"
                       >+</button>
-                      <span className="px-2 md:px-4 font-black text-slate-700 text-xs md:text-base">{item.quantity}</span>
+                      <span className="px-2 md:px-4 font-black text-slate-700 text-xs md:text-sm">
+                        {isWeightUnit ? item.quantity.toFixed(3) : item.quantity}
+                      </span>
                       <button 
-                        onClick={() => onUpdateQuantity(item.id, -1)}
+                        onClick={() => onUpdateQuantity(item.id, -step)}
                         className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-white rounded-lg transition font-black text-indigo-600 active:scale-90"
                       >-</button>
                     </div>
 
-                    {/* السعر وحذف المنتج */}
                     <div className="flex flex-col items-end gap-1">
                        <div className="text-sm md:text-xl font-black text-indigo-600">
-                        {(item.price * item.quantity).toLocaleString()} <small className="text-[8px] md:text-[10px] font-bold">ج.م</small>
+                        {(item.price * item.quantity).toLocaleString(undefined, {minimumFractionDigits: 2})} <small className="text-[8px] md:text-[10px] font-bold">ج.م</small>
                       </div>
                       <button 
                         onClick={() => onRemove(item.id)}
@@ -113,14 +107,13 @@ const CartView: React.FC<CartViewProps> = ({ cart, onUpdateQuantity, onRemove, o
         </div>
       </div>
 
-      {/* ملخص الفاتورة */}
       <div className="lg:col-span-1">
         <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] border border-gray-100 shadow-xl shadow-slate-200/50 lg:sticky lg:top-32">
           <h3 className="text-lg md:text-xl font-black mb-4 md:mb-6 pb-3 md:pb-4 border-b border-slate-50 text-slate-800">ملخص الفاتورة</h3>
           <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
             <div className="flex justify-between text-slate-500 font-bold text-xs md:text-sm">
               <span>المجموع الفرعي</span>
-              <span>{total.toLocaleString()} ج.م</span>
+              <span>{total.toLocaleString(undefined, {minimumFractionDigits: 2})} ج.م</span>
             </div>
             <div className="flex justify-between text-slate-500 font-bold text-xs md:text-sm">
               <span>التوصيل والشحن</span>
@@ -128,7 +121,7 @@ const CartView: React.FC<CartViewProps> = ({ cart, onUpdateQuantity, onRemove, o
             </div>
             <div className="flex justify-between text-xl md:text-2xl font-black text-slate-900 pt-4 md:pt-5 border-t border-slate-50">
               <span>الإجمالي</span>
-              <span className="text-indigo-600">{total.toLocaleString()} ج.م</span>
+              <span className="text-indigo-600">{total.toLocaleString(undefined, {minimumFractionDigits: 2})} ج.م</span>
             </div>
           </div>
           

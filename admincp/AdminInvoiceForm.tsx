@@ -50,7 +50,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     
     return products.filter(p => 
       p.name.toLowerCase().includes(q) || 
-      (p.barcode && p.barcode.includes(q))
+      (p.barcode && String(p.barcode).includes(q))
     ).slice(0, 8);
   }, [products, searchQuery]);
 
@@ -67,8 +67,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           alert('وصلت للحد الأقصى المتاح في المخزن لهذا المنتج');
           return prev;
         }
+        const step = existing.unit === 'kg' ? 0.1 : 1;
         return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: Number((item.quantity + step).toFixed(3)) } : item
         );
       }
       return [...prev, { ...product, quantity: 1 }];
@@ -79,7 +80,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     const q = searchQuery.trim();
     if (!q) return;
 
-    const exactMatch = products.find(p => p.barcode === q);
+    const exactMatch = products.find(p => p.barcode && String(p.barcode) === q);
     if (exactMatch) {
       addItemToInvoice(exactMatch);
       setSearchQuery('');
@@ -90,12 +91,29 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     setInvoiceItems(prev => prev.map(item => {
       if (item.id === id) {
         const product = products.find(p => p.id === id);
-        const newQty = Math.max(1, item.quantity + delta);
+        const newQty = Math.max(0.001, Number((item.quantity + delta).toFixed(3)));
         if (product && newQty > product.stockQuantity) {
           alert('الكمية المطلوبة غير متوفرة بالكامل في المخزن');
           return item;
         }
         return { ...item, quantity: newQty };
+      }
+      return item;
+    }));
+  };
+
+  const setDirectQuantity = (id: string, value: string) => {
+    const val = parseFloat(value);
+    if (isNaN(val)) return;
+    
+    setInvoiceItems(prev => prev.map(item => {
+      if (item.id === id) {
+        const product = products.find(p => p.id === id);
+        if (product && val > product.stockQuantity) {
+          alert('الكمية المدخلة تتجاوز المتاح بالمخزن');
+          return item;
+        }
+        return { ...item, quantity: Number(val.toFixed(3)) };
       }
       return item;
     }));
@@ -284,7 +302,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     <thead className="bg-slate-50 text-[8px] md:text-[10px] font-black text-slate-400 uppercase border-b">
                       <tr>
                         <th className="px-4 md:px-8 py-3 md:py-5">المنتج</th>
-                        <th className="px-4 md:px-8 py-3 md:py-5">الكمية</th>
+                        <th className="px-4 md:px-8 py-3 md:py-5">الكمية / الوزن</th>
                         <th className="px-4 md:px-8 py-3 md:py-5">السعر</th>
                         <th className="px-4 md:px-8 py-3 md:py-5 text-left">المجموع</th>
                       </tr>
@@ -304,15 +322,24 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                               </div>
                             </td>
                             <td className="px-4 md:px-8 py-3">
-                              <div className="flex items-center gap-1.5 md:gap-2 bg-slate-50 rounded-lg px-1 py-0.5 w-fit border border-slate-100">
-                                <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm">-</button>
-                                <span className="font-black text-[11px] md:text-xs w-5 text-center">{item.quantity}</span>
-                                <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm">+</button>
+                              <div className="flex items-center gap-1.5 md:gap-2">
+                                <div className="flex items-center bg-slate-50 rounded-lg px-1 py-0.5 border border-slate-100">
+                                  <button onClick={() => updateQuantity(item.id, -(item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm">-</button>
+                                  <input 
+                                    type="number"
+                                    step={item.unit === 'kg' ? "0.001" : "1"}
+                                    value={item.quantity}
+                                    onChange={(e) => setDirectQuantity(item.id, e.target.value)}
+                                    className="bg-transparent font-black text-[11px] md:text-xs w-14 text-center outline-none"
+                                  />
+                                  <button onClick={() => updateQuantity(item.id, (item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm">+</button>
+                                </div>
+                                <span className="text-[8px] font-bold text-slate-400">{item.unit === 'kg' ? 'كجم' : 'ق'}</span>
                               </div>
                             </td>
                             <td className="px-4 md:px-8 py-3 font-bold text-slate-500 text-[11px] md:text-sm">{item.price}</td>
                             <td className="px-4 md:px-8 py-3 text-left">
-                               <span className="font-black text-emerald-600 text-[11px] md:text-sm">{(item.price * item.quantity).toFixed(1)} ج.م</span>
+                               <span className="font-black text-emerald-600 text-[11px] md:text-sm">{(item.price * item.quantity).toFixed(2)} ج.م</span>
                             </td>
                           </tr>
                         ))

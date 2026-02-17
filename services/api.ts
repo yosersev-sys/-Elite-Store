@@ -1,21 +1,48 @@
 
 import { Product, Category, Order, User, Supplier } from '../types.ts';
 
-const API_URL = 'api.php';
 const USER_CACHE_KEY = 'souq_user_profile';
 
+/**
+ * دالة جلب البيانات مع معالجة الأخطاء والمسارات الذكية
+ */
 const safeFetch = async (action: string, options?: RequestInit) => {
   try {
-    const url = `${API_URL}?action=${action}`;
-    const response = await fetch(url, {
+    // الحصول على المسار الأساسي المحقون أو افتراض الملف في نفس المجلد
+    let apiBase = (window as any).__SOUQ_API_PATH__ || 'api.php';
+    
+    // بناء رابط مطلق يحترم المجلد الحالي (Subdirectory support)
+    const currentPath = window.location.pathname;
+    const currentDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+    
+    // إذا كان apiBase يبدأ بـ / فهو مطلق من الجذر، وإلا فهو من المجلد الحالي
+    const baseUrl = apiBase.startsWith('/') 
+      ? window.location.origin + apiBase
+      : window.location.origin + currentDir + apiBase;
+
+    const url = new URL(baseUrl);
+    url.searchParams.set('action', action);
+    url.searchParams.set('_t', Date.now().toString()); // منع الكاش
+
+    const response = await fetch(url.toString(), {
       ...options,
-      headers: { 'Accept': 'application/json', ...options?.headers },
+      headers: { 
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        ...options?.headers 
+      },
     });
-    if (!response.ok) throw new Error('Network response was not ok');
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status}`);
+    }
+
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error(`API Fetch Error (${action}):`, error);
+    console.error(`API Error (${action}):`, error);
+    // إرجاع مصفوفة فارغة لعمليات الجلب لتجنب تعطل الواجهة في حال 404
+    if (action.startsWith('get_')) return [];
     return null;
   }
 };
@@ -23,7 +50,7 @@ const safeFetch = async (action: string, options?: RequestInit) => {
 export const ApiService = {
   async getCurrentUser(): Promise<User | null> {
     const user = await safeFetch('get_current_user');
-    if (user) {
+    if (user && user.id) {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
       return user;
     }
@@ -86,8 +113,7 @@ export const ApiService = {
   },
 
   async getProducts(): Promise<Product[]> {
-    const products = await safeFetch('get_products');
-    return products || [];
+    return await safeFetch('get_products') || [];
   },
 
   async getAllImages(): Promise<{url: string, productName: string}[]> {
