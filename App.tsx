@@ -361,14 +361,20 @@ const App: React.FC = () => {
               defaultDeliveryFee={deliveryFee}
               onSubmit={async (order) => {
                 if (await ApiService.saveOrder(order)) {
+                  // 1. إعداد حالة الطلب في المتجر
                   setLastCreatedOrder(order);
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
-                  // إرسال تنبيه للمدير أولاً
-                  WhatsAppService.sendOrderNotification(order, adminPhone);
-                  // ثم إرسال الفاتورة للعميل
-                  if (order.phone) WhatsAppService.sendInvoiceToCustomer(order, order.phone);
-                  await loadData(true);
+                  
+                  // 2. التوجيه الفوري للفاتورة (قبل مغادرة الصفحة للواتساب)
                   setView('order-success');
+                  
+                  // 3. إرسال التنبيهات (ستفتح في نوافذ جديدة)
+                  WhatsAppService.sendOrderNotification(order, adminPhone);
+                  if (order.phone && order.phone.length >= 11) {
+                     WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                  }
+                  
+                  await loadData(true);
                 }
               }}
               onCancel={() => setView(isActuallyAdmin ? 'admin' : 'store')}
@@ -410,16 +416,20 @@ const App: React.FC = () => {
                 const order: Order = {
                   id: 'ORD-' + Date.now().toString().slice(-6),
                   customerName: details.fullName, phone: details.phone, city: 'فاقوس', address: details.address,
-                  items: cart, total, subtotal, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
+                  items: [...cart], total, subtotal, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
                 };
                 if (await ApiService.saveOrder(order)) {
+                  // 1. تحديث الحالات المحلية
                   setLastCreatedOrder(order);
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
-                  // إرسال الإشعار لواتساب المدير
-                  WhatsAppService.sendOrderNotification(order, adminPhone);
-                  // التوجيه لصفحة الفاتورة
+                  
+                  // 2. التوجيه لصفحة الفاتورة أولاً
                   setView('order-success');
+
+                  // 3. إرسال التنبيه لواتساب المدير
+                  WhatsAppService.sendOrderNotification(order, adminPhone);
+                  
                   loadData(true);
                 }
               }}
