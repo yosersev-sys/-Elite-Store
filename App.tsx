@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
 import Header from './components/Header.tsx';
@@ -181,6 +180,12 @@ const App: React.FC = () => {
     setNotification({ message: 'تمت الإضافة للسلة', type: 'success' });
   };
 
+  const updateCartQuantity = (id: string, newQty: number) => {
+    setCart(prev => prev.map(item => 
+      item.id === id ? { ...item, quantity: Number(Math.max(0.001, newQty).toFixed(3)) } : item
+    ));
+  };
+
   useEffect(() => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
@@ -323,7 +328,8 @@ const App: React.FC = () => {
             <CartView 
               cart={cart} 
               deliveryFee={deliveryFee}
-              onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.001, Number((i.quantity + d).toFixed(3)))} : i))}
+              onUpdateQuantity={(id, d) => updateCartQuantity(id, cart.find(i => i.id === id)!.quantity + d)}
+              onSetQuantity={updateCartQuantity}
               onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
               onCheckout={() => setView('checkout')} onContinueShopping={() => setView('store')}
             />
@@ -332,7 +338,9 @@ const App: React.FC = () => {
           {view === 'product-details' && selectedProduct && (
             <ProductDetailsView 
               product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-              onAddToCart={(p) => addToCart(p)} onBack={() => setView('store')}
+              // Fixed: Updated to match corrected ProductDetailsViewProps onAddToCart signature.
+              onAddToCart={(p, qty, size, color) => addToCart(p, qty)} 
+              onBack={() => setView('store')}
               isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
             />
           )}

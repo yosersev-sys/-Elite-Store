@@ -6,12 +6,13 @@ interface CartViewProps {
   cart: CartItem[];
   deliveryFee: number;
   onUpdateQuantity: (id: string, delta: number) => void;
+  onSetQuantity: (id: string, qty: number) => void;
   onRemove: (id: string) => void;
   onCheckout: () => void;
   onContinueShopping: () => void;
 }
 
-const CartView: React.FC<CartViewProps> = ({ cart, deliveryFee, onUpdateQuantity, onRemove, onCheckout, onContinueShopping }) => {
+const CartView: React.FC<CartViewProps> = ({ cart, deliveryFee, onUpdateQuantity, onSetQuantity, onRemove, onCheckout, onContinueShopping }) => {
   const safeCart = Array.isArray(cart) ? cart : [];
   const subtotal = safeCart.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0);
   const total = subtotal + deliveryFee;
@@ -57,7 +58,6 @@ const CartView: React.FC<CartViewProps> = ({ cart, deliveryFee, onUpdateQuantity
             const images = Array.isArray(item.images) ? item.images : [];
             const displayImg = images.length > 0 ? images[0] : 'https://via.placeholder.com/150?text=No+Image';
             
-            // تحديد خطوة الزيادة بناءً على الوحدة
             const isWeightUnit = item.unit === 'kg';
             const step = isWeightUnit ? 0.1 : 1;
 
@@ -78,14 +78,18 @@ const CartView: React.FC<CartViewProps> = ({ cart, deliveryFee, onUpdateQuantity
                   </div>
 
                   <div className="flex items-center justify-between mt-3 md:mt-4">
-                    <div className="flex items-center bg-slate-50 rounded-lg md:rounded-xl border border-slate-100">
+                    <div className="flex items-center bg-slate-50 rounded-lg md:rounded-xl border border-slate-100 p-1">
                       <button 
                         onClick={() => onUpdateQuantity(item.id, step)}
                         className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-white rounded-lg transition font-black text-indigo-600 active:scale-90"
                       >+</button>
-                      <span className="px-2 md:px-4 font-black text-slate-700 text-xs md:text-sm">
-                        {isWeightUnit ? item.quantity.toFixed(3) : item.quantity}
-                      </span>
+                      <input 
+                        type="number"
+                        step={isWeightUnit ? "0.001" : "1"}
+                        value={item.quantity}
+                        onChange={(e) => onSetQuantity(item.id, parseFloat(e.target.value) || 0)}
+                        className="w-16 md:w-20 bg-transparent text-center font-black text-slate-700 text-xs md:text-sm outline-none border-x border-slate-200"
+                      />
                       <button 
                         onClick={() => onUpdateQuantity(item.id, -step)}
                         className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-white rounded-lg transition font-black text-indigo-600 active:scale-90"
