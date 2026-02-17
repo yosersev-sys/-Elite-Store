@@ -196,7 +196,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     if (!files) return;
     
     setIsCompressing(true);
-    // Fix: Explicitly cast FileList to File[] to ensure 'file' is typed as File (which extends Blob)
     const fileList = Array.from(files) as File[];
     
     for (const file of fileList) {
@@ -210,7 +209,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           resolve();
         };
       });
-      // Fix: With 'file' typed as File, readAsDataURL correctly receives a Blob argument
       reader.readAsDataURL(file);
       await p;
     }
@@ -269,7 +267,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       
       {(isSubmitting || isCompressing) && (
         <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-md">
-           <div className="bg-white p-10 rounded-[3rem] text-center space-y-4 shadow-2xl animate-bounce">
+           <div className="bg-white p-10 rounded-[3rem] text-center space-y-4 shadow-2xl">
               <div className="w-16 h-16 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin mx-auto"></div>
               <p className="font-black text-slate-800 text-lg">
                 {isCompressing ? 'جاري تحسين الصور...' : 'جاري نشر المنتج في المتجر...'}
@@ -505,7 +503,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
             <div className="space-y-6">
                <h4 className="font-black text-slate-700 text-sm flex items-center justify-between px-2">
-                 <span>تفصيل الدفعات (تاريخياً)</span>
+                 <span>تفاصل الدفعات (تاريخياً)</span>
                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded-md">أقدم → أحدث</span>
                </h4>
                
