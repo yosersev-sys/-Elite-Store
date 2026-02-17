@@ -84,7 +84,6 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // تهيئة كائن الصوت عند بدء التطبيق بصوت رنين تنبيه قوي
   useEffect(() => {
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3');
     audio.preload = 'auto';
@@ -148,13 +147,12 @@ const App: React.FC = () => {
           setUsers(fetchedUsers || []);
           setSuppliers(fetchedSuppliers || []);
 
-          // منطق رصد الطلبات الجديدة وتشغيل الصوت
           if (fetchedOrders && prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
               if (soundEnabled && audioObj.current) {
                 audioObj.current.currentTime = 0;
-                audioObj.current.play().catch(e => console.log("Audio play blocked by browser. Need interaction first."));
+                audioObj.current.play().catch(e => console.log("Audio blocked."));
               }
               setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
@@ -365,7 +363,10 @@ const App: React.FC = () => {
                 if (await ApiService.saveOrder(order)) {
                   setLastCreatedOrder(order);
                   setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
-                  WhatsAppService.sendInvoiceToCustomer(order, order.phone);
+                  // إرسال تنبيه للمدير أولاً
+                  WhatsAppService.sendOrderNotification(order, adminPhone);
+                  // ثم إرسال الفاتورة للعميل
+                  if (order.phone) WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   await loadData(true);
                   setView('order-success');
                 }
@@ -415,7 +416,9 @@ const App: React.FC = () => {
                   setLastCreatedOrder(order);
                   setCart([]);
                   setNotification({message: 'تم الطلب بنجاح', type: 'success'});
+                  // إرسال الإشعار لواتساب المدير
                   WhatsAppService.sendOrderNotification(order, adminPhone);
+                  // التوجيه لصفحة الفاتورة
                   setView('order-success');
                   loadData(true);
                 }
@@ -429,24 +432,13 @@ const App: React.FC = () => {
 
         {!isAdminPath && (
           <>
-            <Footer 
-              categories={categories} 
-              onNavigate={onNavigateAction} 
-              onCategorySelect={setSelectedCategoryId} 
-            />
+            <Footer categories={categories} onNavigate={onNavigateAction} onCategorySelect={setSelectedCategoryId} />
             <FloatingCartButton count={cart.length} onClick={() => setView('cart')} isVisible={!isAdminPath} />
             <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
-            
             {isActuallyAdmin && (
               <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />
             )}
-            <MobileNav 
-              currentView={view} 
-              cartCount={cart.length} 
-              onNavigate={onNavigateAction} 
-              onCartClick={() => setView('cart')}
-              isAdmin={isActuallyAdmin}
-            />
+            <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigateAction} onCartClick={() => setView('cart')} isAdmin={isActuallyAdmin} />
           </>
         )}
         
