@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, Order, CartItem } from '../types.ts';
 import BarcodeScanner from '../components/BarcodeScanner.tsx';
@@ -22,9 +23,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     paymentMethod: 'نقدي (تم الدفع)'
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,15 +46,20 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   }, [products, searchQuery]);
 
   const addItemToInvoice = (product: Product) => {
-    if (product.stockQuantity <= 0) return alert('غير متوفر في المخزن!');
     setInvoiceItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stockQuantity) return prev;
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + (product.unit === 'piece' ? 1 : 0.1) } : item);
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: product.unit === 'piece' ? 1 : 1 }];
     });
+  };
+
+  const handleManualQtyChange = (id: string, value: string) => {
+    const num = parseFloat(value);
+    if (!isNaN(num) && num >= 0) {
+      setInvoiceItems(prev => prev.map(item => item.id === id ? { ...item, quantity: num } : item));
+    }
   };
 
   useEffect(() => {
@@ -67,10 +72,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const updateQuantity = (id: string, delta: number) => {
     setInvoiceItems(prev => prev.map(item => {
       if (item.id === id) {
-        const p = products.find(prod => prod.id === id);
-        const n = Math.max(1, item.quantity + delta);
-        if (p && n > p.stockQuantity) return item;
-        return { ...item, quantity: n };
+        return { ...item, quantity: Math.max(0, item.quantity + delta) };
       }
       return item;
     }));
@@ -80,11 +82,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     if (!isOnline) return alert('يرجى الاتصال بالإنترنت');
     if (invoiceItems.length === 0) return alert('أضف منتجات');
     if (!customerInfo.phone) return alert('أدخل رقم الهاتف');
+    const total = invoiceItems.reduce((s, i) => s + (i.price * i.quantity), 0);
     const order: Order = {
       id: 'INV-' + Date.now().toString().slice(-8),
       customerName: customerInfo.name, phone: customerInfo.phone, city: customerInfo.city, address: customerInfo.address || 'فرع',
-      items: invoiceItems, subtotal: invoiceItems.reduce((s, i) => s + (i.price * i.quantity), 0),
-      total: invoiceItems.reduce((s, i) => s + (i.price * i.quantity), 0),
+      items: invoiceItems, subtotal: total, total: total,
       paymentMethod: customerInfo.paymentMethod, status: 'completed', createdAt: Date.now()
     };
     onSubmit(order);
@@ -94,7 +96,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     <div className="w-full py-4 md:py-8 px-2 md:px-6 animate-fadeIn">
       {showScanner && <BarcodeScanner onScan={q => {setSearchQuery(q); setShowScanner(false);}} onClose={() => setShowScanner(false)} />}
       
-      {/* نافذة تأكيد الإلغاء */}
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowCancelConfirm(false)}></div>
@@ -129,7 +130,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     {filteredProducts.map(p => (
                       <button key={p.id} onClick={() => {addItemToInvoice(p); setSearchQuery('');}} className="w-full p-5 flex justify-between items-center hover:bg-emerald-50 border-b">
                         <span className="font-black">{p.name}</span>
-                        <span className="font-black text-emerald-600">{p.price} ج.م</span>
+                        <div className="flex flex-col items-end">
+                           <span className="font-black text-emerald-600">{p.price} ج.م</span>
+                           <span className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">وحدة البيع: {p.unit}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -139,24 +143,36 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
              <div className="overflow-x-auto no-scrollbar">
                 <table className="w-full text-right">
                   <thead className="bg-slate-50 text-[10px] font-black uppercase border-b text-slate-400">
-                    <tr><th className="p-6">المنتج</th><th className="p-6 text-center">الكمية</th><th className="p-6">السعر</th><th className="p-6">الإجمالي</th><th className="p-6"></th></tr>
+                    <tr><th className="p-6">المنتج</th><th className="p-6 text-center">الكمية/الوزن</th><th className="p-6">السعر</th><th className="p-6">الإجمالي</th><th className="p-6"></th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {invoiceItems.map(item => (
-                      <tr key={item.id} className="hover:bg-slate-50/50">
-                        <td className="p-6 font-black text-slate-700">{item.name}</td>
-                        <td className="p-6">
-                           <div className="flex items-center justify-center gap-3 bg-slate-100 p-1.5 rounded-xl w-fit mx-auto border">
-                              <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg font-black">-</button>
-                              <span className="font-black text-sm w-6 text-center">{item.quantity}</span>
-                              <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg font-black">+</button>
-                           </div>
-                        </td>
-                        <td className="p-6 font-bold text-slate-400">{item.price}</td>
-                        <td className="p-6 font-black text-emerald-600">{(item.price * item.quantity).toFixed(2)} ج.م</td>
-                        <td className="p-6"><button onClick={() => setInvoiceItems(prev => prev.filter(i => i.id !== item.id))} className="text-rose-500 font-black">✕</button></td>
-                      </tr>
-                    ))}
+                    {invoiceItems.map(item => {
+                      const isWeight = item.unit === 'kg' || item.unit === 'gram';
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/50">
+                          <td className="p-6">
+                             <p className="font-black text-slate-700">{item.name}</p>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.unit === 'kg' ? 'بالكيلو' : item.unit === 'gram' ? 'بالجرام' : 'بالقطعة'}</p>
+                          </td>
+                          <td className="p-6">
+                             <div className="flex items-center justify-center gap-3 bg-slate-100 p-1.5 rounded-xl w-fit mx-auto border">
+                                <button onClick={() => updateQuantity(item.id, isWeight ? -0.1 : -1)} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg font-black shadow-sm">-</button>
+                                <input 
+                                  type="number" 
+                                  step={isWeight ? "0.01" : "1"}
+                                  value={item.quantity}
+                                  onChange={(e) => handleManualQtyChange(item.id, e.target.value)}
+                                  className="bg-transparent border-none outline-none font-black text-sm w-16 text-center focus:ring-0"
+                                />
+                                <button onClick={() => updateQuantity(item.id, isWeight ? 0.1 : 1)} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg font-black shadow-sm">+</button>
+                             </div>
+                          </td>
+                          <td className="p-6 font-bold text-slate-400">{item.price}</td>
+                          <td className="p-6 font-black text-emerald-600">{(item.price * item.quantity).toFixed(2)} ج.م</td>
+                          <td className="p-6"><button onClick={() => setInvoiceItems(prev => prev.filter(i => i.id !== item.id))} className="text-rose-500 font-black">✕</button></td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
              </div>

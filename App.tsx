@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
 import Header from './components/Header.tsx';
@@ -186,13 +187,13 @@ const App: React.FC = () => {
     loadData(false, user); 
   };
 
-  const addToCart = (product: Product, qty: number = 1) => {
+  const addToCart = (product: Product, selectedSize?: string, selectedColor?: string, rect?: DOMRect, quantity: number = 1) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + qty} : item);
+        return prev.map(item => item.id === product.id ? {...item, quantity: item.quantity + quantity} : item);
       }
-      return [...prev, { ...product, quantity: qty }];
+      return [...prev, { ...product, quantity, selectedSize, selectedColor }];
     });
     setNotification({ message: 'تمت الإضافة للسلة', type: 'success' });
   };
@@ -361,7 +362,7 @@ const App: React.FC = () => {
           {view === 'cart' && (
             <CartView 
               cart={cart} 
-              onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(1, i.quantity + d)} : i))}
+              onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))}
               onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
               onCheckout={() => setView('checkout')}
               onContinueShopping={() => setView('store')}
@@ -372,7 +373,7 @@ const App: React.FC = () => {
             <ProductDetailsView 
               product={selectedProduct}
               categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-              onAddToCart={(p) => addToCart(p)}
+              onAddToCart={(p, s, c, rect, q) => addToCart(p, s, c, rect, q)}
               onBack={() => setView('store')}
               isFavorite={wishlist.includes(selectedProduct.id)}
               onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
