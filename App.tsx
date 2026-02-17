@@ -84,6 +84,13 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // تهيئة كائن الصوت عند بدء التطبيق
+  useEffect(() => {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+    audio.preload = 'auto';
+    audioObj.current = audio;
+  }, []);
+
   useEffect(() => {
     const currentHash = window.location.hash.replace('#', '').split('?')[0];
     if (view === 'store') {
@@ -141,10 +148,14 @@ const App: React.FC = () => {
           setUsers(fetchedUsers || []);
           setSuppliers(fetchedSuppliers || []);
 
+          // منطق رصد الطلبات الجديدة وتشغيل الصوت
           if (fetchedOrders && prevOrderIds.current.size > 0) {
             const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
             if (trulyNew.length > 0) {
-              if (soundEnabled && audioObj.current) audioObj.current.play().catch(() => {});
+              if (soundEnabled && audioObj.current) {
+                audioObj.current.currentTime = 0;
+                audioObj.current.play().catch(e => console.log("Audio play blocked by browser. Need interaction first."));
+              }
               setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
           }
