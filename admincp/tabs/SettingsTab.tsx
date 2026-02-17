@@ -14,10 +14,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   const [isGeneratingSitemap, setIsGeneratingSitemap] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // إعدادات المتجر (SEO وتواصل وشحن)
+  // إعدادات المتجر (SEO وتواصل)
   const [storeSettings, setStoreSettings] = useState({
     whatsapp_number: '201026034170',
-    delivery_fee: '0',
     homepage_title: 'سوق العصر - أول سوق إلكتروني في فاقوس',
     homepage_description: 'تسوق أفضل الخضروات، الفواكه، ومنتجات السوبر ماركت في فاقوس أونلاين بضغطة زر.',
     homepage_keywords: 'سوق العصر، فاقوس، سوبر ماركت فاقوس، خضروات فاقوس، توصيل فاقوس'
@@ -56,7 +55,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
     try {
       const success = await ApiService.updateStoreSettings(storeSettings);
       if (success) {
-        alert('تم حفظ إعدادات المتجر بنجاح! ✨');
+        alert('تم حفظ إعدادات المتجر وSEO بنجاح! ✨');
       }
     } catch (err) {
       alert('حدث خطأ أثناء الحفظ');
@@ -105,7 +104,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <div className="w-10 h-10 border-4 border-emerald-50 border-t-emerald-500 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
         <p className="font-bold text-slate-400">جاري تحميل الإعدادات...</p>
       </div>
     );
@@ -116,54 +115,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   return (
     <div className="max-w-4xl space-y-10 animate-fadeIn pb-20">
       
-      {/* القسم الأول: إعدادات المتجر والشحن */}
-      <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 space-y-8">
-        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
-          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🏪</div>
-          <div>
-            <h3 className="text-xl font-black text-slate-800">إعدادات المتجر والشحن</h3>
-            <p className="text-slate-400 text-xs font-bold">إدارة التواصل وأسعار الخدمات</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم واتساب المتجر</label>
-            <div className="relative">
-              <input 
-                value={storeSettings.whatsapp_number}
-                onChange={e => setStoreSettings({...storeSettings, whatsapp_number: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition-all shadow-inner text-left"
-                dir="ltr"
-              />
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500">💬</span>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">سعر توصيل الطلبات (ج.م)</label>
-            <div className="relative">
-              <input 
-                type="number"
-                value={storeSettings.delivery_fee}
-                onChange={e => setStoreSettings({...storeSettings, delivery_fee: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-black transition-all shadow-inner text-center"
-              />
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500">🚚</span>
-            </div>
-          </div>
-        </div>
-
-        <button 
-          onClick={handleSaveStoreSettings}
-          disabled={isSaving}
-          className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50"
-        >
-          {isSaving ? 'جاري الحفظ...' : 'حفظ التعديلات العامة 💾'}
-        </button>
-      </section>
-
-      {/* قسم Sitemap */}
+      {/* قسم Sitemap و Google Console */}
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border-t-8 border-indigo-500 space-y-8 relative overflow-hidden">
         <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
           <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🗺️</div>
@@ -176,7 +128,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
         <div className="space-y-6">
            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
               <p className="text-slate-600 text-sm font-bold mb-4 leading-relaxed">
-                ملف الـ Sitemap يساعد محركات البحث في فهرسة موقعك بشكل أسرع وأكثر دقة.
+                ملف الـ Sitemap يساعد محركات البحث في فهرسة موقعك بشكل أسرع وأكثر دقة. قم بتوليد الملف عند إضافة منتجات جديدة بانتظام.
               </p>
               
               <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -198,35 +150,52 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
                  </a>
               </div>
            </div>
+
+           <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">رابط Sitemap لتقديمه في Google Search Console:</p>
+              <code className="text-xs font-bold text-slate-700 select-all break-all">{sitemapUrl}</code>
+           </div>
         </div>
       </section>
 
-      {/* قسم SEO */}
+      {/* القسم الأول: إعدادات SEO والصفحة الرئيسية */}
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 space-y-8">
         <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
           <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🌍</div>
           <div>
             <h3 className="text-xl font-black text-slate-800">إعدادات محركات البحث (SEO)</h3>
-            <p className="text-slate-400 text-xs font-bold">تحسين ظهور المتجر في نتائج البحث</p>
+            <p className="text-slate-400 text-xs font-bold">تحسين ظهور الصفحة الرئيسية في جوجل</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">عنوان المتجر في جوجل</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">عنوان الموقع (Meta Title)</label>
             <input 
               value={storeSettings.homepage_title}
               onChange={e => setStoreSettings({...storeSettings, homepage_title: e.target.value})}
               className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold transition-all shadow-inner"
+              placeholder="مثال: سوق العصر - متجرك الأول في فاقوس"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">وصف المتجر (Meta Description)</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">وصف الموقع (Meta Description)</label>
             <textarea 
               value={storeSettings.homepage_description}
               onChange={e => setStoreSettings({...storeSettings, homepage_description: e.target.value})}
               className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold transition-all shadow-inner min-h-[100px]"
+              placeholder="اكتب وصفاً مختصراً يظهر تحت اسم موقعك في نتائج البحث..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">الكلمات المفتاحية (Keywords)</label>
+            <input 
+              value={storeSettings.homepage_keywords}
+              onChange={e => setStoreSettings({...storeSettings, homepage_keywords: e.target.value})}
+              className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold transition-all shadow-inner"
+              placeholder="كلمات مفصولة بفاصلة (،)"
             />
           </div>
         </div>
@@ -234,13 +203,47 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
         <button 
           onClick={handleSaveStoreSettings}
           disabled={isSaving}
-          className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-indigo-600 transition-all active:scale-95 disabled:opacity-50"
+          className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50"
         >
-          {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الأرشفة 💾'}
+          {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات SEO 💾'}
         </button>
       </section>
 
-      {/* إدارة حساب المدير */}
+      {/* القسم الثاني: إعدادات التواصل */}
+      <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 space-y-8">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm">📱</div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800">إعدادات التواصل</h3>
+            <p className="text-slate-400 text-xs font-bold">إدارة أرقام واتساب المتجر</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم واتساب المتجر الرسمي</label>
+          <div className="relative">
+            <input 
+              value={storeSettings.whatsapp_number}
+              onChange={e => setStoreSettings({...storeSettings, whatsapp_number: e.target.value})}
+              className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition-all shadow-inner text-left"
+              dir="ltr"
+              placeholder="2010xxxxxxxx"
+            />
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500">💬</span>
+          </div>
+          <p className="text-[9px] text-slate-400 font-bold mr-2">يستخدم لإرسال الطلبات والفواتير للعملاء وتنبيهات الإدارة.</p>
+        </div>
+
+        <button 
+          onClick={handleSaveStoreSettings}
+          disabled={isSaving}
+          className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50"
+        >
+          حفظ إعدادات التواصل 💾
+        </button>
+      </section>
+
+      {/* القسم الثالث: إدارة حساب المدير */}
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border-t-8 border-rose-500 space-y-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-bl-full pointer-events-none"></div>
         
