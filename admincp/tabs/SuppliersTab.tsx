@@ -116,7 +116,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
   const handleSave = async () => {
     if (!formData.name || !formData.phone) return alert('الاسم ورقم الهاتف مطلوبان');
     
-    setIsSaving(true);
+    setIsSaving(true); // بدء حالة التحميل
     try {
       const payload: Supplier = {
         ...formData,
@@ -139,7 +139,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     } catch (err) {
       alert('خطأ في الاتصال بالسيرفر');
     } finally {
-      setIsSaving(false);
+      setIsSaving(false); // إنهاء حالة التحميل بعد رد السيرفر (نجاح أو فشل)
     }
   };
 
@@ -228,7 +228,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
           </button>
           <button 
             onClick={() => setFilterStatus('paid')}
-            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'paid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'text-slate-400 hover:text-emerald-600'}`}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'paid' ? 'bg-emerald-50 text-white shadow-lg shadow-emerald-200' : 'text-slate-400 hover:text-emerald-600'}`}
           >
             خالص ({totals.paidCount})
           </button>
@@ -322,9 +322,16 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                 <button 
                   onClick={handleQuickPayment}
                   disabled={isSaving}
-                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl shadow-slate-200"
+                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-2"
                 >
-                  {isSaving ? 'جاري التسجيل...' : 'تأكيد دفع المبلغ ✅'}
+                  {isSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      جاري المعالجة...
+                    </>
+                  ) : (
+                    'تأكيد دفع المبلغ ✅'
+                  )}
                 </button>
              </div>
           </div>
@@ -382,7 +389,20 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
               </div>
 
               <div className="flex gap-3 pt-6">
-                <button onClick={handleSave} disabled={isSaving} className="flex-grow bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-xl disabled:opacity-50">حفظ المورد ✨</button>
+                <button 
+                  onClick={handleSave} 
+                  disabled={isSaving} 
+                  className="flex-grow bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      جاري الحفظ والاتصال...
+                    </>
+                  ) : (
+                    'حفظ المورد ✨'
+                  )}
+                </button>
                 <button onClick={() => setIsModalOpen(false)} className="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm">إلغاء</button>
               </div>
             </div>
