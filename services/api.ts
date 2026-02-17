@@ -11,21 +11,36 @@ const safeFetch = async (action: string, options?: RequestInit) => {
       ...options,
       headers: { 'Accept': 'application/json', ...options?.headers },
     });
-    if (!response.ok) throw new Error('Network response was not ok');
-    const data = await response.json();
+    
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      if (!response.ok) {
+        console.error(`API Error (${action}): Status ${response.status}`);
+        return null;
+      }
+      throw new Error('Invalid JSON response');
+    }
+
+    if (!response.ok) {
+      console.error(`Server reported error for ${action}:`, data?.message || 'Unknown Server Error');
+      return data; // نرجعه كما هو ليتمكن المستدعي من فحص الحقل status
+    }
+    
     return data;
   } catch (error) {
-    console.error(`API Fetch Error (${action}):`, error);
+    console.error(`Critical Fetch Error (${action}):`, error);
     return null;
   }
 };
 
 export const ApiService = {
   async getCurrentUser(): Promise<User | null> {
-    const user = await safeFetch('get_current_user');
-    if (user) {
-      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
-      return user;
+    const data = await safeFetch('get_current_user');
+    if (data && !data.error && data.id) {
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(data));
+      return data;
     }
     return null;
   },
@@ -36,7 +51,8 @@ export const ApiService = {
   },
 
   async getAdminPhone(): Promise<{phone: string} | null> {
-    return await safeFetch('get_admin_phone');
+    const data = await safeFetch('get_admin_phone');
+    return (data && !data.error) ? data : null;
   },
 
   async login(phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
@@ -81,28 +97,33 @@ export const ApiService = {
   },
 
   async getProducts(): Promise<Product[]> {
-    const products = await safeFetch('get_products');
-    return products || [];
+    const data = await safeFetch('get_products');
+    return Array.isArray(data) ? data : [];
   },
 
   async getAllImages(): Promise<{url: string, productName: string}[]> {
-    return await safeFetch('get_all_images') || [];
+    const data = await safeFetch('get_all_images');
+    return Array.isArray(data) ? data : [];
   },
 
   async getCategories(): Promise<Category[]> {
-    return await safeFetch('get_categories') || [];
+    const data = await safeFetch('get_categories');
+    return Array.isArray(data) ? data : [];
   },
 
   async getOrders(): Promise<Order[]> {
-    return await safeFetch('get_orders') || [];
+    const data = await safeFetch('get_orders');
+    return Array.isArray(data) ? data : [];
   },
 
   async getUsers(): Promise<User[]> {
-    return await safeFetch('get_users') || [];
+    const data = await safeFetch('get_users');
+    return Array.isArray(data) ? data : [];
   },
 
   async getSuppliers(): Promise<Supplier[]> {
-    return await safeFetch('get_suppliers') || [];
+    const data = await safeFetch('get_suppliers');
+    return Array.isArray(data) ? data : [];
   },
 
   async addSupplier(supplier: Supplier): Promise<boolean> {
@@ -192,7 +213,8 @@ export const ApiService = {
   },
 
   async getStoreSettings(): Promise<Record<string, string>> {
-    return await safeFetch('get_store_settings') || {};
+    const data = await safeFetch('get_store_settings');
+    return data || {};
   },
 
   async updateStoreSettings(settings: Record<string, string>): Promise<boolean> {

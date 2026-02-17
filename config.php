@@ -3,14 +3,12 @@
  * إعدادات قاعدة البيانات - سوق العصر
  */
 
-// بيانات الاتصال (قم بتعديلها إذا تغيرت بيانات الاستضافة)
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'u588213546_store');
 define('DB_USER', 'u588213546_store');
 define('DB_PASS', 'sK0KAGUm|');
 
 try {
-    // إنشاء اتصال PDO مع دعم اللغة العربية (utf8mb4)
     $pdo = new PDO(
         "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
         DB_USER,
@@ -22,13 +20,13 @@ try {
         ]
     );
 } catch (PDOException $e) {
-    // في حال فشل الاتصال، يتم إرجاع خطأ JSON واضح للمتصفح
+    // في حال فشل الاتصال، نعيد JSON مع رمز 200 (مؤقتاً) لضمان أن fetch يقرأ الرسالة
+    // أو يمكن ترك الـ 500 إذا كانت الواجهة الأمامية مهيأة لقراءتها.
     header('Content-Type: application/json; charset=utf-8');
-    http_response_code(500);
     echo json_encode([
         'status' => 'error',
         'type' => 'db_connection_failed',
-        'message' => 'فشل الاتصال بقاعدة البيانات. تأكد من صحة البيانات في ملف config.php',
+        'message' => 'عذراً، فشل الاتصال بقاعدة البيانات. يرجى التحقق من إعدادات config.php على السيرفر.',
         'debug' => $e->getMessage()
     ]);
     exit;
