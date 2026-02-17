@@ -84,9 +84,9 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // تهيئة كائن الصوت عند بدء التطبيق
+  // تهيئة كائن الصوت عند بدء التطبيق بصوت رنين تنبيه قوي
   useEffect(() => {
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3');
     audio.preload = 'auto';
     audioObj.current = audio;
   }, []);
