@@ -60,7 +60,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   };
 
   const tabTitles: Record<AdminTab, string> = {
-    stats: 'احصائيات عامة',
+    stats: 'احصائيات وارقام',
     products: 'المخزن',
     categories: 'الأقسام',
     orders: 'الطلبات',
