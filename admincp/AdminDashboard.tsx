@@ -74,7 +74,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   };
 
   const renderTabContent = () => {
-    // تجميع الخصائص الآمنة
     const tabProps = {
       ...props,
       products: safeProducts,
@@ -147,12 +146,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            </div>
         </div>
 
-        {/* مؤشر التحميل المركزي عند الدخول الأول للوحة التحكم */}
-        {props.isLoading && activeTab !== 'stats' && safeProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 animate-fadeIn bg-white rounded-[3rem] shadow-sm border border-slate-100">
-            <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="font-black text-slate-800 text-lg">جاري جلب البيانات...</p>
-            <p className="text-slate-400 text-xs font-bold">يتم الآن تحديث قاعدة بيانات المتجر الذكي</p>
+        {/* تم تعديل هذا الشرط: إزالة activeTab !== 'stats' ليظهر التحميل في قسم الإحصائيات أيضاً عند أول فتح */}
+        {props.isLoading && safeProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 animate-fadeIn bg-white rounded-[3rem] shadow-sm border-2 border-dashed border-slate-100">
+            <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+            <h4 className="font-black text-slate-800 text-xl">جاري جلب أحدث البيانات...</h4>
+            <p className="text-slate-400 text-sm font-bold mt-2">يتم الآن مزامنة بيانات المتجر من السيرفر الرئيسي</p>
           </div>
         ) : (
           <div className="animate-fadeIn">

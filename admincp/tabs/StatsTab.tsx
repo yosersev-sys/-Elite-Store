@@ -64,52 +64,22 @@ const StatsTab: React.FC<StatsTabProps> = ({ products = [], orders = [], categor
     };
   }, [products, orders, categories, suppliers]);
 
-  // واجهة التحميل عند فتح الإحصائيات لأول مرة
-  if (isLoading && (!stats || stats.totalProducts === 0)) {
-    return (
-      <div className="space-y-10 animate-fadeIn">
-        <div className="flex flex-col items-center justify-center py-10 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-           <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-           <p className="font-black text-slate-800 text-lg">جاري جلب أحدث بيانات فاقوس...</p>
-           <p className="text-slate-400 text-xs font-bold mt-1">تتم الآن مزامنة المخزن والطلبات والديون</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-40">
-           <div className="h-32 bg-white rounded-[2.5rem] border border-slate-100 animate-pulse flex items-center p-8 gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl"></div>
-              <div className="space-y-2">
-                <div className="w-32 h-4 bg-slate-100 rounded-lg"></div>
-                <div className="w-48 h-3 bg-slate-50 rounded-lg"></div>
-              </div>
-           </div>
-           <div className="h-32 bg-white rounded-[2.5rem] border border-slate-100 animate-pulse flex items-center p-8 gap-4">
-              <div className="w-14 h-14 bg-slate-100 rounded-2xl"></div>
-              <div className="space-y-2">
-                <div className="w-32 h-4 bg-slate-100 rounded-lg"></div>
-                <div className="w-48 h-3 bg-slate-50 rounded-lg"></div>
-              </div>
-           </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 opacity-40">
-           {[...Array(4)].map((_, i) => (
-             <div key={i} className="h-44 bg-white rounded-[3rem] border border-slate-100 animate-pulse p-8">
-                <div className="flex justify-between mb-6">
-                  <div className="w-12 h-12 bg-slate-100 rounded-xl"></div>
-                  <div className="w-12 h-4 bg-slate-50 rounded-full"></div>
-                </div>
-                <div className="space-y-2">
-                   <div className="w-20 h-2 bg-slate-50 rounded"></div>
-                   <div className="w-28 h-6 bg-slate-100 rounded"></div>
-                </div>
-             </div>
-           ))}
-        </div>
-      </div>
-    );
+  // إذا كانت البيانات فارغة وتوجد عملية تحميل، نكتفي بالمؤشر الرئيسي في AdminDashboard
+  // هذا الـ Skeleton يظهر فقط في التحديثات "الصامتة" أو إذا كانت هناك بيانات قديمة تظهر خلفه
+  if (isLoading && stats.totalProducts === 0) {
+    return null; // سيظهر مؤشر التحميل من AdminDashboard بدلاً من ذلك
   }
 
   return (
     <div className="space-y-10 animate-fadeIn">
+      {/* عرض شريط التحميل الخفيف إذا كان هناك تحديث للبيانات الموجودة بالفعل */}
+      {isLoading && stats.totalProducts > 0 && (
+        <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-2xl flex items-center justify-center gap-3 animate-pulse">
+           <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+           <p className="text-emerald-700 text-[10px] font-black uppercase tracking-widest">تحديث البيانات في الخلفية...</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {stats.debtCount > 0 && (
           <div className="bg-gradient-to-r from-orange-500 to-amber-600 text-white p-6 md:p-8 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-6 relative overflow-hidden group">
