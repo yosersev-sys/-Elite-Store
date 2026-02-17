@@ -84,6 +84,13 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // تهيئة صوت التنبيه فور تحميل التطبيق
+  useEffect(() => {
+    const soundUrl = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // صوت جرس احترافي
+    audioObj.current = new Audio(soundUrl);
+    audioObj.current.load();
+  }, []);
+
   useEffect(() => {
     const handleHashChange = () => {
       const newView = getInitialView();
@@ -113,6 +120,7 @@ const App: React.FC = () => {
       if (activeUser) {
         const fetchedOrders = await ApiService.getOrders();
         setOrders(fetchedOrders || []);
+        
         if (activeUser.role === 'admin') {
           const [fetchedUsers, fetchedSuppliers] = await Promise.all([
             ApiService.getUsers(),
@@ -120,14 +128,26 @@ const App: React.FC = () => {
           ]);
           setUsers(fetchedUsers || []);
           setSuppliers(fetchedSuppliers || []);
-          if (fetchedOrders && prevOrderIds.current.size > 0) {
-            const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
-            if (trulyNew.length > 0) {
-              if (soundEnabled && audioObj.current) audioObj.current.play().catch(() => {});
-              setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
+          
+          // منطق اكتشاف الطلبات الجديدة وتشغيل التنبيه
+          if (fetchedOrders && fetchedOrders.length > 0) {
+            // إذا كانت هذه أول مرة نجلب فيها البيانات، نحفظ المعرفات فقط دون صوت
+            if (prevOrderIds.current.size === 0) {
+              prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
+            } else {
+              const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
+              if (trulyNew.length > 0) {
+                // تشغيل صوت التنبيه
+                if (soundEnabled && audioObj.current) {
+                  audioObj.current.currentTime = 0;
+                  audioObj.current.play().catch(e => console.log("Audio play blocked by browser. User must interact first."));
+                }
+                setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
+                // تحديث قائمة المعرفات المعروفة
+                trulyNew.forEach(o => prevOrderIds.current.add(o.id));
+              }
             }
           }
-          if (fetchedOrders) prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
         }
       }
     } catch (err) {
@@ -141,7 +161,7 @@ const App: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') loadData(true);
-    }, 20000); 
+    }, 15000); // تحديث كل 15 ثانية لمراقبة أسرع
     return () => clearInterval(interval);
   }, [currentUser?.id]);
 
@@ -160,6 +180,7 @@ const App: React.FC = () => {
     setOrders([]);
     setUsers([]);
     setSuppliers([]);
+    prevOrderIds.current.clear();
     setView('store');
   };
 
