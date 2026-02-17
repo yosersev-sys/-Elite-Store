@@ -1,6 +1,7 @@
+
 <?php
 /**
- * API Backend for Souq Al-Asr - Full Feature Version v5.0
+ * API Backend for Souq Al-Asr - Full Feature Version v5.1
  */
 session_start();
 error_reporting(0); 
@@ -221,7 +222,7 @@ try {
             break;
 
         case 'delete_category':
-            if (!isAdmin()) sendErr('غير مصرح', 403);
+            if (!isAdmin()) sendErr('غير مسرح', 403);
             $pdo->prepare("DELETE FROM categories WHERE id = ?")->execute([$_GET['id']]);
             sendRes(['status' => 'success']);
             break;
@@ -247,6 +248,37 @@ try {
                 }
                 $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$input['id'], $input['customerName'], $input['phone'], $input['city'], $input['address'], $input['subtotal'], $input['total'], json_encode($input['items']), $input['paymentMethod'], $input['status'], $input['userId'], time() * 1000]);
+                $pdo->commit();
+                sendRes(['status' => 'success']);
+            } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
+            break;
+
+        case 'update_order':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $pdo->beginTransaction();
+            try {
+                // 1. استرجاع الكميات القديمة للمخزن
+                $oldOrder = $pdo->prepare("SELECT items FROM orders WHERE id = ?");
+                $oldOrder->execute([$input['id']]);
+                $oldData = $oldOrder->fetch();
+                if ($oldData) {
+                    $oldItems = json_decode($oldData['items'], true) ?: [];
+                    foreach ($oldItems as $item) {
+                        $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?")
+                            ->execute([(float)$item['quantity'], (int)$item['quantity'], $item['id']]);
+                    }
+                }
+
+                // 2. تحديث بيانات الطلب
+                $stmt = $pdo->prepare("UPDATE orders SET customerName = ?, phone = ?, city = ?, address = ?, subtotal = ?, total = ?, items = ?, paymentMethod = ? WHERE id = ?");
+                $stmt->execute([$input['customerName'], $input['phone'], $input['city'], $input['address'], $input['subtotal'], $input['total'], json_encode($input['items']), $input['paymentMethod'], $input['id']]);
+
+                // 3. خصم الكميات الجديدة من المخزن
+                foreach ($input['items'] as $item) {
+                    $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")
+                        ->execute([(float)$item['quantity'], (int)$item['quantity'], $item['id']]);
+                }
+
                 $pdo->commit();
                 sendRes(['status' => 'success']);
             } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }

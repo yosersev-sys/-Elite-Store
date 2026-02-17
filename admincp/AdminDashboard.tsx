@@ -22,6 +22,7 @@ interface AdminDashboardProps {
   onOpenAddForm: () => void;
   onOpenEditForm: (product: Product) => void;
   onOpenInvoiceForm: () => void;
+  onEditOrder: (order: Order) => void;
   onDeleteProduct: (id: string) => void;
   onAddCategory: (category: Category) => void;
   onUpdateCategory: (category: Category) => void;

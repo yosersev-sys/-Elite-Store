@@ -181,6 +181,14 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
+  async updateOrder(order: Order): Promise<boolean> {
+    const result = await safeFetch('update_order', {
+      method: 'POST',
+      body: JSON.stringify(order)
+    });
+    return result?.status === 'success';
+  },
+
   async returnOrder(id: string): Promise<{status: string, message?: string}> {
     return await safeFetch('return_order', {
       method: 'POST',

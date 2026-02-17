@@ -10,10 +10,11 @@ interface AdminInvoiceFormProps {
   onCancel: () => void;
   initialCustomerName?: string;
   initialPhone?: string;
+  order?: Order | null;
 }
 
 const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ 
-  products, globalDeliveryFee, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '' 
+  products, globalDeliveryFee, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null 
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
   const [isDeliveryEnabled, setIsDeliveryEnabled] = useState<boolean>(false);
@@ -30,6 +31,22 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [showScanner, setShowScanner] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // تحميل بيانات الطلب في حال وجوده (وضع التعديل)
+  useEffect(() => {
+    if (order) {
+      setInvoiceItems(order.items || []);
+      const isDeliv = order.address && order.address !== 'استلام فرع (كاشير)';
+      setIsDeliveryEnabled(!!isDeliv);
+      setCustomerInfo({
+        name: order.customerName || 'عميل',
+        phone: order.phone || '',
+        city: order.city || 'فاقوس',
+        address: isDeliv ? order.address : '',
+        paymentMethod: order.paymentMethod || 'نقدي (تم الدفع)'
+      });
+    }
+  }, [order]);
 
   useEffect(() => {
     const handleStatus = () => setIsOnline(navigator.onLine);
@@ -57,7 +74,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   }, [products, searchQuery]);
 
   const addItemToInvoice = (product: Product) => {
-    if (product.stockQuantity <= 0) {
+    // في وضع التعديل نسمح بالإضافة حتى لو المخزن صفر لأن الكمية الأصلية ستعاد للمخزن عند الحفظ
+    if (!order && product.stockQuantity <= 0) {
       alert('عذراً، هذا المنتج غير متوفر في المخزن حالياً!');
       return;
     }
@@ -65,7 +83,12 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     setInvoiceItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stockQuantity) {
+        // التحقق من المخزن (مع مراعاة الكمية المحجوزة في الطلب الأصلي إذا كنا نعدل)
+        const availableInStock = order 
+           ? product.stockQuantity + (order.items.find(i => i.id === product.id)?.quantity || 0)
+           : product.stockQuantity;
+
+        if (existing.quantity >= availableInStock) {
           alert('وصلت للحد الأقصى المتاح في المخزن لهذا المنتج');
           return prev;
         }
@@ -94,7 +117,12 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       if (item.id === id) {
         const product = products.find(p => p.id === id);
         const newQty = Math.max(0.001, Number((item.quantity + delta).toFixed(3)));
-        if (product && newQty > product.stockQuantity) {
+        
+        const availableInStock = (order && product)
+           ? product.stockQuantity + (order.items.find(i => i.id === id)?.quantity || 0)
+           : (product?.stockQuantity || 0);
+
+        if (product && newQty > availableInStock) {
           alert('الكمية المطلوبة غير متوفرة بالكامل في المخزن');
           return item;
         }
@@ -111,7 +139,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     setInvoiceItems(prev => prev.map(item => {
       if (item.id === id) {
         const product = products.find(p => p.id === id);
-        if (product && val > product.stockQuantity) {
+        const availableInStock = (order && product)
+           ? product.stockQuantity + (order.items.find(i => i.id === id)?.quantity || 0)
+           : (product?.stockQuantity || 0);
+
+        if (product && val > availableInStock) {
           alert('الكمية المدخلة تتجاوز المتاح بالمخزن');
           return item;
         }
@@ -141,7 +173,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     if (!customerInfo.phone) return alert('يرجى إدخال رقم الهاتف لمتابعة الطلب');
     if (isDeliveryEnabled && !customerInfo.address.trim()) return alert('يرجى إدخال عنوان التوصيل');
     
-    const orderId = 'INV-' + Date.now().toString().slice(-8);
+    const orderId = order ? order.id : 'INV-' + Date.now().toString().slice(-8);
     
     const newOrder: Order = {
       id: orderId,
@@ -153,8 +185,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       subtotal,
       total,
       paymentMethod: customerInfo.paymentMethod,
-      status: 'completed',
-      createdAt: Date.now()
+      status: order ? order.status : 'completed',
+      createdAt: order ? order.createdAt : Date.now()
     };
 
     onSubmit(newOrder);
@@ -174,10 +206,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
           <div className="relative bg-white w-full max-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
             <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
-            <h3 className="text-2xl font-black text-slate-800 mb-2">إلغاء الفاتورة؟</h3>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">{order ? 'تجاهل التعديلات؟' : 'إلغاء الفاتورة؟'}</h3>
             <p className="text-slate-500 font-bold text-sm mb-8">سيتم مسح جميع الأصناف التي قمت بإضافتها حالياً.</p>
             <div className="flex gap-3">
-              <button onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg">نعم، إلغاء</button>
+              <button onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg">نعم، {order ? 'خروج' : 'إلغاء'}</button>
               <button onClick={() => setShowCancelConfirm(false)} className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95">تراجع</button>
             </div>
           </div>
@@ -190,7 +222,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl relative z-10 animate-slideUp overflow-hidden max-h-[90vh] flex flex-col">
              <div className="p-6 md:p-10 text-center space-y-4 md:space-y-6 overflow-y-auto no-scrollbar flex-grow">
                 <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">🧾</div>
-                <h3 className="text-xl md:text-2xl font-black text-slate-800">حفظ الفاتورة</h3>
+                <h3 className="text-xl md:text-2xl font-black text-slate-800">{order ? 'حفظ التعديلات' : 'حفظ الفاتورة'}</h3>
                 
                 {!isOnline && (
                   <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl text-rose-800 text-xs font-bold animate-pulse">
@@ -219,7 +251,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     onClick={handleFinalSubmit} 
                     className={`w-full py-4 md:py-5 rounded-2xl font-black shadow-xl active:scale-95 text-base text-white transition-all bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700 disabled:bg-slate-300 disabled:shadow-none`}
                    >
-                     {isOnline ? 'إتمام وحفظ الفاتورة' : 'انتظار الاتصال...'}
+                     {isOnline ? (order ? 'تحديث الفاتورة الآن' : 'إتمام وحفظ الفاتورة') : 'انتظار الاتصال...'}
                    </button>
                    <button onClick={() => setShowPreview(false)} className="w-full bg-slate-100 text-slate-500 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition-colors">
                      تعديل البيانات
@@ -233,8 +265,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       <div className="flex items-center justify-between mb-6 md:mb-10 px-2">
         <div className="flex items-center gap-4">
           <div>
-            <h2 className="text-xl md:text-4xl font-black text-slate-900 tracking-tight">كاشير سوق العصر</h2>
-            <p className="text-emerald-600 font-black text-[8px] md:text-[10px] uppercase mt-0.5 tracking-widest">إدارة المبيعات الفورية</p>
+            <h2 className="text-xl md:text-4xl font-black text-slate-900 tracking-tight">{order ? 'تعديل فاتورة' : 'كاشير سوق العصر'}</h2>
+            <p className="text-emerald-600 font-black text-[8px] md:text-[10px] uppercase mt-0.5 tracking-widest">{order ? `رقم الطلب: #${order.id}` : 'إدارة المبيعات الفورية'}</p>
           </div>
           <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 border shadow-sm transition-all ${isOnline ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600 animate-pulse'}`}>
             <span className="w-2 h-2 rounded-full bg-current"></span>
@@ -445,7 +477,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                    onClick={() => setShowPreview(true)}
                    className={`w-full text-white py-4 md:py-6 rounded-2xl md:rounded-3xl font-black text-sm md:text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-40 bg-slate-900 hover:bg-emerald-600`}
                  >
-                    {isOnline ? 'حفظ الطلب الفوري' : 'غير متصل بالإنترنت'}
+                    {isOnline ? (order ? 'تحديث الفاتورة 🔄' : 'حفظ الطلب الفوري') : 'غير متصل بالإنترنت'}
                  </button>
               </div>
            </div>

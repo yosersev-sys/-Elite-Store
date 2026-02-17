@@ -58,6 +58,7 @@ const App: React.FC = () => {
   
   const [newOrdersForPopup, setNewOrdersForPopup] = useState<Order[]>([]);
   const [productForBarcode, setProductForBarcode] = useState<Product | null>(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -277,7 +278,8 @@ const App: React.FC = () => {
               isLoading={isLoading}
               onOpenAddForm={() => { setSelectedProduct(null); setView('admin-form'); }}
               onOpenEditForm={(p) => { setSelectedProduct(p); setView('admin-form'); }}
-              onOpenInvoiceForm={() => setView('admin-invoice')}
+              onOpenInvoiceForm={() => { setEditingOrder(null); setView('admin-invoice'); }}
+              onEditOrder={(order) => { setEditingOrder(order); setView('admin-invoice'); }}
               onDeleteProduct={async (id) => { 
                   if(await ApiService.deleteProduct(id)) { setNotification({message: 'تم الحذف', type: 'success'}); loadData(true); }
               }}
@@ -334,24 +336,29 @@ const App: React.FC = () => {
             <AdminInvoiceForm 
               products={products} initialCustomerName={currentUser?.name || 'عميل نقدي'} initialPhone={currentUser?.phone || ''}
               globalDeliveryFee={deliveryFee}
+              order={editingOrder}
               onSubmit={async (order) => {
-                if (await ApiService.saveOrder(order)) {
+                const isUpdate = !!editingOrder;
+                const success = isUpdate ? await ApiService.updateOrder(order) : await ApiService.saveOrder(order);
+                
+                if (success) {
                   // إضافة معرف الطلب لقائمة المعرفات المعروفة لمنع التنبيه الصوتي
                   prevOrderIds.current.add(order.id);
                   
                   setLastCreatedOrder(order);
-                  setNotification({message: 'تم حفظ الطلب بنجاح', type: 'success'});
+                  setNotification({message: isUpdate ? 'تم تحديث الطلب بنجاح' : 'تم حفظ الطلب بنجاح', type: 'success'});
                   
                   // لا يتم فتح واتساب تلقائياً إذا كان المدير هو من يقوم بالعملية من لوحة التحكم
-                  if (!isActuallyAdmin) {
+                  if (!isActuallyAdmin && !isUpdate) {
                     WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   }
                   
                   await loadData(true);
+                  setEditingOrder(null);
                   setView('order-success');
                 }
               }}
-              onCancel={() => setView(isActuallyAdmin ? 'admin' : 'store')}
+              onCancel={() => { setEditingOrder(null); setView(isActuallyAdmin ? 'admin' : 'store'); }}
             />
           )}
 

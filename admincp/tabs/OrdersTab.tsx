@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Order } from '../../types';
 import { WhatsAppService } from '../../services/whatsappService';
@@ -8,11 +9,12 @@ interface OrdersTabProps {
   isLoading: boolean;
   setAdminSearch: (val: string) => void;
   onViewOrder: (order: Order) => void;
+  onEditOrder: (order: Order) => void;
   onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
   onReturnOrder: (id: string) => void;
 }
 
-const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onUpdateOrderPayment, onReturnOrder }) => {
+const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onEditOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const ordersPerPage = 10;
@@ -135,6 +137,9 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                     <div className="flex justify-center gap-2">
                        <button onClick={() => WhatsAppService.sendInvoiceToCustomer(o, o.phone)} className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" title="إرسال واتساب">📱</button>
                        <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
+                       {!isCancelled && (
+                         <button onClick={() => onEditOrder(o)} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="تعديل الأصناف">✎</button>
+                       )}
                        {!isCancelled && (
                          <button onClick={() => onReturnOrder(o.id)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="استرجاع الفاتورة">↩</button>
                        )}
