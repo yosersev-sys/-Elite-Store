@@ -1,6 +1,6 @@
 <?php
 /**
- * Shared API Initialization - Optimized for Speed
+ * Shared API Initialization - High Performance Mode
  */
 session_start();
 error_reporting(0); 
@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 require_once '../config.php';
 
 function sendRes($data) {
-    // استخدام ضغط JSON وتحسين الخرج
+    // استخدام JSON_NUMERIC_CHECK لضمان وصول الأرقام كأرقام وليس نصوص
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_NUMERIC_CHECK);
     exit;
 }
@@ -32,10 +32,10 @@ function isAdmin() {
 }
 
 function ensureSchema($pdo) {
-    // نظام فحص ذكي: لا يعمل إلا إذا مر ساعة على آخر فحص أو تم طلب تحديث يدوي
-    $lastCheckFile = '../schema_last_check.txt';
-    if (file_exists($lastCheckFile) && (time() - filemtime($lastCheckFile) < 3600)) {
-        return; 
+    // آلية تسريع: فحص هيكل الجداول مرة واحدة فقط كل ساعة
+    $cacheFile = sys_get_temp_dir() . '/souq_schema_check_' . md5(DB_NAME);
+    if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 3600)) {
+        return;
     }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive TINYINT(1) DEFAULT 1, sortOrder INT DEFAULT 0)");
@@ -45,14 +45,35 @@ function ensureSchema($pdo) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), wholesalePrice DECIMAL(10,2) DEFAULT 0, categoryId VARCHAR(50), supplierId VARCHAR(50), images LONGTEXT, stockQuantity DECIMAL(10,2) DEFAULT 0, unit VARCHAR(20) DEFAULT 'piece', barcode VARCHAR(100), salesCount INT DEFAULT 0, seoSettings LONGTEXT, batches LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), city VARCHAR(100) DEFAULT 'فاقوس', address TEXT, subtotal DECIMAL(10,2), total DECIMAL(10,2), items LONGTEXT, paymentMethod VARCHAR(100) DEFAULT 'نقدي (تم الدفع)', status VARCHAR(50) DEFAULT 'completed', userId VARCHAR(50), createdAt BIGINT)");
 
-    // إضافة الفهارس (Indexes) لتسريع عمليات البحث
-    try {
-        $pdo->exec("CREATE INDEX idx_prod_cat ON products(categoryId)");
-        $pdo->exec("CREATE INDEX idx_user_phone ON users(phone)");
-        $pdo->exec("CREATE INDEX idx_order_phone ON orders(phone)");
-    } catch (Exception $e) {}
+    // صيانة الأعمدة في حال نقصها
+    $tables = [
+        'products' => [
+            'wholesalePrice' => "DECIMAL(10,2) DEFAULT 0",
+            'unit' => "VARCHAR(20) DEFAULT 'piece'",
+            'barcode' => "VARCHAR(100)",
+            'salesCount' => "INT DEFAULT 0",
+            'seoSettings' => "LONGTEXT",
+            'batches' => "LONGTEXT"
+        ],
+        'orders' => [
+            'city' => "VARCHAR(100) DEFAULT 'فاقوس'",
+            'paymentMethod' => "VARCHAR(100) DEFAULT 'نقدي (تم الدفع)'",
+            'status' => "VARCHAR(50) DEFAULT 'completed'"
+        ]
+    ];
 
-    file_put_contents($lastCheckFile, time());
+    foreach ($tables as $table => $cols) {
+        foreach ($cols as $col => $def) {
+            try {
+                $check = $pdo->query("SHOW COLUMNS FROM `$table` LIKE '$col'");
+                if ($check->rowCount() == 0) {
+                    $pdo->exec("ALTER TABLE `$table` ADD `$col` $def");
+                }
+            } catch (Exception $e) {}
+        }
+    }
+
+    touch($cacheFile);
 }
 
 ensureSchema($pdo);

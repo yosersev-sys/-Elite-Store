@@ -1,6 +1,6 @@
 <?php
 /**
- * سوق العصر - المحرك الذكي v5.0 (نسخة الأداء العالي)
+ * سوق العصر - المحرك الذكي v5.1 (إصلاح الثبات والأداء)
  */
 header('Content-Type: text/html; charset=utf-8');
 require_once 'config.php';
@@ -17,11 +17,13 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>سوق العصر - سرعة فائقة</title>
+    <title>سوق العصر - فاقوس</title>
     
     <link rel="icon" type="image/png" href="https://soqelasr.com/shopping-bag512.png">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#10b981">
+    
+    <!-- التحميل المسبق للمكتبات الأساسية لزيادة السرعة -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -41,91 +43,53 @@ try {
     <style>
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        #splash-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f8fafc; z-index: 9999; transition: opacity 0.5s; }
-        .progress-box { width: 280px; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-top: 20px; }
-        #progress-bar { height: 100%; width: 0%; background: #10b981; transition: width 0.2s; }
+        
+        #splash-screen { 
+            position: fixed; inset: 0; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; background: #f8fafc; 
+            z-index: 9999; transition: opacity 0.5s; 
+        }
+        
+        .loader-logo {
+            width: 80px; height: 80px; background: #10b981;
+            border-radius: 24px; display: flex; align-items: center;
+            justify-content: center; box-shadow: 0 20px 40px rgba(16, 185, 129, 0.1);
+            animation: pulse 2s infinite ease-in-out;
+        }
+        
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.95); } }
     </style>
 </head>
 <body>
     <div id="root">
         <div id="splash-screen">
-            <div class="w-20 h-20 bg-emerald-500 rounded-[2rem] flex items-center justify-center mb-6 shadow-xl animate-pulse">
+            <div class="loader-logo">
                 <img src="https://soqelasr.com/shopping-bag.png" class="w-12 h-12" alt="Logo">
             </div>
-            <div class="text-slate-800 font-black text-xl">سوق العصر</div>
-            <div id="status-text" class="text-slate-400 text-xs font-bold mt-2">جاري تسريع المحرك...</div>
-            <div class="progress-box"><div id="progress-bar"></div></div>
+            <div class="mt-6 text-slate-800 font-black text-xl">سوق العصر</div>
+            <div class="mt-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest">جاري تشغيل المتجر الذكي...</div>
         </div>
     </div>
 
-    <script type="module">
-        import React from 'react';
-        import ReactDOM from 'react-dom/client';
-
-        const CACHE_VERSION = 'v2.1'; 
-        const statusText = document.getElementById('status-text');
-        const progressBar = document.getElementById('progress-bar');
+    <!-- تعريف متغيرات البيئة قبل تحميل التطبيق -->
+    <script>
         window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
+    </script>
 
-        async function getFileWithCache(filePath) {
-            const cacheKey = `source_${filePath}_${CACHE_VERSION}`;
-            const cached = localStorage.getItem(cacheKey);
-            
-            // جلب بصمة الملف (Timestamp) من السيرفر للتأكد من عدم وجود تحديثات
-            const response = await fetch(filePath);
-            const content = await response.text();
-            
-            // إذا كان الملف المترجم مخزناً مسبقاً، استخدمه فوراً لتوفير وقت Babel
-            const transpiledKey = `js_${filePath}_${CACHE_VERSION}`;
-            const cachedJs = localStorage.getItem(transpiledKey);
-            
-            if (cachedJs && localStorage.getItem(cacheKey) === content) {
-                return cachedJs;
-            }
+    <!-- تحميل التطبيق بالطريقة التقليدية المستقرة مع دعم JSX -->
+    <script type="text/babel" data-type="module" src="index.tsx"></script>
 
-            // تحويل الكود (Transpile)
-            const transpiled = Babel.transform(content, {
-                presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
-                filename: filePath,
-            }).code;
-
-            // حفظ في التخزين المؤقت للمرة القادمة
-            localStorage.setItem(cacheKey, content);
-            localStorage.setItem(transpiledKey, transpiled);
-            
-            return transpiled;
-        }
-
-        async function loadApp() {
-            try {
-                progressBar.style.width = '30%';
-                const appCode = await getFileWithCache('App.tsx');
-                
-                progressBar.style.width = '80%';
-                // استبدال الـ imports اليدوية بكود ديناميكي متوافق مع المترجم
-                const blob = new Blob([appCode], { type: 'application/javascript' });
-                const url = URL.createObjectURL(blob);
-                
-                const module = await import(url);
-                const App = module.default;
-                
-                progressBar.style.width = '100%';
-                document.getElementById('splash-screen').style.opacity = '0';
-                
-                setTimeout(() => {
-                    const root = ReactDOM.createRoot(document.getElementById('root'));
-                    root.render(React.createElement(App));
-                    document.getElementById('splash-screen').remove();
-                }, 500);
-
-            } catch (err) {
-                console.error("Critical Load Error:", err);
-                statusText.innerText = "فشل التحميل، يرجى تحديث الصفحة";
-                statusText.className = "text-rose-500 font-bold mt-2";
-            }
-        }
-
-        loadApp();
+    <script>
+        // إخفاء شاشة التحميل بعد استقرار التطبيق
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => splash.remove(), 500);
+                }
+            }, 1500);
+        });
     </script>
 </body>
 </html>
