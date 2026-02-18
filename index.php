@@ -1,59 +1,43 @@
 
 <?php
 /**
- * سوق العصر - المحرك الذكي v4.5 Optimized
+ * سوق العصر - المحرك الذكي v4.2
  */
 header('Content-Type: text/html; charset=utf-8');
 require_once 'config.php';
 
+// جلب مفتاح API من إعدادات النظام في قاعدة البيانات
 $gemini_key = '';
-$settings = [];
 try {
-    $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
-    while($row = $stmt->fetch()) {
-        $settings[$row['setting_key']] = $row['setting_value'];
-    }
-    $gemini_key = $settings['gemini_api_key'] ?? '';
-} catch (Exception $e) {}
-
-$page_title = $settings['homepage_title'] ?? 'سوق العصر - أول سوق إلكتروني في فاقوس';
-$page_desc = $settings['homepage_description'] ?? 'تسوق أفضل الخضروات، الفواكه، ومنتجات السوبر ماركت في فاقوس أونلاين بضغطة زر.';
-$page_keywords = $settings['homepage_keywords'] ?? 'سوق العصر, فاقوس, سوبر ماركت, خضروات, توصيل';
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'gemini_api_key' LIMIT 1");
+    $stmt->execute();
+    $gemini_key = $stmt->fetchColumn() ?: '';
+} catch (Exception $e) {
+    // في حال عدم وجود الجدول بعد
+}
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" style="scroll-behavior: smooth;">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>سوق العصر - اول سوق الكتروني في فاقوس</title>
     
-    <!-- SEO Meta Tags -->
-    <title><?php echo $page_title; ?></title>
-    <meta name="description" content="<?php echo $page_desc; ?>">
-    <meta name="keywords" content="<?php echo $page_keywords; ?>">
-    <meta name="author" content="سوق العصر">
-    <link rel="canonical" href="https://soqelasr.com/">
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://soqelasr.com/">
-    <meta property="og:title" content="<?php echo $page_title; ?>">
-    <meta property="og:description" content="<?php echo $page_desc; ?>">
-    <meta property="og:image" content="https://soqelasr.com/shopping-bag512.png">
-
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="https://soqelasr.com/shopping-bag512.png">
     
-    <!-- PWA -->
+    <!-- PWA & Android Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#10b981">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://soqelasr.com/shopping-bag512.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- تحسين تحميل الخطوط -->
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
-    <!-- تحميل المكتبات بشكل غير متزامن -->
-    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+    <!-- External Libraries -->
+    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="importmap">
@@ -70,12 +54,8 @@ $page_keywords = $settings['homepage_keywords'] ?? 'سوق العصر, فاقو�
     
     <style>
         :root { --primary: #10b981; }
-        * { font-family: 'Cairo', sans-serif; font-display: swap; -webkit-tap-highlight-color: transparent; }
-        body { background: #f8fafc; margin: 0; overflow-x: hidden; min-height: 100vh; }
-        
-        /* تقليل الـ CLS عبر حجز مساحة الهيدر والسلايدر */
-        header { min-height: 70px; }
-        
+        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body { background: #f8fafc; margin: 0; overflow-x: hidden; }
         @keyframes pulse-soft { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.95); opacity: 0.8; } }
         
         #splash-screen {
@@ -90,9 +70,18 @@ $page_keywords = $settings['homepage_keywords'] ?? 'سوق العصر, فاقو�
             animation: pulse-soft 2s infinite ease-in-out; margin-bottom: 24px;
         }
         .splash-logo img { width: 60px; height: 60px; object-fit: contain; }
-        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.6rem; }
-        .progress-box { width: 100%; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-top: 20px; }
-        #progress-bar { height: 100%; width: 0%; background: #10b981; transition: width 0.3s ease; }
+        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.6rem; line-height: 1.2; }
+        .splash-tagline { color: #10b981; font-weight: 800; font-size: 0.75rem; margin-bottom: 12px; opacity: 0.9; letter-spacing: 0.5px; }
+        .splash-status { color: #94a3b8; font-size: 0.65rem; font-weight: 700; margin-bottom: 20px; height: 1rem; text-transform: uppercase; }
+        
+        .progress-box { width: 100%; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; position: relative; }
+        #progress-bar {
+            position: absolute; top: 0; right: 0; height: 100%; width: 0%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            transition: width 0.3s cubic-bezier(0.1, 0.5, 0.5, 1);
+            border-radius: 10px;
+        }
+        #progress-text { margin-top: 12px; font-weight: 900; color: #10b981; font-size: 1.1rem; }
     </style>
 </head>
 <body>
@@ -100,10 +89,15 @@ $page_keywords = $settings['homepage_keywords'] ?? 'سوق العصر, فاقو�
         <div id="splash-screen">
             <div class="splash-container">
                 <div class="splash-logo">
-                    <img src="https://soqelasr.com/shopping-bag.png" alt="سوق العصر" width="60" height="60">
+                    <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
                 </div>
                 <div class="splash-text">سوق العصر</div>
-                <div class="progress-box"><div id="progress-bar"></div></div>
+                <div class="splash-tagline">اول سوق الكتروني في فاقوس</div>
+                <div id="splash-status-text" class="splash-status">جاري الاتصال...</div>
+                <div class="progress-box">
+                    <div id="progress-bar"></div>
+                </div>
+                <div id="progress-text">0%</div>
             </div>
         </div>
     </div>
@@ -111,46 +105,121 @@ $page_keywords = $settings['homepage_keywords'] ?? 'سوق العصر, فاقو�
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
-        window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
 
         const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const statusText = document.getElementById('splash-status-text');
+
+        let visualProgress = 0;
+        let targetProgress = 0;
+
+        function smoothUpdate() {
+            if (visualProgress < targetProgress) {
+                visualProgress += (targetProgress - visualProgress) * 0.1;
+                if (targetProgress - visualProgress < 0.5) visualProgress = targetProgress;
+                
+                const displayVal = Math.floor(visualProgress);
+                if (progressBar) progressBar.style.width = displayVal + '%';
+                if (progressText) progressText.innerText = displayVal + '%';
+            }
+            if (visualProgress < 100) requestAnimationFrame(smoothUpdate);
+        }
+        smoothUpdate();
+
+        function setProgress(percent, status) {
+            targetProgress = percent;
+            if (statusText && status) statusText.innerText = status;
+        }
+
+        window.process = window.process || { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
+
         const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
+        let filesProcessed = 0;
+        const estimatedTotalFiles = 25; 
+
+        async function fetchWithFallback(url) {
+            const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
+            for (let ext of extensions) {
+                try {
+                    const fullUrl = url + (url.match(/\.(tsx?|jsx?)$/) ? '' : ext);
+                    const response = await fetch(fullUrl);
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type');
+                        if (contentType && contentType.includes('text/html')) continue;
+                        return { code: await response.text(), finalUrl: fullUrl };
+                    }
+                } catch (e) {}
+            }
+            throw new Error(`الملف مفقود: ${url}`);
+        }
 
         async function getTranspiledUrl(filePath) {
             const absolutePath = new URL(filePath, BASE_URL).href;
             if (blobCache.has(absolutePath)) return blobCache.get(absolutePath);
-            const res = await fetch(absolutePath);
-            let code = await res.text();
-            
-            const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
-            const matches = [...code.matchAll(importRegex)];
-            for (const match of matches) {
-                const depUrl = await getTranspiledUrl(new URL(match[1], absolutePath).href);
-                code = code.split(match[1]).join(depUrl);
-            }
 
-            const transformed = Babel.transform(code, {
-                presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
-                filename: absolutePath,
-            }).code;
+            try {
+                const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
+                let code = rawCode;
+                
+                filesProcessed++;
+                // إخفاء أسماء الملفات واستخدام عبارات عامة احترافية
+                const calcPercent = 10 + Math.min(filesProcessed / estimatedTotalFiles * 75, 75);
+                
+                // رسائل متغيرة بناءً على نسبة التقدم بدلاً من أسماء الملفات
+                let loadingMsg = "جاري معالجة البيانات...";
+                if (calcPercent > 20) loadingMsg = "تحسين تجربة التصفح...";
+                if (calcPercent > 40) loadingMsg = "تجهيز مكونات المتجر...";
+                if (calcPercent > 60) loadingMsg = "تأمين الاتصال المشفر...";
+                if (calcPercent > 80) loadingMsg = "تنسيق واجهة المستخدم...";
+                
+                setProgress(calcPercent, loadingMsg);
 
-            const blobUrl = URL.createObjectURL(new Blob([transformed], { type: 'application/javascript' }));
-            blobCache.set(absolutePath, blobUrl);
-            return blobUrl;
+                const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
+                const matches = [...code.matchAll(importRegex)];
+                
+                for (const match of matches) {
+                    const relativePath = match[1];
+                    const fullImportPath = new URL(relativePath, finalUrl).href;
+                    const depBlobUrl = await getTranspiledUrl(fullImportPath);
+                    code = code.split(`'${relativePath}'`).join(`'${depBlobUrl}'`);
+                    code = code.split(`"${relativePath}"`).join(`"${depBlobUrl}"`);
+                }
+
+                const transformed = Babel.transform(code, {
+                    presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
+                    filename: finalUrl,
+                }).code;
+
+                const blob = new Blob([transformed], { type: 'application/javascript' });
+                const blobUrl = URL.createObjectURL(blob);
+                blobCache.set(absolutePath, blobUrl);
+                return blobUrl;
+            } catch (err) { throw err; }
         }
 
         async function startApp() {
             try {
-                if(progressBar) progressBar.style.width = '30%';
+                setProgress(5, "بدء تشغيل المحرك الذكي...");
                 const appBlobUrl = await getTranspiledUrl('App.tsx');
-                if(progressBar) progressBar.style.width = '100%';
+                
+                setProgress(90, "فتح أبواب المتجر...");
                 const module = await import(appBlobUrl);
-                ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(module.default));
+                const App = module.default;
+
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                setProgress(100, "جاهز للتسوق!");
+                
+                setTimeout(() => {
+                    root.render(React.createElement(App));
+                }, 300);
+
             } catch (err) {
                 console.error(err);
+                document.getElementById('root').innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">خطأ في تحميل المتجر: <br/> يرجى التأكد من اتصال الإنترنت</div>`;
             }
         }
+
         startApp();
     </script>
 </body>
