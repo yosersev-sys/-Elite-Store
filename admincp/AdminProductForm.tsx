@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings, StockBatch, Supplier } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
@@ -64,49 +64,25 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         const MAX_HEIGHT = 1000;
         let width = img.width;
         let height = img.height;
-
         if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
+          if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
         } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
+          if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
         }
-
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
           resolve(canvas.toDataURL('image/jpeg', 0.7)); 
-        } else {
-          resolve(base64Str);
-        }
+        } else { resolve(base64Str); }
       };
     });
   };
 
-  // تهيئة البيانات عند فتح صفحة التعديل
   useEffect(() => {
     if (product) {
       if (product.id !== prevProductIdRef.current) {
-        // حساب الدفعات: إذا لم توجد دفعات ولكن هناك مخزون، ننشئ دفعة افتراضية بالكمية الحالية
-        let currentBatches = product.batches || [];
-        const actualStock = Number(product.stockQuantity || 0);
-
-        if (currentBatches.length === 0 && actualStock > 0) {
-          currentBatches = [{
-            id: 'initial_' + Date.now(),
-            quantity: actualStock,
-            wholesalePrice: Number(product.wholesalePrice || 0),
-            createdAt: product.createdAt || Date.now()
-          }];
-        }
-
         setFormData({
           name: product.name || '',
           description: product.description || '',
@@ -114,13 +90,13 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           wholesalePrice: product.wholesalePrice?.toString() || '',
           categoryId: product.categoryId || '',
           supplierId: product.supplierId || '',
-          stockQuantity: actualStock.toString(),
+          stockQuantity: product.stockQuantity?.toString() || '0', // نستخدم الكمية الحالية من قاعدة البيانات
           barcode: product.barcode ? String(product.barcode) : '', 
           unit: product.unit || 'piece', 
           sizes: product.sizes?.join(', ') || '',
           colors: product.colors?.join(', ') || '',
           images: product.images || [],
-          batches: currentBatches
+          batches: product.batches || []
         });
         
         if (product.seoSettings) {
@@ -132,22 +108,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       prevProductIdRef.current = null;
     }
   }, [product]);
-
-  // تحديث إجمالي المخزون فقط عند التعديل اليدوي للدفعات لضمان المزامنة المستمرة
-  const totalStockFromBatches = useMemo(() => {
-    return formData.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
-  }, [formData.batches]);
-
-  // تحديث stockQuantity في formData عندما تتغير الدفعات
-  useEffect(() => {
-    setFormData(prev => {
-      const calculated = totalStockFromBatches.toString();
-      if (prev.stockQuantity !== calculated) {
-        return { ...prev, stockQuantity: calculated };
-      }
-      return prev;
-    });
-  }, [totalStockFromBatches]);
 
   useEffect(() => {
     if (!product && categories.length > 0 && formData.categoryId === '') {
@@ -161,11 +121,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     try {
       const items = await ApiService.getAllImages();
       setLibraryImages(items || []);
-    } catch (err) {
-      console.error("Error loading library:", err);
-    } finally {
-      setIsLoadingLibrary(false);
-    }
+    } catch (err) { console.error(err); } finally { setIsLoadingLibrary(false); }
   };
 
   const filteredLibrary = libraryImages.filter(img => 
@@ -194,6 +150,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setFormData(prev => ({ ...prev, barcode: randomCode.toString() }));
   };
 
+  // إضافة دفعة جديدة: تزيد على الكمية الحالية
   const handleAddBatch = () => {
     const qty = parseFloat(newBatchQty);
     const price = parseFloat(newBatchPrice);
@@ -209,6 +166,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     setFormData(prev => ({
       ...prev,
       batches: [...prev.batches, newBatch],
+      // التعديل الجوهري: إضافة الكمية الجديدة للمخزون الحالي بدلاً من تصفيره
+      stockQuantity: (parseFloat(prev.stockQuantity) + qty).toString(),
       wholesalePrice: price.toString() 
     }));
     setNewBatchQty('');
@@ -216,7 +175,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   };
 
   const clearAllStock = () => {
-    if (window.confirm('سيتم حذف كافة كميات المخزون الحالية والبدء من الصفر. هل أنت متأكد؟')) {
+    if (window.confirm('سيتم تصفير الكمية الحالية وحذف سجل الدفعات. هل أنت متأكد؟')) {
       setFormData(prev => ({ ...prev, batches: [], stockQuantity: '0' }));
     }
   };
@@ -224,10 +183,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    
     setIsCompressing(true);
     const fileList = Array.from(files) as File[];
-    
     for (const file of fileList) {
       const reader = new FileReader();
       const p = new Promise<void>((resolve) => {
@@ -265,7 +222,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         wholesalePrice: parseFloat(formData.wholesalePrice) || 0,
         categoryId: formData.categoryId,
         supplierId: formData.supplierId || undefined,
-        stockQuantity: finalStock || 0,
+        stockQuantity: finalStock,
         barcode: formData.barcode.trim(),
         unit: formData.unit,
         sizes: formData.sizes ? formData.sizes.split(',').map(s => s.trim()).filter(s => s !== '') : undefined,
@@ -278,7 +235,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       };
       await onSubmit(productData);
     } catch (err) {
-      console.error("Submit Error:", err);
       alert('حدث خطأ تقني، يرجى المحاولة لاحقاً');
     } finally {
       setIsSubmitting(false);
@@ -313,9 +269,9 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
             <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
             <h3 className="text-2xl font-black text-slate-800 mb-2">تجاهل التغييرات؟</h3>
-            <p className="text-slate-500 font-bold text-sm mb-8 leading-relaxed">هل أنت متأكد من الخروج؟ سيتم حذف جميع البيانات التي قمت بإدخالها ولم يتم حفظها.</p>
+            <p className="text-slate-500 font-bold text-sm mb-8 leading-relaxed">هل أنت متأكد من الخروج؟ سيتم فقدان البيانات غير المحفوظة.</p>
             <div className="flex gap-3">
-              <button onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg shadow-rose-100">نعم، خروج</button>
+              <button onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg">نعم، خروج</button>
               <button onClick={() => setShowCancelConfirm(false)} className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95">تراجع</button>
             </div>
           </div>
@@ -329,7 +285,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                <div>
                   <h3 className="text-2xl font-black text-slate-800">مكتبة صور المتجر 📸</h3>
-                  <p className="text-slate-400 font-bold text-xs mt-1">اختر من الصور المرفوعة سابقاً</p>
                </div>
                <div className="relative flex-grow max-w-md">
                  <input 
@@ -337,9 +292,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                    placeholder="ابحث باسم المنتج..." 
                    value={librarySearch}
                    onChange={e => setLibrarySearch(e.target.value)}
-                   className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 font-bold text-sm shadow-inner"
+                   className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-sm shadow-inner"
                  />
-                 <span className="absolute left-4 top-4 text-slate-300">🔍</span>
                </div>
                <button onClick={() => setShowLibrary(false)} className="hidden md:block bg-slate-100 p-2 rounded-xl text-slate-500">✕</button>
             </div>
@@ -347,10 +301,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               {isLoadingLibrary ? (
                  <div className="flex flex-col items-center justify-center py-20 gap-4">
                    <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                   <p className="font-bold text-slate-400">جاري التحميل...</p>
                  </div>
-              ) : filteredLibrary.length === 0 ? (
-                 <div className="text-center py-20 text-slate-300 font-bold">لا توجد صور مطابقة</div>
               ) : (
                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-2">
                     {filteredLibrary.map((item, i) => (
@@ -371,7 +322,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                  </div>
               )}
             </div>
-            <button onClick={() => setShowLibrary(false)} className="mt-4 bg-slate-900 text-white py-4 rounded-2xl font-black">إغلاق المكتبة</button>
+            <button onClick={() => setShowLibrary(false)} className="mt-4 bg-slate-900 text-white py-4 rounded-2xl font-black">إغلاق</button>
           </div>
         </div>
       )}
@@ -379,7 +330,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       <div className="flex items-center justify-between mb-10 px-4">
         <div>
           <h2 className="text-3xl font-black text-slate-900">{product ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h2>
-          <p className="text-slate-400 font-bold mt-1 uppercase text-[10px]">إدارة المخزون والتسعير الذكي</p>
+          <p className="text-slate-400 font-bold mt-1 uppercase text-[10px]">إدارة المخزون والتسعير</p>
         </div>
         <button type="button" onClick={() => setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 text-slate-400 px-8 py-3 rounded-2xl font-bold hover:bg-slate-50 transition">إلغاء</button>
       </div>
@@ -409,16 +360,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">اسم المنتج</label>
-              <input 
-                required 
-                value={formData.name} 
-                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} 
-                className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner" 
-                placeholder="مثال: طماطم بلدي طازجة" 
-              />
+              <input required value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500 mr-2">القسم الرئيسي</label>
+              <label className="text-sm font-bold text-slate-500 mr-2">القسم</label>
               <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
                 <option value="">-- اختر القسم --</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -427,149 +372,99 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">المورد (اختياري)</label>
               <select value={formData.supplierId} onChange={e => setFormData({...formData, supplierId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
-                <option value="">-- بدون مورد محدد --</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name} {s.companyName ? `(${s.companyName})` : ''}</option>)}
+                <option value="">-- بدون مورد --</option>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
-              <div className="grid grid-cols-3 gap-2 bg-slate-50 p-1.5 rounded-2xl border">
-                 {(['piece', 'kg', 'gram'] as const).map(u => (
-                   <button 
-                    key={u} type="button" 
-                    onClick={() => setFormData({...formData, unit: u})}
-                    className={`py-3 rounded-xl font-black text-xs transition-all ${formData.unit === u ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white'}`}
-                   >
-                     {u === 'piece' ? 'قطعة' : u === 'kg' ? 'كيلو' : 'جرام'}
-                   </button>
-                 ))}
-              </div>
+              <select value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value as any})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
+                <option value="piece">وحدة/قطعة</option>
+                <option value="kg">كيلو جرام</option>
+                <option value="gram">جرام</option>
+              </select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500 mr-2">باركود المنتج</label>
+              <label className="text-sm font-bold text-slate-500 mr-2">الباركود</label>
               <div className="flex gap-2">
-                 <input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold shadow-inner" placeholder="أدخل الكود أو امسح بالكاميرا" />
-                 <button type="button" onClick={handleGenerateBarcode} className="bg-indigo-600 text-white px-5 rounded-2xl hover:bg-slate-900 transition shadow-lg" title="توليد باركود تلقائي">✨</button>
-                 <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-5 rounded-2xl hover:bg-emerald-600 transition shadow-lg" title="مسح باركود بالكاميرا">📷</button>
+                 <input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold shadow-inner" />
+                 <button type="button" onClick={handleGenerateBarcode} className="bg-indigo-600 text-white px-5 rounded-2xl shadow-lg">✨</button>
+                 <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-5 rounded-2xl shadow-lg">📷</button>
               </div>
             </div>
           </div>
         </section>
 
         <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border-t-8 border-emerald-500 space-y-10 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-bl-full pointer-events-none"></div>
-          
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-100 pb-8">
             <div>
-              <h3 className="text-2xl font-black text-emerald-600 flex items-center gap-3">
-                <span className="p-2 bg-emerald-50 rounded-xl text-xl">📦</span>
-                إدارة المخزون والتوريد (FIFO)
-              </h3>
-              <p className="text-slate-400 font-bold text-sm mt-2 leading-relaxed max-w-xl">
-                نظام الوارد أولاً يصرف أولاً (FIFO) يضمن حساب أرباح دقيق. يتم عرض الكمية الحالية المسجلة في المخازن.
-              </p>
+              <h3 className="text-2xl font-black text-emerald-600 flex items-center gap-3">إدارة المخزون الفعلي 📦</h3>
+              <p className="text-slate-400 font-bold text-sm mt-2">المخزون المعروض هو الكمية المتوفرة للبيع حالياً (بعد خصم المبيعات).</p>
             </div>
             <div className="flex flex-col gap-3">
-               <div className="flex items-center justify-center bg-slate-900 text-white px-8 py-6 rounded-[2.5rem] shadow-2xl border-4 border-emerald-500/20 transform hover:scale-105 transition-transform">
+               <div className="flex items-center justify-center bg-slate-900 text-white px-10 py-6 rounded-[2.5rem] shadow-2xl border-4 border-emerald-500/20">
                   <div className="text-center">
-                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">المخزون الكلي المتوفر</p>
+                    <p className="text-[10px] font-black text-emerald-400 uppercase mb-1">الرصيد الحالي بالمخزن</p>
                     <div className="flex items-baseline gap-2">
-                      <p className="text-4xl font-black">{formData.stockQuantity}</p>
+                      <input 
+                        type="number"
+                        step="any"
+                        value={formData.stockQuantity}
+                        onChange={e => setFormData({...formData, stockQuantity: e.target.value})}
+                        className="bg-transparent text-4xl font-black text-center w-32 outline-none border-b-2 border-emerald-500/50 focus:border-emerald-500"
+                      />
                       <p className="text-xs font-bold text-slate-400">{getUnitAr(formData.unit)}</p>
                     </div>
                   </div>
                </div>
-               {Number(formData.stockQuantity) > 0 && (
-                 <button type="button" onClick={clearAllStock} className="text-[10px] font-black text-rose-500 hover:bg-rose-50 py-2 rounded-xl transition-all">تصفير المخزون (البدء من الأول) 🔄</button>
-               )}
+               <button type="button" onClick={clearAllStock} className="text-[10px] font-black text-rose-500 hover:bg-rose-50 py-2 rounded-xl transition-all">تصفير الرصيد 🔄</button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="bg-emerald-50/40 p-8 rounded-[2.5rem] border border-emerald-100 shadow-inner space-y-8 h-full">
+            <div className="bg-emerald-50/40 p-8 rounded-[2.5rem] border border-emerald-100 shadow-inner space-y-6 h-full">
               <div className="flex items-center gap-3">
-                <span className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl shadow-lg shadow-emerald-200">＋</span>
-                <h4 className="font-black text-slate-800 text-lg">توريد شحنة جديدة للمخزن</h4>
+                <span className="w-8 h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl shadow-lg">＋</span>
+                <h4 className="font-black text-slate-800">توريد شحنة (إضافة للرصيد الحالي)</h4>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  <label className="text-[11px] font-black text-slate-500 uppercase mr-2 tracking-widest">الكمية الواردة</label>
-                  <div className="relative">
-                    <input 
-                      type="number" 
-                      step="any" 
-                      value={newBatchQty} 
-                      onChange={e => setNewBatchQty(e.target.value)} 
-                      className="w-full px-6 py-4 bg-white border-2 border-transparent rounded-2xl outline-none font-black text-lg shadow-sm focus:border-emerald-500 transition-all" 
-                      placeholder="0.00" 
-                    />
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-xs">{getUnitAr(formData.unit)}</span>
-                  </div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">الكمية الجديدة</label>
+                  <input type="number" step="any" value={newBatchQty} onChange={e => setNewBatchQty(e.target.value)} className="w-full px-6 py-4 bg-white rounded-2xl outline-none font-black text-lg shadow-sm" placeholder="0.00" />
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[11px] font-black text-slate-500 uppercase mr-2 tracking-widest">سعر التكلفة للواحدة</label>
-                  <div className="relative">
-                    <input 
-                      type="number" 
-                      step="any" 
-                      value={newBatchPrice} 
-                      onChange={e => setNewBatchPrice(e.target.value)} 
-                      className="w-full px-6 py-4 bg-white border-2 border-transparent rounded-2xl outline-none font-black text-lg shadow-sm focus:border-emerald-500 transition-all text-emerald-600" 
-                      placeholder="0.00" 
-                    />
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-xs">ج.م</span>
-                  </div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">سعر التكلفة</label>
+                  <input type="number" step="any" value={newBatchPrice} onChange={e => setNewBatchPrice(e.target.value)} className="w-full px-6 py-4 bg-white rounded-2xl outline-none font-black text-lg shadow-sm" placeholder="0.00" />
                 </div>
               </div>
               
-              <button 
-                type="button" 
-                onClick={handleAddBatch} 
-                className="w-full bg-emerald-600 text-white py-5 rounded-[1.5rem] font-black text-sm hover:bg-slate-900 transition-all shadow-xl shadow-emerald-100 active:scale-95 flex items-center justify-center gap-3"
-              >
-                إضافة للمخزن 📦
-              </button>
+              <button type="button" onClick={handleAddBatch} className="w-full bg-emerald-600 text-white py-5 rounded-[1.5rem] font-black text-sm shadow-xl active:scale-95">تأكيد إضافة الكمية للمخزن 📦</button>
             </div>
 
             <div className="space-y-6">
-               <h4 className="font-black text-slate-700 text-sm flex items-center justify-between px-2">
-                 <span>دفعات المخزون الحالية</span>
-                 <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded-md">أقدم → أحدث</span>
+               <h4 className="font-black text-slate-700 text-sm flex items-center justify-between">
+                 <span>تاريخ دفعات التوريد</span>
                </h4>
-               
                <div className="max-h-[350px] overflow-y-auto pr-2 space-y-3 no-scrollbar">
                   {formData.batches.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center py-10 opacity-30">
-                       <span className="text-5xl mb-4">🗄️</span>
-                       <p className="font-black text-sm">المخزن فارغ حالياً</p>
-                       <p className="text-[10px] font-bold">ابدأ بإضافة أول شحنة توريد</p>
+                       <span className="text-4xl mb-4">🗄️</span>
+                       <p className="font-black text-xs">لا يوجد سجل دفعات</p>
                     </div>
                   ) : (
-                    formData.batches.map((batch, index) => (
-                      <div key={batch.id} className="bg-white border-2 border-slate-50 hover:border-emerald-100 rounded-3xl p-5 flex items-center justify-between gap-4 shadow-sm transition-all group">
+                    formData.batches.map((batch) => (
+                      <div key={batch.id} className="bg-white border-2 border-slate-50 rounded-3xl p-5 flex items-center justify-between shadow-sm transition-all group">
                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-colors">
-                               <span className="text-[8px] font-black uppercase">{new Date(batch.createdAt).toLocaleDateString('ar-EG', {month: 'short'})}</span>
-                               <span className="text-lg font-black leading-none">{new Date(batch.createdAt).getDate()}</span>
+                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex flex-col items-center justify-center text-slate-400">
+                               <span className="text-xs font-black">{new Date(batch.createdAt).getDate()}</span>
                             </div>
                             <div>
                                <p className="font-black text-slate-800 text-sm">{batch.quantity} {getUnitAr(formData.unit)}</p>
-                               <p className="text-[10px] text-emerald-600 font-bold">التكلفة: {batch.wholesalePrice} ج.م</p>
+                               <p className="text-[9px] text-emerald-600 font-bold">التكلفة: {batch.wholesalePrice} ج.م</p>
                             </div>
                          </div>
-                         <div className="flex items-center gap-2">
-                            {index === 0 && batch.quantity > 0 && (
-                              <span className="bg-amber-100 text-amber-600 text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-tighter">أولوية الصرف ⚡</span>
-                            )}
-                            <button 
-                              type="button" 
-                              onClick={() => setFormData(prev => ({...prev, batches: prev.batches.filter(b => b.id !== batch.id)}))} 
-                              className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                            >
-                              ✕
-                            </button>
-                         </div>
+                         <button type="button" onClick={() => setFormData(prev => ({...prev, batches: prev.batches.filter(b => b.id !== batch.id)}))} className="text-rose-300 hover:text-rose-600 p-2 transition-all">✕</button>
                       </div>
                     ))
                   )}
@@ -579,30 +474,15 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
           <div className="pt-8 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-10">
              <div className="w-full md:w-auto space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
-                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest">سعر البيع للجمهور (ج.م)</label>
-                </div>
-                <div className="relative group max-w-sm">
-                  <input 
-                    required 
-                    type="number" 
-                    step="any" 
-                    value={formData.price} 
-                    onChange={e => setFormData({...formData, price: e.target.value})} 
-                    className="w-full pl-12 pr-12 py-6 bg-slate-900 text-emerald-400 text-5xl font-black rounded-[2.5rem] outline-none shadow-2xl border-4 border-slate-800 focus:border-emerald-500 transition-all text-center tracking-tighter" 
-                    placeholder="0.00" 
-                  />
-                  <div className="absolute inset-y-0 right-8 flex items-center pointer-events-none">
-                     <span className="text-slate-600 font-black text-xs">ج.م</span>
-                  </div>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest">سعر البيع للجمهور (ج.م)</label>
+                <div className="relative max-w-sm">
+                  <input required type="number" step="any" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full pl-12 pr-12 py-6 bg-slate-900 text-emerald-400 text-5xl font-black rounded-[2.5rem] outline-none shadow-2xl text-center" placeholder="0.00" />
                 </div>
              </div>
-
              <div className="flex-grow max-w-md bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 flex items-start gap-4">
-                <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-xl shrink-0">💡</div>
+                <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">💡</div>
                 <div>
-                   <p className="font-black text-indigo-900 text-xs mb-1">الربح المتوقع لكل قطعة</p>
+                   <p className="font-black text-indigo-900 text-xs mb-1">هامش الربح</p>
                    <p className="text-slate-500 text-[10px] leading-relaxed">
                      بناءً على آخر تكلفة ({formData.wholesalePrice} ج.م)، ربحك في القطعة هو <span className="text-indigo-600 font-black">{(parseFloat(formData.price || '0') - parseFloat(formData.wholesalePrice || '0')).toFixed(2)} ج.م</span>
                    </p>
@@ -613,42 +493,26 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
         <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
            <div className="space-y-2 relative">
-              <label className="text-sm font-bold text-slate-500 mr-2">وصف المنتج التسويقي</label>
-              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-8 bg-slate-50 rounded-[2rem] outline-none min-h-[180px] focus:ring-2 focus:ring-indigo-400 shadow-inner" placeholder="اكتب وصفاً جذاباً للعملاء..." />
-              <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="absolute left-6 bottom-6 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] shadow-xl hover:bg-slate-900 transition-all disabled:opacity-50">
-                {isLoadingAi ? 'جاري الكتابة...' : '✨ وصف ذكي بواسطة Gemini'}
-              </button>
+              <label className="text-sm font-bold text-slate-500 mr-2">وصف المنتج</label>
+              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-8 bg-slate-50 rounded-[2rem] outline-none min-h-[180px] focus:ring-2 focus:ring-indigo-400 shadow-inner" />
+              <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="absolute left-6 bottom-6 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] shadow-xl disabled:opacity-50">✨ وصف ذكي</button>
            </div>
-
            <div className="pt-10 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-10">
               <div className="space-y-4">
                  <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><span>🌍</span> محركات البحث (SEO)</h3>
                  <div className="space-y-4">
-                    <input placeholder="عنوان الـ Meta (Meta Title)" value={seoData.metaTitle} onChange={e => setSeoData({...seoData, metaTitle: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border font-bold text-sm shadow-sm" />
+                    <input placeholder="عنوان Meta" value={seoData.metaTitle} onChange={e => setSeoData({...seoData, metaTitle: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border font-bold text-sm shadow-sm" />
                     <input placeholder="رابط المنتج (Slug)" value={seoData.slug} onChange={e => setSeoData({...seoData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border font-bold text-sm text-indigo-600 shadow-sm" />
                  </div>
               </div>
               <div className="flex items-end">
-                <button type="button" onClick={handleAiSeo} disabled={isLoadingSeo} className="w-full py-5 bg-emerald-500 text-white rounded-[1.5rem] font-black shadow-xl shadow-emerald-100 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50">
-                   {isLoadingSeo ? 'جاري التحليل...' : 'توليد بيانات SEO ذكية ✨'}
-                </button>
+                <button type="button" onClick={handleAiSeo} disabled={isLoadingSeo} className="w-full py-5 bg-emerald-500 text-white rounded-[1.5rem] font-black shadow-xl hover:bg-emerald-600 transition-all disabled:opacity-50">توليد بيانات SEO ✨</button>
               </div>
            </div>
         </section>
 
-        <button 
-          type="submit" 
-          disabled={isSubmitting || isCompressing}
-          className={`w-full py-7 rounded-[3rem] font-black text-3xl shadow-2xl transition-all transform active:scale-[0.97] flex items-center justify-center gap-6 ${isSubmitting || isCompressing ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-slate-900 hover:-translate-y-1'}`}
-        >
-           {isSubmitting ? (
-             <>
-               <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-               جاري الحفظ والرفع...
-             </>
-           ) : (
-             product ? 'حفظ التعديلات النهائية 💾' : 'نشر المنتج في المتجر الآن 🚀'
-           )}
+        <button type="submit" disabled={isSubmitting || isCompressing} className={`w-full py-7 rounded-[3rem] font-black text-3xl shadow-2xl transition-all flex items-center justify-center gap-6 ${isSubmitting || isCompressing ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-slate-900 hover:-translate-y-1'}`}>
+           {isSubmitting ? 'جاري الحفظ...' : (product ? 'حفظ التعديلات النهائية 💾' : 'نشر المنتج الآن 🚀')}
         </button>
       </form>
     </div>
