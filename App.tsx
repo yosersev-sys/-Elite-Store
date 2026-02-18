@@ -85,9 +85,8 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // تهيئة صوت التنبيه فور تحميل التطبيق
   useEffect(() => {
-    const soundUrl = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // صوت جرس احترافي
+    const soundUrl = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
     audioObj.current = new Audio(soundUrl);
     audioObj.current.load();
   }, []);
@@ -130,21 +129,17 @@ const App: React.FC = () => {
           setUsers(fetchedUsers || []);
           setSuppliers(fetchedSuppliers || []);
           
-          // منطق اكتشاف الطلبات الجديدة وتشغيل التنبيه
           if (fetchedOrders && fetchedOrders.length > 0) {
-            // إذا كانت هذه أول مرة نجلب فيها البيانات، نحفظ المعرفات فقط دون صوت
             if (prevOrderIds.current.size === 0) {
               prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
             } else {
               const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
               if (trulyNew.length > 0) {
-                // تشغيل صوت التنبيه
                 if (soundEnabled && audioObj.current) {
                   audioObj.current.currentTime = 0;
-                  audioObj.current.play().catch(e => console.log("Audio play blocked by browser. User must interact first."));
+                  audioObj.current.play().catch(e => {});
                 }
                 setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
-                // تحديث قائمة المعرفات المعروفة
                 trulyNew.forEach(o => prevOrderIds.current.add(o.id));
               }
             }
@@ -162,7 +157,7 @@ const App: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') loadData(true);
-    }, 15000); // تحديث كل 15 ثانية لمراقبة أسرع
+    }, 15000);
     return () => clearInterval(interval);
   }, [currentUser?.id]);
 
@@ -215,17 +210,6 @@ const App: React.FC = () => {
 
   const isAdminPath = ADMIN_VIEWS.includes(view);
   const isActuallyAdmin = currentUser?.role === 'admin';
-
-  if (isLoading && products.length === 0 && !isAdminPath) {
-    return (
-      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6">
-         <div className="w-16 h-16 bg-emerald-500 rounded-3xl flex items-center justify-center mb-6 animate-bounce shadow-xl">
-            <img src="https://soqelasr.com/shopping-bag.png" className="w-10 h-10 object-contain" alt="" />
-         </div>
-         <p className="font-black text-slate-800 text-sm">جاري مزامنة بيانات المتجر...</p>
-      </div>
-    );
-  }
 
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
@@ -309,6 +293,7 @@ const App: React.FC = () => {
                 if(res.status === 'success') { 
                   setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' as any } : o));
                   setNotification({message: 'تم الاسترجاع بنجاح', type: 'success'}); 
+                  loadData(true);
                 }
               }}
               onDeleteUser={async (id) => {
@@ -342,18 +327,30 @@ const App: React.FC = () => {
                 const success = isUpdate ? await ApiService.updateOrder(order) : await ApiService.saveOrder(order);
                 
                 if (success) {
-                  // إضافة معرف الطلب لقائمة المعرفات المعروفة لمنع التنبيه الصوتي
                   prevOrderIds.current.add(order.id);
                   
+                  // تحسين الأداء: تحديث الحالة محلياً فوراً لمنع انتظار الـ Network
+                  setProducts(prev => prev.map(p => {
+                    const itemInOrder = order.items.find(item => item.id === p.id);
+                    if (itemInOrder) {
+                      // إذا كان تحديث لطلب قديم، نحتاج لحساب الفرق، لكن للتبسيط في الكاشير السريع نحدث القيم
+                      const newQty = Math.max(0, p.stockQuantity - itemInOrder.quantity);
+                      return { ...p, stockQuantity: newQty, salesCount: (p.salesCount || 0) + itemInOrder.quantity };
+                    }
+                    return p;
+                  }));
+                  setOrders(prev => [order, ...prev.filter(o => o.id !== order.id)]);
+
                   setLastCreatedOrder(order);
-                  setNotification({message: isUpdate ? 'تم تحديث الطلب بنجاح' : 'تم حفظ الطلب بنجاح', type: 'success'});
+                  setNotification({message: isUpdate ? 'تم تحديث الطلب' : 'تم حفظ الطلب', type: 'success'});
                   
-                  // لا يتم فتح واتساب تلقائياً إذا كان المدير هو من يقوم بالعملية من لوحة التحكم
                   if (!isActuallyAdmin && !isUpdate) {
                     WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   }
                   
-                  await loadData(true);
+                  // لا نستخدم await هنا، نجعل التحديث يتم في الخلفية لسرعة واجهة الكاشير
+                  loadData(true);
+                  
                   setEditingOrder(null);
                   setView('order-success');
                 }
@@ -376,7 +373,7 @@ const App: React.FC = () => {
           {view === 'product-details' && selectedProduct && (
             <ProductDetailsView 
               product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-              onAddToCart={(p, qty, size, color) => addToCart(p, qty)} 
+              onAddToCart={(p, qty) => addToCart(p, qty)} 
               onBack={() => setView('store')}
               isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
             />

@@ -1,7 +1,7 @@
 
 <?php
 /**
- * API Backend for Soq Al-Asr - Full Feature Version v5.1
+ * API Backend for Soq Al-Asr - Optimized Performance Version v5.2
  */
 session_start();
 error_reporting(0); 
@@ -31,7 +31,14 @@ function isAdmin() {
     return ($_SESSION['user']['role'] ?? '') === 'admin';
 }
 
+/**
+ * دالة محسنة لضمان هيكلية الجداول دون إبطاء كل طلب
+ */
 function ensureSchema($pdo) {
+    // نستخدم ملف مؤقت للتأكد من تشغيل الفحص مرة واحدة فقط كل فترة (مثلاً كل ساعة) لتقليل ضغط الـ DB
+    $cacheFile = sys_get_temp_dir() . '/souq_schema_check_' . md5(DB_NAME);
+    if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 3600)) return;
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive TINYINT(1) DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
@@ -53,6 +60,7 @@ function ensureSchema($pdo) {
             } catch (Exception $e) {}
         }
     }
+    touch($cacheFile);
 }
 
 $action = $_GET['action'] ?? '';
@@ -100,7 +108,7 @@ try {
                 $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ? WHERE id = ?");
                 $stmt->execute([$input['name'], $input['phone'], $uid]);
             }
-            session_destroy(); // إجبار على تسجيل الدخول بالبيانات الجديدة
+            session_destroy(); 
             sendRes(['status' => 'success']);
             break;
 
@@ -257,7 +265,6 @@ try {
             if (!isAdmin()) sendErr('غير مصرح', 403);
             $pdo->beginTransaction();
             try {
-                // 1. استرجاع الكميات القديمة للمخزن
                 $oldOrder = $pdo->prepare("SELECT items FROM orders WHERE id = ?");
                 $oldOrder->execute([$input['id']]);
                 $oldData = $oldOrder->fetch();
@@ -269,11 +276,9 @@ try {
                     }
                 }
 
-                // 2. تحديث بيانات الطلب
                 $stmt = $pdo->prepare("UPDATE orders SET customerName = ?, phone = ?, city = ?, address = ?, subtotal = ?, total = ?, items = ?, paymentMethod = ? WHERE id = ?");
                 $stmt->execute([$input['customerName'], $input['phone'], $input['city'], $input['address'], $input['subtotal'], $input['total'], json_encode($input['items']), $input['paymentMethod'], $input['id']]);
 
-                // 3. خصم الكميات الجديدة من المخزن
                 foreach ($input['items'] as $item) {
                     $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")
                         ->execute([(float)$item['quantity'], (int)$item['quantity'], $item['id']]);
