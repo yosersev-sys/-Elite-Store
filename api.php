@@ -1,6 +1,7 @@
+
 <?php
 /**
- * API Backend for Soq Al-Asr - Optimized Performance Version v6.0
+ * API Backend for Soq Al-Asr - Optimized Performance Version v6.1
  */
 session_start();
 error_reporting(0); 
@@ -113,22 +114,15 @@ try {
             $baseUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . str_replace('api.php', '', $_SERVER['REQUEST_URI']);
             $xml = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
             $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
-            
-            // الصفحة الرئيسية
             $xml .= "  <url><loc>$baseUrl</loc><priority>1.0</priority></url>" . PHP_EOL;
-            
-            // المنتجات
             $products = $pdo->query("SELECT id FROM products")->fetchAll();
             foreach ($products as $p) {
                 $xml .= "  <url><loc>$baseUrl#product-details?id={$p['id']}</loc><priority>0.8</priority></url>" . PHP_EOL;
             }
-            
-            // الأقسام
             $categories = $pdo->query("SELECT id FROM categories")->fetchAll();
             foreach ($categories as $c) {
                 $xml .= "  <url><loc>$baseUrl#category-page?id={$c['id']}</loc><priority>0.6</priority></url>" . PHP_EOL;
             }
-            
             $xml .= '</urlset>';
             if (file_put_contents('sitemap.xml', $xml)) sendRes(['status' => 'success']);
             else sendErr('فشل إنشاء الملف، تأكد من صلاحيات الكتابة');
@@ -231,22 +225,32 @@ try {
         case 'return_order':
             if (!isAdmin()) sendErr('غير مصرح', 403);
             $id = $_GET['id'] ?? $input['id'] ?? '';
+            if (!$id) sendErr('رقم الطلب غير موجود');
+            
             $pdo->beginTransaction();
             try {
                 $orderStmt = $pdo->prepare("SELECT items, status FROM orders WHERE id = ?");
                 $orderStmt->execute([$id]);
                 $order = $orderStmt->fetch();
+                
                 if ($order && $order['status'] !== 'cancelled') {
                     $items = json_decode($order['items'], true);
-                    foreach ($items as $item) {
-                        $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?")
-                            ->execute([(float)$item['quantity'], (int)$item['quantity'], $item['id']]);
+                    if (is_array($items)) {
+                        foreach ($items as $item) {
+                            $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?")
+                                ->execute([(float)$item['quantity'], (int)$item['quantity'], $item['id']]);
+                        }
                     }
                     $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?")->execute([$id]);
                     $pdo->commit();
                     sendRes(['status' => 'success']);
-                } else sendErr('الطلب مسترجع بالفعل أو غير موجود');
-            } catch (Exception $e) { $pdo->rollBack(); sendErr($e->getMessage()); }
+                } else {
+                    sendErr('الطلب مسترجع بالفعل أو غير موجود');
+                }
+            } catch (Exception $e) { 
+                $pdo->rollBack(); 
+                sendErr($e->getMessage()); 
+            }
             break;
 
         case 'update_order':
