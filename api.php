@@ -1,6 +1,6 @@
 <?php
 /**
- * API Backend for Soq Al-Asr - Stability & Transactions Edition v6.8
+ * API Backend for Soq Al-Asr - Smart Stock Edition v6.7
  */
 session_start();
 error_reporting(E_ALL); 
@@ -22,9 +22,6 @@ function sendRes($data) {
 }
 
 function sendErr($msg, $code = 400, $debug = null) {
-    if ($GLOBALS['pdo']->inTransaction()) {
-        $GLOBALS['pdo']->rollBack();
-    }
     http_response_code($code);
     $res = ['status' => 'error', 'message' => $msg];
     if ($debug) $res['debug'] = $debug;
@@ -51,6 +48,10 @@ try {
     ensureSchema($pdo);
 
     switch ($action) {
+        case 'get_current_user':
+            sendRes($_SESSION['user'] ?? null);
+            break;
+
         case 'login':
             $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ?");
             $stmt->execute([$input['phone']]);
@@ -60,6 +61,11 @@ try {
                 $_SESSION['user'] = $userData;
                 sendRes(['status' => 'success', 'user' => $userData]);
             } else sendErr('بيانات الدخول غير صحيحة');
+            break;
+
+        case 'logout':
+            session_destroy();
+            sendRes(['status' => 'success']);
             break;
 
         case 'get_products':
@@ -74,30 +80,26 @@ try {
             break;
 
         case 'save_order':
-            $pdo->beginTransaction();
             $sql = "INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([
+            $params = [
                 $input['id'], $input['customerName'], $input['phone'], $input['city'], $input['address'],
                 $input['subtotal'], $input['total'], json_encode($input['items']),
                 $input['paymentMethod'], $input['status'], $input['userId'] ?? null, time() * 1000
-            ]);
-
-            // خصم المخزن مع التحقق
-            foreach ($input['items'] as $item) {
-                $upd = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?");
-                $upd->execute([$item['quantity'], $item['quantity'], $item['id']]);
-            }
-            
-            $pdo->commit();
-            sendRes(['status' => 'success']);
+            ];
+            $stmt = $pdo->prepare($sql);
+            if ($stmt->execute($params)) {
+                // الذكاء اللحظي: خصم الكميات من المخزن
+                foreach ($input['items'] as $item) {
+                    $upd = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?");
+                    $upd->execute([$item['quantity'], $item['quantity'], $item['id']]);
+                }
+                sendRes(['status' => 'success']);
+            } else sendErr('فشل حفظ الطلب');
             break;
 
         case 'update_order':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            $pdo->beginTransaction();
-            
-            // 1. استرجاع الكميات القديمة
+            // جلب الطلب القديم لتصحيح المخزن (إعادة الكميات القديمة أولاً)
             $oldOrderStmt = $pdo->prepare("SELECT items FROM orders WHERE id = ?");
             $oldOrderStmt->execute([$input['id']]);
             $oldOrder = $oldOrderStmt->fetch();
@@ -109,34 +111,31 @@ try {
                 }
             }
             
-            // 2. تحديث الطلب
             $sql = "UPDATE orders SET customerName=?, phone=?, city=?, address=?, subtotal=?, total=?, items=?, paymentMethod=?, status=?, userId=? WHERE id=?";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([
+            $params = [
                 $input['customerName'], $input['phone'], $input['city'], $input['address'],
                 $input['subtotal'], $input['total'], json_encode($input['items']),
                 $input['paymentMethod'], $input['status'], $input['userId'] ?? null, $input['id']
-            ]);
-
-            // 3. خصم الكميات الجديدة
-            foreach ($input['items'] as $nItem) {
-                $deduct = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?");
-                $deduct->execute([$nItem['quantity'], $nItem['quantity'], $nItem['id']]);
-            }
-            
-            $pdo->commit();
-            sendRes(['status' => 'success']);
+            ];
+            $stmt = $pdo->prepare($sql);
+            if ($stmt->execute($params)) {
+                // خصم الكميات الجديدة
+                foreach ($input['items'] as $nItem) {
+                    $deduct = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?");
+                    $deduct->execute([$nItem['quantity'], $nItem['quantity'], $nItem['id']]);
+                }
+                sendRes(['status' => 'success']);
+            } else sendErr('فشل تحديث الطلب');
             break;
 
         case 'return_order':
             if (!isAdmin()) sendErr('غير مصرح', 403);
-            $pdo->beginTransaction();
             $id = $_GET['id'] ?? $input['id'] ?? '';
-            $stmt = $pdo->prepare("SELECT items, status FROM orders WHERE id = ? FOR UPDATE");
+            $stmt = $pdo->prepare("SELECT items, status FROM orders WHERE id = ?");
             $stmt->execute([$id]);
             $order = $stmt->fetch();
-            
             if ($order && $order['status'] !== 'cancelled') {
+                // إعادة الكميات للمخزن عند الإلغاء
                 $items = json_decode($order['items'], true);
                 foreach ($items as $item) {
                     $upd = $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?");
@@ -144,9 +143,8 @@ try {
                 }
                 $updStatus = $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?");
                 $updStatus->execute([$id]);
-                $pdo->commit();
                 sendRes(['status' => 'success']);
-            } else sendErr('الطلب ملغي بالفعل');
+            } else sendErr('الطلب ملغي بالفعل أو غير موجود');
             break;
 
         case 'get_admin_summary':
@@ -166,6 +164,25 @@ try {
             $res = [];
             foreach ($settings as $s) $res[$s['setting_key']] = $s['setting_value'];
             sendRes($res);
+            break;
+
+        case 'get_categories':
+            sendRes($pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC")->fetchAll());
+            break;
+
+        case 'get_orders':
+            if (isAdmin()) $stmt = $pdo->query("SELECT * FROM orders ORDER BY createdAt DESC LIMIT 500");
+            else if (isset($_SESSION['user'])) {
+                $stmt = $pdo->prepare("SELECT * FROM orders WHERE userId = ? OR phone = ? ORDER BY createdAt DESC LIMIT 100");
+                $stmt->execute([$_SESSION['user']['id'], $_SESSION['user']['phone']]);
+            } else sendRes([]);
+            $orders = $stmt->fetchAll();
+            foreach ($orders as &$o) { 
+                $o['items'] = json_decode($o['items'], true) ?: []; 
+                $o['total'] = (float)$o['total']; 
+                $o['subtotal'] = (float)$o['subtotal'];
+            }
+            sendRes($orders);
             break;
 
         default: 
