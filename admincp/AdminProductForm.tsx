@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, Category, SeoSettings, StockBatch, Supplier } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
@@ -90,15 +90,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     });
   };
 
+  // تهيئة البيانات عند فتح صفحة التعديل
   useEffect(() => {
     if (product) {
       if (product.id !== prevProductIdRef.current) {
-        // إذا كان هناك مخزون ولكن لا توجد دفعات، ننشئ دفعة افتتاحية لمنع تصفير المخزون
-        let initialBatches = product.batches || [];
-        if (initialBatches.length === 0 && Number(product.stockQuantity) > 0) {
-          initialBatches = [{
+        // حساب الدفعات: إذا لم توجد دفعات ولكن هناك مخزون، ننشئ دفعة افتراضية بالكمية الحالية
+        let currentBatches = product.batches || [];
+        const actualStock = Number(product.stockQuantity || 0);
+
+        if (currentBatches.length === 0 && actualStock > 0) {
+          currentBatches = [{
             id: 'initial_' + Date.now(),
-            quantity: Number(product.stockQuantity),
+            quantity: actualStock,
             wholesalePrice: Number(product.wholesalePrice || 0),
             createdAt: product.createdAt || Date.now()
           }];
@@ -111,13 +114,13 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           wholesalePrice: product.wholesalePrice?.toString() || '',
           categoryId: product.categoryId || '',
           supplierId: product.supplierId || '',
-          stockQuantity: product.stockQuantity?.toString() || '0',
+          stockQuantity: actualStock.toString(), // استخدام الكمية الفعلية من المنتج
           barcode: product.barcode ? String(product.barcode) : '', 
           unit: product.unit || 'piece', 
           sizes: product.sizes?.join(', ') || '',
           colors: product.colors?.join(', ') || '',
           images: product.images || [],
-          batches: initialBatches
+          batches: currentBatches
         });
         
         if (product.seoSettings) {
@@ -130,17 +133,27 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     }
   }, [product]);
 
+  // تحديث إجمالي المخزون فقط عند التعديل اليدوي للدفعات لضمان المزامنة المستمرة
+  const totalStockFromBatches = useMemo(() => {
+    return formData.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
+  }, [formData.batches]);
+
+  // تحديث stockQuantity في formData عندما تتغير الدفعات
+  useEffect(() => {
+    setFormData(prev => {
+      const calculated = totalStockFromBatches.toString();
+      if (prev.stockQuantity !== calculated) {
+        return { ...prev, stockQuantity: calculated };
+      }
+      return prev;
+    });
+  }, [totalStockFromBatches]);
+
   useEffect(() => {
     if (!product && categories.length > 0 && formData.categoryId === '') {
       setFormData(prev => ({ ...prev, categoryId: categories[0].id }));
     }
   }, [categories, product, formData.categoryId]);
-
-  // تحديث إجمالي المخزون عند تغير الدفعات
-  useEffect(() => {
-    const total = formData.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
-    setFormData(prev => ({ ...prev, stockQuantity: total.toString() }));
-  }, [formData.batches]);
 
   const openLibrary = async () => {
     setShowLibrary(true);
@@ -453,7 +466,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 إدارة المخزون والتوريد (FIFO)
               </h3>
               <p className="text-slate-400 font-bold text-sm mt-2 leading-relaxed max-w-xl">
-                نظام الوارد أولاً يصرف أولاً (FIFO) يضمن حساب أرباح دقيق. يمكنك البدء من جديد عبر مسح الدفعات القديمة.
+                نظام الوارد أولاً يصرف أولاً (FIFO) يضمن حساب أرباح دقيق. يتم عرض الكمية الحالية المسجلة في المخازن.
               </p>
             </div>
             <div className="flex flex-col gap-3">
