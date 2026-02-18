@@ -1,6 +1,6 @@
 <?php
 /**
- * API Backend for Soq Al-Asr - Optimized Performance Version v5.9
+ * API Backend for Soq Al-Asr - Optimized Performance Version v6.0
  */
 session_start();
 error_reporting(0); 
@@ -78,6 +78,60 @@ try {
                 }
             }
             sendRes($allImages);
+            break;
+
+        case 'update_store_settings':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            foreach ($input as $key => $value) {
+                $stmt->execute([$key, (string)$value]);
+            }
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'update_profile':
+            if (!isset($_SESSION['user'])) sendErr('يرجى تسجيل الدخول أولاً', 401);
+            $userId = $_SESSION['user']['id'];
+            $sql = "UPDATE users SET name = ?, phone = ?";
+            $params = [$input['name'], $input['phone']];
+            if (!empty($input['password'])) {
+                $sql .= ", password = ?";
+                $params[] = password_hash($input['password'], PASSWORD_DEFAULT);
+            }
+            $sql .= " WHERE id = ?";
+            $params[] = $userId;
+            $stmt = $pdo->prepare($sql);
+            if ($stmt->execute($params)) {
+                $_SESSION['user']['name'] = $input['name'];
+                $_SESSION['user']['phone'] = $input['phone'];
+                sendRes(['status' => 'success']);
+            } else sendErr('فشل التحديث');
+            break;
+
+        case 'generate_sitemap':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $baseUrl = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . str_replace('api.php', '', $_SERVER['REQUEST_URI']);
+            $xml = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
+            $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
+            
+            // الصفحة الرئيسية
+            $xml .= "  <url><loc>$baseUrl</loc><priority>1.0</priority></url>" . PHP_EOL;
+            
+            // المنتجات
+            $products = $pdo->query("SELECT id FROM products")->fetchAll();
+            foreach ($products as $p) {
+                $xml .= "  <url><loc>$baseUrl#product-details?id={$p['id']}</loc><priority>0.8</priority></url>" . PHP_EOL;
+            }
+            
+            // الأقسام
+            $categories = $pdo->query("SELECT id FROM categories")->fetchAll();
+            foreach ($categories as $c) {
+                $xml .= "  <url><loc>$baseUrl#category-page?id={$c['id']}</loc><priority>0.6</priority></url>" . PHP_EOL;
+            }
+            
+            $xml .= '</urlset>';
+            if (file_put_contents('sitemap.xml', $xml)) sendRes(['status' => 'success']);
+            else sendErr('فشل إنشاء الملف، تأكد من صلاحيات الكتابة');
             break;
 
         case 'add_supplier':
