@@ -1,6 +1,6 @@
 <?php
 /**
- * API Backend for Soq Al-Asr - Optimized Performance Version v5.8
+ * API Backend for Soq Al-Asr - Optimized Performance Version v5.9
  */
 session_start();
 error_reporting(0); 
@@ -78,6 +78,38 @@ try {
                 }
             }
             sendRes($allImages);
+            break;
+
+        case 'add_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("INSERT INTO suppliers (id, name, phone, companyName, address, notes, type, balance, rating, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $input['id'], $input['name'], $input['phone'], $input['companyName'] ?? null,
+                $input['address'] ?? null, $input['notes'] ?? null, $input['type'] ?? 'wholesale',
+                $input['balance'] ?? 0, $input['rating'] ?? 5, $input['status'] ?? 'active',
+                $input['createdAt'] ?? time() * 1000
+            ]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'update_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->prepare("UPDATE suppliers SET name = ?, phone = ?, companyName = ?, address = ?, notes = ?, type = ?, balance = ?, rating = ?, status = ? WHERE id = ?");
+            $stmt->execute([
+                $input['name'], $input['phone'], $input['companyName'] ?? null,
+                $input['address'] ?? null, $input['notes'] ?? null, $input['type'] ?? 'wholesale',
+                $input['balance'] ?? 0, $input['rating'] ?? 5, $input['status'] ?? 'active',
+                $input['id']
+            ]);
+            sendRes(['status' => 'success']);
+            break;
+
+        case 'delete_supplier':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $id = $_GET['id'] ?? '';
+            $stmt = $pdo->prepare("DELETE FROM suppliers WHERE id = ?");
+            if ($stmt->execute([$id])) sendRes(['status' => 'success']);
+            else sendErr('فشل الحذف');
             break;
 
         case 'admin_add_user':
