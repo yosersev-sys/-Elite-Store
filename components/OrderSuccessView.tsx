@@ -11,11 +11,14 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
+  // معالجة آمنة للقيم الرقمية لمنع الـ Crash
+  const safeTotal = Number(order.total || 0);
+  const safeSubtotal = Number(order.subtotal || 0);
+  const deliveryFee = Math.max(0, safeTotal - safeSubtotal);
+
   const handlePrint = () => {
     window.print();
   };
-
-  const deliveryFee = (order.total || 0) - (order.subtotal || 0);
 
   const handleShareScreenshot = async () => {
     if (!invoiceRef.current) return;
@@ -50,6 +53,10 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
       setIsCapturing(false);
     }
   };
+
+  if (!order || !order.id) {
+     return <div className="p-20 text-center font-black text-slate-400">عذراً، لم يتم العثور على بيانات الفاتورة.</div>;
+  }
 
   return (
     <div className="max-w-md mx-auto py-8 px-4 animate-fadeIn print:m-0 print:p-0">
@@ -151,14 +158,14 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
             <span>الإجمالي</span>
           </div>
           <div className="space-y-2">
-            {order.items.map((item, idx) => (
+            {(order.items || []).map((item, idx) => (
               <div key={idx} className="item-row text-[11px]">
                 <div className="flex justify-between font-bold text-slate-800">
                   <span className="truncate pr-1">{item.name}</span>
-                  <span>{(item.price * item.quantity).toFixed(2)}</span>
+                  <span>{(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}</span>
                 </div>
                 <div className="text-[9px] text-gray-400">
-                  {item.quantity} {item.unit === 'kg' ? 'كجم' : item.unit === 'gram' ? 'جم' : 'ق'} × {item.price.toFixed(2)}
+                  {item.quantity} {item.unit === 'kg' ? 'كجم' : item.unit === 'gram' ? 'جم' : 'ق'} × {Number(item.price || 0).toFixed(2)}
                 </div>
               </div>
             ))}
@@ -169,7 +176,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
         <div className="border-t-2 border-dashed border-gray-300 pt-2 space-y-1">
           <div className="flex justify-between text-[11px]">
             <span className="text-gray-500">المجموع الفرعي:</span>
-            <span className="font-bold">{(order.subtotal || 0).toFixed(2)}</span>
+            <span className="font-bold">{safeSubtotal.toFixed(2)}</span>
           </div>
           
           {/* بند التوصيل المطلب */}
@@ -182,7 +189,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
 
           <div className="flex justify-between text-[14px] font-black pt-1 border-t border-gray-200 mt-1">
             <span>الإجمالي:</span>
-            <span className="text-slate-900">{order.total.toFixed(2)} ج.م</span>
+            <span className="text-slate-900">{safeTotal.toFixed(2)} ج.م</span>
           </div>
           
           <div className="text-center pt-3 text-[9px] font-bold text-gray-400 italic">

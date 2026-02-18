@@ -1,7 +1,7 @@
 
 <?php
 /**
- * API Backend for Soq Al-Asr - Optimized Performance Version v5.6
+ * API Backend for Soq Al-Asr - Optimized Performance Version v5.7
  */
 session_start();
 error_reporting(0); 
@@ -227,6 +227,7 @@ try {
             $sups = $pdo->query("SELECT * FROM suppliers ORDER BY createdAt DESC")->fetchAll();
             foreach ($sups as &$s) { $s['balance'] = (float)$s['balance']; $s['rating'] = (int)$s['rating']; }
             sendRes($sups);
+            break;
         case 'get_products':
             $prods = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC")->fetchAll();
             foreach ($prods as &$p) {
@@ -234,6 +235,7 @@ try {
                 $p['batches'] = json_decode($p['batches'] ?? '[]', true) ?: [];
                 $p['seoSettings'] = json_decode($p['seoSettings'] ?? '{}', true) ?: null;
                 $p['price'] = (float)$p['price'];
+                $p['wholesalePrice'] = (float)$p['wholesalePrice'];
                 $p['stockQuantity'] = (float)$p['stockQuantity'];
             }
             sendRes($prods);
@@ -248,7 +250,11 @@ try {
                 $stmt->execute([$_SESSION['user']['id'], $_SESSION['user']['phone']]);
             } else sendRes([]);
             $orders = $stmt->fetchAll();
-            foreach ($orders as &$o) { $o['items'] = json_decode($o['items'], true) ?: []; $o['total'] = (float)$o['total']; }
+            foreach ($orders as &$o) { 
+                $o['items'] = json_decode($o['items'], true) ?: []; 
+                $o['total'] = (float)$o['total']; 
+                $o['subtotal'] = (float)$o['subtotal'];
+            }
             sendRes($orders);
             break;
         case 'get_store_settings':
