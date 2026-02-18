@@ -1,7 +1,7 @@
 
 <?php
 /**
- * API Backend for Souq Al-Asr - Full Feature Version v5.1
+ * API Backend for Soq Al-Asr - Full Feature Version v5.1
  */
 session_start();
 error_reporting(0); 

@@ -86,7 +86,7 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
               </svg>
             </div>
             <h1 className="text-3xl font-black text-white mb-2">لوحة تحكم الإدارة</h1>
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.3em]">Souq Al-Asr Panel</p>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.3em]">Soq Al-Asr Panel</p>
           </div>
 
           {error && (
