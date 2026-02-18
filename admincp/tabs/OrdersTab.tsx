@@ -16,7 +16,6 @@ interface OrdersTabProps {
 
 const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onEditOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
-  const [processingId, setProcessingId] = useState<string | null>(null);
   const ordersPerPage = 10;
 
   const filteredOrders = useMemo(() => {
@@ -36,12 +35,6 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
   }, [filteredOrders, orderPage]);
 
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
-
-  const handleUpdatePayment = (id: string, method: string) => {
-    // التحديث المتفائل: نحن لا نستخدم await هنا في واجهة الأوامر
-    // بل نقوم بتشغيل الدالة الأم التي ستحدث الحالة فوراً
-    onUpdateOrderPayment(id, method);
-  };
 
   if (isLoading && orders.length === 0) {
     return (
@@ -65,7 +58,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
               ))}
            </div>
            <div className="bg-slate-50 p-4 text-center">
-              <p className="text-slate-400 font-black text-xs animate-bounce">جاري جلب أحدث الطلبات من فاقوس...</p>
+              <p className="text-slate-400 font-black text-xs animate-bounce">جاري جلب أحدث الطلبات...</p>
            </div>
         </div>
       </div>
@@ -112,21 +105,10 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                   <td className="px-8 py-5">
                     {isCancelled ? (
                       <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
+                    ) : isDebt ? (
+                      <span className="px-4 py-1.5 bg-orange-100 text-orange-600 rounded-xl text-[9px] font-black uppercase tracking-widest border border-orange-200">آجل (مديونية) ⏳</span>
                     ) : (
-                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50">
-                        <button 
-                          onClick={() => handleUpdatePayment(o.id, 'نقدي (تم الدفع)')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
-                        >
-                          نقدي 💰
-                        </button>
-                        <button 
-                          onClick={() => handleUpdatePayment(o.id, 'آجل (مديونية)')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
-                        >
-                          آجل ⏳
-                        </button>
-                      </div>
+                      <span className="px-4 py-1.5 bg-emerald-100 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest border border-emerald-200">تم الدفع نقداً 💰</span>
                     )}
                   </td>
                   <td className="px-8 py-5">
@@ -134,7 +116,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                        <button onClick={() => WhatsAppService.sendInvoiceToCustomer(o, o.phone)} className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" title="إرسال واتساب">📱</button>
                        <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
                        {!isCancelled && (
-                         <button onClick={() => onEditOrder(o)} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="تعديل الأصناف">✎</button>
+                         <button onClick={() => onEditOrder(o)} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="تعديل الأصناف والحالة">✎</button>
                        )}
                        {!isCancelled && (
                          <button onClick={() => onReturnOrder(o.id)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="استرجاع الفاتورة">↩</button>
