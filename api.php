@@ -1,7 +1,6 @@
-
 <?php
 /**
- * API Backend for Soq Al-Asr - Optimized Performance Version v5.7
+ * API Backend for Soq Al-Asr - Optimized Performance Version v5.8
  */
 session_start();
 error_reporting(0); 
@@ -62,6 +61,23 @@ try {
             $last24h = (time() - 86400) * 1000;
             $summary['new_orders_count'] = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE createdAt > $last24h")->fetchColumn();
             sendRes($summary);
+            break;
+
+        case 'get_all_images':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $stmt = $pdo->query("SELECT name, images FROM products WHERE images IS NOT NULL AND images != '[]'");
+            $allImages = [];
+            $seen = [];
+            while ($row = $stmt->fetch()) {
+                $images = json_decode($row['images'], true) ?: [];
+                foreach ($images as $url) {
+                    if (!empty($url) && !isset($seen[$url])) {
+                        $allImages[] = ['url' => $url, 'productName' => $row['name']];
+                        $seen[$url] = true;
+                    }
+                }
+            }
+            sendRes($allImages);
             break;
 
         case 'admin_add_user':
