@@ -103,8 +103,11 @@ const App: React.FC = () => {
         ApiService.getStoreSettings()
       ];
 
+      // إذا كان مدير، نجلب الأعضاء والموردين والملخص المالي
       if (activeUser?.role === 'admin') {
         promises.push(ApiService.getAdminSummary());
+        promises.push(ApiService.getUsers());
+        promises.push(ApiService.getSuppliers());
       }
 
       const results = await Promise.all(promises);
@@ -120,6 +123,8 @@ const App: React.FC = () => {
       
       if (activeUser?.role === 'admin') {
         setAdminSummary(results[4]);
+        setUsers(results[5] || []);
+        setSuppliers(results[6] || []);
       }
 
       if (activeUser) {
@@ -301,7 +306,6 @@ const App: React.FC = () => {
               }}
               onReturnOrder={async (id) => {
                 if(!confirm('تأكيد الاسترجاع؟ سيتم إعادة الكميات للمخزن.')) return;
-                // تحديث متفائل: إضافة الكميات فوراً في الواجهة
                 const orderToReturn = orders.find(o => o.id === id);
                 if (orderToReturn) {
                   setProducts(prev => prev.map(p => {
@@ -318,7 +322,7 @@ const App: React.FC = () => {
                   setNotification({message: 'تم الاسترجاع وتحديث المخزن بنجاح', type: 'success'}); 
                   loadData(true);
                 } else {
-                  loadData(true); // تراجع في حال الفشل
+                  loadData(true); 
                 }
               }}
               onDeleteUser={async (id) => {
@@ -354,8 +358,6 @@ const App: React.FC = () => {
               order={editingOrder}
               onSubmit={async (order) => {
                 const isUpdate = !!editingOrder;
-                
-                // تحديث متفائل (Optimistic UI): خصم المخزن لحظياً
                 const previousProducts = [...products];
                 setProducts(prev => prev.map(p => {
                   const itemInOrder = order.items.find(item => item.id === p.id);
@@ -370,20 +372,15 @@ const App: React.FC = () => {
                 }));
 
                 const success = isUpdate ? await ApiService.updateOrder(order) : await ApiService.saveOrder(order);
-                
                 if (success) {
                   prevOrderIds.current.add(order.id);
-                  setOrders(prev => [order, ...prev.filter(o => o.id !== order.id)]);
-                  setLastCreatedOrder(order);
                   setNotification({message: isUpdate ? 'تم تحديث الطلب والمخزن' : 'تم حفظ الفاتورة وخصم المخزن', type: 'success'});
-                  if (!isActuallyAdmin && !isUpdate) {
-                    WhatsAppService.sendInvoiceToCustomer(order, order.phone);
-                  }
+                  setLastCreatedOrder(order);
                   loadData(true);
                   setEditingOrder(null);
                   setView('order-success');
                 } else {
-                  setProducts(previousProducts); // تراجع في حال الفشل
+                  setProducts(previousProducts); 
                   setNotification({message: 'حدث خطأ في المزامنة مع السيرفر', type: 'error'});
                 }
               }}
