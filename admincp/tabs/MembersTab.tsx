@@ -114,8 +114,16 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
   };
 
   const handleDeleteClick = (user: User) => {
-    if (user.id === 'admin_root') return alert('لا يمكن حذف الحساب الرئيسي 🛡️');
-    if (user.id === currentUser?.id) return alert('لا يمكنك حذف حسابك الحالي ⚠️');
+    // Fix: Using code blocks instead of direct return from void alert() function
+    if (user.id === 'admin_root') {
+      alert('لا يمكن حذف الحساب الرئيسي 🛡️');
+      return;
+    }
+    // Fix: Separated logic to avoid truthiness check on void return
+    if (user.id === currentUser?.id) {
+      alert('لا يمكنك حذف حسابك الحالي ⚠️');
+      return;
+    }
     if (confirm(`هل أنت متأكد من حذف العضو "${user.name}" نهائياً؟`)) {
       onDeleteUser(user.id);
     }

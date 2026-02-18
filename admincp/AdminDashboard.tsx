@@ -34,7 +34,9 @@ interface AdminDashboardProps {
   soundEnabled: boolean;
   onToggleSound: () => void;
   onLogout: () => void;
-  onRefreshData?: () => void;
+  // Fix: Added adminSummary to props interface and allowed onRefreshData to return Promise
+  adminSummary?: any;
+  onRefreshData?: () => void | Promise<void>;
 }
 
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'settings' | 'api-keys';

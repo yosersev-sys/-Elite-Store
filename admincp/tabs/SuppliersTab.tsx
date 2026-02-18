@@ -167,17 +167,25 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         paymentHistory: [...(activeSupplierForPayment.paymentHistory || []), newPayment]
       };
       
-      const success = await ApiService.updateSupplier(updatedSupplier);
-      if (success) {
+      // نرسل التحديث وننتظر النتيجة التفصيلية
+      const response = await fetch(`api.php?action=update_supplier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSupplier)
+      });
+      
+      const result = await response.json();
+      
+      if (result.status === 'success') {
         if (onRefresh) await onRefresh();
         else await fetchSuppliers();
         setIsPaymentModalOpen(false);
         setPaymentAmount('');
       } else {
-        alert('فشل تسجيل الدفعة في السيرفر');
+        alert(`فشل تسجيل الدفعة: ${result.message}\n${result.debug || ''}`);
       }
     } catch (err) {
-      alert('خطأ في الاتصال');
+      alert('خطأ في الاتصال بالسيرفر، تأكد من جودة الإنترنت');
     } finally {
       setIsSaving(false);
     }
