@@ -1,7 +1,7 @@
 
 <?php
 /**
- * API Backend for Soq Al-Asr - Optimized Performance Version v5.5
+ * API Backend for Soq Al-Asr - Optimized Performance Version v5.6
  */
 session_start();
 error_reporting(0); 
@@ -62,6 +62,46 @@ try {
             $last24h = (time() - 86400) * 1000;
             $summary['new_orders_count'] = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE createdAt > $last24h")->fetchColumn();
             sendRes($summary);
+            break;
+
+        case 'admin_add_user':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $id = 'u_' . time();
+            $pass = password_hash($input['password'], PASSWORD_DEFAULT);
+            $role = $input['role'] === 'admin' ? 'admin' : 'user';
+            $stmt = $pdo->prepare("INSERT INTO users (id, name, phone, password, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)");
+            try {
+                $stmt->execute([$id, $input['name'], $input['phone'], $pass, $role, time() * 1000]);
+                sendRes(['status' => 'success']);
+            } catch (Exception $e) { sendErr('رقم الهاتف مسجل مسبقاً لعضو آخر'); }
+            break;
+
+        case 'admin_update_user':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $sql = "UPDATE users SET name = ?, phone = ?";
+            $params = [$input['name'], $input['phone']];
+            if (!empty($input['password'])) {
+                $sql .= ", password = ?";
+                $params[] = password_hash($input['password'], PASSWORD_DEFAULT);
+            }
+            if (!empty($input['role'])) {
+                $sql .= ", role = ?";
+                $params[] = $input['role'];
+            }
+            $sql .= " WHERE id = ?";
+            $params[] = $input['id'];
+            $stmt = $pdo->prepare($sql);
+            if ($stmt->execute($params)) sendRes(['status' => 'success']);
+            else sendErr('فشل التحديث');
+            break;
+
+        case 'delete_user':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $id = $_GET['id'] ?? '';
+            if ($id === 'admin_root') sendErr('لا يمكن حذف الحساب الرئيسي');
+            $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+            if ($stmt->execute([$id])) sendRes(['status' => 'success']);
+            else sendErr('فشل الحذف');
             break;
 
         case 'add_category':

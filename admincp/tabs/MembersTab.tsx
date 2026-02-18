@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { User } from '../../types';
 import { ApiService } from '../../services/api';
@@ -14,14 +15,16 @@ interface MembersTabProps {
 
 const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch, isLoading, setAdminSearch, onDeleteUser, onRefreshData }) => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const [editFormData, setEditFormData] = useState({
+  const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    password: ''
+    password: '',
+    role: 'user'
   });
 
   const safeUsers = useMemo(() => Array.isArray(users) ? users : [], [users]);
@@ -45,115 +48,142 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
     return filteredUsers.slice(start, start + itemsPerPage);
   }, [filteredUsers, currentPage]);
 
-  const openEditModal = (user: User) => {
-    setEditingUser(user);
-    setEditFormData({
-      name: user.name,
-      phone: user.phone,
-      password: '' 
-    });
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingUser) return;
-    if (!editFormData.name || !editFormData.phone) return alert('يرجى ملء الاسم ورقم الهاتف');
+  const handleAddUser = async () => {
+    if (!formData.name || !formData.phone || !formData.password) return alert('يرجى ملء كافة الحقول');
+    if (!/^01[0125][0-9]{8}$/.test(formData.phone)) return alert('رقم هاتف غير صحيح');
 
     setIsSaving(true);
     try {
-      const res = await ApiService.adminUpdateUser({
-        id: editingUser.id,
-        name: editFormData.name,
-        phone: editFormData.phone,
-        password: editFormData.password || undefined
-      });
-
+      const res = await ApiService.adminAddUser(formData);
       if (res.status === 'success') {
-        alert('تم تحديث بيانات العضو بنجاح ✨');
-        setEditingUser(null);
-        if (onRefreshData) {
-          onRefreshData();
-        }
+        alert('تم إضافة العضو بنجاح ✨');
+        setIsAddModalOpen(false);
+        setFormData({ name: '', phone: '', password: '', role: 'user' });
+        if (onRefreshData) onRefreshData();
       } else {
-        alert(res.message || 'فشل التحديث');
+        alert(res.message || 'فشل الإضافة');
       }
     } catch (err) {
-      alert('خطأ في الاتصال بالسيرفر');
+      alert('خطأ في الاتصال');
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+    if (!formData.name || !formData.phone) return alert('الاسم والهاتف مطلوبان');
+
+    setIsSaving(true);
+    try {
+      const res = await ApiService.adminUpdateUser({
+        id: editingUser.id,
+        name: formData.name,
+        phone: formData.phone,
+        password: formData.password || undefined,
+        role: formData.role
+      });
+
+      if (res.status === 'success') {
+        alert('تم تحديث بيانات العضو ✨');
+        setEditingUser(null);
+        if (onRefreshData) onRefreshData();
+      } else {
+        alert(res.message || 'فشل التحديث');
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openEditModal = (user: User) => {
+    setEditingUser(user);
+    setFormData({
+      name: user.name,
+      phone: user.phone,
+      password: '',
+      role: user.role
+    });
+  };
+
+  const openAddModal = () => {
+    setFormData({ name: '', phone: '', password: '', role: 'user' });
+    setIsAddModalOpen(true);
+  };
+
   const handleDeleteClick = (user: User) => {
-    if (user.id === 'admin_root') {
-      return alert('لا يمكن حذف الحساب الرئيسي للنظام 🛡️');
-    }
-    if (user.id === currentUser?.id) {
-      return alert('لا يمكنك حذف حسابك الشخصي أثناء تسجيل الدخول ⚠️');
-    }
+    if (user.id === 'admin_root') return alert('لا يمكن حذف الحساب الرئيسي 🛡️');
+    if (user.id === currentUser?.id) return alert('لا يمكنك حذف حسابك الحالي ⚠️');
     if (confirm(`هل أنت متأكد من حذف العضو "${user.name}" نهائياً؟`)) {
       onDeleteUser(user.id);
     }
   };
 
   if (isLoading && safeUsers.length === 0) {
-    return (
-      <div className="space-y-8 animate-fadeIn">
-        <div className="flex justify-end">
-           <div className="w-80 h-12 bg-slate-200 rounded-2xl animate-pulse"></div>
-        </div>
-        <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden">
-           <div className="p-8 space-y-6">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="flex items-center justify-between gap-4 border-b border-slate-50 pb-4 last:border-0">
-                  <div className="flex items-center gap-4">
-                     <div className="w-10 h-10 bg-slate-100 rounded-xl animate-pulse"></div>
-                     <div className="space-y-2">
-                        <div className="w-40 h-4 bg-slate-100 rounded-lg animate-pulse"></div>
-                        <div className="w-24 h-3 bg-slate-50 rounded-lg animate-pulse"></div>
-                     </div>
-                  </div>
-                  <div className="w-24 h-6 bg-slate-50 rounded-full animate-pulse"></div>
-                </div>
-              ))}
-           </div>
-        </div>
-      </div>
-    );
+    return <div className="p-20 text-center animate-pulse text-slate-400 font-black">جاري جلب قائمة الأعضاء...</div>;
   }
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      {editingUser && (
+      {/* Modal Add/Edit */}
+      {(isAddModalOpen || editingUser) && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setEditingUser(null)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => !isSaving && (setIsAddModalOpen(false) || setEditingUser(null))}></div>
           <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 md:p-10 animate-slideUp">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4">👤</div>
-              <h3 className="text-2xl font-black text-slate-800">تعديل حساب العضو</h3>
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4 ${isAddModalOpen ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                {isAddModalOpen ? '✨' : '👤'}
+              </div>
+              <h3 className="text-2xl font-black text-slate-800">{isAddModalOpen ? 'إضافة عضو جديد' : 'تعديل بيانات العضو'}</h3>
             </div>
+            
             <div className="space-y-5">
-              <input value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" placeholder="الاسم" />
-              <input value={editFormData.phone} onChange={e => setEditFormData({...editFormData, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" dir="ltr" placeholder="الهاتف" />
-              <input value={editFormData.password} onChange={e => setEditFormData({...editFormData, password: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" placeholder="كلمة مرور جديدة (اختياري)" />
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الاسم بالكامل</label>
+                <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold" placeholder="الاسم" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال</label>
+                <input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold text-left" dir="ltr" placeholder="01xxxxxxxxx" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">{isAddModalOpen ? 'كلمة المرور' : 'تغيير كلمة المرور (اختياري)'}</label>
+                <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold" placeholder="••••••••" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">صلاحية الحساب</label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl">
+                   <button onClick={() => setFormData({...formData, role: 'user'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'user' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>عميل عادي</button>
+                   <button onClick={() => setFormData({...formData, role: 'admin'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'admin' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400'}`}>مدير نظام</button>
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-4">
-                <button disabled={isSaving} onClick={handleSaveEdit} className="flex-grow bg-indigo-600 text-white py-4 rounded-2xl font-black">{isSaving ? 'جاري الحفظ...' : 'تحديث البيانات'}</button>
-                <button onClick={() => setEditingUser(null)} className="px-6 bg-slate-100 text-slate-500 rounded-2xl font-black">إلغاء</button>
+                <button disabled={isSaving} onClick={isAddModalOpen ? handleAddUser : handleUpdateUser} className={`flex-grow py-4 rounded-2xl font-black text-white shadow-xl transition-all ${isAddModalOpen ? 'bg-emerald-600' : 'bg-indigo-600'}`}>
+                  {isSaving ? 'جاري الحفظ...' : (isAddModalOpen ? 'إضافة العضو الآن' : 'حفظ التعديلات')}
+                </button>
+                <button onClick={() => {setIsAddModalOpen(false); setEditingUser(null);}} className="px-6 bg-slate-100 text-slate-500 rounded-2xl font-black">إلغاء</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm">
+        <button onClick={openAddModal} className="bg-emerald-600 text-white px-8 py-3.5 rounded-2xl font-black text-xs shadow-lg shadow-emerald-200 hover:scale-105 transition-transform active:scale-95 whitespace-nowrap">
+          + إضافة عضو جديد
+        </button>
         <div className="relative w-full md:w-80">
           <input 
             type="text" 
             placeholder="بحث بالاسم أو الهاتف..." 
             value={adminSearch} 
             onChange={e => setAdminSearch(e.target.value)} 
-            className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none shadow-sm font-bold focus:ring-4 focus:ring-emerald-500/10 transition-all" 
+            className="w-full bg-slate-50 border-none rounded-2xl px-6 py-3 text-sm outline-none font-bold pr-12 focus:ring-2 focus:ring-emerald-500/20" 
           />
-          <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
+          <span className="absolute right-4 top-2.5 text-slate-300 text-lg">🔍</span>
         </div>
       </div>
 
@@ -173,8 +203,8 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
                 <td className="px-8 py-5 font-bold text-slate-800">{u.name}</td>
                 <td className="px-8 py-5 font-black text-slate-500">{u.phone}</td>
                 <td className="px-8 py-5">
-                  <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                    {u.role === 'admin' ? 'مدير' : 'عميل'}
+                  <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
+                    {u.role === 'admin' ? 'مدير نظام ⚙️' : 'عميل متجر 👤'}
                   </span>
                 </td>
                 <td className="px-8 py-5">
@@ -192,7 +222,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-4">
            {Array.from({length: totalPages}, (_, i) => i + 1).map(num => (
-             <button key={num} onClick={() => setCurrentPage(num)} className={`w-10 h-10 rounded-xl font-black ${currentPage === num ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 border'}`}>{num}</button>
+             <button key={num} onClick={() => setCurrentPage(num)} className={`w-10 h-10 rounded-xl font-black ${currentPage === num ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>{num}</button>
            ))}
         </div>
       )}

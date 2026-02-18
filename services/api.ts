@@ -58,7 +58,6 @@ const safeFetch = async (action: string, options?: RequestInit) => {
     return await response.json();
   } catch (error) {
     console.warn(`API Network Error (${action}), switching to Local Fallback Mode.`);
-    // لا نحول لـ Mock Mode فوراً لضمان المحاولة في الطلبات القادمة
     return null;
   }
 };
@@ -100,6 +99,13 @@ export const ApiService = {
       return result;
     }
     return { status: 'error', message: result?.message || 'رقم الهاتف مسجل مسبقاً' };
+  },
+
+  async adminAddUser(data: any): Promise<{status: string, message?: string}> {
+    return await safeFetch('admin_add_user', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }) || { status: 'error' };
   },
 
   async getProducts(): Promise<Product[]> {
