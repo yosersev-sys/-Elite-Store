@@ -1,7 +1,7 @@
 
 <?php
 /**
- * API Backend for Soq Al-Asr - Full Version v6.5
+ * API Backend for Soq Al-Asr - Full Version v6.6
  */
 session_start();
 error_reporting(E_ALL); 
@@ -131,7 +131,7 @@ try {
             $params[] = $_SESSION['user']['id'];
             $stmt = $pdo->prepare($sql);
             if ($stmt->execute($params)) {
-                session_destroy(); // إجبار على إعادة الدخول للأمان
+                session_destroy(); 
                 sendRes(['status' => 'success']);
             } else sendErr('فشل تحديث الملف الشخصي');
             break;
@@ -215,6 +215,20 @@ try {
                 $p['stockQuantity'] = (float)$p['stockQuantity'];
             }
             sendRes($prods);
+            break;
+
+        // إضافة حالة جلب كافة الصور للمكتبة
+        case 'get_all_images':
+            if (!isAdmin()) sendErr('غير مصرح', 403);
+            $prods = $pdo->query("SELECT name, images FROM products")->fetchAll();
+            $allImages = [];
+            foreach ($prods as $p) {
+                $imgs = json_decode($p['images'] ?? '[]', true) ?: [];
+                foreach ($imgs as $url) {
+                    $allImages[] = ['url' => $url, 'productName' => $p['name']];
+                }
+            }
+            sendRes($allImages);
             break;
 
         case 'add_product':
