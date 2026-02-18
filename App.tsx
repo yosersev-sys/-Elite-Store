@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
 import Header from './components/Header.tsx';
@@ -92,15 +91,6 @@ const App: React.FC = () => {
     audioObj.current.load();
   }, []);
 
-  useEffect(() => {
-    const handleHashChange = () => {
-      const newView = getInitialView();
-      if (newView !== view) setView(newView);
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [view]);
-
   const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
       if (!isSilent) setIsLoading(true);
@@ -151,11 +141,6 @@ const App: React.FC = () => {
             }
           }
         });
-        
-        if (activeUser.role === 'admin') {
-          ApiService.getUsers().then(u => setUsers(u || []));
-          ApiService.getSuppliers().then(s => setSuppliers(s || []));
-        }
       }
     } catch (err) {
       console.error("Data Load Error:", err);
@@ -293,42 +278,47 @@ const App: React.FC = () => {
                 setView('order-success');
               }}
               onUpdateOrderPayment={(id, method) => {
-                // تحسين الأداء: تحديث الحالة لحظياً قبل إرسال الطلب للسيرفر
                 const previousOrders = [...orders];
                 const orderToUpdate = orders.find(o => o.id === id);
                 if (!orderToUpdate) return;
-
-                // تحديث الواجهة فوراً
                 setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentMethod: method } : o));
                 setNotification({message: 'جاري تحديث الدفع...', type: 'success'});
-
-                // تحديث الملخص المالي فوراً إذا كان الانتقال لنقدي
                 if (adminSummary && method.includes('نقدي')) {
                   setAdminSummary((prev: any) => ({
                     ...prev,
                     total_customer_debt: Math.max(0, (prev.total_customer_debt || 0) - (orderToUpdate.total || 0))
                   }));
                 }
-
-                // تنفيذ الطلب في الخلفية
                 ApiService.updateOrderPayment(id, method).then(success => {
                   if (success) {
                     setNotification({message: 'تم تحديث حالة الدفع بنجاح', type: 'success'});
                     loadData(true);
                   } else {
-                    // في حال الفشل، نقوم بالتراجع
                     setOrders(previousOrders);
                     setNotification({message: 'فشل تحديث الدفع، يرجى المحاولة لاحقاً', type: 'error'});
                   }
                 });
               }}
               onReturnOrder={async (id) => {
-                if(!confirm('تأكيد الاسترجاع؟')) return;
+                if(!confirm('تأكيد الاسترجاع؟ سيتم إعادة الكميات للمخزن.')) return;
+                // تحديث متفائل: إضافة الكميات فوراً في الواجهة
+                const orderToReturn = orders.find(o => o.id === id);
+                if (orderToReturn) {
+                  setProducts(prev => prev.map(p => {
+                    const itemInOrder = orderToReturn.items.find(i => i.id === p.id);
+                    if (itemInOrder) {
+                      return { ...p, stockQuantity: p.stockQuantity + itemInOrder.quantity, salesCount: Math.max(0, (p.salesCount || 0) - itemInOrder.quantity) };
+                    }
+                    return p;
+                  }));
+                }
                 const res = await ApiService.returnOrder(id);
                 if(res.status === 'success') { 
                   setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' as any } : o));
-                  setNotification({message: 'تم الاسترجاع بنجاح', type: 'success'}); 
+                  setNotification({message: 'تم الاسترجاع وتحديث المخزن بنجاح', type: 'success'}); 
                   loadData(true);
+                } else {
+                  loadData(true); // تراجع في حال الفشل
                 }
               }}
               onDeleteUser={async (id) => {
@@ -347,18 +337,10 @@ const App: React.FC = () => {
               onSubmit={async (p) => {
                 const isUpdate = !!products.find(prod => prod.id === p.id);
                 const success = isUpdate ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
-                
                 if (success) { 
                   setNotification({message: 'تم الحفظ بنجاح', type: 'success'}); 
-                  setProducts(prev => {
-                    if (isUpdate) {
-                      return prev.map(prod => prod.id === p.id ? p : prod);
-                    } else {
-                      return [p, ...prev];
-                    }
-                  });
-                  setProductForBarcode(p); 
                   loadData(true); 
+                  setProductForBarcode(p); 
                 }
               }}
               onCancel={() => setView('admin')}
@@ -372,27 +354,37 @@ const App: React.FC = () => {
               order={editingOrder}
               onSubmit={async (order) => {
                 const isUpdate = !!editingOrder;
+                
+                // تحديث متفائل (Optimistic UI): خصم المخزن لحظياً
+                const previousProducts = [...products];
+                setProducts(prev => prev.map(p => {
+                  const itemInOrder = order.items.find(item => item.id === p.id);
+                  if (itemInOrder) {
+                    const diff = isUpdate 
+                      ? itemInOrder.quantity - (editingOrder?.items.find(i => i.id === p.id)?.quantity || 0)
+                      : itemInOrder.quantity;
+                    const newQty = Math.max(0, p.stockQuantity - diff);
+                    return { ...p, stockQuantity: newQty, salesCount: (p.salesCount || 0) + diff };
+                  }
+                  return p;
+                }));
+
                 const success = isUpdate ? await ApiService.updateOrder(order) : await ApiService.saveOrder(order);
                 
                 if (success) {
                   prevOrderIds.current.add(order.id);
-                  setProducts(prev => prev.map(p => {
-                    const itemInOrder = order.items.find(item => item.id === p.id);
-                    if (itemInOrder) {
-                      const newQty = Math.max(0, p.stockQuantity - itemInOrder.quantity);
-                      return { ...p, stockQuantity: newQty, salesCount: (p.salesCount || 0) + itemInOrder.quantity };
-                    }
-                    return p;
-                  }));
                   setOrders(prev => [order, ...prev.filter(o => o.id !== order.id)]);
                   setLastCreatedOrder(order);
-                  setNotification({message: isUpdate ? 'تم تحديث الطلب' : 'تم حفظ الطلب', type: 'success'});
+                  setNotification({message: isUpdate ? 'تم تحديث الطلب والمخزن' : 'تم حفظ الفاتورة وخصم المخزن', type: 'success'});
                   if (!isActuallyAdmin && !isUpdate) {
                     WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   }
                   loadData(true);
                   setEditingOrder(null);
                   setView('order-success');
+                } else {
+                  setProducts(previousProducts); // تراجع في حال الفشل
+                  setNotification({message: 'حدث خطأ في المزامنة مع السيرفر', type: 'error'});
                 }
               }}
               onCancel={() => { setEditingOrder(null); setView(isActuallyAdmin ? 'admin' : 'store'); }}
