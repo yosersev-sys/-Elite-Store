@@ -7,6 +7,12 @@ export interface User {
   createdAt: number;
 }
 
+export interface SupplierPayment {
+  amount: number;
+  date: number;
+  notes?: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
@@ -18,6 +24,7 @@ export interface Supplier {
   balance: number; // المبلغ المستحق له
   rating: number; // من 1 إلى 5
   status: 'active' | 'inactive';
+  paymentHistory?: SupplierPayment[]; // سجل المدفوعات
   createdAt: number;
 }
 

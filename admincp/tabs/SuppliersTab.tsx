@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Supplier } from '../../types';
+import { Supplier, SupplierPayment } from '../../types';
 import { ApiService } from '../../services/api';
 
 interface SuppliersTabProps {
@@ -21,8 +21,10 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [activeSupplierForPayment, setActiveSupplierForPayment] = useState<Supplier | null>(null);
+  const [activeSupplierForHistory, setActiveSupplierForHistory] = useState<Supplier | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -115,7 +117,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
   };
 
   const handleSave = async () => {
-    if (isSaving) return; // حماية ضد الضغطات المتكررة
+    if (isSaving) return;
     if (!formData.name || !formData.phone) return alert('الاسم ورقم الهاتف مطلوبان');
     
     setIsSaving(true);
@@ -124,7 +126,8 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         ...formData,
         balance: parseFloat(formData.balance),
         id: editingSupplier ? editingSupplier.id : 'sup_' + Date.now(),
-        createdAt: editingSupplier ? editingSupplier.createdAt : Date.now()
+        createdAt: editingSupplier ? editingSupplier.createdAt : Date.now(),
+        paymentHistory: editingSupplier ? editingSupplier.paymentHistory : []
       } as any;
 
       const success = editingSupplier 
@@ -134,7 +137,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       if (success) {
         if (onRefresh) await onRefresh();
         else await fetchSuppliers();
-        // الإغلاق يحدث فقط بعد التأكد من نجاح العملية وتحديث البيانات
         setIsModalOpen(false);
       } else {
         alert('فشل حفظ بيانات المورد، حاول مرة أخرى');
@@ -147,22 +149,28 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
   };
 
   const handleQuickPayment = async () => {
-    if (isSaving) return; // منع التكرار
+    if (isSaving) return;
     if (!activeSupplierForPayment || !paymentAmount) return;
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) return alert('أدخل مبلغ صحيح');
 
     setIsSaving(true);
     try {
+      const newPayment: SupplierPayment = {
+        amount,
+        date: Date.now()
+      };
+      
       const updatedSupplier = {
         ...activeSupplierForPayment,
-        balance: activeSupplierForPayment.balance - amount
+        balance: activeSupplierForPayment.balance - amount,
+        paymentHistory: [...(activeSupplierForPayment.paymentHistory || []), newPayment]
       };
+      
       const success = await ApiService.updateSupplier(updatedSupplier);
       if (success) {
         if (onRefresh) await onRefresh();
         else await fetchSuppliers();
-        // الإغلاق مربوط بالنجاح النهائي للطلب
         setIsPaymentModalOpen(false);
         setPaymentAmount('');
       } else {
@@ -172,20 +180,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       alert('خطأ في الاتصال');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (isSaving) return;
-    if (!window.confirm('هل أنت متأكد من حذف هذا المورد نهائياً؟')) return;
-    try {
-      const success = await ApiService.deleteSupplier(id);
-      if (success) {
-        if (onRefresh) onRefresh();
-        else fetchSuppliers();
-      }
-    } catch (err) {
-      alert('خطأ في عملية الحذف');
     }
   };
 
@@ -225,23 +219,16 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
           <button 
             disabled={isSaving}
             onClick={() => setFilterStatus('all')}
-            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'} disabled:opacity-50`}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
           >
             الكل ({suppliers.length})
           </button>
           <button 
             disabled={isSaving}
             onClick={() => setFilterStatus('debtors')}
-            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'debtors' ? 'bg-rose-50 text-white shadow-lg shadow-rose-200' : 'text-slate-400 hover:text-rose-500'} disabled:opacity-50`}
+            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'debtors' ? 'bg-rose-50 text-white shadow-lg shadow-rose-200' : 'text-slate-400 hover:text-rose-500'}`}
           >
             مديونية ({totals.debtorsCount})
-          </button>
-          <button 
-            disabled={isSaving}
-            onClick={() => setFilterStatus('paid')}
-            className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${filterStatus === 'paid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'text-slate-400 hover:text-emerald-600'} disabled:opacity-50`}
-          >
-            خالص ({totals.paidCount})
           </button>
         </div>
 
@@ -252,7 +239,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
             placeholder="بحث بالاسم أو الشركة..." 
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-50 border-none rounded-2xl px-6 py-3 text-sm outline-none font-bold pr-12 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-50"
+            className="w-full bg-slate-50 border-none rounded-2xl px-6 py-3 text-sm outline-none font-bold pr-12 focus:ring-2 focus:ring-emerald-500/20"
           />
           <span className="absolute right-4 top-2.5 text-slate-300 text-lg">🔍</span>
         </div>
@@ -297,17 +284,23 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
               </div>
 
               <div className="flex flex-row md:flex-col justify-center gap-2">
-                 <button disabled={isSaving} onClick={() => openEditModal(s)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm disabled:opacity-50" title="تعديل">✎</button>
+                 <button disabled={isSaving} onClick={() => openEditModal(s)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="تعديل">✎</button>
                  <button 
                   disabled={isSaving}
                   onClick={() => { if(!isSaving) { setActiveSupplierForPayment(s); setIsPaymentModalOpen(true); } }}
-                  className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm disabled:opacity-50" 
+                  className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" 
                   title="دفع مبلع"
                  >💸</button>
                  <button 
                   disabled={isSaving}
+                  onClick={() => { setActiveSupplierForHistory(s); setIsHistoryModalOpen(true); }}
+                  className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm" 
+                  title="سجل المدفوعات"
+                 >🕒</button>
+                 <button 
+                  disabled={isSaving}
                   onClick={() => window.open(`https://wa.me/2${s.phone.replace(/\D/g, '')}`, '_blank')}
-                  className="p-3 bg-emerald-500 text-white rounded-2xl hover:bg-slate-900 transition-all shadow-lg disabled:opacity-50"
+                  className="p-3 bg-emerald-500 text-white rounded-2xl hover:bg-slate-900 transition-all shadow-lg"
                  >📱</button>
               </div>
             </div>
@@ -315,17 +308,40 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         ))}
       </div>
 
+      {/* History Modal */}
+      {isHistoryModalOpen && activeSupplierForHistory && (
+        <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsHistoryModalOpen(false)}></div>
+          <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden max-h-[80vh] flex flex-col">
+             <h3 className="text-xl font-black text-slate-800 mb-6 text-center">سجل مدفوعات {activeSupplierForHistory.name}</h3>
+             <div className="flex-grow overflow-y-auto no-scrollbar space-y-3">
+                {(!activeSupplierForHistory.paymentHistory || activeSupplierForHistory.paymentHistory.length === 0) ? (
+                   <div className="text-center py-20 text-slate-300 font-bold italic">لا توجد حركات مالية مسجلة بعد.</div>
+                ) : (
+                   activeSupplierForHistory.paymentHistory.slice().reverse().map((pay, i) => (
+                      <div key={i} className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
+                         <div>
+                            <p className="text-emerald-600 font-black text-lg">{pay.amount.toLocaleString()} ج.م</p>
+                            <p className="text-[10px] text-slate-400 font-bold">{new Date(pay.date).toLocaleString('ar-EG')}</p>
+                         </div>
+                         <div className="bg-emerald-100 text-emerald-600 p-2 rounded-xl text-xs font-black">دفعة مُسددة ✅</div>
+                      </div>
+                   ))
+                )}
+             </div>
+             <button onClick={() => setIsHistoryModalOpen(false)} className="w-full mt-6 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm">إغلاق النافذة</button>
+          </div>
+        </div>
+      )}
+
       {/* Payment Modal */}
       {isPaymentModalOpen && activeSupplierForPayment && (
         <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
-          {/* تعطيل النقر على الخلفية أثناء الحفظ */}
           <div 
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
             onClick={() => !isSaving && setIsPaymentModalOpen(false)}
           ></div>
           <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden">
-             
-             {/* غطاء التحميل الخاص بالدفع - يمنع أي تفاعل */}
              {isSaving && (
                <div className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center gap-4 animate-fadeIn">
                  <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
@@ -350,18 +366,9 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                 <button 
                   onClick={handleQuickPayment}
                   disabled={isSaving || !paymentAmount}
-                  className={`w-full text-white py-5 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400 shadow-none cursor-not-allowed' : 'bg-slate-900 hover:bg-emerald-600 shadow-slate-200'}`}
+                  className={`w-full text-white py-5 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400' : 'bg-slate-900 hover:bg-emerald-600'}`}
                 >
-                  {isSaving ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>جاري المعالجة...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>تأكيد دفع المبلغ ✅</span>
-                    </>
-                  )}
+                   <span>تأكيد دفع المبلغ ✅</span>
                 </button>
                 {!isSaving && (
                   <button onClick={() => setIsPaymentModalOpen(false)} className="w-full text-slate-400 font-bold text-xs py-2 hover:text-slate-600">إلغاء</button>
@@ -379,13 +386,10 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
             onClick={() => !isSaving && setIsModalOpen(false)}
           ></div>
           <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 md:p-12 animate-slideUp overflow-hidden max-h-[90vh] overflow-y-auto no-scrollbar">
-            
-            {/* غطاء التحميل الخاص بالحفظ */}
             {isSaving && (
                <div className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center gap-4 animate-fadeIn">
                  <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                  <p className="font-black text-slate-800 text-lg">جاري حفظ بيانات المورد...</p>
-                 <p className="text-slate-400 text-xs font-bold">يرجى الانتظار حتى تكتمل المزامنة مع المخزن</p>
                </div>
             )}
 
@@ -395,18 +399,18 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">اسم المورد</label>
-                  <input disabled={isSaving} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold border-2 border-transparent focus:border-emerald-500 shadow-inner disabled:opacity-50" />
+                  <input disabled={isSaving} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold border-2 border-transparent focus:border-emerald-500 shadow-inner" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال</label>
-                  <input disabled={isSaving} type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold text-left shadow-inner disabled:opacity-50" dir="ltr" />
+                  <input disabled={isSaving} type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold text-left shadow-inner" dir="ltr" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">نوع المورد</label>
-                  <select disabled={isSaving} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold shadow-inner disabled:opacity-50">
+                  <select disabled={isSaving} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold shadow-inner">
                     <option value="wholesale">تاجر جملة</option>
                     <option value="factory">مصنع / علامة تجارية</option>
                     <option value="farm">مزرعة / إنتاج مباشر</option>
@@ -415,41 +419,32 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase mr-2">التقييم (1-5)</label>
-                  <input disabled={isSaving} type="number" min="1" max="5" value={formData.rating} onChange={e => setFormData({...formData, rating: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold shadow-inner disabled:opacity-50" />
+                  <input disabled={isSaving} type="number" min="1" max="5" value={formData.rating} onChange={e => setFormData({...formData, rating: parseInt(e.target.value)})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold shadow-inner" />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">المديونية الحالية (ج.م)</label>
-                <input disabled={isSaving} type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-black text-rose-600 shadow-inner disabled:opacity-50" placeholder="0.00" />
+                <input disabled={isSaving} type="number" value={formData.balance} onChange={e => setFormData({...formData, balance: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-black text-rose-600 shadow-inner" placeholder="0.00" />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">اسم الشركة (اختياري)</label>
-                <input disabled={isSaving} value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold shadow-inner disabled:opacity-50" />
+                <input disabled={isSaving} value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold shadow-inner" />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">ملاحظات / عنوان</label>
-                <textarea disabled={isSaving} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold min-h-[80px] shadow-inner disabled:opacity-50" />
+                <textarea disabled={isSaving} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold min-h-[80px] shadow-inner" />
               </div>
 
               <div className="flex gap-3 pt-6">
                 <button 
                   onClick={handleSave} 
                   disabled={isSaving} 
-                  className={`flex-grow text-white py-5 rounded-2xl font-black text-sm active:scale-95 shadow-xl flex items-center justify-center gap-3 transition-all ${isSaving ? 'bg-slate-400 shadow-none cursor-not-allowed' : 'bg-emerald-600 hover:bg-slate-900 shadow-emerald-500/20'}`}
+                  className={`flex-grow text-white py-5 rounded-2xl font-black text-sm active:scale-95 shadow-xl flex items-center justify-center gap-3 transition-all ${isSaving ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-slate-900 shadow-emerald-500/20'}`}
                 >
-                  {isSaving ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>جاري الحفظ...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>حفظ بيانات المورد ✨</span>
-                    </>
-                  )}
+                   <span>حفظ بيانات المورد ✨</span>
                 </button>
                 {!isSaving && (
                   <button onClick={() => setIsModalOpen(false)} className="px-8 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm hover:bg-slate-200 transition-colors">إلغاء</button>
