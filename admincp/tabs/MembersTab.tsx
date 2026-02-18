@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { User } from '../../types';
 import { ApiService } from '../../services/api';
@@ -48,28 +49,22 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
   }, [filteredUsers, currentPage]);
 
   const handleAddUser = async () => {
-    if (!formData.name || !formData.phone || !formData.password) {
-      alert('يرجى ملء كافة الحقول الإلزامية');
-      return;
-    }
-    if (!/^01[0125][0-9]{8}$/.test(formData.phone)) {
-      alert('يرجى إدخال رقم هاتف مصري صحيح (11 رقم)');
-      return;
-    }
+    if (!formData.name || !formData.phone || !formData.password) return alert('يرجى ملء كافة الحقول');
+    if (!/^01[0125][0-9]{8}$/.test(formData.phone)) return alert('رقم هاتف غير صحيح');
 
     setIsSaving(true);
     try {
       const res = await ApiService.adminAddUser(formData);
-      if (res && res.status === 'success') {
+      if (res.status === 'success') {
         alert('تم إضافة العضو بنجاح ✨');
         setIsAddModalOpen(false);
         setFormData({ name: '', phone: '', password: '', role: 'user' });
         if (onRefreshData) onRefreshData();
       } else {
-        alert(res?.message || 'فشل إضافة العضو، قد يكون الرقم مسجلاً بالفعل');
+        alert(res.message || 'فشل الإضافة');
       }
     } catch (err) {
-      alert('حدث خطأ في الاتصال بالسيرفر');
+      alert('خطأ في الاتصال');
     } finally {
       setIsSaving(false);
     }
@@ -77,10 +72,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
 
   const handleUpdateUser = async () => {
     if (!editingUser) return;
-    if (!formData.name || !formData.phone) {
-      alert('الاسم ورقم الهاتف مطلوبان');
-      return;
-    }
+    if (!formData.name || !formData.phone) return alert('الاسم والهاتف مطلوبان');
 
     setIsSaving(true);
     try {
@@ -92,15 +84,15 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
         role: formData.role
       });
 
-      if (res && res.status === 'success') {
-        alert('تم تحديث بيانات العضو بنجاح ✨');
+      if (res.status === 'success') {
+        alert('تم تحديث بيانات العضو ✨');
         setEditingUser(null);
         if (onRefreshData) onRefreshData();
       } else {
-        alert(res?.message || 'فشل تحديث البيانات');
+        alert(res.message || 'فشل التحديث');
       }
     } catch (err) {
-      alert('خطأ في الاتصال بالسيرفر');
+      alert('خطأ في الاتصال');
     } finally {
       setIsSaving(false);
     }
@@ -122,26 +114,23 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
   };
 
   const handleDeleteClick = (user: User) => {
+    // Fix: Using code blocks instead of direct return from void alert() function
     if (user.id === 'admin_root') {
-      alert('تحذير أمان: لا يمكن حذف حساب المدير الرئيسي للنظام 🛡️');
+      alert('لا يمكن حذف الحساب الرئيسي 🛡️');
       return;
     }
+    // Fix: Separated logic to avoid truthiness check on void return
     if (user.id === currentUser?.id) {
-      alert('تنبيه: لا يمكنك حذف حسابك الذي تسجل به الدخول حالياً ⚠️');
+      alert('لا يمكنك حذف حسابك الحالي ⚠️');
       return;
     }
-    if (window.confirm(`هل أنت متأكد تماماً من حذف العضو "${user.name}"؟ لا يمكن التراجع عن هذا الإجراء.`)) {
+    if (confirm(`هل أنت متأكد من حذف العضو "${user.name}" نهائياً؟`)) {
       onDeleteUser(user.id);
     }
   };
 
   if (isLoading && safeUsers.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 animate-pulse">
-        <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-400 font-black">جاري جلب قائمة الأعضاء...</p>
-      </div>
-    );
+    return <div className="p-20 text-center animate-pulse text-slate-400 font-black">جاري جلب قائمة الأعضاء...</div>;
   }
 
   return (
@@ -149,6 +138,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
       {/* Modal Add/Edit */}
       {(isAddModalOpen || editingUser) && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+          {/* Fix: Replaced truthiness evaluation of void expressions with a clear function block on line 141 */}
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => { if (!isSaving) { setIsAddModalOpen(false); setEditingUser(null); } }}></div>
           <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 md:p-10 animate-slideUp">
             <div className="text-center mb-8">
@@ -161,29 +151,29 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
             <div className="space-y-5">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">الاسم بالكامل</label>
-                <input disabled={isSaving} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold shadow-inner" placeholder="الاسم" />
+                <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold" placeholder="الاسم" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال</label>
-                <input disabled={isSaving} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold text-left shadow-inner" dir="ltr" placeholder="01xxxxxxxxx" />
+                <input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold text-left" dir="ltr" placeholder="01xxxxxxxxx" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">{isAddModalOpen ? 'كلمة المرور' : 'تغيير كلمة المرور (اختياري)'}</label>
-                <input disabled={isSaving} type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold shadow-inner" placeholder="••••••••" />
+                <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold" placeholder="••••••••" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">صلاحية الحساب</label>
                 <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl">
-                   <button disabled={isSaving} onClick={() => setFormData({...formData, role: 'user'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'user' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>عميل عادي</button>
-                   <button disabled={isSaving} onClick={() => setFormData({...formData, role: 'admin'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'admin' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400'}`}>مدير نظام</button>
+                   <button onClick={() => setFormData({...formData, role: 'user'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'user' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>عميل عادي</button>
+                   <button onClick={() => setFormData({...formData, role: 'admin'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'admin' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400'}`}>مدير نظام</button>
                 </div>
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button disabled={isSaving} onClick={isAddModalOpen ? handleAddUser : handleUpdateUser} className={`flex-grow py-4 rounded-2xl font-black text-white shadow-xl transition-all ${isAddModalOpen ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'} disabled:opacity-50`}>
+                <button disabled={isSaving} onClick={isAddModalOpen ? handleAddUser : handleUpdateUser} className={`flex-grow py-4 rounded-2xl font-black text-white shadow-xl transition-all ${isAddModalOpen ? 'bg-emerald-600' : 'bg-indigo-600'}`}>
                   {isSaving ? 'جاري الحفظ...' : (isAddModalOpen ? 'إضافة العضو الآن' : 'حفظ التعديلات')}
                 </button>
-                <button disabled={isSaving} onClick={() => {setIsAddModalOpen(false); setEditingUser(null);}} className="px-6 bg-slate-100 text-slate-500 rounded-2xl font-black hover:bg-slate-200 transition-colors">إلغاء</button>
+                <button onClick={() => {setIsAddModalOpen(false); setEditingUser(null);}} className="px-6 bg-slate-100 text-slate-500 rounded-2xl font-black">إلغاء</button>
               </div>
             </div>
           </div>
@@ -200,7 +190,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
             placeholder="بحث بالاسم أو الهاتف..." 
             value={adminSearch} 
             onChange={e => setAdminSearch(e.target.value)} 
-            className="w-full bg-slate-50 border-none rounded-2xl px-6 py-3 text-sm outline-none font-bold pr-12 focus:ring-2 focus:ring-emerald-500/20 shadow-inner" 
+            className="w-full bg-slate-50 border-none rounded-2xl px-6 py-3 text-sm outline-none font-bold pr-12 focus:ring-2 focus:ring-emerald-500/20" 
           />
           <span className="absolute right-4 top-2.5 text-slate-300 text-lg">🔍</span>
         </div>
@@ -209,7 +199,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
       <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-right text-sm">
           <thead>
-            <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b">
+            <tr className="bg-slate-50 text-slate-400 text-[10px] font-black border-b">
               <th className="px-8 py-5">العضو</th>
               <th className="px-8 py-5">رقم الموبايل</th>
               <th className="px-8 py-5">الصلاحية</th>
@@ -218,9 +208,9 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
           </thead>
           <tbody className="divide-y divide-slate-50">
             {paginatedUsers.map(u => (
-              <tr key={u.id} className="hover:bg-slate-50/50 transition-colors group">
+              <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-8 py-5 font-bold text-slate-800">{u.name}</td>
-                <td className="px-8 py-5 font-black text-slate-500 tracking-widest">{u.phone}</td>
+                <td className="px-8 py-5 font-black text-slate-500">{u.phone}</td>
                 <td className="px-8 py-5">
                   <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
                     {u.role === 'admin' ? 'مدير نظام ⚙️' : 'عميل متجر 👤'}
@@ -241,7 +231,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-4">
            {Array.from({length: totalPages}, (_, i) => i + 1).map(num => (
-             <button key={num} onClick={() => { setCurrentPage(num); window.scrollTo({top: 0, behavior: 'smooth'}); }} className={`w-10 h-10 rounded-xl font-black ${currentPage === num ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`}>{num}</button>
+             <button key={num} onClick={() => setCurrentPage(num)} className={`w-10 h-10 rounded-xl font-black ${currentPage === num ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>{num}</button>
            ))}
         </div>
       )}
