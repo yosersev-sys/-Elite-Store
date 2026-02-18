@@ -114,7 +114,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           wholesalePrice: product.wholesalePrice?.toString() || '',
           categoryId: product.categoryId || '',
           supplierId: product.supplierId || '',
-          stockQuantity: actualStock.toString(), // استخدام الكمية الفعلية من المنتج
+          stockQuantity: actualStock.toString(),
           barcode: product.barcode ? String(product.barcode) : '', 
           unit: product.unit || 'piece', 
           sizes: product.sizes?.join(', ') || '',
