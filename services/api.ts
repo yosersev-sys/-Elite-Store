@@ -6,37 +6,14 @@ const LOCAL_DB_KEY = 'souq_local_database';
 
 // الحالة الافتراضية للبيانات في حال عدم وجود سيرفر
 const INITIAL_MOCK_DATA = {
-  products: [
-    {
-      id: 'p1', name: 'طماطم بلدي طازجة', description: 'طماطم حمراء طازجة من مزارع فاقوس.', price: 15, wholesalePrice: 10,
-      categoryId: 'cat_veggies', stockQuantity: 50, unit: 'kg', images: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?q=80&w=500'],
-      createdAt: Date.now(), salesCount: 120, barcode: '622001'
-    },
-    {
-      id: 'p2', name: 'تفاح أحمر إيطالي', description: 'تفاح مقرمش وحلو المذاق.', price: 65, wholesalePrice: 45,
-      categoryId: 'cat_fruits', stockQuantity: 30, unit: 'kg', images: ['https://images.unsplash.com/photo-1560806887-1e4cd0b6bcd6?q=80&w=500'],
-      createdAt: Date.now(), salesCount: 85, barcode: '622002'
-    }
-  ],
-  categories: [
-    { id: 'cat_veggies', name: 'خضروات طازجة', image: 'https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?q=80&w=500', isActive: true, sortOrder: 1 },
-    { id: 'cat_fruits', name: 'فواكه موسمية', image: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=500', isActive: true, sortOrder: 2 },
-    { id: 'cat_supermarket', name: 'سوبر ماركت', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=500', isActive: true, sortOrder: 3 }
-  ],
+  products: [],
+  categories: [],
   orders: [],
-  users: [
-    { id: 'admin_root', name: 'مدير النظام', phone: '01000000000', role: 'admin', createdAt: Date.now() }
-  ],
+  users: [],
   suppliers: [],
-  settings: {
-    delivery_fee: '15',
-    whatsapp_number: '201026034170'
-  }
+  settings: { delivery_fee: '0', whatsapp_number: '201026034170' }
 };
 
-/**
- * محرك البيانات المحلي (Fallback Engine)
- */
 const LocalDB = {
   get() {
     const data = localStorage.getItem(LOCAL_DB_KEY);
@@ -54,7 +31,7 @@ const LocalDB = {
 let useMockMode = false;
 
 const safeFetch = async (action: string, options?: RequestInit) => {
-  if (useMockMode) return null; // تخطي الشبكة إذا كنا في وضع المحاكاة
+  if (useMockMode) return null; 
 
   try {
     let apiBase = (window as any).__SOUQ_API_PATH__ || 'api.php';
@@ -81,7 +58,7 @@ const safeFetch = async (action: string, options?: RequestInit) => {
     return await response.json();
   } catch (error) {
     console.warn(`API Network Error (${action}), switching to Local Fallback Mode.`);
-    useMockMode = true; // تفعيل وضع المحاكاة لبقية الجلسة
+    // لا نحول لـ Mock Mode فوراً لضمان المحاولة في الطلبات القادمة
     return null;
   }
 };
@@ -93,11 +70,12 @@ export const ApiService = {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
       return user;
     }
-    if (useMockMode) {
-      const saved = localStorage.getItem(USER_CACHE_KEY);
-      return saved ? JSON.parse(saved) : null;
-    }
-    return null;
+    const saved = localStorage.getItem(USER_CACHE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  },
+
+  async getAdminSummary(): Promise<any> {
+    return await safeFetch('get_admin_summary');
   },
 
   async login(phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
@@ -109,21 +87,9 @@ export const ApiService = {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user));
       return result;
     }
-    
-    if (useMockMode) {
-      const db = LocalDB.get();
-      const user = db.users.find((u: any) => u.phone === phone);
-      // في وضع المحاكاة نقبل أي كلمة مرور للحسابات الموجودة
-      if (user) {
-        localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
-        return { status: 'success', user };
-      }
-      return { status: 'error', message: 'رقم الهاتف غير مسجل في قاعدة البيانات المحلية' };
-    }
-    return { status: 'error', message: 'تعذر الاتصال بالسيرفر' };
+    return { status: 'error', message: result?.message || 'بيانات الدخول غير صحيحة' };
   },
 
-  // Fix: Added register method to ApiService
   async register(name: string, phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
     const result = await safeFetch('register', {
       method: 'POST',
@@ -133,15 +99,7 @@ export const ApiService = {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user));
       return result;
     }
-    if (useMockMode) {
-      const db = LocalDB.get();
-      const newUser: User = { id: 'u_' + Date.now(), name, phone, role: 'user', createdAt: Date.now() };
-      db.users.push(newUser);
-      LocalDB.save(db);
-      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(newUser));
-      return { status: 'success', user: newUser };
-    }
-    return { status: 'error', message: 'تعذر الاتصال بالسيرفر' };
+    return { status: 'error', message: result?.message || 'رقم الهاتف مسجل مسبقاً' };
   },
 
   async getProducts(): Promise<Product[]> {
@@ -156,51 +114,19 @@ export const ApiService = {
     return LocalDB.get().categories;
   },
 
-  // Fix: Added addCategory method
   async addCategory(category: Category): Promise<boolean> {
-    const result = await safeFetch('add_category', {
-      method: 'POST',
-      body: JSON.stringify(category)
-    });
-    if (result?.status === 'success') return true;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.categories.push(category);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('add_category', { method: 'POST', body: JSON.stringify(category) });
+    return result?.status === 'success';
   },
 
-  // Fix: Added updateCategory method
   async updateCategory(category: Partial<Category> & { id: string }): Promise<boolean> {
-    const result = await safeFetch('update_category', {
-      method: 'POST',
-      body: JSON.stringify(category)
-    });
-    if (result?.status === 'success') return true;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.categories = db.categories.map((c: any) => c.id === category.id ? { ...c, ...category } : c);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('update_category', { method: 'POST', body: JSON.stringify(category) });
+    return result?.status === 'success';
   },
 
-  // Fix: Added deleteCategory method
   async deleteCategory(id: string): Promise<boolean> {
     const result = await safeFetch(`delete_category&id=${id}`, { method: 'DELETE' });
-    if (result?.status === 'success') return true;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.categories = db.categories.filter((c: any) => c.id !== id);
-      // Fallback: move products to 'general' category if current is deleted
-      db.products = db.products.map((p: any) => p.categoryId === id ? { ...p, categoryId: 'cat_general' } : p);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    return result?.status === 'success';
   },
 
   async getOrders(): Promise<Order[]> {
@@ -210,82 +136,22 @@ export const ApiService = {
   },
 
   async saveOrder(order: Order): Promise<boolean> {
-    const result = await safeFetch('save_order', {
-      method: 'POST',
-      body: JSON.stringify(order)
-    });
-    if (result?.status === 'success') return true;
-
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.orders.unshift(order);
-      // تحديث الكميات محلياً
-      order.items.forEach(item => {
-        const p = db.products.find((prod: any) => prod.id === item.id);
-        if (p) {
-          p.stockQuantity -= item.quantity;
-          p.salesCount = (p.salesCount || 0) + item.quantity;
-        }
-      });
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('save_order', { method: 'POST', body: JSON.stringify(order) });
+    return result?.status === 'success';
   },
 
   async updateOrder(order: Order): Promise<boolean> {
-    const result = await safeFetch('update_order', {
-      method: 'POST',
-      body: JSON.stringify(order)
-    });
-    if (result?.status === 'success') return true;
-
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.orders = db.orders.map((o: any) => o.id === order.id ? order : o);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('update_order', { method: 'POST', body: JSON.stringify(order) });
+    return result?.status === 'success';
   },
 
-  // Fix: Added updateOrderPayment method
   async updateOrderPayment(id: string, paymentMethod: string): Promise<boolean> {
-    const result = await safeFetch('update_order_payment', {
-      method: 'POST',
-      body: JSON.stringify({ id, paymentMethod })
-    });
-    if (result?.status === 'success') return true;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.orders = db.orders.map((o: any) => o.id === id ? { ...o, paymentMethod } : o);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('update_order_payment', { method: 'POST', body: JSON.stringify({ id, paymentMethod }) });
+    return result?.status === 'success';
   },
 
-  // Fix: Added returnOrder method
   async returnOrder(id: string): Promise<{status: string}> {
-    const result = await safeFetch(`return_order&id=${id}`, { method: 'POST' });
-    if (result) return result;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      const order = db.orders.find((o: any) => o.id === id);
-      if (order) {
-        order.status = 'cancelled';
-        order.items.forEach((item: any) => {
-          const p = db.products.find((prod: any) => prod.id === item.id);
-          if (p) {
-             p.stockQuantity += item.quantity;
-             p.salesCount = Math.max(0, (p.salesCount || 0) - item.quantity);
-          }
-        });
-      }
-      LocalDB.save(db);
-      return { status: 'success' };
-    }
-    return { status: 'error' };
+    return await safeFetch(`return_order&id=${id}`, { method: 'POST' }) || { status: 'error' };
   },
 
   async getStoreSettings(): Promise<Record<string, string>> {
@@ -295,81 +161,28 @@ export const ApiService = {
   },
 
   async updateStoreSettings(settings: Record<string, string>): Promise<boolean> {
-    const result = await safeFetch('update_store_settings', {
-      method: 'POST',
-      body: JSON.stringify(settings)
-    });
-    if (result?.status === 'success') return true;
-
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.settings = { ...db.settings, ...settings };
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('update_store_settings', { method: 'POST', body: JSON.stringify(settings) });
+    return result?.status === 'success';
   },
 
   async addProduct(product: Product): Promise<boolean> {
-    const result = await safeFetch('add_product', {
-      method: 'POST',
-      body: JSON.stringify(product)
-    });
-    if (result?.status === 'success') return true;
-
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.products.unshift(product);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('add_product', { method: 'POST', body: JSON.stringify(product) });
+    return result?.status === 'success';
   },
 
   async updateProduct(product: Product): Promise<boolean> {
-    const result = await safeFetch('update_product', {
-      method: 'POST',
-      body: JSON.stringify(product)
-    });
-    if (result?.status === 'success') return true;
-
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.products = db.products.map((p: any) => p.id === product.id ? product : p);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('update_product', { method: 'POST', body: JSON.stringify(product) });
+    return result?.status === 'success';
   },
 
   async deleteProduct(id: string): Promise<boolean> {
     const result = await safeFetch(`delete_product&id=${id}`, { method: 'DELETE' });
-    if (result?.status === 'success') return true;
-
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.products = db.products.filter((p: any) => p.id !== id);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    return result?.status === 'success';
   },
 
-  // Fix: Added getAllImages method for the library
   async getAllImages(): Promise<{url: string, productName: string}[]> {
     const result = await safeFetch('get_all_images');
-    if (result && Array.isArray(result)) return result;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      const images: {url: string, productName: string}[] = [];
-      db.products.forEach((p: any) => {
-        p.images.forEach((img: string) => {
-          images.push({ url: img, productName: p.name });
-        });
-      });
-      return images;
-    }
-    return [];
+    return Array.isArray(result) ? result : [];
   },
 
   async getAdminPhone(): Promise<{phone: string} | null> {
@@ -379,108 +192,40 @@ export const ApiService = {
 
   async getUsers(): Promise<User[]> {
     const result = await safeFetch('get_users');
-    if (result && Array.isArray(result)) return result;
-    return LocalDB.get().users;
+    return Array.isArray(result) ? result : [];
   },
 
-  // Fix: Added updateProfile method
   async updateProfile(data: any): Promise<{status: string, message?: string}> {
-    const result = await safeFetch('update_profile', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-    if (result) return result;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      const cached = localStorage.getItem(USER_CACHE_KEY);
-      if (cached) {
-        const user = JSON.parse(cached);
-        db.users = db.users.map((u: any) => u.id === user.id ? { ...u, ...data } : u);
-        LocalDB.save(db);
-      }
-      return { status: 'success' };
-    }
-    return { status: 'error', message: 'تعذر الاتصال بالسيرفر' };
+    return await safeFetch('update_profile', { method: 'POST', body: JSON.stringify(data) }) || { status: 'error' };
   },
 
-  // Fix: Added adminUpdateUser method
   async adminUpdateUser(data: any): Promise<{status: string, message?: string}> {
-    const result = await safeFetch('admin_update_user', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-    if (result) return result;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.users = db.users.map((u: any) => u.id === data.id ? { ...u, ...data } : u);
-      LocalDB.save(db);
-      return { status: 'success' };
-    }
-    return { status: 'error', message: 'تعذر الاتصال بالسيرفر' };
+    return await safeFetch('admin_update_user', { method: 'POST', body: JSON.stringify(data) }) || { status: 'error' };
   },
 
-  // Fix: Added deleteUser method
   async deleteUser(id: string): Promise<boolean> {
     const result = await safeFetch(`delete_user&id=${id}`, { method: 'DELETE' });
-    if (result?.status === 'success') return true;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.users = db.users.filter((u: any) => u.id !== id);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    return result?.status === 'success';
   },
 
   async getSuppliers(): Promise<Supplier[]> {
     const result = await safeFetch('get_suppliers');
-    if (result && Array.isArray(result)) return result;
-    return LocalDB.get().suppliers;
+    return Array.isArray(result) ? result : [];
   },
 
-  // Fix: Added addSupplier method
   async addSupplier(supplier: Supplier): Promise<boolean> {
-    const result = await safeFetch('add_supplier', {
-      method: 'POST',
-      body: JSON.stringify(supplier)
-    });
-    if (result?.status === 'success') return true;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.suppliers.unshift(supplier);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('add_supplier', { method: 'POST', body: JSON.stringify(supplier) });
+    return result?.status === 'success';
   },
 
-  // Fix: Added updateSupplier method
   async updateSupplier(supplier: Supplier): Promise<boolean> {
-    const result = await safeFetch('update_supplier', {
-      method: 'POST',
-      body: JSON.stringify(supplier)
-    });
-    if (result?.status === 'success') return true;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.suppliers = db.suppliers.map((s: any) => s.id === supplier.id ? supplier : s);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    const result = await safeFetch('update_supplier', { method: 'POST', body: JSON.stringify(supplier) });
+    return result?.status === 'success';
   },
 
-  // Fix: Added deleteSupplier method
   async deleteSupplier(id: string): Promise<boolean> {
     const result = await safeFetch(`delete_supplier&id=${id}`, { method: 'DELETE' });
-    if (result?.status === 'success') return true;
-    if (useMockMode) {
-      const db = LocalDB.get();
-      db.suppliers = db.suppliers.filter((s: any) => s.id !== id);
-      LocalDB.save(db);
-      return true;
-    }
-    return false;
+    return result?.status === 'success';
   },
 
   async logout(): Promise<void> {

@@ -55,6 +55,7 @@ const App: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [adminSummary, setAdminSummary] = useState<any>(null);
   
   const [newOrdersForPopup, setNewOrdersForPopup] = useState<Order[]>([]);
   const [productForBarcode, setProductForBarcode] = useState<Product | null>(null);
@@ -105,31 +106,39 @@ const App: React.FC = () => {
       if (!isSilent) setIsLoading(true);
       let activeUser = forcedUser !== undefined ? forcedUser : currentUser;
       
-      const [adminInfo, fetchedProducts, fetchedCats, storeSettings] = await Promise.all([
+      // 1. الأولوية القصوى: الإعدادات والمنتجات والأقسام والملخص المالي
+      const promises: any[] = [
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
         ApiService.getCategories(),
         ApiService.getStoreSettings()
-      ]);
+      ];
 
+      if (activeUser?.role === 'admin') {
+        promises.push(ApiService.getAdminSummary());
+      }
+
+      const results = await Promise.all(promises);
+      const adminInfo = results[0];
+      const fetchedProducts = results[1];
+      const fetchedCats = results[2];
+      const storeSettings = results[3];
+      
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
       if (storeSettings?.delivery_fee) setDeliveryFee(parseFloat(storeSettings.delivery_fee));
       setProducts(fetchedProducts || []);
       setCategories(fetchedCats || []);
+      
+      if (activeUser?.role === 'admin') {
+        setAdminSummary(results[4]);
+      }
 
+      // 2. الأولوية الثانية: البيانات الثقيلة (الأعضاء، الموردين، الطلبات التفصيلية)
       if (activeUser) {
-        const fetchedOrders = await ApiService.getOrders();
-        setOrders(fetchedOrders || []);
-        
-        if (activeUser.role === 'admin') {
-          const [fetchedUsers, fetchedSuppliers] = await Promise.all([
-            ApiService.getUsers(),
-            ApiService.getSuppliers()
-          ]);
-          setUsers(fetchedUsers || []);
-          setSuppliers(fetchedSuppliers || []);
-          
-          if (fetchedOrders && fetchedOrders.length > 0) {
+        // لا ننتظر هذه البيانات لعرض الواجهة، بل نحملها في الخلفية
+        ApiService.getOrders().then(fetchedOrders => {
+          setOrders(fetchedOrders || []);
+          if (activeUser.role === 'admin' && fetchedOrders?.length > 0) {
             if (prevOrderIds.current.size === 0) {
               prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
             } else {
@@ -144,6 +153,11 @@ const App: React.FC = () => {
               }
             }
           }
+        });
+        
+        if (activeUser.role === 'admin') {
+          ApiService.getUsers().then(u => setUsers(u || []));
+          ApiService.getSuppliers().then(s => setSuppliers(s || []));
         }
       }
     } catch (err) {
@@ -157,7 +171,7 @@ const App: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') loadData(true);
-    }, 15000);
+    }, 20000); // زيادة المهلة لتقليل الضغط
     return () => clearInterval(interval);
   }, [currentUser?.id]);
 
@@ -176,6 +190,7 @@ const App: React.FC = () => {
     setOrders([]);
     setUsers([]);
     setSuppliers([]);
+    setAdminSummary(null);
     prevOrderIds.current.clear();
     setView('store');
   };
@@ -315,8 +330,6 @@ const App: React.FC = () => {
                 
                 if (success) { 
                   setNotification({message: 'تم الحفظ بنجاح', type: 'success'}); 
-                  
-                  // تحسين الأداء: تحديث قائمة المنتجات في الذاكرة فوراً لخدمة الكاشير والبحث
                   setProducts(prev => {
                     if (isUpdate) {
                       return prev.map(prod => prod.id === p.id ? p : prod);
@@ -324,8 +337,6 @@ const App: React.FC = () => {
                       return [p, ...prev];
                     }
                   });
-
-                  // تحديث الباركرود وترك التحميل الشامل للمخزن في الخلفية
                   setProductForBarcode(p); 
                   loadData(true); 
                 }
@@ -345,8 +356,6 @@ const App: React.FC = () => {
                 
                 if (success) {
                   prevOrderIds.current.add(order.id);
-                  
-                  // تحسين الأداء: تحديث الحالة محلياً فوراً لمنع انتظار الـ Network
                   setProducts(prev => prev.map(p => {
                     const itemInOrder = order.items.find(item => item.id === p.id);
                     if (itemInOrder) {
@@ -356,14 +365,11 @@ const App: React.FC = () => {
                     return p;
                   }));
                   setOrders(prev => [order, ...prev.filter(o => o.id !== order.id)]);
-
                   setLastCreatedOrder(order);
                   setNotification({message: isUpdate ? 'تم تحديث الطلب' : 'تم حفظ الطلب', type: 'success'});
-                  
                   if (!isActuallyAdmin && !isUpdate) {
                     WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   }
-                  
                   loadData(true);
                   setEditingOrder(null);
                   setView('order-success');
