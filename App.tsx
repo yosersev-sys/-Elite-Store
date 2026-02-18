@@ -310,8 +310,25 @@ const App: React.FC = () => {
             <AdminProductForm 
               product={selectedProduct} categories={categories} suppliers={suppliers}
               onSubmit={async (p) => {
-                const success = products.find(prod => prod.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
-                if (success) { setNotification({message: 'تم الحفظ بنجاح', type: 'success'}); await loadData(true); setProductForBarcode(p); }
+                const isUpdate = !!products.find(prod => prod.id === p.id);
+                const success = isUpdate ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
+                
+                if (success) { 
+                  setNotification({message: 'تم الحفظ بنجاح', type: 'success'}); 
+                  
+                  // تحسين الأداء: تحديث قائمة المنتجات في الذاكرة فوراً لخدمة الكاشير والبحث
+                  setProducts(prev => {
+                    if (isUpdate) {
+                      return prev.map(prod => prod.id === p.id ? p : prod);
+                    } else {
+                      return [p, ...prev];
+                    }
+                  });
+
+                  // تحديث الباركرود وترك التحميل الشامل للمخزن في الخلفية
+                  setProductForBarcode(p); 
+                  loadData(true); 
+                }
               }}
               onCancel={() => setView('admin')}
             />
@@ -333,7 +350,6 @@ const App: React.FC = () => {
                   setProducts(prev => prev.map(p => {
                     const itemInOrder = order.items.find(item => item.id === p.id);
                     if (itemInOrder) {
-                      // إذا كان تحديث لطلب قديم، نحتاج لحساب الفرق، لكن للتبسيط في الكاشير السريع نحدث القيم
                       const newQty = Math.max(0, p.stockQuantity - itemInOrder.quantity);
                       return { ...p, stockQuantity: newQty, salesCount: (p.salesCount || 0) + itemInOrder.quantity };
                     }
@@ -348,9 +364,7 @@ const App: React.FC = () => {
                     WhatsAppService.sendInvoiceToCustomer(order, order.phone);
                   }
                   
-                  // لا نستخدم await هنا، نجعل التحديث يتم في الخلفية لسرعة واجهة الكاشير
                   loadData(true);
-                  
                   setEditingOrder(null);
                   setView('order-success');
                 }
