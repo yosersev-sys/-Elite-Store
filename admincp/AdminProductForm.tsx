@@ -54,7 +54,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     slug: ''
   });
 
-  // وظيفة لضغط الصور برمجياً
   const compressImage = (base64Str: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -83,7 +82,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.7)); // ضغط الجودة لـ 70%
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); 
         } else {
           resolve(base64Str);
         }
@@ -94,6 +93,17 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   useEffect(() => {
     if (product) {
       if (product.id !== prevProductIdRef.current) {
+        // إذا كان هناك مخزون ولكن لا توجد دفعات، ننشئ دفعة افتتاحية لمنع تصفير المخزون
+        let initialBatches = product.batches || [];
+        if (initialBatches.length === 0 && Number(product.stockQuantity) > 0) {
+          initialBatches = [{
+            id: 'initial_' + Date.now(),
+            quantity: Number(product.stockQuantity),
+            wholesalePrice: Number(product.wholesalePrice || 0),
+            createdAt: product.createdAt || Date.now()
+          }];
+        }
+
         setFormData({
           name: product.name || '',
           description: product.description || '',
@@ -107,7 +117,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           sizes: product.sizes?.join(', ') || '',
           colors: product.colors?.join(', ') || '',
           images: product.images || [],
-          batches: product.batches || []
+          batches: initialBatches
         });
         
         if (product.seoSettings) {
@@ -126,6 +136,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     }
   }, [categories, product, formData.categoryId]);
 
+  // تحديث إجمالي المخزون عند تغير الدفعات
   useEffect(() => {
     const total = formData.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
     setFormData(prev => ({ ...prev, stockQuantity: total.toString() }));
@@ -189,6 +200,12 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     }));
     setNewBatchQty('');
     setNewBatchPrice('');
+  };
+
+  const clearAllStock = () => {
+    if (window.confirm('سيتم حذف كافة كميات المخزون الحالية والبدء من الصفر. هل أنت متأكد؟')) {
+      setFormData(prev => ({ ...prev, batches: [], stockQuantity: '0' }));
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -270,7 +287,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
            <div className="bg-white p-10 rounded-[3rem] text-center space-y-4 shadow-2xl">
               <div className="w-16 h-16 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin mx-auto"></div>
               <p className="font-black text-slate-800 text-lg">
-                {isCompressing ? 'جاري تحسين الصور...' : 'جاري نشر المنتج في المتجر...'}
+                {isCompressing ? 'جاري تحسين الصور...' : 'جاري حفظ التعديلات...'}
               </p>
               <p className="text-slate-400 text-xs font-bold">يرجى عدم إغلاق الصفحة</p>
            </div>
@@ -374,7 +391,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               </button>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
             </div>
-            {isCompressing && <p className="text-emerald-600 font-black text-xs animate-pulse">جاري تحسين الصور المرفوعة لتسريع الرفع... ⚡</p>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -383,10 +399,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
               <input 
                 required 
                 value={formData.name} 
-                onChange={e => {
-                  const val = e.target.value;
-                  setFormData(prev => ({ ...prev, name: val }));
-                }} 
+                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} 
                 className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner" 
                 placeholder="مثال: طماطم بلدي طازجة" 
               />
@@ -440,17 +453,22 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 إدارة المخزون والتوريد (FIFO)
               </h3>
               <p className="text-slate-400 font-bold text-sm mt-2 leading-relaxed max-w-xl">
-                نظام الوارد أولاً يصرف أولاً (FIFO) يضمن لك حساب أرباح دقيق بناءً على تكلفة كل شحنة توريد على حدة.
+                نظام الوارد أولاً يصرف أولاً (FIFO) يضمن حساب أرباح دقيق. يمكنك البدء من جديد عبر مسح الدفعات القديمة.
               </p>
             </div>
-            <div className="flex items-center justify-center bg-slate-900 text-white px-8 py-6 rounded-[2.5rem] shadow-2xl border-4 border-emerald-500/20 transform hover:scale-105 transition-transform">
-               <div className="text-center">
-                 <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">المخزون الكلي المتوفر</p>
-                 <div className="flex items-baseline gap-2">
-                   <p className="text-4xl font-black">{formData.stockQuantity}</p>
-                   <p className="text-xs font-bold text-slate-400">{getUnitAr(formData.unit)}</p>
-                 </div>
+            <div className="flex flex-col gap-3">
+               <div className="flex items-center justify-center bg-slate-900 text-white px-8 py-6 rounded-[2.5rem] shadow-2xl border-4 border-emerald-500/20 transform hover:scale-105 transition-transform">
+                  <div className="text-center">
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">المخزون الكلي المتوفر</p>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-4xl font-black">{formData.stockQuantity}</p>
+                      <p className="text-xs font-bold text-slate-400">{getUnitAr(formData.unit)}</p>
+                    </div>
+                  </div>
                </div>
+               {Number(formData.stockQuantity) > 0 && (
+                 <button type="button" onClick={clearAllStock} className="text-[10px] font-black text-rose-500 hover:bg-rose-50 py-2 rounded-xl transition-all">تصفير المخزون (البدء من الأول) 🔄</button>
+               )}
             </div>
           </div>
 
@@ -503,7 +521,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
 
             <div className="space-y-6">
                <h4 className="font-black text-slate-700 text-sm flex items-center justify-between px-2">
-                 <span>تفاصل الدفعات (تاريخياً)</span>
+                 <span>دفعات المخزون الحالية</span>
                  <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded-md">أقدم → أحدث</span>
                </h4>
                
@@ -535,7 +553,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                               type="button" 
                               onClick={() => setFormData(prev => ({...prev, batches: prev.batches.filter(b => b.id !== batch.id)}))} 
                               className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                              title="حذف هذه شحنة"
                             >
                               ✕
                             </button>
@@ -551,7 +568,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
              <div className="w-full md:w-auto space-y-4">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
-                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest">تحديد سعر البيع للجمهور (ج.م)</label>
+                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest">سعر البيع للجمهور (ج.م)</label>
                 </div>
                 <div className="relative group max-w-sm">
                   <input 
@@ -574,7 +591,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
                 <div>
                    <p className="font-black text-indigo-900 text-xs mb-1">الربح المتوقع لكل قطعة</p>
                    <p className="text-slate-500 text-[10px] leading-relaxed">
-                     بناءً على التكلفة الحالية ({formData.wholesalePrice} ج.م)، ربحك في القطعة الواحدة هو <span className="text-indigo-600 font-black">{(parseFloat(formData.price || '0') - parseFloat(formData.wholesalePrice || '0')).toFixed(2)} ج.م</span>
+                     بناءً على آخر تكلفة ({formData.wholesalePrice} ج.م)، ربحك في القطعة هو <span className="text-indigo-600 font-black">{(parseFloat(formData.price || '0') - parseFloat(formData.wholesalePrice || '0')).toFixed(2)} ج.م</span>
                    </p>
                 </div>
              </div>
