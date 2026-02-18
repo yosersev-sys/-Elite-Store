@@ -24,7 +24,6 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
     isActive: true
   });
 
-  // ترتيب الأقسام بناءً على sortOrder قبل الفلترة
   const sortedCategories = useMemo(() => {
     return [...categories].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   }, [categories]);
@@ -86,18 +85,17 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
     return products.filter(p => p.categoryId === catId).length;
   };
 
-  // --- منطق السحب والإفلات ---
   const handleDragStart = (index: number) => {
     setDraggedItemIndex(index);
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
+    e.preventDefault(); // ضروري للسماح بالإفلات
     if (draggedItemIndex === index) return;
     setDragOverItemIndex(index);
   };
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     if (draggedItemIndex === null || draggedItemIndex === dropIndex) {
       setDraggedItemIndex(null);
@@ -105,18 +103,22 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
       return;
     }
 
-    // إعادة ترتيب القائمة
+    // إعادة الترتيب محلياً
     const newItems = [...filteredCategories];
     const [draggedItem] = newItems.splice(draggedItemIndex, 1);
     newItems.splice(dropIndex, 0, draggedItem);
 
-    // تحديث الترتيب (sortOrder) لجميع الأقسام المتأثرة
-    newItems.forEach((item, idx) => {
+    // تحديث السيرفر لكل عنصر تغير ترتيبه
+    const promises = newItems.map((item, idx) => {
       const newSortOrder = idx + 1;
       if (item.sortOrder !== newSortOrder) {
-        onUpdateCategory({ ...item, sortOrder: newSortOrder });
+        return onUpdateCategory({ ...item, sortOrder: newSortOrder });
       }
-    });
+      return null;
+    }).filter(p => p !== null);
+
+    // نحن لا ننتظر هنا لضمان سلاسة الواجهة (Optimistic Update)
+    // التحديث سيظهر فوراً لأن الأب يحدث حالة categories
 
     setDraggedItemIndex(null);
     setDragOverItemIndex(null);
@@ -124,7 +126,6 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
 
   return (
     <div className="space-y-8">
-      {/* رأس الصفحة مع الإحصائيات والبحث */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
         <div className="flex gap-8">
            <div>
@@ -163,12 +164,11 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
         <p className="text-emerald-700 text-xs font-bold">يمكنك إعادة ترتيب الأقسام بسحب البطاقات وإفلاتها في المكان المطلوب.</p>
       </div>
 
-      {/* شبكة الأقسام مع دعم السحب */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredCategories.map((cat, index) => (
           <div 
             key={cat.id} 
-            draggable={!searchTerm} // تعطيل السحب عند البحث لتجنب تضارب الترتيب
+            draggable={!searchTerm}
             onDragStart={() => handleDragStart(index)}
             onDragOver={(e) => handleDragOver(e, index)}
             onDrop={(e) => handleDrop(e, index)}
@@ -185,9 +185,8 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
                 <div className="w-full h-full flex items-center justify-center text-4xl opacity-20">📦</div>
               )}
               
-              {/* أيقونة مقبض السحب */}
               <div className="absolute top-4 right-4 bg-white/80 backdrop-blur-md p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-slate-400 text-xs">⠿</span>
+                <span className="text-slate-400 text-xs font-black">⠿</span>
               </div>
 
               <div className="absolute top-4 left-4">
@@ -220,7 +219,6 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
         ))}
       </div>
 
-      {/* Modal الإضافة والتعديل */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setIsModalOpen(false)}></div>
@@ -236,7 +234,6 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
             </div>
 
             <div className="space-y-6">
-              {/* صورة القسم */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">أيقونة/صورة القسم</label>
                 <div 
@@ -255,7 +252,6 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
                 </div>
               </div>
 
-              {/* اسم القسم */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">اسم القسم بالكامل</label>
                 <input 
@@ -267,7 +263,6 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
                 />
               </div>
 
-              {/* حالة النشاط */}
               <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl">
                  <div>
                    <p className="font-black text-slate-700 text-sm">تفعيل القسم</p>
