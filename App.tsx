@@ -106,7 +106,6 @@ const App: React.FC = () => {
       if (!isSilent) setIsLoading(true);
       let activeUser = forcedUser !== undefined ? forcedUser : currentUser;
       
-      // 1. الأولوية القصوى: الإعدادات والمنتجات والأقسام والملخص المالي
       const promises: any[] = [
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
@@ -133,9 +132,7 @@ const App: React.FC = () => {
         setAdminSummary(results[4]);
       }
 
-      // 2. الأولوية الثانية: البيانات الثقيلة (الأعضاء، الموردين، الطلبات التفصيلية)
       if (activeUser) {
-        // لا ننتظر هذه البيانات لعرض الواجهة، بل نحملها في الخلفية
         ApiService.getOrders().then(fetchedOrders => {
           setOrders(fetchedOrders || []);
           if (activeUser.role === 'admin' && fetchedOrders?.length > 0) {
@@ -171,7 +168,7 @@ const App: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') loadData(true);
-    }, 20000); // زيادة المهلة لتقليل الضغط
+    }, 20000); 
     return () => clearInterval(interval);
   }, [currentUser?.id]);
 
@@ -274,7 +271,7 @@ const App: React.FC = () => {
           {(view === 'admin' || view === 'admincp') && isActuallyAdmin && (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser}
-              isLoading={isLoading}
+              isLoading={isLoading} adminSummary={adminSummary}
               onOpenAddForm={() => { setSelectedProduct(null); setView('admin-form'); }}
               onOpenEditForm={(p) => { setSelectedProduct(p); setView('admin-form'); }}
               onOpenInvoiceForm={() => { setEditingOrder(null); setView('admin-invoice'); }}
@@ -295,12 +292,35 @@ const App: React.FC = () => {
                 setLastCreatedOrder(order);
                 setView('order-success');
               }}
-              onUpdateOrderPayment={async (id, method) => {
-                const success = await ApiService.updateOrderPayment(id, method);
-                if(success) { 
-                  setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentMethod: method } : o));
-                  setNotification({message: 'تم تحديث حالة الدفع بنجاح', type: 'success'}); 
+              onUpdateOrderPayment={(id, method) => {
+                // تحسين الأداء: تحديث الحالة لحظياً قبل إرسال الطلب للسيرفر
+                const previousOrders = [...orders];
+                const orderToUpdate = orders.find(o => o.id === id);
+                if (!orderToUpdate) return;
+
+                // تحديث الواجهة فوراً
+                setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentMethod: method } : o));
+                setNotification({message: 'جاري تحديث الدفع...', type: 'success'});
+
+                // تحديث الملخص المالي فوراً إذا كان الانتقال لنقدي
+                if (adminSummary && method.includes('نقدي')) {
+                  setAdminSummary((prev: any) => ({
+                    ...prev,
+                    total_customer_debt: Math.max(0, (prev.total_customer_debt || 0) - (orderToUpdate.total || 0))
+                  }));
                 }
+
+                // تنفيذ الطلب في الخلفية
+                ApiService.updateOrderPayment(id, method).then(success => {
+                  if (success) {
+                    setNotification({message: 'تم تحديث حالة الدفع بنجاح', type: 'success'});
+                    loadData(true);
+                  } else {
+                    // في حال الفشل، نقوم بالتراجع
+                    setOrders(previousOrders);
+                    setNotification({message: 'فشل تحديث الدفع، يرجى المحاولة لاحقاً', type: 'error'});
+                  }
+                });
               }}
               onReturnOrder={async (id) => {
                 if(!confirm('تأكيد الاسترجاع؟')) return;

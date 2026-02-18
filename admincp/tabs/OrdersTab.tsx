@@ -37,11 +37,10 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
 
   const totalOrderPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
-  const handleUpdatePayment = async (id: string, method: string) => {
-    if (processingId === id) return;
-    setProcessingId(id);
-    await onUpdateOrderPayment(id, method);
-    setProcessingId(null);
+  const handleUpdatePayment = (id: string, method: string) => {
+    // التحديث المتفائل: نحن لا نستخدم await هنا في واجهة الأوامر
+    // بل نقوم بتشغيل الدالة الأم التي ستحدث الحالة فوراً
+    onUpdateOrderPayment(id, method);
   };
 
   if (isLoading && orders.length === 0) {
@@ -102,7 +101,6 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
               const currentPayment = o.paymentMethod || 'نقدي (تم الدفع)';
               const isDebt = String(currentPayment).includes('آجل');
               const isCancelled = o.status === 'cancelled';
-              const isProcessing = processingId === o.id;
               
               return (
                 <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
@@ -115,16 +113,14 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                     {isCancelled ? (
                       <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
                     ) : (
-                      <div className={`flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50 ${isProcessing ? 'animate-pulse opacity-60' : ''}`}>
+                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/50">
                         <button 
-                          disabled={isProcessing}
                           onClick={() => handleUpdatePayment(o.id, 'نقدي (تم الدفع)')}
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${!isDebt ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
                           نقدي 💰
                         </button>
                         <button 
-                          disabled={isProcessing}
                           onClick={() => handleUpdatePayment(o.id, 'آجل (مديونية)')}
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${isDebt ? 'bg-orange-600 text-white shadow-md' : 'text-slate-400 hover:bg-white/50'}`}
                         >
