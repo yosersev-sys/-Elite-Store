@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Product, Category, Order, User, Supplier } from '../types';
 import StatsTab from './tabs/StatsTab.tsx';
@@ -131,7 +130,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
         <div className="mt-auto hidden lg:block space-y-4">
            <button onClick={props.onToggleSound} className={`w-full py-3 rounded-2xl font-black text-xs border transition-all flex items-center justify-center gap-2 ${props.soundEnabled ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-slate-700/30 text-slate-500 border-slate-700/50'}`}>
-             <span>{props.soundEnabled ? '🔔 منبه مفعل' : '🔕 منبه صامت'}</span>
+             <span>{props.soundEnabled ? '🔔 منبه مفعل' : '🖕 منبه صامت'}</span>
            </button>
            <button onClick={props.onLogout} className="w-full bg-rose-500/10 text-rose-500 py-3 rounded-2xl font-black text-xs border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all">خروج 👋</button>
         </div>
@@ -141,7 +140,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
            <div>
              <h3 className="text-2xl md:text-4xl font-black text-slate-800">{tabTitles[activeTab]}</h3>
-             <p className="text-slate-400 text-xs font-bold mt-1">نظام إدارة فاقوس المتطور</p>
+             <p className="text-slate-400 text-xs font-bold mt-1">نظام إدارة سوق العصر المتطور</p>
            </div>
            <div className="flex gap-2 w-full md:w-auto">
              <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">🧾 فاتورة</button>
