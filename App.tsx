@@ -301,9 +301,10 @@ const App: React.FC = () => {
               }}
               onReturnOrder={async (id) => {
                 if(!confirm('تأكيد الاسترجاع؟ سيتم إعادة الكميات للمخزن.')) return;
-                // تحديث متفائل: إضافة الكميات فوراً في الواجهة
+                
                 const orderToReturn = orders.find(o => o.id === id);
                 if (orderToReturn) {
+                  // تحديث متفائل للواجهة
                   setProducts(prev => prev.map(p => {
                     const itemInOrder = orderToReturn.items.find(i => i.id === p.id);
                     if (itemInOrder) {
@@ -312,13 +313,19 @@ const App: React.FC = () => {
                     return p;
                   }));
                 }
-                const res = await ApiService.returnOrder(id);
-                if(res.status === 'success') { 
-                  setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' as any } : o));
-                  setNotification({message: 'تم الاسترجاع وتحديث المخزن بنجاح', type: 'success'}); 
-                  loadData(true);
-                } else {
-                  loadData(true); // تراجع في حال الفشل
+
+                try {
+                    const res = await ApiService.returnOrder(id);
+                    if(res.status === 'success') { 
+                      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' as any } : o));
+                      setNotification({message: 'تم الاسترجاع وتعديل المخزن بنجاح', type: 'success'}); 
+                      loadData(true);
+                    } else {
+                      throw new Error("Failed to return on server");
+                    }
+                } catch(e) {
+                    setNotification({message: 'فشل التحديث في السيرفر', type: 'error'});
+                    loadData(true); // تراجع وإعادة مزامنة
                 }
               }}
               onDeleteUser={async (id) => {
@@ -354,17 +361,16 @@ const App: React.FC = () => {
               order={editingOrder}
               onSubmit={async (order) => {
                 const isUpdate = !!editingOrder;
-                
-                // تحديث متفائل (Optimistic UI): خصم المخزن لحظياً
                 const previousProducts = [...products];
+                
+                // تحديث متفائل (Optimistic UI)
                 setProducts(prev => prev.map(p => {
                   const itemInOrder = order.items.find(item => item.id === p.id);
                   if (itemInOrder) {
                     const diff = isUpdate 
                       ? itemInOrder.quantity - (editingOrder?.items.find(i => i.id === p.id)?.quantity || 0)
                       : itemInOrder.quantity;
-                    const newQty = Math.max(0, p.stockQuantity - diff);
-                    return { ...p, stockQuantity: newQty, salesCount: (p.salesCount || 0) + diff };
+                    return { ...p, stockQuantity: p.stockQuantity - diff, salesCount: (p.salesCount || 0) + diff };
                   }
                   return p;
                 }));
@@ -373,18 +379,14 @@ const App: React.FC = () => {
                 
                 if (success) {
                   prevOrderIds.current.add(order.id);
-                  setOrders(prev => [order, ...prev.filter(o => o.id !== order.id)]);
-                  setLastCreatedOrder(order);
                   setNotification({message: isUpdate ? 'تم تحديث الطلب والمخزن' : 'تم حفظ الفاتورة وخصم المخزن', type: 'success'});
-                  if (!isActuallyAdmin && !isUpdate) {
-                    WhatsAppService.sendInvoiceToCustomer(order, order.phone);
-                  }
+                  setLastCreatedOrder(order);
                   loadData(true);
                   setEditingOrder(null);
                   setView('order-success');
                 } else {
-                  setProducts(previousProducts); // تراجع في حال الفشل
-                  setNotification({message: 'حدث خطأ في المزامنة مع السيرفر', type: 'error'});
+                  setProducts(previousProducts); // تراجع
+                  setNotification({message: 'فشل المزامنة مع السيرفر', type: 'error'});
                 }
               }}
               onCancel={() => { setEditingOrder(null); setView(isActuallyAdmin ? 'admin' : 'store'); }}
