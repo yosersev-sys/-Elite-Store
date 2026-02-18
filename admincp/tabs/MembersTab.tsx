@@ -138,7 +138,8 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
       {/* Modal Add/Edit */}
       {(isAddModalOpen || editingUser) && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => !isSaving && (setIsAddModalOpen(false) || setEditingUser(null))}></div>
+          {/* Fix: Replaced truthiness evaluation of void expressions with a clear function block on line 141 */}
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => { if (!isSaving) { setIsAddModalOpen(false); setEditingUser(null); } }}></div>
           <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 md:p-10 animate-slideUp">
             <div className="text-center mb-8">
               <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4 ${isAddModalOpen ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-100 text-indigo-600'}`}>

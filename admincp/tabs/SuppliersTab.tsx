@@ -21,9 +21,12 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false); // حالة نافذة زيادة المديونية
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [debtAmount, setDebtAmount] = useState(''); // مبلغ المديونية الجديدة
   const [activeSupplierForPayment, setActiveSupplierForPayment] = useState<Supplier | null>(null);
+  const [activeSupplierForDebt, setActiveSupplierForDebt] = useState<Supplier | null>(null);
   const [activeSupplierForHistory, setActiveSupplierForHistory] = useState<Supplier | null>(null);
 
   const [formData, setFormData] = useState({
@@ -157,8 +160,9 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     setIsSaving(true);
     try {
       const newPayment: SupplierPayment = {
-        amount,
-        date: Date.now()
+        amount: -amount, // سداد (ينقص المديونية)
+        date: Date.now(),
+        notes: 'سداد دفعة نقدية'
       };
       
       const updatedSupplier = {
@@ -167,7 +171,6 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         paymentHistory: [...(activeSupplierForPayment.paymentHistory || []), newPayment]
       };
       
-      // نرسل التحديث وننتظر النتيجة التفصيلية
       const response = await fetch(`api.php?action=update_supplier`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,7 +188,50 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         alert(`فشل تسجيل الدفعة: ${result.message}\n${result.debug || ''}`);
       }
     } catch (err) {
-      alert('خطأ في الاتصال بالسيرفر، تأكد من جودة الإنترنت');
+      alert('خطأ في الاتصال بالسيرفر');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleIncreaseDebt = async () => {
+    if (isSaving) return;
+    if (!activeSupplierForDebt || !debtAmount) return;
+    const amount = parseFloat(debtAmount);
+    if (isNaN(amount) || amount <= 0) return alert('أدخل مبلغ صحيح');
+
+    setIsSaving(true);
+    try {
+      const newEntry: SupplierPayment = {
+        amount: amount, // زيادة (يضيف للمديونية)
+        date: Date.now(),
+        notes: 'استلام بضاعة آجل'
+      };
+      
+      const updatedSupplier = {
+        ...activeSupplierForDebt,
+        balance: activeSupplierForDebt.balance + amount,
+        paymentHistory: [...(activeSupplierForDebt.paymentHistory || []), newEntry]
+      };
+      
+      const response = await fetch(`api.php?action=update_supplier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSupplier)
+      });
+      
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        if (onRefresh) await onRefresh();
+        else await fetchSuppliers();
+        setIsDebtModalOpen(false);
+        setDebtAmount('');
+      } else {
+        alert(`فشل زيادة المديونية: ${result.message}\n${result.debug || ''}`);
+      }
+    } catch (err) {
+      alert('خطأ في الاتصال بالسيرفر');
     } finally {
       setIsSaving(false);
     }
@@ -293,18 +339,28 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
 
               <div className="flex flex-row md:flex-col justify-center gap-2">
                  <button disabled={isSaving} onClick={() => openEditModal(s)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="تعديل">✎</button>
+                 
+                 <button 
+                  disabled={isSaving}
+                  onClick={() => { if(!isSaving) { setActiveSupplierForDebt(s); setIsDebtModalOpen(true); } }}
+                  className="p-3 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-600 hover:text-white transition-all shadow-sm" 
+                  title="زيادة مديونية"
+                 >➕</button>
+
                  <button 
                   disabled={isSaving}
                   onClick={() => { if(!isSaving) { setActiveSupplierForPayment(s); setIsPaymentModalOpen(true); } }}
                   className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" 
-                  title="دفع مبلع"
+                  title="دفع مبلغ (سداد)"
                  >💸</button>
+
                  <button 
                   disabled={isSaving}
                   onClick={() => { setActiveSupplierForHistory(s); setIsHistoryModalOpen(true); }}
                   className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm" 
-                  title="سجل المدفوعات"
+                  title="سجل العمليات"
                  >🕒</button>
+                 
                  <button 
                   disabled={isSaving}
                   onClick={() => window.open(`https://wa.me/2${s.phone.replace(/\D/g, '')}`, '_blank')}
@@ -321,23 +377,72 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsHistoryModalOpen(false)}></div>
           <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden max-h-[80vh] flex flex-col">
-             <h3 className="text-xl font-black text-slate-800 mb-6 text-center">سجل مدفوعات {activeSupplierForHistory.name}</h3>
+             <h3 className="text-xl font-black text-slate-800 mb-6 text-center">سجل عمليات {activeSupplierForHistory.name}</h3>
              <div className="flex-grow overflow-y-auto no-scrollbar space-y-3">
                 {(!activeSupplierForHistory.paymentHistory || activeSupplierForHistory.paymentHistory.length === 0) ? (
                    <div className="text-center py-20 text-slate-300 font-bold italic">لا توجد حركات مالية مسجلة بعد.</div>
                 ) : (
                    activeSupplierForHistory.paymentHistory.slice().reverse().map((pay, i) => (
-                      <div key={i} className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
+                      <div key={i} className={`p-4 rounded-2xl flex justify-between items-center border ${pay.amount < 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
                          <div>
-                            <p className="text-emerald-600 font-black text-lg">{pay.amount.toLocaleString()} ج.م</p>
+                            <p className={`font-black text-lg ${pay.amount < 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {Math.abs(pay.amount).toLocaleString()} ج.م
+                            </p>
                             <p className="text-[10px] text-slate-400 font-bold">{new Date(pay.date).toLocaleString('ar-EG')}</p>
+                            {pay.notes && <p className="text-[9px] text-slate-500 mt-1 font-bold">{pay.notes}</p>}
                          </div>
-                         <div className="bg-emerald-100 text-emerald-600 p-2 rounded-xl text-xs font-black">دفعة مُسددة ✅</div>
+                         <div className={`px-3 py-1 rounded-xl text-[10px] font-black ${pay.amount < 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                            {pay.amount < 0 ? 'سداد ✅' : 'مديونية ➕'}
+                         </div>
                       </div>
                    ))
                 )}
              </div>
              <button onClick={() => setIsHistoryModalOpen(false)} className="w-full mt-6 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm">إغلاق النافذة</button>
+          </div>
+        </div>
+      )}
+
+      {/* Debt Increase Modal (New) */}
+      {isDebtModalOpen && activeSupplierForDebt && (
+        <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
+            onClick={() => !isSaving && setIsDebtModalOpen(false)}
+          ></div>
+          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden">
+             {isSaving && (
+               <div className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center gap-4 animate-fadeIn">
+                 <div className="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+                 <p className="font-black text-slate-800 text-sm">جاري تحديث المديونية...</p>
+               </div>
+             )}
+
+             <h3 className="text-xl font-black text-slate-800 mb-6 text-center">إضافة مديونية لـ {activeSupplierForDebt.name}</h3>
+             <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-2xl text-center mb-6">
+                   <p className="text-[10px] font-black text-slate-400 uppercase">الرصيد الحالي</p>
+                   <p className="text-2xl font-black text-slate-800">{activeSupplierForDebt.balance.toLocaleString()} ج.م</p>
+                </div>
+                <input 
+                  disabled={isSaving}
+                  type="number" 
+                  value={debtAmount}
+                  onChange={e => setDebtAmount(e.target.value)}
+                  placeholder="أدخل مبلغ المديونية الجديدة..."
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-rose-500 outline-none font-black text-center text-lg shadow-inner transition-all disabled:opacity-50"
+                />
+                <button 
+                  onClick={handleIncreaseDebt}
+                  disabled={isSaving || !debtAmount}
+                  className={`w-full text-white py-5 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400' : 'bg-rose-600 hover:bg-slate-900'}`}
+                >
+                   <span>تأكيد الإضافة للحساب ➕</span>
+                </button>
+                {!isSaving && (
+                  <button onClick={() => setIsDebtModalOpen(false)} className="w-full text-slate-400 font-bold text-xs py-2 hover:text-slate-600">إلغاء</button>
+                )}
+             </div>
           </div>
         </div>
       )}
@@ -357,7 +462,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                </div>
              )}
 
-             <h3 className="text-xl font-black text-slate-800 mb-6 text-center">تسجيل دفعة لـ {activeSupplierForPayment.name}</h3>
+             <h3 className="text-xl font-black text-slate-800 mb-6 text-center">تسجيل سداد لـ {activeSupplierForPayment.name}</h3>
              <div className="space-y-4">
                 <div className="bg-rose-50 p-4 rounded-2xl text-center mb-6">
                    <p className="text-[10px] font-black text-rose-400 uppercase">المديونية الحالية</p>
@@ -376,7 +481,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                   disabled={isSaving || !paymentAmount}
                   className={`w-full text-white py-5 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400' : 'bg-slate-900 hover:bg-emerald-600'}`}
                 >
-                   <span>تأكيد دفع المبلغ ✅</span>
+                   <span>تأكيد سداد المبلغ ✅</span>
                 </button>
                 {!isSaving && (
                   <button onClick={() => setIsPaymentModalOpen(false)} className="w-full text-slate-400 font-bold text-xs py-2 hover:text-slate-600">إلغاء</button>
