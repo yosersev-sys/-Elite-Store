@@ -1,7 +1,7 @@
 
 <?php
 /**
- * API Backend for Soq Al-Asr - Optimized Performance Version v6.2
+ * API Backend for Soq Al-Asr - Optimized Performance Version v6.3
  */
 session_start();
 error_reporting(0); 
@@ -35,12 +35,21 @@ function ensureSchema($pdo) {
     $cacheFile = sys_get_temp_dir() . '/souq_schema_check_' . md5(DB_NAME);
     if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 3600)) return;
 
+    // إنشاء الجداول الأساسية
     $pdo->exec("CREATE TABLE IF NOT EXISTS categories (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, image LONGTEXT, isActive TINYINT(1) DEFAULT 1, sortOrder INT DEFAULT 0)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role VARCHAR(20) DEFAULT 'user', createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value LONGTEXT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(20) NOT NULL, companyName VARCHAR(255), address TEXT, notes TEXT, type VARCHAR(50) DEFAULT 'wholesale', balance DECIMAL(10,2) DEFAULT 0, rating INT DEFAULT 5, status VARCHAR(20) DEFAULT 'active', paymentHistory LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS products (id VARCHAR(50) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), wholesalePrice DECIMAL(10,2) DEFAULT 0, categoryId VARCHAR(50), supplierId VARCHAR(50), images LONGTEXT, stockQuantity DECIMAL(10,2) DEFAULT 0, unit VARCHAR(20) DEFAULT 'piece', barcode VARCHAR(100), salesCount INT DEFAULT 0, seoSettings LONGTEXT, batches LONGTEXT, createdAt BIGINT)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS orders (id VARCHAR(50) PRIMARY KEY, customerName VARCHAR(255), phone VARCHAR(20), city VARCHAR(100) DEFAULT 'فاقوس', address TEXT, subtotal DECIMAL(10,2), total DECIMAL(10,2), items LONGTEXT, paymentMethod VARCHAR(100) DEFAULT 'نقدي (تم الدفع)', status VARCHAR(50) DEFAULT 'completed', userId VARCHAR(50), createdAt BIGINT)");
+
+    // الهجرة التلقائية (Migration): إضافة عمود سجل المدفوعات إذا لم يكن موجوداً
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM suppliers LIKE 'paymentHistory'");
+        if (!$check->fetch()) {
+            $pdo->exec("ALTER TABLE suppliers ADD COLUMN paymentHistory LONGTEXT AFTER status");
+        }
+    } catch (Exception $e) {}
 
     touch($cacheFile);
 }
@@ -80,14 +89,15 @@ try {
         case 'update_supplier':
             if (!isAdmin()) sendErr('غير مصرح', 403);
             $stmt = $pdo->prepare("UPDATE suppliers SET name = ?, phone = ?, companyName = ?, address = ?, notes = ?, type = ?, balance = ?, rating = ?, status = ?, paymentHistory = ? WHERE id = ?");
-            $stmt->execute([
+            $success = $stmt->execute([
                 $input['name'], $input['phone'], $input['companyName'] ?? null,
                 $input['address'] ?? null, $input['notes'] ?? null, $input['type'] ?? 'wholesale',
                 $input['balance'] ?? 0, $input['rating'] ?? 5, $input['status'] ?? 'active',
                 json_encode($input['paymentHistory'] ?? []),
                 $input['id']
             ]);
-            sendRes(['status' => 'success']);
+            if ($success) sendRes(['status' => 'success']);
+            else sendErr('فشل تحديث البيانات في قاعدة البيانات');
             break;
 
         case 'get_suppliers':
@@ -109,7 +119,6 @@ try {
             else sendErr('فشل الحذف');
             break;
 
-        // ... بقية الـ actions (login, products, etc)
         case 'get_products':
             $prods = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC")->fetchAll();
             foreach ($prods as &$p) {
@@ -154,7 +163,6 @@ try {
             break;
 
         default: 
-            // معالجة افتراضية لمنع توقف الـ switch
             sendRes(['status' => 'ok']);
     }
 } catch (Exception $e) { sendErr($e->getMessage(), 500); }
