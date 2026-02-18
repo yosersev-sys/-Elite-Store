@@ -85,7 +85,7 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/>
               </svg>
             </div>
-            <h1 className="text-3xl font-black text-white mb-2">لوحة تحكم الإدارة</h1>
+            <h1 className="text-3xl font-black text-white mb-2">لوحة تحكم سوق العصر</h1>
             <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.3em]">Soq Al-Asr Panel</p>
           </div>
 
