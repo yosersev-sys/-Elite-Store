@@ -310,7 +310,16 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       {isPaymentModalOpen && activeSupplierForPayment && (
         <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsPaymentModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp">
+          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden">
+             
+             {/* غطاء التحميل الخاص بالدفع */}
+             {isSaving && (
+               <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center gap-4 animate-fadeIn">
+                 <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                 <p className="font-black text-slate-800 text-sm">جاري تسجيل الدفعة...</p>
+               </div>
+             )}
+
              <h3 className="text-xl font-black text-slate-800 mb-6 text-center">تسجيل دفعة لـ {activeSupplierForPayment.name}</h3>
              <div className="space-y-4">
                 <div className="bg-rose-50 p-4 rounded-2xl text-center mb-6">
@@ -352,9 +361,18 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-          {/* Prevent closing when saving */}
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setIsModalOpen(false)}></div>
           <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 md:p-12 animate-slideUp overflow-hidden max-h-[90vh] overflow-y-auto no-scrollbar">
+            
+            {/* غطاء التحميل الخاص بالحفظ */}
+            {isSaving && (
+               <div className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center gap-4 animate-fadeIn">
+                 <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                 <p className="font-black text-slate-800 text-lg">جاري حفظ بيانات المورد...</p>
+                 <p className="text-slate-400 text-xs font-bold">يرجى الانتظار، يتم تحديث قاعدة البيانات</p>
+               </div>
+            )}
+
             <h3 className="text-2xl font-black text-slate-800 mb-8 text-center">{editingSupplier ? 'تعديل بيانات المورد' : 'إضافة مورد جديد'}</h3>
             
             <div className="space-y-5">
