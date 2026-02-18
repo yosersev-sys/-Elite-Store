@@ -42,7 +42,18 @@ const safeFetch = async (action: string, options?: RequestInit) => {
       : window.location.origin + currentDir + apiBase;
 
     const url = new URL(baseUrl);
-    url.searchParams.set('action', action);
+    
+    // إصلاح: فصل الأكشن عن المعاملات الإضافية لضمان وصولها للسيرفر بشكل صحيح
+    const [actionName, ...rest] = action.split('&');
+    url.searchParams.set('action', actionName);
+    
+    if (rest.length > 0) {
+      const extraParams = new URLSearchParams(rest.join('&'));
+      extraParams.forEach((val, key) => {
+        url.searchParams.set(key, val);
+      });
+    }
+    
     url.searchParams.set('_t', Date.now().toString());
 
     const response = await fetch(url.toString(), {
@@ -157,7 +168,11 @@ export const ApiService = {
   },
 
   async returnOrder(id: string): Promise<{status: string}> {
-    return await safeFetch(`return_order&id=${id}`, { method: 'POST' }) || { status: 'error' };
+    // إصلاح: تمرير id في الجسم بالإضافة للمعامل لضمان وصوله مهما كانت إعدادات السيرفر
+    return await safeFetch(`return_order&id=${id}`, { 
+      method: 'POST',
+      body: JSON.stringify({ id }) 
+    }) || { status: 'error' };
   },
 
   async getStoreSettings(): Promise<Record<string, string>> {
