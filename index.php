@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الخارق v8.6
- * الإصلاح النهائي والأكيد لمشاكل مسارات الموديولات والـ Refresh
+ * سوق العصر - المحرك الخارق v8.7
+ * الإصلاح الجذري والأخير لمشكلة الموديولات (Module Resolution)
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -77,69 +77,54 @@ $meta_title = 'سوق العصر - فاقوس';
             '@google/genai': 'https://esm.sh/@google/genai@1.41.0'
         };
 
-        const VERSION = 'v8.6';
-        const CACHE_KEY = 'souq_babel_' + VERSION;
-        const compiledCache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+        const VERSION = 'v8.7';
         const blobCache = new Map();
         const pendingTasks = new Map();
 
         function resolvePath(path, parent) {
             if (!path.startsWith('.')) return path;
-            const parts = (parent || '').split('/');
-            parts.pop(); 
-            const base = parts.join('/');
-            const url = new URL(path, 'http://app/' + (base ? base + '/' : ''));
-            // توحيد المسار وإزالة الامتدادات للطلب الداخلي
-            return url.pathname.substring(1).replace(/\.(tsx|ts|jsx|js)$/, '');
+            const parentBase = parent.includes('/') ? parent.substring(0, parent.lastIndexOf('/')) : '';
+            const dummy = new URL(path, 'http://app/' + (parentBase ? parentBase + '/' : ''));
+            return dummy.pathname.substring(1).replace(/\.(tsx|ts|jsx|js)$/, '');
         }
 
         async function loadAndCompile(filePath, parentPath = '') {
             const cleanPath = resolvePath(filePath, parentPath);
-            
-            // 1. إذا كان الملف قيد المعالجة حالياً، انتظر نتيجته بدلاً من بدئه من جديد
             if (pendingTasks.has(cleanPath)) return pendingTasks.get(cleanPath);
             
             const task = (async () => {
                 if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
 
-                let babelCode = compiledCache[cleanPath];
+                console.debug(`[Loader] Fetching: ${cleanPath}`);
+                const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
+                if (!res.ok) throw new Error(`Missing module: ${cleanPath}`);
+                const source = await res.text();
+                
+                // ترجمة الكود مع الحفاظ على صيغة الموديولات
+                const babelResult = window.Babel.transform(source, {
+                    presets: [
+                        ['react', { runtime: 'classic' }], 
+                        ['typescript', { isTSX: true, allExtensions: true }]
+                    ],
+                    filename: cleanPath + '.tsx',
+                    sourceMaps: false,
+                    compact: false // نترك الكود غير مضغوط لسهولة الفحص والاستبدال
+                });
 
-                if (!babelCode) {
-                    try {
-                        const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
-                        if (!res.ok) throw new Error(`Could not load: ${cleanPath}`);
-                        const source = await res.text();
-                        
-                        babelCode = window.Babel.transform(source, {
-                            presets: [
-                                ['react', { runtime: 'classic' }], 
-                                ['typescript', { isTSX: true, allExtensions: true }]
-                            ],
-                            filename: cleanPath + '.tsx',
-                            compact: true, 
-                            minified: true
-                        }).code;
+                let code = babelResult.code;
 
-                        compiledCache[cleanPath] = babelCode;
-                        localStorage.setItem(CACHE_KEY, JSON.stringify(compiledCache));
-                    } catch (e) { 
-                        console.error("Fetch/Compile Error:", cleanPath, e);
-                        throw e; 
-                    }
-                }
-
-                // 2. التحويل الذكي والشامل لكل مسارات الاستيراد
-                // هذا الـ Regex يمسك: import '...', import {x} from '...', export {x} from '...', import('...')
-                const importRegex = /(import|from|export)\s+(['"])([^'"]+)\2|import\((['"])([^'"]+)\4\)/g;
-                let linkedCode = babelCode;
-                const matches = Array.from(babelCode.matchAll(importRegex));
-
-                for (const match of matches) {
-                    const originalFullMatch = match[0];
-                    const pathInside = match[3] || match[5]; // يغطي الاستيراد العادي والديناميكي
+                // نظام استبدال المسارات الفائق
+                // يمسك: from "...", import "...", export ... from "...", import("...")
+                const importRegex = /(from|import|export)\s+(['"])([^'"]+)\2|import\((['"])([^'"]+)\4\)/g;
+                const matches = Array.from(code.matchAll(importRegex));
+                
+                // سنقوم بالاستبدال من النهاية إلى البداية للحفاظ على ثبات الفهارس (Offsets)
+                for (let i = matches.length - 1; i >= 0; i--) {
+                    const match = matches[i];
+                    const fullMatch = match[0];
+                    const pathInside = match[3] || match[5];
                     const quote = match[2] || match[4];
-                    const prefix = match[1] || 'import(';
-
+                    
                     let resolved;
                     if (LIB_MAP[pathInside]) {
                         resolved = LIB_MAP[pathInside];
@@ -151,15 +136,19 @@ $meta_title = 'سوق العصر - فاقوس';
                         resolved = `https://esm.sh/${pathInside}`;
                     }
 
-                    // استبدال دقيق لكل حالة
-                    if (originalFullMatch.includes('import(')) {
-                        linkedCode = linkedCode.split(originalFullMatch).join(`import(${quote}${resolved}${quote})`);
+                    // بناء الاستبدال الجديد بدقة
+                    let replacement;
+                    if (fullMatch.startsWith('import(')) {
+                        replacement = `import(${quote}${resolved}${quote})`;
                     } else {
-                        linkedCode = linkedCode.split(originalFullMatch).join(`${prefix} ${quote}${resolved}${quote}`);
+                        const parts = fullMatch.split(quote);
+                        replacement = parts[0] + quote + resolved + quote + (parts[2] || '');
                     }
+
+                    code = code.substring(0, match.index) + replacement + code.substring(match.index + fullMatch.length);
                 }
 
-                const url = URL.createObjectURL(new Blob([linkedCode], { type: 'application/javascript' }));
+                const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
                 blobCache.set(cleanPath, url);
                 return url;
             })();
@@ -170,10 +159,10 @@ $meta_title = 'سوق العصر - فاقوس';
 
         async function init() {
             try {
-                // تصفير آلي للإصدارات القديمة لضمان نظافة الكاش
-                if (localStorage.getItem('souq_v_check') !== VERSION) {
+                // تصفير الكاش عند تغيير الإصدار
+                if (localStorage.getItem('souq_v_v') !== VERSION) {
                     localStorage.clear();
-                    localStorage.setItem('souq_v_check', VERSION);
+                    localStorage.setItem('souq_v_v', VERSION);
                     location.reload();
                     return;
                 }
@@ -182,17 +171,23 @@ $meta_title = 'سوق العصر - فاقوس';
                 const { default: App } = await import(appUrl);
                 const root = ReactDOM.createRoot(document.getElementById('root'));
                 root.render(React.createElement(App));
+                console.log("[System] App mounted successfully.");
             } catch (e) {
-                console.error("Boot Error:", e);
-                document.body.innerHTML = `<div style="padding:40px;color:red;font-family:sans-serif;direction:rtl;line-height:1.6">
-                    <h2 style="margin-bottom:10px">خطأ في تشغيل محرك المتجر</h2>
-                    <div style="background:#fff2f2;padding:20px;border:2px solid #ffcccc;border-radius:15px;margin-bottom:20px">
-                        <code style="display:block;margin-bottom:10px;color:#d32f2f;font-weight:bold">${e.message}</code>
-                        <p style="font-size:14px;color:#666">حدث هذا الخطأ غالباً بسبب تعارض في ملفات الكاش أو فقدان ملف أساسي.</p>
+                console.error("[Boot Error]", e);
+                document.body.innerHTML = `
+                <div style="padding:40px;color:#d32f2f;font-family:sans-serif;direction:rtl;text-align:center;background:#fff5f5;min-height:100vh">
+                    <div style="font-size:60px">⚠️</div>
+                    <h2 style="margin:20px 0">عذراً، فشل تشغيل محرك المتجر</h2>
+                    <div style="display:inline-block;text-align:right;background:#fff;padding:20px;border-radius:20px;border:1px solid #ffcdd2;box-shadow:0 10px 30px rgba(0,0,0,0.05);max-width:500px">
+                        <p style="font-weight:bold;margin-bottom:10px">تفاصيل الخطأ التقني:</p>
+                        <code style="display:block;background:#eee;padding:10px;border-radius:10px;font-size:12px;word-break:break-all">${e.message}</code>
+                        <p style="font-size:13px;color:#666;margin-top:15px">سبب محتمل: المتصفح لا يدعم ميزات حديثة أو هناك تداخل في ملفات الكاش.</p>
                     </div>
-                    <button onclick="localStorage.clear();location.reload()" style="padding:15px 30px;background:#10b981;color:white;border:none;border-radius:15px;font-weight:900;cursor:pointer;box-shadow:0 10px 20px rgba(16,185,129,0.2)">
-                        تحديث وإصلاح الكاش الآن 🚀
-                    </button>
+                    <div style="margin-top:30px">
+                        <button onclick="localStorage.clear();location.reload()" style="padding:15px 40px;background:#10b981;color:#white;border:none;border-radius:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 10px 20px rgba(16,185,129,0.2)">
+                            تحديث وإصلاح فوري 🚀
+                        </button>
+                    </div>
                 </div>`;
             }
         }
