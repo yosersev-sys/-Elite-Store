@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الخارق v8.4
- * إصلاح نهائي لمشكلة الـ Refresh و الـ Dynamic Import Blobs
+ * سوق العصر - المحرك الخارق v8.5
+ * الحل النهائي لمشاكل الـ Module Resolution والـ Refresh
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -77,26 +77,28 @@ $meta_title = 'سوق العصر - فاقوس';
             '@google/genai': 'https://esm.sh/@google/genai@1.41.0'
         };
 
-        const CACHE_KEY = 'souq_babel_v8.4';
+        const CACHE_KEY = 'souq_babel_v8.5';
         const compiledCache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
         const blobCache = new Map();
 
         function resolvePath(path, parent) {
             if (!path.startsWith('.')) return path;
             const parts = (parent || '').split('/');
-            parts.pop();
+            parts.pop(); // Remove current filename
             const base = parts.join('/');
             const url = new URL(path, 'http://app/' + (base ? base + '/' : ''));
+            // Strip extensions for internal fetching consistency
             return url.pathname.substring(1).replace(/\.(tsx|ts|jsx|js)$/, '');
         }
 
         async function loadAndCompile(filePath, parentPath = '') {
             const cleanPath = resolvePath(filePath, parentPath);
+            
+            // إذا كان هذا الملف تم تحميله مسبقاً في هذه الجلسة، نرجع الرابط مباشرة
             if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
 
             let babelCode = compiledCache[cleanPath];
 
-            // 1. إذا لم يكن موجوداً في الكاش، نقوم بتحميله وترجمته وحفظه "خام"
             if (!babelCode) {
                 try {
                     const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
@@ -111,31 +113,40 @@ $meta_title = 'سوق العصر - فاقوس';
 
                     compiledCache[cleanPath] = babelCode;
                     localStorage.setItem(CACHE_KEY, JSON.stringify(compiledCache));
-                } catch (e) { console.error(e); throw e; }
+                } catch (e) { 
+                    console.error("Failed to load:", cleanPath, e);
+                    throw e; 
+                }
             }
 
-            // 2. مرحلة الربط (Linking): نقوم باستبدال المسارات بـ Blob URLs جديدة لهذه الجلسة فقط
-            let linkedCode = babelCode;
-            const importRegex = /from\s+['"]([^'"]+)['"]/g;
+            // الاستبدال الذكي للمسارات
+            // نستخدم دالة غير متزامنة مع Promise.all لاستبدال كافة الـ imports
+            const importRegex = /from\s+(['"])([^'"]+)\1/g;
             const matches = Array.from(babelCode.matchAll(importRegex));
+            
+            let linkedCode = babelCode;
 
-            for (const match of matches) {
-                const original = match[1];
+            // نقوم بمعالجة كل الـ matches بالتوازي
+            const replacements = await Promise.all(matches.map(async (match) => {
+                const originalPath = match[2];
                 let resolved;
                 
-                if (LIB_MAP[original]) {
-                    resolved = LIB_MAP[original];
-                } else if (original.startsWith('.')) {
-                    // استدعاء تكراري للحصول على رابط Blob جديد للملف التابع
-                    resolved = await loadAndCompile(original, cleanPath);
+                if (LIB_MAP[originalPath]) {
+                    resolved = LIB_MAP[originalPath];
+                } else if (originalPath.startsWith('.')) {
+                    // استدعاء تكراري للحصول على رابط Blob جديد
+                    resolved = await loadAndCompile(originalPath, cleanPath);
                 } else {
-                    resolved = `https://esm.sh/${original}`;
+                    resolved = `https://esm.sh/${originalPath}`;
                 }
                 
-                // استبدال دقيق للمسار
-                linkedCode = linkedCode.split(`'${original}'`).join(`'${resolved}'`);
-                linkedCode = linkedCode.split(`"${original}"`).join(`"${resolved}"`);
-            }
+                return { original: match[0], replacement: `from '${resolved}'` };
+            }));
+
+            // تطبيق الاستبدالات على الكود النهائي
+            replacements.forEach(rep => {
+                linkedCode = linkedCode.replace(rep.original, rep.replacement);
+            });
 
             const url = URL.createObjectURL(new Blob([linkedCode], { type: 'application/javascript' }));
             blobCache.set(cleanPath, url);
@@ -144,10 +155,11 @@ $meta_title = 'سوق العصر - فاقوس';
 
         async function init() {
             try {
-                // إجبار الكاش القديم المكسور على التلاشي إذا كان من إصدار أقدم
-                if (!localStorage.getItem('souq_v8.4_check')) {
+                // تصفير الكاش القديم عند التحديث لإصدار جديد لضمان التوافق
+                const VERSION_CHECK = 'v8.5';
+                if (localStorage.getItem('souq_version') !== VERSION_CHECK) {
                     localStorage.clear();
-                    localStorage.setItem('souq_v8.4_check', 'ok');
+                    localStorage.setItem('souq_version', VERSION_CHECK);
                     location.reload();
                     return;
                 }
@@ -160,8 +172,8 @@ $meta_title = 'سوق العصر - فاقوس';
                 console.error("Boot Error:", e);
                 document.body.innerHTML = `<div style="padding:40px;color:red;font-family:sans-serif;direction:rtl">
                     <h2>خطأ في تشغيل المتجر</h2>
-                    <p>${e.message}</p>
-                    <button onclick="localStorage.clear();location.reload()" style="padding:10px 20px;background:#10b981;color:white;border:none;border-radius:10px;font-weight:bold">تحديث وإصلاح الكاش</button>
+                    <p style="background:#eee;padding:10px;border-radius:5px;font-family:monospace">${e.message}</p>
+                    <button onclick="localStorage.clear();location.reload()" style="padding:10px 20px;background:#10b981;color:white;border:none;border-radius:10px;font-weight:bold;cursor:pointer">تحديث وإصلاح الكاش</button>
                 </div>`;
             }
         }
