@@ -1,15 +1,19 @@
 DirectoryIndex index.php
+Options -Indexes
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteBase /
     
-    # استثناء ملفات البرمجة من إعادة التوجيه
-    RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule \.(ts|tsx|jsx|js|css|png|jpg|jpeg|gif|ico|svg|json|php)$ - [L]
+    # استثناء الملفات الموجودة فعلياً وملفات الـ API والمحمل
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # السماح لملفات load.php و api.php بالعمل مباشرة
+    RewriteRule ^(load\.php|api\.php|config\.php|seed\.php) - [L]
     
-    # توجيه أي طلب آخر غير موجود إلى index.php
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
+    # توجيه أي طلب آخر إلى index.php لدعم الـ Routing
     RewriteRule ^ index.php [L]
 </IfModule>
 

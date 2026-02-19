@@ -1,28 +1,32 @@
 <?php
 /**
- * محمل الملفات الذكي - Faqous Store
- * يدعم البحث التلقائي عن الامتدادات المفقودة
+ * Soq Al-Asr - Smart Loader v5.4
+ * يضمن تحميل الملفات البرمجية بدون تحويلات (Redirects)
  */
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+
 $file = $_GET['file'] ?? '';
 $baseDir = __DIR__;
 
-// تنظيف المسار ومنع الثغرات
+// تنظيف المسار
 $file = str_replace(['../', '..\\'], '', $file);
-$path = realpath($baseDir . '/' . $file);
+$file = ltrim($file, '/');
 
-// إذا لم يتم العثور على الملف، نحاول إضافة امتدادات برمجية
-if (!$path || !file_exists($path) || is_dir($path)) {
-    foreach (['.tsx', '.ts', '.jsx', '.js'] as $ext) {
-        $tryPath = realpath($baseDir . '/' . $file . $ext);
-        if ($tryPath && strpos($tryPath, $baseDir) === 0 && file_exists($tryPath)) {
-            $path = $tryPath;
-            break;
-        }
+// محاولة العثور على الملف بالامتدادات الممكنة
+$targetPath = null;
+$extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
+
+foreach ($extensions as $ext) {
+    $tryPath = $baseDir . '/' . $file . $ext;
+    if (file_exists($tryPath) && !is_dir($tryPath)) {
+        $targetPath = $tryPath;
+        break;
     }
 }
 
-if ($path && strpos($path, $baseDir) === 0 && file_exists($path)) {
-    $ext = pathinfo($path, PATHINFO_EXTENSION);
+if ($targetPath) {
+    $ext = pathinfo($targetPath, PATHINFO_EXTENSION);
     $mime = 'text/plain';
     
     if (in_array($ext, ['ts', 'tsx', 'js', 'jsx'])) {
@@ -30,15 +34,19 @@ if ($path && strpos($path, $baseDir) === 0 && file_exists($path)) {
     } elseif (in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'svg', 'ico'])) {
         $mime = 'image/' . ($ext === 'jpg' ? 'jpeg' : $ext);
     }
-    
-    header('Content-Type: ' . $mime . '; charset=utf-8');
+
     header('Access-Control-Allow-Origin: *');
-    header('Cache-Control: public, max-age=3600');
-    readfile($path);
+    header('Access-Control-Allow-Methods: GET');
+    header('Content-Type: ' . $mime . '; charset=utf-8');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    
+    readfile($targetPath);
     exit;
 }
 
+// إذا لم يتم العثور على الملف، نرسل خطأ 404 واضح (نصي وليس HTML)
 http_response_code(404);
 header('Content-Type: text/plain; charset=utf-8');
-echo "File Not Found: " . htmlspecialchars($file);
+header('Access-Control-Allow-Origin: *');
+echo "FILE_NOT_FOUND: " . htmlspecialchars($file);
 exit;

@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الذكي المحسن v5.3
- * إصلاح شامل لمشاكل الـ 404 والـ Imports
+ * سوق العصر - المحرك الذكي v5.4
+ * إصلاح شامل لمشاكل المسارات والـ CORS
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -16,7 +16,7 @@ try {
 } catch (Exception $e) {}
 ?>
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" style="scroll-behavior: smooth;">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -30,7 +30,8 @@ try {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
-    <script src="https://cdn.tailwindcss.com" crossorigin></script>
+    <!-- استخدام نسخة ثابتة من Tailwind لتجنب أخطاء الـ Redirect -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     
     <script type="importmap">
     {
@@ -67,8 +68,8 @@ try {
         #error-log {
             position: fixed; bottom: 20px; left: 20px; right: 20px;
             background: #fff1f2; border: 1px solid #fda4af; padding: 15px;
-            border-radius: 15px; color: #9f1239; font-size: 12px; display: none; z-index: 10000;
-            max-height: 200px; overflow-y: auto;
+            border-radius: 15px; color: #9f1239; font-size: 11px; display: none; z-index: 10000;
+            max-height: 150px; overflow-y: auto; font-family: monospace;
         }
     </style>
 </head>
@@ -77,18 +78,18 @@ try {
         <div id="splash-screen">
             <div class="splash-container">
                 <div class="splash-logo">
-                    <img src="https://soqelasr.com/shopping-bag.png" alt="Logo" width="45" height="45">
+                    <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
                 </div>
                 <h1 style="font-weight:900; color:#1e293b; font-size:1.4rem;">سوق العصر</h1>
                 <div class="progress-box"><div id="progress-bar"></div></div>
-                <p id="loading-status" style="font-size:10px; color:#94a3b8; font-weight:bold; margin-top:10px;">جاري تشغيل المتجر...</p>
+                <p id="loading-status" style="font-size:10px; color:#94a3b8; font-weight:bold; margin-top:10px;">جاري تشغيل محرك الذكاء...</p>
             </div>
         </div>
     </div>
 
     <div id="error-log"></div>
 
-    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
 
     <script type="module">
         import React from 'react';
@@ -106,33 +107,47 @@ try {
                 el.innerHTML = '<strong>خطأ في التحميل:</strong><br>' + msg;
             }
         }
-        
-        async function getTranspiledUrl(filePath) {
-            let cleanPath = filePath.replace(/^\.\//, '').replace(window.location.origin + '/', '');
-            const abs = new URL(cleanPath, window.location.origin).href;
+
+        // دالة ذكية لحل المسارات النسبية
+        function resolvePath(filePath, parentPath = '') {
+            if (!filePath.startsWith('.')) return filePath.replace(/^\//, '');
             
-            if (blobCache.has(abs)) return blobCache.get(abs);
+            const parts = parentPath.split('/').filter(p => p);
+            // إذا كان المسار الأب هو ملف، نزيل اسم الملف لنحصل على المجلد
+            if (parentPath.includes('.')) parts.pop();
+
+            const relParts = filePath.split('/').filter(p => p && p !== '.');
+            for (const part of relParts) {
+                if (part === '..') parts.pop();
+                else parts.push(part);
+            }
+            return parts.join('/');
+        }
+        
+        async function getTranspiledUrl(filePath, parentPath = '') {
+            const cleanPath = resolvePath(filePath, parentPath);
+            
+            if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
             
             try {
                 const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
-                if (!res.ok) throw new Error(`فشل جلب الملف: ${cleanPath} (HTTP ${res.status})`);
-                
-                let code = await res.text();
-                if (code.trim().startsWith('<!DOCTYPE') || code.trim().startsWith('<html')) {
-                    throw new Error(`الملف ${cleanPath} غير موجود على الخادم.`);
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(text.includes('FILE_NOT_FOUND') ? `الملف غير موجود: ${cleanPath}` : `خطأ ${res.status}`);
                 }
                 
-                // معالجة دقيقة للـ Imports
+                let code = await res.text();
+                if (code.trim().startsWith('<!DOCTYPE')) {
+                    throw new Error(`خطأ فني: تم استلام HTML بدلاً من كود للملف ${cleanPath}. يرجى التحقق من إعدادات السيرفر.`);
+                }
+                
+                // معالجة الـ Imports
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
                 const matches = Array.from(code.matchAll(importRegex));
                 
                 for (const match of matches) {
                     const originalImport = match[1];
-                    const targetUrl = new URL(originalImport, abs);
-                    const targetPath = targetUrl.pathname.substring(1);
-                    
-                    const depUrl = await getTranspiledUrl(targetPath);
-                    // استبدال دقيق لضمان عدم تكرار المسارات
+                    const depUrl = await getTranspiledUrl(originalImport, cleanPath);
                     code = code.split(`'${originalImport}'`).join(`'${depUrl}'`);
                     code = code.split(`"${originalImport}"`).join(`"${depUrl}"`);
                 }
@@ -147,11 +162,11 @@ try {
                 
                 const transformed = window.Babel.transform(code, {
                     presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
-                    filename: abs,
+                    filename: cleanPath + '.tsx',
                 }).code;
 
                 const url = URL.createObjectURL(new Blob([transformed], { type: 'application/javascript' }));
-                blobCache.set(abs, url);
+                blobCache.set(cleanPath, url);
                 return url;
             } catch (e) {
                 console.error('Transpilation Error:', e);
@@ -166,11 +181,12 @@ try {
                 const appUrl = await getTranspiledUrl('App.tsx');
                 
                 if (bar) bar.style.width = '80%';
+                if (statusEl) statusEl.innerText = 'جاري بناء الواجهة...';
+                
                 const { default: App } = await import(appUrl);
-                
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                if (bar) bar.style.width = '100%';
                 
+                if (bar) bar.style.width = '100%';
                 setTimeout(() => {
                     const splash = document.getElementById('splash-screen');
                     if (splash) splash.style.opacity = '0';
@@ -179,7 +195,7 @@ try {
                 }, 200);
             } catch (e) { 
                 console.error('App init failed:', e);
-                showError('تعذر تشغيل المتجر. تأكد من رفع كافة الملفات بشكل صحيح.');
+                showError('تعذر تشغيل المتجر. يرجى مراجعة سجل الأخطاء في المتصفح.');
             }
         }
         
