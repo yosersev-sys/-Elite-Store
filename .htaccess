@@ -5,15 +5,16 @@ Options -Indexes
     RewriteEngine On
     RewriteBase /
     
-    # استثناء الملفات الموجودة فعلياً وملفات الـ API والمحمل
+    # 1. استثناء الملفات الموجودة فعلياً لضمان تحميلها
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # السماح لملفات load.php و api.php بالعمل مباشرة
-    RewriteRule ^(load\.php|api\.php|config\.php|seed\.php) - [L]
+    # 2. السماح لملفات النظام بالعمل مباشرة دون توجيه
+    RewriteRule ^(load\.php|api\.php|config\.php|seed\.php|sitemap\.xml|sw\.js) - [L]
     
-    # توجيه أي طلب آخر إلى index.php لدعم الـ Routing
+    # 3. توجيه كافة الطلبات الأخرى لـ index.php للتعامل معها برمجياً
+    # هذا يضمن أن رابط مثل /admincp سيفتح index.php بدلاً من خطأ 404
     RewriteRule ^ index.php [L]
 </IfModule>
 
