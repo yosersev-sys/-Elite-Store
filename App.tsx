@@ -25,16 +25,16 @@ import Footer from './components/Footer.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
-// القائمة المعتمدة لمسارات الإدارة
+// القائمة المعتمدة لمسارات الإدارة داخلياً
 const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
 const App: React.FC = () => {
-  // دالة مركزية لاستخراج المسار الحالي من الرابط
+  // دالة مركزية لاستخراج المسار الحالي من الرابط - تم تحديثها لتدعم /cp
   const parseViewFromHash = (): View => {
     const hash = window.location.hash.toLowerCase();
     
-    // إذا كان الرابط يحتوي على كلمة admin، فهو حتماً مسار إدارة
-    if (hash.includes('admin')) {
+    // إذا كان الرابط يحتوي على cp أو admin، فهو مسار إدارة
+    if (hash.includes('#/cp') || hash === '#cp' || hash.includes('admin')) {
       if (hash.includes('form')) return 'admin-form';
       if (hash.includes('invoice')) return 'admin-invoice';
       return 'admincp';
@@ -168,8 +168,8 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
-    // استخدام admincp ككلمة مفتاحية ثابتة للإدارة
-    const targetHash = (v === 'admin' || v === 'admincp') ? 'admincp' : v;
+    // استخدام cp ككلمة مفتاحية ثابتة للإدارة في الرابط
+    const targetHash = (v === 'admin' || v === 'admincp') ? 'cp' : v;
     window.location.hash = (v === 'store') ? '' : targetHash;
   };
 
@@ -207,9 +207,9 @@ const App: React.FC = () => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // التحقق الفوري من المسار
+  // التحقق الفوري من المسار - تم تحديثه لدعم cp
   const currentHash = window.location.hash.toLowerCase();
-  const isAdminPath = ADMIN_VIEWS.includes(view) || currentHash.includes('admin');
+  const isAdminPath = ADMIN_VIEWS.includes(view) || currentHash.includes('cp') || currentHash.includes('admin');
   const isActuallyAdmin = currentUser?.role === 'admin';
 
   // دالة عرض المحتوى لضمان عدم التداخل
