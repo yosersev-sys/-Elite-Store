@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الخارق v8.5
- * الحل النهائي لمشاكل الـ Module Resolution والـ Refresh
+ * سوق العصر - المحرك الخارق v8.6
+ * الإصلاح النهائي والأكيد لمشاكل مسارات الموديولات والـ Refresh
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -77,89 +77,103 @@ $meta_title = 'سوق العصر - فاقوس';
             '@google/genai': 'https://esm.sh/@google/genai@1.41.0'
         };
 
-        const CACHE_KEY = 'souq_babel_v8.5';
+        const VERSION = 'v8.6';
+        const CACHE_KEY = 'souq_babel_' + VERSION;
         const compiledCache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
         const blobCache = new Map();
+        const pendingTasks = new Map();
 
         function resolvePath(path, parent) {
             if (!path.startsWith('.')) return path;
             const parts = (parent || '').split('/');
-            parts.pop(); // Remove current filename
+            parts.pop(); 
             const base = parts.join('/');
             const url = new URL(path, 'http://app/' + (base ? base + '/' : ''));
-            // Strip extensions for internal fetching consistency
+            // توحيد المسار وإزالة الامتدادات للطلب الداخلي
             return url.pathname.substring(1).replace(/\.(tsx|ts|jsx|js)$/, '');
         }
 
         async function loadAndCompile(filePath, parentPath = '') {
             const cleanPath = resolvePath(filePath, parentPath);
             
-            // إذا كان هذا الملف تم تحميله مسبقاً في هذه الجلسة، نرجع الرابط مباشرة
-            if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
-
-            let babelCode = compiledCache[cleanPath];
-
-            if (!babelCode) {
-                try {
-                    const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
-                    if (!res.ok) throw new Error(`Missing: ${cleanPath}`);
-                    const source = await res.text();
-                    
-                    babelCode = window.Babel.transform(source, {
-                        presets: [['react', { runtime: 'classic' }], ['typescript', { isTSX: true, allExtensions: true }]],
-                        filename: cleanPath + '.tsx',
-                        compact: true, minified: true
-                    }).code;
-
-                    compiledCache[cleanPath] = babelCode;
-                    localStorage.setItem(CACHE_KEY, JSON.stringify(compiledCache));
-                } catch (e) { 
-                    console.error("Failed to load:", cleanPath, e);
-                    throw e; 
-                }
-            }
-
-            // الاستبدال الذكي للمسارات
-            // نستخدم دالة غير متزامنة مع Promise.all لاستبدال كافة الـ imports
-            const importRegex = /from\s+(['"])([^'"]+)\1/g;
-            const matches = Array.from(babelCode.matchAll(importRegex));
+            // 1. إذا كان الملف قيد المعالجة حالياً، انتظر نتيجته بدلاً من بدئه من جديد
+            if (pendingTasks.has(cleanPath)) return pendingTasks.get(cleanPath);
             
-            let linkedCode = babelCode;
+            const task = (async () => {
+                if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
 
-            // نقوم بمعالجة كل الـ matches بالتوازي
-            const replacements = await Promise.all(matches.map(async (match) => {
-                const originalPath = match[2];
-                let resolved;
-                
-                if (LIB_MAP[originalPath]) {
-                    resolved = LIB_MAP[originalPath];
-                } else if (originalPath.startsWith('.')) {
-                    // استدعاء تكراري للحصول على رابط Blob جديد
-                    resolved = await loadAndCompile(originalPath, cleanPath);
-                } else {
-                    resolved = `https://esm.sh/${originalPath}`;
+                let babelCode = compiledCache[cleanPath];
+
+                if (!babelCode) {
+                    try {
+                        const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
+                        if (!res.ok) throw new Error(`Could not load: ${cleanPath}`);
+                        const source = await res.text();
+                        
+                        babelCode = window.Babel.transform(source, {
+                            presets: [
+                                ['react', { runtime: 'classic' }], 
+                                ['typescript', { isTSX: true, allExtensions: true }]
+                            ],
+                            filename: cleanPath + '.tsx',
+                            compact: true, 
+                            minified: true
+                        }).code;
+
+                        compiledCache[cleanPath] = babelCode;
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(compiledCache));
+                    } catch (e) { 
+                        console.error("Fetch/Compile Error:", cleanPath, e);
+                        throw e; 
+                    }
                 }
-                
-                return { original: match[0], replacement: `from '${resolved}'` };
-            }));
 
-            // تطبيق الاستبدالات على الكود النهائي
-            replacements.forEach(rep => {
-                linkedCode = linkedCode.replace(rep.original, rep.replacement);
-            });
+                // 2. التحويل الذكي والشامل لكل مسارات الاستيراد
+                // هذا الـ Regex يمسك: import '...', import {x} from '...', export {x} from '...', import('...')
+                const importRegex = /(import|from|export)\s+(['"])([^'"]+)\2|import\((['"])([^'"]+)\4\)/g;
+                let linkedCode = babelCode;
+                const matches = Array.from(babelCode.matchAll(importRegex));
 
-            const url = URL.createObjectURL(new Blob([linkedCode], { type: 'application/javascript' }));
-            blobCache.set(cleanPath, url);
-            return url;
+                for (const match of matches) {
+                    const originalFullMatch = match[0];
+                    const pathInside = match[3] || match[5]; // يغطي الاستيراد العادي والديناميكي
+                    const quote = match[2] || match[4];
+                    const prefix = match[1] || 'import(';
+
+                    let resolved;
+                    if (LIB_MAP[pathInside]) {
+                        resolved = LIB_MAP[pathInside];
+                    } else if (pathInside.startsWith('.')) {
+                        resolved = await loadAndCompile(pathInside, cleanPath);
+                    } else if (pathInside.startsWith('http')) {
+                        resolved = pathInside;
+                    } else {
+                        resolved = `https://esm.sh/${pathInside}`;
+                    }
+
+                    // استبدال دقيق لكل حالة
+                    if (originalFullMatch.includes('import(')) {
+                        linkedCode = linkedCode.split(originalFullMatch).join(`import(${quote}${resolved}${quote})`);
+                    } else {
+                        linkedCode = linkedCode.split(originalFullMatch).join(`${prefix} ${quote}${resolved}${quote}`);
+                    }
+                }
+
+                const url = URL.createObjectURL(new Blob([linkedCode], { type: 'application/javascript' }));
+                blobCache.set(cleanPath, url);
+                return url;
+            })();
+
+            pendingTasks.set(cleanPath, task);
+            return task;
         }
 
         async function init() {
             try {
-                // تصفير الكاش القديم عند التحديث لإصدار جديد لضمان التوافق
-                const VERSION_CHECK = 'v8.5';
-                if (localStorage.getItem('souq_version') !== VERSION_CHECK) {
+                // تصفير آلي للإصدارات القديمة لضمان نظافة الكاش
+                if (localStorage.getItem('souq_v_check') !== VERSION) {
                     localStorage.clear();
-                    localStorage.setItem('souq_version', VERSION_CHECK);
+                    localStorage.setItem('souq_v_check', VERSION);
                     location.reload();
                     return;
                 }
@@ -170,10 +184,15 @@ $meta_title = 'سوق العصر - فاقوس';
                 root.render(React.createElement(App));
             } catch (e) {
                 console.error("Boot Error:", e);
-                document.body.innerHTML = `<div style="padding:40px;color:red;font-family:sans-serif;direction:rtl">
-                    <h2>خطأ في تشغيل المتجر</h2>
-                    <p style="background:#eee;padding:10px;border-radius:5px;font-family:monospace">${e.message}</p>
-                    <button onclick="localStorage.clear();location.reload()" style="padding:10px 20px;background:#10b981;color:white;border:none;border-radius:10px;font-weight:bold;cursor:pointer">تحديث وإصلاح الكاش</button>
+                document.body.innerHTML = `<div style="padding:40px;color:red;font-family:sans-serif;direction:rtl;line-height:1.6">
+                    <h2 style="margin-bottom:10px">خطأ في تشغيل محرك المتجر</h2>
+                    <div style="background:#fff2f2;padding:20px;border:2px solid #ffcccc;border-radius:15px;margin-bottom:20px">
+                        <code style="display:block;margin-bottom:10px;color:#d32f2f;font-weight:bold">${e.message}</code>
+                        <p style="font-size:14px;color:#666">حدث هذا الخطأ غالباً بسبب تعارض في ملفات الكاش أو فقدان ملف أساسي.</p>
+                    </div>
+                    <button onclick="localStorage.clear();location.reload()" style="padding:15px 30px;background:#10b981;color:white;border:none;border-radius:15px;font-weight:900;cursor:pointer;box-shadow:0 10px 20px rgba(16,185,129,0.2)">
+                        تحديث وإصلاح الكاش الآن 🚀
+                    </button>
                 </div>`;
             }
         }
