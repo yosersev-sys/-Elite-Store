@@ -1,43 +1,52 @@
+
 <?php
 /**
- * سوق العصر - المحرك الذكي v5.5
- * حل نهائي لمشكلة المسارات النسبية والـ 404
+ * سوق العصر - المحرك الذكي v4.2
  */
 header('Content-Type: text/html; charset=utf-8');
-header('Access-Control-Allow-Origin: *'); 
-
 require_once 'config.php';
 
+// جلب مفتاح API من إعدادات النظام في قاعدة البيانات
 $gemini_key = '';
 try {
     $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'gemini_api_key' LIMIT 1");
     $stmt->execute();
     $gemini_key = $stmt->fetchColumn() ?: '';
-} catch (Exception $e) {}
+} catch (Exception $e) {
+    // في حال عدم وجود الجدول بعد
+}
 ?>
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" style="scroll-behavior: smooth;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>سوق العصر - اول سوق الكتروني في فاقوس</title>
     
+    <!-- Favicon -->
     <link rel="icon" type="image/png" href="https://soqelasr.com/shopping-bag512.png">
+    
+    <!-- PWA & Android Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#10b981">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://soqelasr.com/shopping-bag512.png">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
-    
+    <!-- External Libraries -->
+    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <script type="importmap">
     {
       "imports": {
         "react": "https://esm.sh/react@19.0.0",
         "react-dom": "https://esm.sh/react-dom@19.0.0",
         "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+        "react-router-dom": "https://esm.sh/react-router-dom@7.1.0?external=react,react-dom",
         "@google/genai": "https://esm.sh/@google/genai@1.41.0"
       }
     }
@@ -45,132 +54,173 @@ try {
     
     <style>
         :root { --primary: #10b981; }
-        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
+        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
+        @keyframes pulse-soft { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.95); opacity: 0.8; } }
+        
         #splash-screen {
             position: fixed; inset: 0; display: flex; flex-direction: column;
             align-items: center; justify-content: center; background: #f8fafc; z-index: 9999;
-            transition: opacity 0.5s ease-out;
         }
-        .progress-box { width: 280px; height: 4px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-top: 20px; }
-        #progress-bar { height: 100%; width: 0%; background: #10b981; transition: width 0.3s ease; }
-        #error-log {
-            position: fixed; bottom: 20px; left: 20px; right: 20px;
-            background: #fff1f2; border: 1px solid #fda4af; padding: 15px;
-            border-radius: 15px; color: #9f1239; font-size: 11px; display: none; z-index: 10000;
-            max-height: 150px; overflow-y: auto; font-family: monospace;
+        .splash-container { display: flex; flex-direction: column; align-items: center; width: 280px; text-align: center; }
+        .splash-logo {
+            width: 100px; height: 100px; background: #10b981; border-radius: 32px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15);
+            animation: pulse-soft 2s infinite ease-in-out; margin-bottom: 24px;
         }
+        .splash-logo img { width: 60px; height: 60px; object-fit: contain; }
+        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.6rem; line-height: 1.2; }
+        .splash-tagline { color: #10b981; font-weight: 800; font-size: 0.75rem; margin-bottom: 12px; opacity: 0.9; letter-spacing: 0.5px; }
+        .splash-status { color: #94a3b8; font-size: 0.65rem; font-weight: 700; margin-bottom: 20px; height: 1rem; text-transform: uppercase; }
+        
+        .progress-box { width: 100%; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; position: relative; }
+        #progress-bar {
+            position: absolute; top: 0; right: 0; height: 100%; width: 0%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            transition: width 0.3s cubic-bezier(0.1, 0.5, 0.5, 1);
+            border-radius: 10px;
+        }
+        #progress-text { margin-top: 12px; font-weight: 900; color: #10b981; font-size: 1.1rem; }
     </style>
 </head>
 <body>
     <div id="root">
         <div id="splash-screen">
-            <div class="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center mb-4 shadow-xl">
-                <img src="https://soqelasr.com/shopping-bag.png" alt="Logo" width="45">
+            <div class="splash-container">
+                <div class="splash-logo">
+                    <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
+                </div>
+                <div class="splash-text">سوق العصر</div>
+                <div class="splash-tagline">اول سوق الكتروني في فاقوس</div>
+                <div id="splash-status-text" class="splash-status">جاري الاتصال...</div>
+                <div class="progress-box">
+                    <div id="progress-bar"></div>
+                </div>
+                <div id="progress-text">0%</div>
             </div>
-            <h1 class="font-black text-slate-800 text-xl">سوق العصر</h1>
-            <div class="progress-box"><div id="progress-bar"></div></div>
-            <p id="loading-status" class="text-[10px] text-slate-400 font-bold mt-3">جاري تهيئة المتجر...</p>
         </div>
     </div>
-    <div id="error-log"></div>
-
-    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
 
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
 
-        window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const statusText = document.getElementById('splash-status-text');
+
+        let visualProgress = 0;
+        let targetProgress = 0;
+
+        function smoothUpdate() {
+            if (visualProgress < targetProgress) {
+                visualProgress += (targetProgress - visualProgress) * 0.1;
+                if (targetProgress - visualProgress < 0.5) visualProgress = targetProgress;
+                
+                const displayVal = Math.floor(visualProgress);
+                if (progressBar) progressBar.style.width = displayVal + '%';
+                if (progressText) progressText.innerText = displayVal + '%';
+            }
+            if (visualProgress < 100) requestAnimationFrame(smoothUpdate);
+        }
+        smoothUpdate();
+
+        function setProgress(percent, status) {
+            targetProgress = percent;
+            if (statusText && status) statusText.innerText = status;
+        }
+
+        window.process = window.process || { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
+
+        const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
         const blobCache = new Map();
-        const bar = document.getElementById('progress-bar');
-        const statusEl = document.getElementById('loading-status');
+        let filesProcessed = 0;
+        const estimatedTotalFiles = 25; 
 
-        function showError(msg) {
-            const el = document.getElementById('error-log');
-            if (el) { el.style.display = 'block'; el.innerHTML = '<strong>خطأ في التحميل:</strong><br>' + msg; }
+        async function fetchWithFallback(url) {
+            const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
+            for (let ext of extensions) {
+                try {
+                    const fullUrl = url + (url.match(/\.(tsx?|jsx?)$/) ? '' : ext);
+                    const response = await fetch(fullUrl);
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type');
+                        if (contentType && contentType.includes('text/html')) continue;
+                        return { code: await response.text(), finalUrl: fullUrl };
+                    }
+                } catch (e) {}
+            }
+            throw new Error(`الملف مفقود: ${url}`);
         }
 
-        // حل المسارات باستخدام URL API (أكثر دقة من الـ Regex اليدوي)
-        function resolvePath(filePath, parentPath = '') {
-            if (!filePath.startsWith('.')) return filePath.replace(/^\//, '');
-            const base = 'http://app/';
-            const url = new URL(filePath, base + parentPath);
-            return url.pathname.substring(1);
-        }
-        
-        async function getTranspiledUrl(filePath, parentPath = '') {
-            const cleanPath = resolvePath(filePath, parentPath);
-            if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
-            
+        async function getTranspiledUrl(filePath) {
+            const absolutePath = new URL(filePath, BASE_URL).href;
+            if (blobCache.has(absolutePath)) return blobCache.get(absolutePath);
+
             try {
-                const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(text.includes('FILE_NOT_FOUND') ? `الملف غير موجود: ${cleanPath}` : `خطأ ${res.status}`);
-                }
+                const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
+                let code = rawCode;
                 
-                let code = await res.text();
-                if (code.trim().startsWith('<!DOCTYPE')) {
-                    throw new Error(`خطأ: السيرفر أعاد صفحة HTML للملف ${cleanPath}.`);
-                }
+                filesProcessed++;
+                // إخفاء أسماء الملفات واستخدام عبارات عامة احترافية
+                const calcPercent = 10 + Math.min(filesProcessed / estimatedTotalFiles * 75, 75);
                 
-                // معالجة الـ Imports داخل الملف
+                // رسائل متغيرة بناءً على نسبة التقدم بدلاً من أسماء الملفات
+                let loadingMsg = "جاري معالجة البيانات...";
+                if (calcPercent > 20) loadingMsg = "تحسين تجربة التصفح...";
+                if (calcPercent > 40) loadingMsg = "تجهيز مكونات المتجر...";
+                if (calcPercent > 60) loadingMsg = "تأمين الاتصال المشفر...";
+                if (calcPercent > 80) loadingMsg = "تنسيق واجهة المستخدم...";
+                
+                setProgress(calcPercent, loadingMsg);
+
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
-                const matches = Array.from(code.matchAll(importRegex));
+                const matches = [...code.matchAll(importRegex)];
                 
                 for (const match of matches) {
-                    const originalImport = match[1];
-                    const depUrl = await getTranspiledUrl(originalImport, cleanPath);
-                    code = code.split(`'${originalImport}'`).join(`'${depUrl}'`);
-                    code = code.split(`"${originalImport}"`).join(`"${depUrl}"`);
+                    const relativePath = match[1];
+                    const fullImportPath = new URL(relativePath, finalUrl).href;
+                    const depBlobUrl = await getTranspiledUrl(fullImportPath);
+                    code = code.split(`'${relativePath}'`).join(`'${depBlobUrl}'`);
+                    code = code.split(`"${relativePath}"`).join(`"${depBlobUrl}"`);
                 }
 
-                if (!window.Babel) {
-                    await new Promise(r => {
-                        const check = setInterval(() => { if (window.Babel) { clearInterval(check); r(); } }, 50);
-                    });
-                }
-                
-                const transformed = window.Babel.transform(code, {
+                const transformed = Babel.transform(code, {
                     presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
-                    filename: cleanPath + '.tsx',
+                    filename: finalUrl,
                 }).code;
 
-                const url = URL.createObjectURL(new Blob([transformed], { type: 'application/javascript' }));
-                blobCache.set(cleanPath, url);
-                return url;
-            } catch (e) {
-                console.error('Transpilation Error:', e);
-                showError(e.message);
-                throw e;
+                const blob = new Blob([transformed], { type: 'application/javascript' });
+                const blobUrl = URL.createObjectURL(blob);
+                blobCache.set(absolutePath, blobUrl);
+                return blobUrl;
+            } catch (err) { throw err; }
+        }
+
+        async function startApp() {
+            try {
+                setProgress(5, "بدء تشغيل المحرك الذكي...");
+                const appBlobUrl = await getTranspiledUrl('App.tsx');
+                
+                setProgress(90, "فتح أبواب المتجر...");
+                const module = await import(appBlobUrl);
+                const App = module.default;
+
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                setProgress(100, "جاهز للتسوق!");
+                
+                setTimeout(() => {
+                    root.render(React.createElement(App));
+                }, 300);
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('root').innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">خطأ في تحميل المتجر: <br/> يرجى التأكد من اتصال الإنترنت</div>`;
             }
         }
 
-        async function init() {
-            try {
-                if (bar) bar.style.width = '30%';
-                const appUrl = await getTranspiledUrl('App.tsx');
-                
-                if (bar) bar.style.width = '70%';
-                if (statusEl) statusEl.innerText = 'جاري بناء الواجهة...';
-                
-                const { default: App } = await import(appUrl);
-                const root = ReactDOM.createRoot(document.getElementById('root'));
-                
-                if (bar) bar.style.width = '100%';
-                setTimeout(() => {
-                    const splash = document.getElementById('splash-screen');
-                    if (splash) splash.style.opacity = '0';
-                    setTimeout(() => splash?.remove(), 500);
-                    root.render(React.createElement(App));
-                }, 200);
-            } catch (e) { 
-                console.error('App init failed:', e);
-            }
-        }
-        
-        window.addEventListener('load', init);
+        startApp();
     </script>
 </body>
 </html>

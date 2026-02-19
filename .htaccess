@@ -1,25 +1,20 @@
+
 DirectoryIndex index.php
-Options -Indexes
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
     
-    # استثناء الملفات الموجودة فعلياً وملفات الـ API والمحمل
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
+    # السماح بالوصول المباشر للملفات الموجودة فعلياً
+    RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
-
-    # السماح لملفات load.php و api.php بالعمل مباشرة
-    RewriteRule ^(load\.php|api\.php|config\.php|seed\.php) - [L]
     
-    # توجيه أي طلب آخر إلى index.php لدعم الـ Routing
+    # توجيه أي طلب آخر إلى index.php
     RewriteRule ^ index.php [L]
 </IfModule>
 
 <IfModule mod_headers.c>
     <FilesMatch "\.(ts|tsx|js|jsx)$">
-        Header set Content-Type "application/javascript"
         Header set Access-Control-Allow-Origin "*"
+        Header set Content-Type "application/javascript"
     </FilesMatch>
 </IfModule>
