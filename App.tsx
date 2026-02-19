@@ -25,23 +25,27 @@ import Footer from './components/Footer.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
-// القائمة المعتمدة لمسارات الإدارة داخلياً
+// القائمة المعتمدة لمسارات الإدارة
 const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
 const App: React.FC = () => {
-  // دالة مركزية لاستخراج المسار الحالي من الرابط - تم تحديثها لتدعم /cp
+  // دالة مطورة للكشف عن المسار بناءً على الهاش
   const parseViewFromHash = (): View => {
     const hash = window.location.hash.toLowerCase();
     
-    // إذا كان الرابط يحتوي على cp أو admin، فهو مسار إدارة
-    if (hash.includes('#/cp') || hash === '#cp' || hash.includes('admin')) {
+    // فحص صارم لكلمة cp أو admin في الرابط
+    if (hash.includes('cp') || hash.includes('admin')) {
       if (hash.includes('form')) return 'admin-form';
       if (hash.includes('invoice')) return 'admin-invoice';
       return 'admincp';
     }
     
+    // تنظيف الهاش للمسارات العامة
     const cleanHash = hash.replace(/^#\/?/, '').split('?')[0] as View;
-    const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success', 'product-details'];
+    const publicViews: View[] = [
+      'cart', 'my-orders', 'profile', 'checkout', 
+      'quick-invoice', 'order-success', 'product-details'
+    ];
     
     if (publicViews.includes(cleanHash)) return cleanHash;
     return 'store';
@@ -94,16 +98,18 @@ const App: React.FC = () => {
   const prevOrderIds = useRef<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // تحديث المسار فور تغير الرابط
+  // تحديث المسار فوراً عند تغير الرابط وضمان المزامنة عند التحميل الأول
   useEffect(() => {
     const handleHashChange = () => {
       const nextView = parseViewFromHash();
       setView(nextView);
       window.scrollTo(0, 0);
     };
+
     window.addEventListener('hashchange', handleHashChange);
-    // تشغيل فحص أولي عند التحميل
+    // تشغيل فحص أولي لضمان عدم التعليق على "store"
     handleHashChange();
+    
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
@@ -168,7 +174,7 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
-    // استخدام cp ككلمة مفتاحية ثابتة للإدارة في الرابط
+    // توجيه صارم لكلمة cp في الرابط
     const targetHash = (v === 'admin' || v === 'admincp') ? 'cp' : v;
     window.location.hash = (v === 'store') ? '' : targetHash;
   };
@@ -207,21 +213,24 @@ const App: React.FC = () => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // التحقق الفوري من المسار - تم تحديثه لدعم cp
+  // الكشف اللحظي عن حالة "الإدارة" من الرابط
   const currentHash = window.location.hash.toLowerCase();
-  const isAdminPath = ADMIN_VIEWS.includes(view) || currentHash.includes('cp') || currentHash.includes('admin');
+  const isTargetingAdmin = currentHash.includes('cp') || currentHash.includes('admin') || ADMIN_VIEWS.includes(view);
   const isActuallyAdmin = currentUser?.role === 'admin';
 
-  // دالة عرض المحتوى لضمان عدم التداخل
+  // دالة عرض المحتوى الموحدة والمنظمة
   const renderContent = () => {
-    // 1. حماية مسارات الإدارة
-    if (isAdminPath && !isActuallyAdmin) {
+    // حالة 1: المستخدم يحاول دخول الإدارة ولكنه ليس مديراً
+    if (isTargetingAdmin && !isActuallyAdmin) {
       return <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => onNavigateAction('store')} />;
     }
 
-    // 2. واجهة الإدارة
-    if (isAdminPath && isActuallyAdmin) {
-      switch(view) {
+    // حالة 2: محتوى لوحة التحكم للمديرين فقط
+    if (isTargetingAdmin && isActuallyAdmin) {
+      // نستخدم الـ view لتحديد أي صفحة فرعية في الإدارة
+      const adminView = (view === 'store') ? 'admincp' : view; 
+      
+      switch(adminView) {
         case 'admin-form':
           return (
             <AdminProductForm 
@@ -269,7 +278,7 @@ const App: React.FC = () => {
       }
     }
 
-    // 3. واجهة المتجر العامة
+    // حالة 3: واجهة المتجر العامة
     switch(view) {
       case 'cart':
         return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => updateCartQuantity(id, cart.find(i => i.id === id)!.quantity + d)} onSetQuantity={updateCartQuantity} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onCheckout={() => onNavigateAction('checkout')} onContinueShopping={() => onNavigateAction('store')} />;
@@ -292,7 +301,7 @@ const App: React.FC = () => {
 
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
-      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminPath ? '' : 'pb-24 md:pb-0'}`}>
+      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isTargetingAdmin ? '' : 'pb-24 md:pb-0'}`}>
         {isActuallyAdmin && newOrdersForPopup.length > 0 && (
           <NewOrderPopup 
             orders={newOrdersForPopup} 
@@ -306,7 +315,7 @@ const App: React.FC = () => {
         {showAuthModal && <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />}
         {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigateAction('admincp'); }} />}
 
-        {!isAdminPath && (
+        {!isTargetingAdmin && (
           <Header 
             cartCount={cart.length} wishlistCount={wishlist.length} categories={categories} currentUser={currentUser}
             onNavigate={onNavigateAction} onLoginClick={() => setShowAuthModal(true)} onLogout={handleLogout}
@@ -314,14 +323,14 @@ const App: React.FC = () => {
           />
         )}
 
-        <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminPath ? 'pt-4' : 'pt-24 md:pt-32'}`}>
+        <main className={`flex-grow container mx-auto px-2 md:px-4 ${isTargetingAdmin ? 'pt-4' : 'pt-24 md:pt-32'}`}>
           {renderContent()}
         </main>
 
-        {!isAdminPath && (
+        {!isTargetingAdmin && (
           <>
             <Footer categories={categories} onNavigate={onNavigateAction} onCategorySelect={setSelectedCategoryId} />
-            <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={!isAdminPath} />
+            <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={!isTargetingAdmin} />
             <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
             {isActuallyAdmin && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
             <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigateAction} onCartClick={() => onNavigateAction('cart')} isAdmin={isActuallyAdmin} />
