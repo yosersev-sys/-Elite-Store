@@ -25,17 +25,23 @@ import Footer from './components/Footer.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
-const App: React.FC = () => {
-  const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
+const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
+const App: React.FC = () => {
   const parseViewFromHash = (): View => {
-    // تنظيف الـ hash من العلامات المائلة والرموز الزائدة
-    const hash = window.location.hash.replace('#', '').replace(/^\//, '').split('?')[0];
+    // استخراج الـ Hash وتنظيفه من العلامات المائلة في البداية والنهاية
+    const rawHash = window.location.hash.replace(/^#\/?/, '').replace(/\/$/, '').split('?')[0];
     
-    if (ADMIN_VIEWS.includes(hash as View)) return hash as View;
+    // إذا كان الرابط يحتوي على admincp أو admin بأي شكل
+    if (rawHash.includes('admincp') || rawHash === 'admin') return 'admincp';
     
-    const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success'];
-    if (publicViews.includes(hash as View)) return hash as View;
+    // التحقق من باقي الصفحات المعروفة
+    const knownViews: View[] = [
+      'cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 
+      'order-success', 'admin-form', 'admin-invoice', 'admin-auth'
+    ];
+    
+    if (knownViews.includes(rawHash as View)) return rawHash as View;
     
     return 'store';
   };
@@ -88,13 +94,15 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // تحديث الصفحة عند تغير الـ Hash يدوياً
+  // تحديث الصفحة فوراً عند تغير الرابط
   useEffect(() => {
     const handleHashChange = () => {
       const nextView = parseViewFromHash();
       setView(nextView);
     };
     window.addEventListener('hashchange', handleHashChange);
+    // تشغيل التحقق مرة إضافية عند التحميل لضمان عدم الضياع
+    handleHashChange();
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
@@ -200,7 +208,7 @@ const App: React.FC = () => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
 
-  const isAdminPath = ADMIN_VIEWS.includes(view);
+  const isAdminPath = ADMIN_VIEWS.includes(view) || view === 'admincp';
   const isActuallyAdmin = currentUser?.role === 'admin';
 
   return (
@@ -215,7 +223,15 @@ const App: React.FC = () => {
         )}
 
         {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
-        {isAdminPath && !isActuallyAdmin && <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => onNavigateAction('store')} />}
+        
+        {/* شاشة الدخول للإدارة تظهر فقط إذا كان المسار يخص الإدارة والمستخدم ليس مديراً */}
+        {isAdminPath && !isActuallyAdmin && (
+          <AdminAuthView 
+            onSuccess={handleAuthSuccess} 
+            onClose={() => onNavigateAction('store')} 
+          />
+        )}
+
         {showAuthModal && <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />}
 
         {!isAdminPath && (
@@ -227,7 +243,7 @@ const App: React.FC = () => {
         )}
 
         <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminPath ? 'pt-4' : 'pt-24 md:pt-32'}`}>
-          {view === 'store' && (
+          {view === 'store' && !isAdminPath && (
             <StoreView 
               products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId}
               onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => addToCart(p)} 
