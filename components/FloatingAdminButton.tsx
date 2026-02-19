@@ -8,8 +8,8 @@ interface FloatingAdminButtonProps {
 
 const FloatingAdminButton: React.FC<FloatingAdminButtonProps> = ({ currentView, onNavigate }) => {
   // الكشف المباشر من الهاش لضمان الاختفاء في لوحة التحكم
-  const isAlreadyAdmin = window.location.hash.toLowerCase().includes('cp') || 
-                         window.location.hash.toLowerCase().includes('admin');
+  const h = window.location.hash.toLowerCase();
+  const isAlreadyAdmin = h.includes('cp') || h.includes('admin');
 
   if (isAlreadyAdmin) return null;
 
@@ -23,7 +23,7 @@ const FloatingAdminButton: React.FC<FloatingAdminButtonProps> = ({ currentView, 
 
       {/* Main Button */}
       <button
-        onClick={() => { window.location.hash = '#/cp'; }}
+        onClick={() => { window.location.hash = 'admincp'; }}
         className="w-16 h-16 bg-emerald-600 text-white rounded-full shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex items-center justify-center hover:bg-slate-900 transition-all duration-500 transform hover:scale-110 active:scale-90 group-hover:rotate-90 border-4 border-white"
         aria-label="Admin Dashboard"
       >

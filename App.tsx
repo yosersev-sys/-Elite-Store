@@ -26,20 +26,24 @@ import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
 const App: React.FC = () => {
-  // 1. الكشف الفوري والمباشر عن الرابط (بدون انتظار الحالة)
-  const getInitialRoute = (): View => {
+  // 1. تحديد المسار الحالي بناءً على الرابط المباشر
+  const getRoute = (): View => {
     const h = window.location.hash.toLowerCase();
-    if (h.includes('cp') || h.includes('admin')) {
+    const full = window.location.href.toLowerCase();
+    
+    // فحص صارم: إذا كان الرابط يحتوي على أي دلالة للإدارة
+    if (h.includes('cp') || h.includes('admin') || full.includes('admincp')) {
       if (h.includes('form')) return 'admin-form';
       if (h.includes('invoice')) return 'admin-invoice';
       return 'admincp';
     }
+    
     const clean = h.replace(/^#\/?/, '').split('?')[0] as View;
-    const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success', 'product-details'];
-    return publicViews.includes(clean) ? clean : 'store';
+    const storeViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success', 'product-details'];
+    return storeViews.includes(clean) ? clean : 'store';
   };
 
-  const [view, setView] = useState<View>(getInitialRoute);
+  const [view, setView] = useState<View>(getRoute());
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem('souq_user_profile');
@@ -47,7 +51,6 @@ const App: React.FC = () => {
     } catch { return null; }
   });
 
-  // حالات البيانات
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -57,9 +60,7 @@ const App: React.FC = () => {
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [adminPhone, setAdminPhone] = useState('201026034170');
   
-  // حالات الواجهة
   const [isLoading, setIsLoading] = useState(true);
-  const [isBooting, setIsBooting] = useState(true); // حالة التشغيل الأولية
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [newOrdersForPopup, setNewOrdersForPopup] = useState<Order[]>([]);
@@ -87,16 +88,15 @@ const App: React.FC = () => {
 
   const prevOrderIds = useRef<Set<string>>(new Set());
 
-  // مزامنة الرابط
+  // مزامنة فورية عند تغيير الرابط
   useLayoutEffect(() => {
     const sync = () => {
-      const route = getInitialRoute();
-      setView(route);
+      const newRoute = getRoute();
+      if (newRoute !== view) setView(newRoute);
     };
     window.addEventListener('hashchange', sync);
-    sync();
     return () => window.removeEventListener('hashchange', sync);
-  }, []);
+  }, [view]);
 
   const loadData = async (silent = false, user = currentUser) => {
     if (!silent) setIsLoading(true);
@@ -135,7 +135,6 @@ const App: React.FC = () => {
       }
     } finally {
       setIsLoading(false);
-      setIsBooting(false);
     }
   };
 
@@ -150,24 +149,20 @@ const App: React.FC = () => {
   const handleAuth = (user: User) => { setCurrentUser(user); setShowAuthModal(false); loadData(false, user); };
   const handleLogout = () => { ApiService.logout(); setCurrentUser(null); onNavigate('store'); };
 
-  // --- منطق العرض المنفصل تماماً ---
-  const currentHash = window.location.hash.toLowerCase();
-  const isAdminRequest = currentHash.includes('cp') || currentHash.includes('admin');
-  const isAuthorizedAdmin = currentUser?.role === 'admin';
+  // --- التحقق الحاسم من وضع "الإدارة" ---
+  const isCPRoute = view.includes('admin') || view.includes('cp');
+  const isTrulyAdmin = currentUser?.role === 'admin';
 
-  // التحقق من حالة التحميل الأولية لمنع الوميض
-  if (isBooting && isAdminRequest) {
-    return <div className="min-h-screen bg-slate-900 flex items-center justify-center"><div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>;
-  }
-
-  // 1. نظام الإدارة (مستقل)
-  if (isAdminRequest) {
-    if (!isAuthorizedAdmin) {
+  // 1. إذا كان المستخدم في مسار الإدارة
+  if (isCPRoute) {
+    // حماية: إذا لم يكن مسجل دخول كمدير، نعرض شاشة دخول المدير فقط
+    if (!isTrulyAdmin) {
       return <AdminAuthView onSuccess={handleAuth} onClose={() => onNavigate('store')} />;
     }
-    
+
+    // واجهة الإدارة الصرفة
     return (
-      <div className="min-h-screen bg-slate-50 pt-4 px-2 md:px-4">
+      <div className="min-h-screen bg-slate-100 p-2 md:p-6">
         {newOrdersForPopup.length > 0 && <NewOrderPopup orders={newOrdersForPopup} onClose={(id) => setNewOrdersForPopup(p => p.filter(o => o.id !== id))} onView={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }} />}
         {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigate('admincp'); }} />}
         
@@ -198,7 +193,7 @@ const App: React.FC = () => {
     );
   }
 
-  // 2. نظام المتجر (مستقل)
+  // 2. إذا كان المستخدم في مسار "المتجر"
   const renderStoreContent = () => {
     switch(view) {
       case 'cart': return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))} onSetQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: q} : i))} onRemove={(id) => setCart(p => p.filter(x => x.id !== id))} onCheckout={() => onNavigate('checkout')} onContinueShopping={() => onNavigate('store')} />;
@@ -231,8 +226,8 @@ const App: React.FC = () => {
         <Footer categories={categories} onNavigate={onNavigate} onCategorySelect={setSelectedCategoryId} />
         <FloatingCartButton count={cart.length} onClick={() => onNavigate('cart')} isVisible={true} />
         <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigate} />
-        {isAuthorizedAdmin && <FloatingAdminButton currentView={view} onNavigate={onNavigate} />}
-        <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigate} onCartClick={() => onNavigate('cart')} isAdmin={isAuthorizedAdmin} />
+        {isTrulyAdmin && <FloatingAdminButton currentView={view} onNavigate={onNavigate} />}
+        <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigate} onCartClick={() => onNavigate('cart')} isAdmin={isTrulyAdmin} />
       </div>
     </PullToRefresh>
   );
