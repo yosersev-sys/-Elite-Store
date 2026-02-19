@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الخارق v7.0
- * نظام الكاش المستمر للأداء الأقصى
+ * سوق العصر - المحرك الخارق v7.1
+ * إصلاح مشكلة الـ Bare Specifier وتوافق المكتبات
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -46,7 +46,9 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
     {
       "imports": {
         "react": "https://esm.sh/react@19.0.0",
+        "react/": "https://esm.sh/react@19.0.0/",
         "react-dom": "https://esm.sh/react-dom@19.0.0",
+        "react-dom/": "https://esm.sh/react-dom@19.0.0/",
         "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
         "@google/genai": "https://esm.sh/@google/genai@1.41.0"
       }
@@ -66,7 +68,6 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
         .progress-box { width: 160px; height: 3px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-top: 24px; }
         #progress-bar { height: 100%; width: 0%; background: #10b981; transition: width 0.2s ease; }
         
-        /* Inline SVG Logo Styling */
         .logo-svg { width: 50px; height: 50px; fill: white; filter: drop-shadow(0 10px 15px rgba(16,185,129,0.3)); }
         
         #error-log {
@@ -80,19 +81,18 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
     <div id="root">
         <div id="splash-screen">
             <div class="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center mb-4 shadow-2xl animate-pulse">
-                <!-- Inline SVG for zero-latency icon display -->
                 <svg viewBox="0 0 24 24" class="logo-svg">
                     <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zm-9-1a2 2 0 0 1 4 0v1h-4V6zm9 14H5V9h14v11z"/>
                 </svg>
             </div>
             <h1 class="font-black text-slate-800 text-2xl tracking-tighter">سوق العصر</h1>
             <div class="progress-box"><div id="progress-bar"></div></div>
-            <p id="perf-hint" class="text-[9px] text-slate-400 font-bold mt-4 uppercase tracking-widest">تحسين الأداء الذكي...</p>
+            <p id="perf-hint" class="text-[9px] text-slate-400 font-bold mt-4 uppercase tracking-widest">جاري بدء المتجر الذكي...</p>
         </div>
     </div>
     <div id="error-log"></div>
 
-    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js" defer></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
 
     <script type="module">
         import React from 'react';
@@ -102,8 +102,7 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
         const bar = document.getElementById('progress-bar');
         const blobCache = new Map();
         
-        // نظام كاش localStorage للملفات المحولة لسرعة البرق في المرة الثانية
-        const CODE_CACHE_KEY = 'souq_code_cache_v7';
+        const CODE_CACHE_KEY = 'souq_code_cache_v7.1';
         let codeCache = {};
         try { codeCache = JSON.parse(localStorage.getItem(CODE_CACHE_KEY) || '{}'); } catch(e) {}
 
@@ -119,7 +118,6 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
             if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
             
             try {
-                // محاولة جلب الكود من الكاش أولاً
                 let code;
                 if (codeCache[cleanPath]) {
                     code = codeCache[cleanPath];
@@ -145,14 +143,18 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
                     });
                 }
                 
+                // إضافة خيار الـ runtime: 'classic' يضمن أن Babel يستخدم React.createElement 
+                // بدلاً من الاستيراد التلقائي للـ jsx-runtime الذي يسبب مشكلة الـ bare specifier
                 const transformed = window.Babel.transform(code, {
-                    presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
+                    presets: [
+                        ['react', { runtime: 'classic' }], 
+                        ['typescript', { isTSX: true, allExtensions: true }]
+                    ],
                     filename: cleanPath + '.tsx',
                     compact: true,
                     minified: true
                 }).code;
 
-                // تحديث الكاش بالنسخة المحولة
                 codeCache[cleanPath] = code; 
                 localStorage.setItem(CODE_CACHE_KEY, JSON.stringify(codeCache));
 
@@ -168,7 +170,6 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
         async function init() {
             try {
                 if (bar) bar.style.width = '30%';
-                // تحميل App.tsx والاعتماديات في نفس الوقت بقدر الإمكان
                 const appUrl = await getTranspiledUrl('App.tsx');
                 
                 if (bar) bar.style.width = '80%';
@@ -187,6 +188,7 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
             } catch (e) { 
                 document.getElementById('error-log').style.display = 'block';
                 document.getElementById('error-log').innerText = e.message;
+                console.error("Initialization failed:", e);
             }
         }
         
