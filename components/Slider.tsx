@@ -8,7 +8,6 @@ interface Slide {
   cta: string;
 }
 
-// Optimized Unsplash URLs with width and quality params for mobile performance
 const SLIDES: Slide[] = [
   {
     id: 1,
@@ -54,20 +53,21 @@ const Slider: React.FC = () => {
             width="800"
             height="450"
             className="w-full h-full object-cover"
+            // @ts-ignore
             fetchpriority={index === 0 ? "high" : "low"}
             loading={index === 0 ? "eager" : "lazy"}
             decoding="async"
           />
           
           <div className="absolute inset-0 z-20 flex flex-col justify-center px-8 md:px-20 text-white">
-            <h2 className="text-3xl md:text-6xl font-black mb-2 md:mb-4 drop-shadow-lg">
+            <h2 className="text-3xl md:text-6xl font-black mb-2 md:mb-4 drop-shadow-lg animate-fadeIn">
               {slide.title}
             </h2>
             <p className="text-sm md:text-2xl text-gray-100 mb-6 md:mb-10 max-w-lg font-bold opacity-90 drop-shadow-md">
               {slide.subtitle}
             </p>
             <div>
-              <button className="bg-emerald-600 text-white px-6 py-3 md:px-10 md:py-4 rounded-full font-black shadow-2xl text-sm md:text-lg active:scale-95 transition-all">
+              <button className="bg-emerald-600 text-white px-6 py-3 md:px-10 md:py-4 rounded-full font-black shadow-2xl text-sm md:text-lg active:scale-95 transition-all hover:bg-emerald-500">
                 {slide.cta}
               </button>
             </div>
@@ -75,7 +75,6 @@ const Slider: React.FC = () => {
         </div>
       ))}
       
-      {/* Pagination Dots */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-2">
         {SLIDES.map((_, i) => (
           <div key={i} className={`h-1.5 rounded-full transition-all ${i === current ? 'w-8 bg-emerald-500' : 'w-2 bg-white/50'}`}></div>
