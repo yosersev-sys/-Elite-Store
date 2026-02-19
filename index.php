@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الذكي المحسن v5.2
- * معالجة أخطاء مسارات الملفات وضمان جلب الكود المصدري
+ * سوق العصر - المحرك الذكي المحسن v5.3
+ * إصلاح شامل لمشاكل الـ 404 والـ Imports
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -108,33 +108,33 @@ try {
         }
         
         async function getTranspiledUrl(filePath) {
-            // تنظيف المسار لضمان عدم وجود تكرار في الروابط
-            const cleanPath = filePath.replace(/^\.\//, '').replace(window.location.origin + '/', '');
+            let cleanPath = filePath.replace(/^\.\//, '').replace(window.location.origin + '/', '');
             const abs = new URL(cleanPath, window.location.origin).href;
             
             if (blobCache.has(abs)) return blobCache.get(abs);
             
             try {
-                // استخدام load.php لضمان جلب محتوى الملف الفعلي وتجنب إعادة التوجيه
                 const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
                 if (!res.ok) throw new Error(`فشل جلب الملف: ${cleanPath} (HTTP ${res.status})`);
                 
                 let code = await res.text();
-                
-                // التحقق مما إذا كان المحتوى HTML بدلاً من كود برمجي (دليل على فشل الجلب)
                 if (code.trim().startsWith('<!DOCTYPE') || code.trim().startsWith('<html')) {
-                    throw new Error(`خطأ: الملف ${cleanPath} غير موجود أو تم تحويل الطلب لصفحة HTML.`);
+                    throw new Error(`الملف ${cleanPath} غير موجود على الخادم.`);
                 }
                 
-                // معالجة الـ Imports داخل الكود
+                // معالجة دقيقة للـ Imports
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
-                const matches = [...code.matchAll(importRegex)];
+                const matches = Array.from(code.matchAll(importRegex));
+                
                 for (const match of matches) {
                     const originalImport = match[1];
-                    // بناء المسار النسبي للملف المستورد بناءً على مسار الملف الحالي
-                    const relativePath = new URL(originalImport, abs).pathname.substring(1);
-                    const depUrl = await getTranspiledUrl(relativePath);
-                    code = code.replace(new RegExp(originalImport.replace('.', '\\.'), 'g'), depUrl);
+                    const targetUrl = new URL(originalImport, abs);
+                    const targetPath = targetUrl.pathname.substring(1);
+                    
+                    const depUrl = await getTranspiledUrl(targetPath);
+                    // استبدال دقيق لضمان عدم تكرار المسارات
+                    code = code.split(`'${originalImport}'`).join(`'${depUrl}'`);
+                    code = code.split(`"${originalImport}"`).join(`"${depUrl}"`);
                 }
 
                 if (!window.Babel) {
@@ -162,7 +162,7 @@ try {
 
         async function init() {
             try {
-                if (bar) bar.style.width = '20%';
+                if (bar) bar.style.width = '30%';
                 const appUrl = await getTranspiledUrl('App.tsx');
                 
                 if (bar) bar.style.width = '80%';
@@ -179,7 +179,7 @@ try {
                 }, 200);
             } catch (e) { 
                 console.error('App init failed:', e);
-                showError('تعذر تشغيل التطبيق. يرجى التأكد من وجود كافة الملفات (.tsx, .ts) على الخادم.');
+                showError('تعذر تشغيل المتجر. تأكد من رفع كافة الملفات بشكل صحيح.');
             }
         }
         
