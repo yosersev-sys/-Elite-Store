@@ -1,6 +1,7 @@
 <?php
 /**
- * Soq Al-Asr API Router v8.1
+ * Soq Al-Asr API Router v8.0
+ * هذا الملف هو الموزع الرئيسي - لا تضع فيه منطقاً برمجياً ثقيلاً.
  */
 session_start();
 error_reporting(0);
@@ -15,11 +16,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
 require_once 'config.php';
 
+// دالة المساعدة الموحدة لإرسال الرد
 function sendRes($data) {
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
     exit;
 }
 
+// دالة المساعدة لإرسال الخطأ مع حماية من تداخل العمليات
 function sendErr($msg, $code = 400, $debug = null) {
     if (isset($GLOBALS['pdo']) && $GLOBALS['pdo']->inTransaction()) $GLOBALS['pdo']->rollBack();
     http_response_code($code);
@@ -33,8 +36,13 @@ function isAdmin() {
 $action = $_GET['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
+/**
+ * نظام التوزيع الموديولي:
+ * يتم استدعاء الملف المطلوب فقط بناءً على نوع العملية (Action)
+ */
 try {
     switch ($action) {
+        // --- موديول الحسابات والأعضاء ---
         case 'login':
         case 'register':
         case 'logout':
@@ -47,6 +55,7 @@ try {
             require_once 'api_auth.php';
             break;
 
+        // --- موديول المخزن والمنتجات ---
         case 'get_products':
         case 'add_product':
         case 'update_product':
@@ -59,6 +68,7 @@ try {
             require_once 'api_inventory.php';
             break;
 
+        // --- موديول المبيعات والفواتير ---
         case 'get_orders':
         case 'save_order':
         case 'update_order':
@@ -67,6 +77,7 @@ try {
             require_once 'api_sales.php';
             break;
 
+        // --- موديول الموردين ---
         case 'get_suppliers':
         case 'add_supplier':
         case 'update_supplier':
@@ -74,12 +85,11 @@ try {
             require_once 'api_crm.php';
             break;
 
+        // --- موديول الإحصائيات والنظام ---
         case 'get_admin_summary':
         case 'get_store_settings':
         case 'update_store_settings':
         case 'generate_sitemap':
-        case 'get_unoptimized_images_count':
-        case 'optimize_images_batch':
             require_once 'api_system.php';
             break;
 

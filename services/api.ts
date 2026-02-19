@@ -1,3 +1,4 @@
+
 import { Product, Category, Order, User, Supplier } from '../types.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
@@ -42,6 +43,7 @@ const safeFetch = async (action: string, options?: RequestInit) => {
 
     const url = new URL(baseUrl);
     
+    // إصلاح: فصل الأكشن عن المعاملات الإضافية لضمان وصولها للسيرفر بشكل صحيح
     const [actionName, ...rest] = action.split('&');
     url.searchParams.set('action', actionName);
     
@@ -166,6 +168,7 @@ export const ApiService = {
   },
 
   async returnOrder(id: string): Promise<{status: string}> {
+    // إصلاح: تمرير id في الجسم بالإضافة للمعامل لضمان وصوله مهما كانت إعدادات السيرفر
     return await safeFetch(`return_order&id=${id}`, { 
       method: 'POST',
       body: JSON.stringify({ id }) 
@@ -254,14 +257,5 @@ export const ApiService = {
   async generateSitemap(): Promise<boolean> {
     const result = await safeFetch('generate_sitemap');
     return result?.status === 'success';
-  },
-
-  // Fixed: Added missing properties to the return type of getUnoptimizedCount
-  async getUnoptimizedCount(): Promise<{count: number; gd_enabled: boolean; webp_supported: boolean}> {
-    return await safeFetch('get_unoptimized_images_count');
-  },
-
-  async optimizeNextBatch(): Promise<{status: string, processed: number, remaining: number}> {
-    return await safeFetch('optimize_images_batch');
   }
 };
