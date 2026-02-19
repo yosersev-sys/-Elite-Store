@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الخارق v8.7
- * الإصلاح الجذري والأخير لمشكلة الموديولات (Module Resolution)
+ * سوق العصر - المحرك الخارق v8.1
+ * حل نهائي لمشاكل الاستيراد وأداء فائق السرعة
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -31,6 +31,7 @@ $meta_title = 'سوق العصر - فاقوس';
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     
+    <!-- إضافة الـ Import Map لحل مشكلة Bare Specifier في المتصفح -->
     <script type="importmap">
     {
       "imports": {
@@ -44,21 +45,29 @@ $meta_title = 'سوق العصر - فاقوس';
 
     <style>
         :root { --primary: #10b981; }
-        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
+        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; font-display: swap; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        .skeleton { background: #edf2f7; background-image: linear-gradient(90deg, #edf2f7 0px, #f7fafc 40px, #edf2f7 80px); background-size: 600px; animation: shine-lines 1.6s infinite linear; }
-        @keyframes shine-lines { 0% { background-position: -100px; } 40%, 100% { background-position: 140px; } }
+        #splash-screen {
+            position: fixed; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; background: #f8fafc; z-index: 9999;
+            transition: opacity 0.4s ease;
+        }
+        .logo-box { width: 80px; height: 80px; background: #10b981; border-radius: 24px; display: flex; align-items: center; justify-content: center; shadow: 0 20px 40px rgba(16,185,129,0.2); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.95); } }
+        .p-bar { width: 140px; height: 4px; background: #e2e8f0; border-radius: 10px; margin-top: 20px; overflow: hidden; }
+        #p-fill { height: 100%; width: 0%; background: #10b981; transition: width 0.3s ease; }
     </style>
 </head>
 <body>
     <div id="root">
-        <div id="initial-skeleton" style="padding: 10px;">
-            <div class="skeleton" style="height: 60px; border-radius: 20px; margin-bottom: 20px;"></div>
-            <div class="skeleton" style="height: 200px; border-radius: 30px; margin-bottom: 20px;"></div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
-                <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
+        <div id="splash-screen">
+            <div class="logo-box">
+                <svg viewBox="0 0 24 24" width="45" height="45" fill="white">
+                    <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zm-9-1a2 2 0 0 1 4 0v1h-4V6zm9 14H5V9h14v11z"/>
+                </svg>
             </div>
+            <h1 class="font-black text-slate-800 text-xl mt-4">سوق العصر</h1>
+            <div class="p-bar"><div id="p-fill"></div></div>
         </div>
     </div>
 
@@ -69,6 +78,7 @@ $meta_title = 'سوق العصر - فاقوس';
         import ReactDOM from 'react-dom/client';
 
         window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
+        const fill = document.getElementById('p-fill');
         
         const LIB_MAP = {
             'react': 'https://esm.sh/react@19.0.0',
@@ -77,117 +87,91 @@ $meta_title = 'سوق العصر - فاقوس';
             '@google/genai': 'https://esm.sh/@google/genai@1.41.0'
         };
 
-        const VERSION = 'v8.7';
+        const CACHE_KEY = 'souq_compiled_v8.1';
+        const compiledCache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
         const blobCache = new Map();
-        const pendingTasks = new Map();
 
         function resolvePath(path, parent) {
             if (!path.startsWith('.')) return path;
-            const parentBase = parent.includes('/') ? parent.substring(0, parent.lastIndexOf('/')) : '';
-            const dummy = new URL(path, 'http://app/' + (parentBase ? parentBase + '/' : ''));
-            return dummy.pathname.substring(1).replace(/\.(tsx|ts|jsx|js)$/, '');
+            const parts = (parent || '').split('/');
+            parts.pop();
+            const base = parts.join('/');
+            const url = new URL(path, 'http://app/' + (base ? base + '/' : ''));
+            // إزالة الامتدادات للتوافق مع نظام التحميل
+            return url.pathname.substring(1).replace(/\.(tsx|ts|jsx|js)$/, '');
         }
 
         async function loadAndCompile(filePath, parentPath = '') {
             const cleanPath = resolvePath(filePath, parentPath);
-            if (pendingTasks.has(cleanPath)) return pendingTasks.get(cleanPath);
-            
-            const task = (async () => {
-                if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
+            if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
 
-                console.debug(`[Loader] Fetching: ${cleanPath}`);
-                const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
-                if (!res.ok) throw new Error(`Missing module: ${cleanPath}`);
-                const source = await res.text();
-                
-                // ترجمة الكود مع الحفاظ على صيغة الموديولات
-                const babelResult = window.Babel.transform(source, {
-                    presets: [
-                        ['react', { runtime: 'classic' }], 
-                        ['typescript', { isTSX: true, allExtensions: true }]
-                    ],
-                    filename: cleanPath + '.tsx',
-                    sourceMaps: false,
-                    compact: false // نترك الكود غير مضغوط لسهولة الفحص والاستبدال
-                });
-
-                let code = babelResult.code;
-
-                // نظام استبدال المسارات الفائق
-                // يمسك: from "...", import "...", export ... from "...", import("...")
-                const importRegex = /(from|import|export)\s+(['"])([^'"]+)\2|import\((['"])([^'"]+)\4\)/g;
-                const matches = Array.from(code.matchAll(importRegex));
-                
-                // سنقوم بالاستبدال من النهاية إلى البداية للحفاظ على ثبات الفهارس (Offsets)
-                for (let i = matches.length - 1; i >= 0; i--) {
-                    const match = matches[i];
-                    const fullMatch = match[0];
-                    const pathInside = match[3] || match[5];
-                    const quote = match[2] || match[4];
-                    
-                    let resolved;
-                    if (LIB_MAP[pathInside]) {
-                        resolved = LIB_MAP[pathInside];
-                    } else if (pathInside.startsWith('.')) {
-                        resolved = await loadAndCompile(pathInside, cleanPath);
-                    } else if (pathInside.startsWith('http')) {
-                        resolved = pathInside;
-                    } else {
-                        resolved = `https://esm.sh/${pathInside}`;
-                    }
-
-                    // بناء الاستبدال الجديد بدقة
-                    let replacement;
-                    if (fullMatch.startsWith('import(')) {
-                        replacement = `import(${quote}${resolved}${quote})`;
-                    } else {
-                        const parts = fullMatch.split(quote);
-                        replacement = parts[0] + quote + resolved + quote + (parts[2] || '');
-                    }
-
-                    code = code.substring(0, match.index) + replacement + code.substring(match.index + fullMatch.length);
-                }
-
-                const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+            if (compiledCache[cleanPath]) {
+                const url = URL.createObjectURL(new Blob([compiledCache[cleanPath]], { type: 'application/javascript' }));
                 blobCache.set(cleanPath, url);
                 return url;
-            })();
+            }
 
-            pendingTasks.set(cleanPath, task);
-            return task;
+            try {
+                const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
+                if (!res.ok) throw new Error(`Missing: ${cleanPath}`);
+                let code = await res.text();
+
+                const importRegex = /from\s+['"]([^'"]+)['"]/g;
+                const matches = Array.from(code.matchAll(importRegex));
+
+                for (const match of matches) {
+                    const original = match[1];
+                    let resolved;
+                    
+                    if (LIB_MAP[original]) {
+                        resolved = LIB_MAP[original];
+                    } else if (original.startsWith('.')) {
+                        resolved = await loadAndCompile(original, cleanPath);
+                    } else {
+                        resolved = `https://esm.sh/${original}`;
+                    }
+                    
+                    code = code.split(`'${original}'`).join(`'${resolved}'`);
+                    code = code.split(`"${original}"`).join(`"${resolved}"`);
+                }
+
+                const compiled = window.Babel.transform(code, {
+                    presets: [['react', { runtime: 'classic' }], ['typescript', { isTSX: true, allExtensions: true }]],
+                    filename: cleanPath + '.tsx',
+                    compact: true, minified: true
+                }).code;
+
+                compiledCache[cleanPath] = compiled;
+                localStorage.setItem(CACHE_KEY, JSON.stringify(compiledCache));
+
+                const url = URL.createObjectURL(new Blob([compiled], { type: 'application/javascript' }));
+                blobCache.set(cleanPath, url);
+                return url;
+            } catch (e) { console.error(e); throw e; }
         }
 
         async function init() {
             try {
-                // تصفير الكاش عند تغيير الإصدار
-                if (localStorage.getItem('souq_v_v') !== VERSION) {
-                    localStorage.clear();
-                    localStorage.setItem('souq_v_v', VERSION);
-                    location.reload();
-                    return;
-                }
-
+                if (fill) fill.style.width = '40%';
                 const appUrl = await loadAndCompile('App');
+                
+                if (fill) fill.style.width = '90%';
                 const { default: App } = await import(appUrl);
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(React.createElement(App));
-                console.log("[System] App mounted successfully.");
+                
+                if (fill) fill.style.width = '100%';
+                setTimeout(() => {
+                    const splash = document.getElementById('splash-screen');
+                    if (splash) splash.style.opacity = '0';
+                    setTimeout(() => splash?.remove(), 400);
+                    root.render(React.createElement(App));
+                }, 100);
             } catch (e) {
-                console.error("[Boot Error]", e);
-                document.body.innerHTML = `
-                <div style="padding:40px;color:#d32f2f;font-family:sans-serif;direction:rtl;text-align:center;background:#fff5f5;min-height:100vh">
-                    <div style="font-size:60px">⚠️</div>
-                    <h2 style="margin:20px 0">عذراً، فشل تشغيل محرك المتجر</h2>
-                    <div style="display:inline-block;text-align:right;background:#fff;padding:20px;border-radius:20px;border:1px solid #ffcdd2;box-shadow:0 10px 30px rgba(0,0,0,0.05);max-width:500px">
-                        <p style="font-weight:bold;margin-bottom:10px">تفاصيل الخطأ التقني:</p>
-                        <code style="display:block;background:#eee;padding:10px;border-radius:10px;font-size:12px;word-break:break-all">${e.message}</code>
-                        <p style="font-size:13px;color:#666;margin-top:15px">سبب محتمل: المتصفح لا يدعم ميزات حديثة أو هناك تداخل في ملفات الكاش.</p>
-                    </div>
-                    <div style="margin-top:30px">
-                        <button onclick="localStorage.clear();location.reload()" style="padding:15px 40px;background:#10b981;color:#white;border:none;border-radius:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 10px 20px rgba(16,185,129,0.2)">
-                            تحديث وإصلاح فوري 🚀
-                        </button>
-                    </div>
+                console.error("Boot Error:", e);
+                document.body.innerHTML = `<div style="padding:40px;color:red;font-family:sans-serif;direction:rtl">
+                    <h2>خطأ في تشغيل المتجر</h2>
+                    <p>${e.message}</p>
+                    <button onclick="localStorage.clear();location.reload()" style="padding:10px 20px;background:#10b981;color:white;border:none;border-radius:10px;font-weight:bold">تحديث وإصلاح الكاش</button>
                 </div>`;
             }
         }
