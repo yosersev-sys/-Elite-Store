@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك المحسن v6.0
- * تحسينات الأداء (Performance) والـ SEO
+ * سوق العصر - المحرك الخارق v7.0
+ * نظام الكاش المستمر للأداء الأقصى
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -29,17 +29,14 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title><?php echo htmlspecialchars($meta_title); ?></title>
     <meta name="description" content="<?php echo htmlspecialchars($meta_desc); ?>">
-    <meta name="keywords" content="<?php echo htmlspecialchars($store_settings['homepage_keywords'] ?? 'سوق, العصر, فاقوس, خضروات, فاكهة'); ?>">
     
     <link rel="icon" type="image/png" href="https://soqelasr.com/shopping-bag512.png">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#10b981">
 
-    <!-- Preconnect to speed up 3rd party resource loading -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://unpkg.com">
-    <link rel="preconnect" href="https://esm.sh">
+    <!-- Preload Critical Scripts -->
+    <link rel="modulepreload" href="https://esm.sh/react@19.0.0">
+    <link rel="modulepreload" href="https://esm.sh/react-dom@19.0.0/client">
 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     
@@ -64,12 +61,13 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
         #splash-screen {
             position: fixed; inset: 0; display: flex; flex-direction: column;
             align-items: center; justify-content: center; background: #f8fafc; z-index: 9999;
+            transition: opacity 0.4s ease;
         }
-        .progress-box { width: 200px; height: 4px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-top: 20px; }
-        #progress-bar { height: 100%; width: 0%; background: #10b981; transition: width 0.3s ease; }
+        .progress-box { width: 160px; height: 3px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-top: 24px; }
+        #progress-bar { height: 100%; width: 0%; background: #10b981; transition: width 0.2s ease; }
         
-        /* تجميل الـ Image Loaders لمنع الـ Layout Shift */
-        .image-aspect-ratio { position: relative; width: 100%; height: 0; padding-bottom: 125%; background: #f1f5f9; border-radius: 2rem; overflow: hidden; }
+        /* Inline SVG Logo Styling */
+        .logo-svg { width: 50px; height: 50px; fill: white; filter: drop-shadow(0 10px 15px rgba(16,185,129,0.3)); }
         
         #error-log {
             position: fixed; bottom: 20px; left: 20px; right: 20px;
@@ -81,17 +79,19 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
 <body>
     <div id="root">
         <div id="splash-screen">
-            <div class="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center mb-4 shadow-xl">
-                <img src="https://soqelasr.com/shopping-bag.png" alt="Logo" width="45" height="45" fetchpriority="high">
+            <div class="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center mb-4 shadow-2xl animate-pulse">
+                <!-- Inline SVG for zero-latency icon display -->
+                <svg viewBox="0 0 24 24" class="logo-svg">
+                    <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zm-9-1a2 2 0 0 1 4 0v1h-4V6zm9 14H5V9h14v11z"/>
+                </svg>
             </div>
-            <h1 class="font-black text-slate-800 text-xl">سوق العصر</h1>
+            <h1 class="font-black text-slate-800 text-2xl tracking-tighter">سوق العصر</h1>
             <div class="progress-box"><div id="progress-bar"></div></div>
+            <p id="perf-hint" class="text-[9px] text-slate-400 font-bold mt-4 uppercase tracking-widest">تحسين الأداء الذكي...</p>
         </div>
     </div>
-
     <div id="error-log"></div>
 
-    <!-- Babel is heavy, load it with defer to not block initial render -->
     <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js" defer></script>
 
     <script type="module">
@@ -99,8 +99,13 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
         import ReactDOM from 'react-dom/client';
 
         window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
-        const blobCache = new Map();
         const bar = document.getElementById('progress-bar');
+        const blobCache = new Map();
+        
+        // نظام كاش localStorage للملفات المحولة لسرعة البرق في المرة الثانية
+        const CODE_CACHE_KEY = 'souq_code_cache_v7';
+        let codeCache = {};
+        try { codeCache = JSON.parse(localStorage.getItem(CODE_CACHE_KEY) || '{}'); } catch(e) {}
 
         function resolvePath(filePath, parentPath = '') {
             if (!filePath.startsWith('.')) return filePath.replace(/^\//, '');
@@ -114,10 +119,16 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
             if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
             
             try {
-                const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
-                if (!res.ok) throw new Error(`فشل تحميل الملف: ${cleanPath}`);
+                // محاولة جلب الكود من الكاش أولاً
+                let code;
+                if (codeCache[cleanPath]) {
+                    code = codeCache[cleanPath];
+                } else {
+                    const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
+                    if (!res.ok) throw new Error(`404: ${cleanPath}`);
+                    code = await res.text();
+                }
                 
-                let code = await res.text();
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
                 const matches = Array.from(code.matchAll(importRegex));
                 
@@ -128,17 +139,22 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
                     code = code.split(`"${originalImport}"`).join(`"${depUrl}"`);
                 }
 
-                // Wait for Babel if not ready
                 if (!window.Babel) {
                     await new Promise(r => {
-                        const check = setInterval(() => { if (window.Babel) { clearInterval(check); r(); } }, 20);
+                        const check = setInterval(() => { if (window.Babel) { clearInterval(check); r(); } }, 10);
                     });
                 }
                 
                 const transformed = window.Babel.transform(code, {
                     presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
                     filename: cleanPath + '.tsx',
+                    compact: true,
+                    minified: true
                 }).code;
+
+                // تحديث الكاش بالنسخة المحولة
+                codeCache[cleanPath] = code; 
+                localStorage.setItem(CODE_CACHE_KEY, JSON.stringify(codeCache));
 
                 const url = URL.createObjectURL(new Blob([transformed], { type: 'application/javascript' }));
                 blobCache.set(cleanPath, url);
@@ -151,25 +167,26 @@ $meta_desc = $store_settings['homepage_description'] ?? 'تسوق الخضروا
 
         async function init() {
             try {
-                if (bar) bar.style.width = '40%';
+                if (bar) bar.style.width = '30%';
+                // تحميل App.tsx والاعتماديات في نفس الوقت بقدر الإمكان
                 const appUrl = await getTranspiledUrl('App.tsx');
                 
+                if (bar) bar.style.width = '80%';
                 const { default: App } = await import(appUrl);
                 const root = ReactDOM.createRoot(document.getElementById('root'));
                 
                 if (bar) bar.style.width = '100%';
-                setTimeout(() => {
+                requestAnimationFrame(() => {
                     const splash = document.getElementById('splash-screen');
                     if (splash) {
-                        splash.style.transition = 'opacity 0.3s ease';
                         splash.style.opacity = '0';
-                        setTimeout(() => splash.remove(), 300);
+                        setTimeout(() => splash.remove(), 400);
                     }
                     root.render(React.createElement(App));
-                }, 100);
+                });
             } catch (e) { 
-                const el = document.getElementById('error-log');
-                if (el) { el.style.display = 'block'; el.innerText = 'حدث خطأ في تشغيل التطبيق. يرجى تحديث الصفحة.'; }
+                document.getElementById('error-log').style.display = 'block';
+                document.getElementById('error-log').innerText = e.message;
             }
         }
         
