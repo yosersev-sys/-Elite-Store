@@ -7,8 +7,11 @@ interface FloatingAdminButtonProps {
 }
 
 const FloatingAdminButton: React.FC<FloatingAdminButtonProps> = ({ currentView, onNavigate }) => {
-  // لا يظهر الزر إذا كنا بالفعل في صفحات الإدارة
-  if (currentView === 'admin' || currentView === 'admincp' || currentView === 'admin-form' || currentView === 'admin-invoice') return null;
+  // الكشف المباشر عن مسار الإدارة
+  const isCurrentlyAdmin = window.location.hash.toLowerCase().includes('cp') || 
+                           window.location.hash.toLowerCase().includes('admin');
+
+  if (isCurrentlyAdmin) return null;
 
   return (
     <div className="fixed bottom-8 left-8 z-50 group">
@@ -20,7 +23,7 @@ const FloatingAdminButton: React.FC<FloatingAdminButtonProps> = ({ currentView, 
 
       {/* Main Button */}
       <button
-        onClick={() => onNavigate('admincp')}
+        onClick={() => { window.location.hash = 'cp'; }}
         className="w-16 h-16 bg-emerald-600 text-white rounded-full shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex items-center justify-center hover:bg-slate-900 transition-all duration-500 transform hover:scale-110 active:scale-90 group-hover:rotate-90 border-4 border-white"
         aria-label="Admin Dashboard"
       >
