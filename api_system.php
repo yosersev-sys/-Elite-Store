@@ -1,6 +1,6 @@
 <?php
 /**
- * System & Settings Module - Fixed Image Optimizer
+ * System & Settings Module - Enhanced Image Optimizer v2.0
  */
 if (!defined('DB_HOST')) exit;
 
@@ -34,50 +34,65 @@ switch ($action) {
 
     case 'get_unoptimized_images_count':
         if (!isAdmin()) sendErr('غير مصرح');
-        // نبحث عن الصور التي لا تحتوي على صيغة webP (jpeg, png, etc)
-        $stmt = $pdo->query("SELECT COUNT(*) FROM products WHERE images LIKE '%image/jpeg%' OR images LIKE '%image/png%' OR images LIKE '%image/jpg%'");
-        sendRes(['count' => (int)$stmt->fetchColumn()]);
+        // استعلام أكثر قوة يبحث عن أي منتج يحتوي على صور لا تبدأ بـ image/webp
+        $sql = "SELECT COUNT(*) FROM products 
+                WHERE images IS NOT NULL 
+                AND images != '[]' 
+                AND (images LIKE '%image/jpeg%' OR images LIKE '%image/png%' OR images LIKE '%image/jpg%' OR images LIKE '%base64%') 
+                AND images NOT LIKE '%image/webp;base64%'";
+        
+        $count = (int)$pdo->query($sql)->fetchColumn();
+        
+        sendRes([
+            'count' => $count,
+            'gd_enabled' => function_exists('imagecreatefromstring'),
+            'webp_supported' => function_exists('imagewebp')
+        ]);
         break;
 
     case 'optimize_images_batch':
         if (!isAdmin()) sendErr('غير مصرح');
-        if (!function_exists('imagecreatefromstring')) sendErr('مكتبة GD غير مفعلة على هذا السيرفر');
+        if (!function_exists('imagecreatefromstring')) sendErr('مكتبة GD غير مفعلة على هذا السيرفر. يرجى تفعيلها من لوحة تحكم الاستضافة (PHP Extensions).');
 
-        // جلب أول 5 منتجات تحتاج تحسين
-        $stmt = $pdo->query("SELECT id, name, images FROM products WHERE images LIKE '%image/jpeg%' OR images LIKE '%image/png%' OR images LIKE '%image/jpg%' LIMIT 5");
-        $products = $stmt->fetchAll();
-        $processed = 0;
+        // جلب أول 3 منتجات (تقليل العدد لضمان عدم تجاوز وقت السيرفر)
+        $sql = "SELECT id, name, images FROM products 
+                WHERE images IS NOT NULL 
+                AND (images LIKE '%image/jpeg%' OR images LIKE '%image/png%' OR images LIKE '%image/jpg%') 
+                LIMIT 3";
+                
+        $products = $pdo->query($sql)->fetchAll();
+        $processedCount = 0;
 
         foreach ($products as $p) {
             $imgs = json_decode($p['images'], true);
-            if (!$imgs) continue;
+            if (!$imgs || !is_array($imgs)) continue;
 
             $newImgs = [];
-            $changed = false;
+            $hasChanged = false;
 
             foreach ($imgs as $base64) {
+                // إذا كانت الصورة ويب بي فعلاً نتخطاها
                 if (strpos($base64, 'image/webp') !== false) {
                     $newImgs[] = $base64;
                     continue;
                 }
 
                 try {
-                    // استخراج البيانات من base64
                     $parts = explode(',', $base64);
                     if (count($parts) < 2) { $newImgs[] = $base64; continue; }
                     
                     $data = base64_decode($parts[1]);
-                    $source = imagecreatefromstring($data);
+                    $source = @imagecreatefromstring($data);
                     
                     if ($source) {
                         ob_start();
-                        // تحويل إلى WebP بجودة 75%
-                        imagewebp($source, null, 75);
+                        // تحويل مع ضغط جيد 80%
+                        imagewebp($source, null, 80);
                         $webpData = ob_get_clean();
                         imagedestroy($source);
                         
                         $newImgs[] = 'data:image/webp;base64,' . base64_encode($webpData);
-                        $changed = true;
+                        $hasChanged = true;
                     } else {
                         $newImgs[] = $base64;
                     }
@@ -86,26 +101,26 @@ switch ($action) {
                 }
             }
 
-            if ($changed) {
+            if ($hasChanged) {
                 $upd = $pdo->prepare("UPDATE products SET images = ? WHERE id = ?");
                 $upd->execute([json_encode($newImgs), $p['id']]);
-                $processed++;
+                $processedCount++;
             }
         }
 
-        // جلب العدد المتبقي
-        $remaining = (int)$pdo->query("SELECT COUNT(*) FROM products WHERE images LIKE '%image/jpeg%' OR images LIKE '%image/png%' OR images LIKE '%image/jpg%'")->fetchColumn();
+        // تحديث العدد المتبقي
+        $remaining = (int)$pdo->query("SELECT COUNT(*) FROM products WHERE (images LIKE '%image/jpeg%' OR images LIKE '%image/png%' OR images LIKE '%image/jpg%')")->fetchColumn();
         
         sendRes([
             'status' => 'success', 
-            'processed' => $processed, 
+            'processed' => $processedCount, 
             'remaining' => $remaining
         ]);
         break;
 
     case 'generate_sitemap':
         if (!isAdmin()) sendErr('غير مصرح');
-        // ... (كود الـ sitemap الأصلي يظل كما هو)
+        // ... sitemap logic
         sendRes(['status' => 'success']);
         break;
 }

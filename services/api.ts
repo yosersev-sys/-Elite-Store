@@ -256,7 +256,8 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async getUnoptimizedCount(): Promise<{count: number}> {
+  // Fixed: Added missing properties to the return type of getUnoptimizedCount
+  async getUnoptimizedCount(): Promise<{count: number; gd_enabled: boolean; webp_supported: boolean}> {
     return await safeFetch('get_unoptimized_images_count');
   },
 
