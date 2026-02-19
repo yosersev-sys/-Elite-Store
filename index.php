@@ -1,6 +1,6 @@
 <?php
 /**
- * سوق العصر - المحرك الخارق v8.0
+ * سوق العصر - المحرك الخارق v8.1
  * حل نهائي لمشاكل الاستيراد وأداء فائق السرعة
  */
 header('Content-Type: text/html; charset=utf-8');
@@ -16,7 +16,6 @@ try {
 } catch (Exception $e) {}
 
 $meta_title = 'سوق العصر - فاقوس';
-$meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -32,6 +31,18 @@ $meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     
+    <!-- إضافة الـ Import Map لحل مشكلة Bare Specifier في المتصفح -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@19.0.0",
+        "react-dom": "https://esm.sh/react-dom@19.0.0",
+        "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+        "@google/genai": "https://esm.sh/@google/genai@1.41.0"
+      }
+    }
+    </script>
+
     <style>
         :root { --primary: #10b981; }
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; font-display: swap; }
@@ -69,7 +80,6 @@ $meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
         window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
         const fill = document.getElementById('p-fill');
         
-        // خريطة المكتبات لتعويض الـ Bare Specifiers يدوياً لضمان العمل داخل الـ Blobs
         const LIB_MAP = {
             'react': 'https://esm.sh/react@19.0.0',
             'react-dom': 'https://esm.sh/react-dom@19.0.0',
@@ -77,7 +87,7 @@ $meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
             '@google/genai': 'https://esm.sh/@google/genai@1.41.0'
         };
 
-        const CACHE_KEY = 'souq_compiled_v8';
+        const CACHE_KEY = 'souq_compiled_v8.1';
         const compiledCache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
         const blobCache = new Map();
 
@@ -87,14 +97,14 @@ $meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
             parts.pop();
             const base = parts.join('/');
             const url = new URL(path, 'http://app/' + (base ? base + '/' : ''));
-            return url.pathname.substring(1);
+            // إزالة الامتدادات للتوافق مع نظام التحميل
+            return url.pathname.substring(1).replace(/\.(tsx|ts|jsx|js)$/, '');
         }
 
         async function loadAndCompile(filePath, parentPath = '') {
             const cleanPath = resolvePath(filePath, parentPath);
             if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
 
-            // التحقق من الكاش (Compiled JS)
             if (compiledCache[cleanPath]) {
                 const url = URL.createObjectURL(new Blob([compiledCache[cleanPath]], { type: 'application/javascript' }));
                 blobCache.set(cleanPath, url);
@@ -106,7 +116,6 @@ $meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
                 if (!res.ok) throw new Error(`Missing: ${cleanPath}`);
                 let code = await res.text();
 
-                // معالجة الاستيرادات قبل التحويل
                 const importRegex = /from\s+['"]([^'"]+)['"]/g;
                 const matches = Array.from(code.matchAll(importRegex));
 
@@ -115,7 +124,7 @@ $meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
                     let resolved;
                     
                     if (LIB_MAP[original]) {
-                        resolved = LIB_MAP[original]; // ربط مباشر للمكتبات
+                        resolved = LIB_MAP[original];
                     } else if (original.startsWith('.')) {
                         resolved = await loadAndCompile(original, cleanPath);
                     } else {
@@ -132,7 +141,6 @@ $meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
                     compact: true, minified: true
                 }).code;
 
-                // حفظ في الكاش الدائم
                 compiledCache[cleanPath] = compiled;
                 localStorage.setItem(CACHE_KEY, JSON.stringify(compiledCache));
 
@@ -145,7 +153,7 @@ $meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
         async function init() {
             try {
                 if (fill) fill.style.width = '40%';
-                const appUrl = await loadAndCompile('App.tsx');
+                const appUrl = await loadAndCompile('App');
                 
                 if (fill) fill.style.width = '90%';
                 const { default: App } = await import(appUrl);
@@ -160,15 +168,14 @@ $meta_desc = 'تسوق أونلاين بكل سهولة من هاتفك.';
                 }, 100);
             } catch (e) {
                 console.error("Boot Error:", e);
-                document.body.innerHTML = `<div style="padding:40px;color:red;font-family:sans-serif">
-                    <h2>خطأ في التشغيل</h2>
+                document.body.innerHTML = `<div style="padding:40px;color:red;font-family:sans-serif;direction:rtl">
+                    <h2>خطأ في تشغيل المتجر</h2>
                     <p>${e.message}</p>
-                    <button onclick="localStorage.clear();location.reload()">إصلاح وتحديث</button>
+                    <button onclick="localStorage.clear();location.reload()" style="padding:10px 20px;background:#10b981;color:white;border:none;border-radius:10px;font-weight:bold">تحديث وإصلاح الكاش</button>
                 </div>`;
             }
         }
 
-        // الانتظار حتى جهوزية بابل
         const checkBabel = setInterval(() => {
             if (window.Babel) { clearInterval(checkBabel); init(); }
         }, 50);
