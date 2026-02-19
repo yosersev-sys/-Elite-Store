@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الخارق v8.3
- * تم إضافة Skeleton UI لتحسين الأداء الفوري (FCP) وحل أخطاء Lighthouse
+ * سوق العصر - المحرك الخارق v8.4
+ * إصلاح نهائي لمشكلة الـ Refresh و الـ Dynamic Import Blobs
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -46,15 +46,12 @@ $meta_title = 'سوق العصر - فاقوس';
         :root { --primary: #10b981; }
         * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        
-        /* واجهة هيكلية Skeleton - تظهر فوراً */
         .skeleton { background: #edf2f7; background-image: linear-gradient(90deg, #edf2f7 0px, #f7fafc 40px, #edf2f7 80px); background-size: 600px; animation: shine-lines 1.6s infinite linear; }
         @keyframes shine-lines { 0% { background-position: -100px; } 40%, 100% { background-position: 140px; } }
     </style>
 </head>
 <body>
     <div id="root">
-        <!-- واجهة وهمية تظهر للمتصفح كأنها الموقع لرفع سرعة الـ FCP -->
         <div id="initial-skeleton" style="padding: 10px;">
             <div class="skeleton" style="height: 60px; border-radius: 20px; margin-bottom: 20px;"></div>
             <div class="skeleton" style="height: 200px; border-radius: 30px; margin-bottom: 20px;"></div>
@@ -80,7 +77,7 @@ $meta_title = 'سوق العصر - فاقوس';
             '@google/genai': 'https://esm.sh/@google/genai@1.41.0'
         };
 
-        const CACHE_KEY = 'souq_compiled_v8.3';
+        const CACHE_KEY = 'souq_babel_v8.4';
         const compiledCache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
         const blobCache = new Map();
 
@@ -96,40 +93,65 @@ $meta_title = 'سوق العصر - فاقوس';
         async function loadAndCompile(filePath, parentPath = '') {
             const cleanPath = resolvePath(filePath, parentPath);
             if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
-            if (compiledCache[cleanPath]) {
-                const url = URL.createObjectURL(new Blob([compiledCache[cleanPath]], { type: 'application/javascript' }));
-                blobCache.set(cleanPath, url);
-                return url;
+
+            let babelCode = compiledCache[cleanPath];
+
+            // 1. إذا لم يكن موجوداً في الكاش، نقوم بتحميله وترجمته وحفظه "خام"
+            if (!babelCode) {
+                try {
+                    const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
+                    if (!res.ok) throw new Error(`Missing: ${cleanPath}`);
+                    const source = await res.text();
+                    
+                    babelCode = window.Babel.transform(source, {
+                        presets: [['react', { runtime: 'classic' }], ['typescript', { isTSX: true, allExtensions: true }]],
+                        filename: cleanPath + '.tsx',
+                        compact: true, minified: true
+                    }).code;
+
+                    compiledCache[cleanPath] = babelCode;
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(compiledCache));
+                } catch (e) { console.error(e); throw e; }
             }
-            try {
-                const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
-                if (!res.ok) throw new Error(`Missing: ${cleanPath}`);
-                let code = await res.text();
-                const importRegex = /from\s+['"]([^'"]+)['"]/g;
-                const matches = Array.from(code.matchAll(importRegex));
-                for (const match of matches) {
-                    const original = match[1];
-                    let resolved;
-                    if (LIB_MAP[original]) resolved = LIB_MAP[original];
-                    else if (original.startsWith('.')) resolved = await loadAndCompile(original, cleanPath);
-                    else resolved = `https://esm.sh/${original}`;
-                    code = code.split(`'${original}'`).join(`'${resolved}'`).split(`"${original}"`).join(`"${resolved}"`);
+
+            // 2. مرحلة الربط (Linking): نقوم باستبدال المسارات بـ Blob URLs جديدة لهذه الجلسة فقط
+            let linkedCode = babelCode;
+            const importRegex = /from\s+['"]([^'"]+)['"]/g;
+            const matches = Array.from(babelCode.matchAll(importRegex));
+
+            for (const match of matches) {
+                const original = match[1];
+                let resolved;
+                
+                if (LIB_MAP[original]) {
+                    resolved = LIB_MAP[original];
+                } else if (original.startsWith('.')) {
+                    // استدعاء تكراري للحصول على رابط Blob جديد للملف التابع
+                    resolved = await loadAndCompile(original, cleanPath);
+                } else {
+                    resolved = `https://esm.sh/${original}`;
                 }
-                const compiled = window.Babel.transform(code, {
-                    presets: [['react', { runtime: 'classic' }], ['typescript', { isTSX: true, allExtensions: true }]],
-                    filename: cleanPath + '.tsx',
-                    compact: true, minified: true
-                }).code;
-                compiledCache[cleanPath] = compiled;
-                localStorage.setItem(CACHE_KEY, JSON.stringify(compiledCache));
-                const url = URL.createObjectURL(new Blob([compiled], { type: 'application/javascript' }));
-                blobCache.set(cleanPath, url);
-                return url;
-            } catch (e) { console.error(e); throw e; }
+                
+                // استبدال دقيق للمسار
+                linkedCode = linkedCode.split(`'${original}'`).join(`'${resolved}'`);
+                linkedCode = linkedCode.split(`"${original}"`).join(`"${resolved}"`);
+            }
+
+            const url = URL.createObjectURL(new Blob([linkedCode], { type: 'application/javascript' }));
+            blobCache.set(cleanPath, url);
+            return url;
         }
 
         async function init() {
             try {
+                // إجبار الكاش القديم المكسور على التلاشي إذا كان من إصدار أقدم
+                if (!localStorage.getItem('souq_v8.4_check')) {
+                    localStorage.clear();
+                    localStorage.setItem('souq_v8.4_check', 'ok');
+                    location.reload();
+                    return;
+                }
+
                 const appUrl = await loadAndCompile('App');
                 const { default: App } = await import(appUrl);
                 const root = ReactDOM.createRoot(document.getElementById('root'));
