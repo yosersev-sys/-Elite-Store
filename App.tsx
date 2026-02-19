@@ -25,27 +25,23 @@ import Footer from './components/Footer.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
-// تعريف المسارات الخاصة بالإدارة بشكل صارم
+// القائمة المعتمدة لمسارات الإدارة
 const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
 const App: React.FC = () => {
-  // دالة مطورة لاستخراج المسار من الرابط بشكل مضاد للأخطاء
+  // دالة مركزية لاستخراج المسار الحالي من الرابط
   const parseViewFromHash = (): View => {
     const hash = window.location.hash.toLowerCase();
     
-    // التحقق الصارم من روابط الإدارة
-    if (hash.includes('admincp') || (hash.includes('admin') && !hash.includes('profile'))) {
+    // إذا كان الرابط يحتوي على كلمة admin، فهو حتماً مسار إدارة
+    if (hash.includes('admin')) {
       if (hash.includes('form')) return 'admin-form';
       if (hash.includes('invoice')) return 'admin-invoice';
       return 'admincp';
     }
     
-    // تنظيف الـ Hash للمسارات العامة
     const cleanHash = hash.replace(/^#\/?/, '').split('?')[0] as View;
-    const publicViews: View[] = [
-      'cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 
-      'order-success', 'product-details', 'store'
-    ];
+    const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success', 'product-details'];
     
     if (publicViews.includes(cleanHash)) return cleanHash;
     return 'store';
@@ -98,24 +94,18 @@ const App: React.FC = () => {
   const prevOrderIds = useRef<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // تحديث الصفحة فوراً عند تغير الرابط وضمان المزامنة عند التحميل
+  // تحديث المسار فور تغير الرابط
   useEffect(() => {
     const handleHashChange = () => {
       const nextView = parseViewFromHash();
       setView(nextView);
       window.scrollTo(0, 0);
     };
-
     window.addEventListener('hashchange', handleHashChange);
-    
-    // تشغيل التحقق مرة واحدة عند التحميل للتأكد من أننا لسنا في واجهة المتجر بالخطأ
-    const currentRealView = parseViewFromHash();
-    if (view !== currentRealView) {
-      setView(currentRealView);
-    }
-
+    // تشغيل فحص أولي عند التحميل
+    handleHashChange();
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [view]);
+  }, []);
 
   const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
@@ -178,8 +168,9 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
-    // تحديث الـ Hash سيؤدي لتلقائياً لتحديث الـ State عبر مستمع الـ Hashchange
-    window.location.hash = (v === 'store') ? '' : v;
+    // استخدام admincp ككلمة مفتاحية ثابتة للإدارة
+    const targetHash = (v === 'admin' || v === 'admincp') ? 'admincp' : v;
+    window.location.hash = (v === 'store') ? '' : targetHash;
   };
 
   const handleLogout = async () => {
@@ -216,26 +207,19 @@ const App: React.FC = () => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // تحديد ما إذا كان المسار يخص الإدارة
-  const isAdminPath = ADMIN_VIEWS.includes(view);
+  // التحقق الفوري من المسار
+  const currentHash = window.location.hash.toLowerCase();
+  const isAdminPath = ADMIN_VIEWS.includes(view) || currentHash.includes('admin');
   const isActuallyAdmin = currentUser?.role === 'admin';
 
-  // صمام أمان: إذا اكتشفنا كلمة admin في الرابط ولكن الحالة ليست 'admincp'
-  useEffect(() => {
-    const h = window.location.hash.toLowerCase();
-    if (h.includes('admin') && !isAdminPath) {
-      setView('admincp');
-    }
-  }, [isAdminPath]);
-
-  // دالة العرض المركزية لضمان الفصل التام بين واجهة المتجر والإدارة
+  // دالة عرض المحتوى لضمان عدم التداخل
   const renderContent = () => {
-    // 1. إذا كان المسار للإدارة والمستخدم غير مسجل دخوله كمدير
+    // 1. حماية مسارات الإدارة
     if (isAdminPath && !isActuallyAdmin) {
       return <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => onNavigateAction('store')} />;
     }
 
-    // 2. محتوى الإدارة للمديرين
+    // 2. واجهة الإدارة
     if (isAdminPath && isActuallyAdmin) {
       switch(view) {
         case 'admin-form':
