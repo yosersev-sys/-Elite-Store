@@ -1,20 +1,17 @@
-
 <?php
 /**
- * سوق العصر - المحرك الذكي v4.2
+ * سوق العصر - المحرك الذكي المحسن v5.0
+ * تحسين الأداء وتقليل وقت التحميل (FCP & LCP)
  */
 header('Content-Type: text/html; charset=utf-8');
 require_once 'config.php';
 
-// جلب مفتاح API من إعدادات النظام في قاعدة البيانات
 $gemini_key = '';
 try {
     $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'gemini_api_key' LIMIT 1");
     $stmt->execute();
     $gemini_key = $stmt->fetchColumn() ?: '';
-} catch (Exception $e) {
-    // في حال عدم وجود الجدول بعد
-}
+} catch (Exception $e) {}
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" style="scroll-behavior: smooth;">
@@ -23,30 +20,23 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>سوق العصر - اول سوق الكتروني في فاقوس</title>
     
-    <!-- Favicon -->
     <link rel="icon" type="image/png" href="https://soqelasr.com/shopping-bag512.png">
-    
-    <!-- PWA & Android Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#10b981">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://soqelasr.com/shopping-bag512.png">
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- تحسين تحميل الخطوط -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     
-    <!-- External Libraries -->
-    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
+    <script src="https://cdn.tailwindcss.com"></script>
+    
     <script type="importmap">
     {
       "imports": {
         "react": "https://esm.sh/react@19.0.0",
         "react-dom": "https://esm.sh/react-dom@19.0.0",
         "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-        "react-router-dom": "https://esm.sh/react-router-dom@7.1.0?external=react,react-dom",
         "@google/genai": "https://esm.sh/@google/genai@1.41.0"
       }
     }
@@ -54,34 +44,25 @@ try {
     
     <style>
         :root { --primary: #10b981; }
-        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
+        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        @keyframes pulse-soft { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.95); opacity: 0.8; } }
         
+        /* تحسين السكرين سكرين ليكون أخف وزناً */
         #splash-screen {
             position: fixed; inset: 0; display: flex; flex-direction: column;
             align-items: center; justify-content: center; background: #f8fafc; z-index: 9999;
+            transition: opacity 0.5s ease-out;
         }
         .splash-container { display: flex; flex-direction: column; align-items: center; width: 280px; text-align: center; }
         .splash-logo {
-            width: 100px; height: 100px; background: #10b981; border-radius: 32px;
+            width: 80px; height: 80px; background: #10b981; border-radius: 28px;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15);
-            animation: pulse-soft 2s infinite ease-in-out; margin-bottom: 24px;
+            margin-bottom: 20px;
         }
-        .splash-logo img { width: 60px; height: 60px; object-fit: contain; }
-        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.6rem; line-height: 1.2; }
-        .splash-tagline { color: #10b981; font-weight: 800; font-size: 0.75rem; margin-bottom: 12px; opacity: 0.9; letter-spacing: 0.5px; }
-        .splash-status { color: #94a3b8; font-size: 0.65rem; font-weight: 700; margin-bottom: 20px; height: 1rem; text-transform: uppercase; }
-        
-        .progress-box { width: 100%; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; position: relative; }
-        #progress-bar {
-            position: absolute; top: 0; right: 0; height: 100%; width: 0%;
-            background: linear-gradient(90deg, #10b981, #34d399);
-            transition: width 0.3s cubic-bezier(0.1, 0.5, 0.5, 1);
-            border-radius: 10px;
-        }
-        #progress-text { margin-top: 12px; font-weight: 900; color: #10b981; font-size: 1.1rem; }
+        .splash-logo img { width: 45px; height: 45px; object-fit: contain; }
+        .progress-box { width: 100%; height: 4px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin-top: 20px; }
+        #progress-bar { height: 100%; width: 0%; background: #10b981; transition: width 0.2s ease; }
     </style>
 </head>
 <body>
@@ -89,138 +70,72 @@ try {
         <div id="splash-screen">
             <div class="splash-container">
                 <div class="splash-logo">
-                    <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
+                    <img src="https://soqelasr.com/shopping-bag.png" alt="Logo" width="45" height="45">
                 </div>
-                <div class="splash-text">سوق العصر</div>
-                <div class="splash-tagline">اول سوق الكتروني في فاقوس</div>
-                <div id="splash-status-text" class="splash-status">جاري الاتصال...</div>
-                <div class="progress-box">
-                    <div id="progress-bar"></div>
-                </div>
-                <div id="progress-text">0%</div>
+                <h1 style="font-weight:900; color:#1e293b; font-size:1.4rem;">سوق العصر</h1>
+                <div class="progress-box"><div id="progress-bar"></div></div>
             </div>
         </div>
     </div>
+
+    <!-- تحميل Babel بشكل غير متزامن -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" async></script>
 
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
 
-        const progressBar = document.getElementById('progress-bar');
-        const progressText = document.getElementById('progress-text');
-        const statusText = document.getElementById('splash-status-text');
-
-        let visualProgress = 0;
-        let targetProgress = 0;
-
-        function smoothUpdate() {
-            if (visualProgress < targetProgress) {
-                visualProgress += (targetProgress - visualProgress) * 0.1;
-                if (targetProgress - visualProgress < 0.5) visualProgress = targetProgress;
-                
-                const displayVal = Math.floor(visualProgress);
-                if (progressBar) progressBar.style.width = displayVal + '%';
-                if (progressText) progressText.innerText = displayVal + '%';
-            }
-            if (visualProgress < 100) requestAnimationFrame(smoothUpdate);
-        }
-        smoothUpdate();
-
-        function setProgress(percent, status) {
-            targetProgress = percent;
-            if (statusText && status) statusText.innerText = status;
-        }
-
-        window.process = window.process || { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
-
-        const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
+        window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
         const blobCache = new Map();
-        let filesProcessed = 0;
-        const estimatedTotalFiles = 25; 
-
-        async function fetchWithFallback(url) {
-            const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
-            for (let ext of extensions) {
-                try {
-                    const fullUrl = url + (url.match(/\.(tsx?|jsx?)$/) ? '' : ext);
-                    const response = await fetch(fullUrl);
-                    if (response.ok) {
-                        const contentType = response.headers.get('content-type');
-                        if (contentType && contentType.includes('text/html')) continue;
-                        return { code: await response.text(), finalUrl: fullUrl };
-                    }
-                } catch (e) {}
-            }
-            throw new Error(`الملف مفقود: ${url}`);
-        }
-
+        
         async function getTranspiledUrl(filePath) {
-            const absolutePath = new URL(filePath, BASE_URL).href;
-            if (blobCache.has(absolutePath)) return blobCache.get(absolutePath);
-
-            try {
-                const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
-                let code = rawCode;
-                
-                filesProcessed++;
-                // إخفاء أسماء الملفات واستخدام عبارات عامة احترافية
-                const calcPercent = 10 + Math.min(filesProcessed / estimatedTotalFiles * 75, 75);
-                
-                // رسائل متغيرة بناءً على نسبة التقدم بدلاً من أسماء الملفات
-                let loadingMsg = "جاري معالجة البيانات...";
-                if (calcPercent > 20) loadingMsg = "تحسين تجربة التصفح...";
-                if (calcPercent > 40) loadingMsg = "تجهيز مكونات المتجر...";
-                if (calcPercent > 60) loadingMsg = "تأمين الاتصال المشفر...";
-                if (calcPercent > 80) loadingMsg = "تنسيق واجهة المستخدم...";
-                
-                setProgress(calcPercent, loadingMsg);
-
-                const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
-                const matches = [...code.matchAll(importRegex)];
-                
-                for (const match of matches) {
-                    const relativePath = match[1];
-                    const fullImportPath = new URL(relativePath, finalUrl).href;
-                    const depBlobUrl = await getTranspiledUrl(fullImportPath);
-                    code = code.split(`'${relativePath}'`).join(`'${depBlobUrl}'`);
-                    code = code.split(`"${relativePath}"`).join(`"${depBlobUrl}"`);
-                }
-
-                const transformed = Babel.transform(code, {
-                    presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
-                    filename: finalUrl,
-                }).code;
-
-                const blob = new Blob([transformed], { type: 'application/javascript' });
-                const blobUrl = URL.createObjectURL(blob);
-                blobCache.set(absolutePath, blobUrl);
-                return blobUrl;
-            } catch (err) { throw err; }
-        }
-
-        async function startApp() {
-            try {
-                setProgress(5, "بدء تشغيل المحرك الذكي...");
-                const appBlobUrl = await getTranspiledUrl('App.tsx');
-                
-                setProgress(90, "فتح أبواب المتجر...");
-                const module = await import(appBlobUrl);
-                const App = module.default;
-
-                const root = ReactDOM.createRoot(document.getElementById('root'));
-                setProgress(100, "جاهز للتسوق!");
-                
-                setTimeout(() => {
-                    root.render(React.createElement(App));
-                }, 300);
-
-            } catch (err) {
-                console.error(err);
-                document.getElementById('root').innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">خطأ في تحميل المتجر: <br/> يرجى التأكد من اتصال الإنترنت</div>`;
+            const abs = new URL(filePath, window.location.href).href;
+            if (blobCache.has(abs)) return blobCache.get(abs);
+            
+            const res = await fetch(abs);
+            let code = await res.text();
+            
+            // تحسين سرعة معالجة التبعيات
+            const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
+            const matches = [...code.matchAll(importRegex)];
+            for (const match of matches) {
+                const depUrl = await getTranspiledUrl(new URL(match[1], abs).href);
+                code = code.split(match[1]).join(depUrl);
             }
+
+            // الانتظار حتى تحميل بابل إذا لم يكن جاهزاً
+            while(!window.Babel) await new Promise(r => setTimeout(r, 50));
+            
+            const transformed = window.Babel.transform(code, {
+                presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
+                filename: abs,
+            }).code;
+
+            const url = URL.createObjectURL(new Blob([transformed], { type: 'application/javascript' }));
+            blobCache.set(abs, url);
+            return url;
         }
 
-        startApp();
+        async function init() {
+            const bar = document.getElementById('progress-bar');
+            try {
+                if (bar) bar.style.width = '30%';
+                const appUrl = await getTranspiledUrl('App.tsx');
+                if (bar) bar.style.width = '80%';
+                
+                const { default: App } = await import(appUrl);
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                
+                if (bar) bar.style.width = '100%';
+                setTimeout(() => {
+                    const splash = document.getElementById('splash-screen');
+                    if (splash) splash.style.opacity = '0';
+                    setTimeout(() => splash?.remove(), 500);
+                    root.render(React.createElement(App));
+                }, 200);
+            } catch (e) { console.error(e); }
+        }
+        init();
     </script>
 </body>
 </html>

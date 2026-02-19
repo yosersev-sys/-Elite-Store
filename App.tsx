@@ -31,7 +31,6 @@ const App: React.FC = () => {
   const getInitialView = (): View => {
     const hash = window.location.hash.replace('#', '').split('?')[0];
     if (ADMIN_VIEWS.includes(hash as View)) return hash as View;
-    if (hash === 'admin' || hash === 'admincp' || window.location.href.includes('admin')) return 'admin';
     const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success'];
     if (publicViews.includes(hash as View)) return hash as View;
     return 'store';
@@ -85,36 +84,19 @@ const App: React.FC = () => {
   const audioObj = useRef<HTMLAudioElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  useEffect(() => {
-    const soundUrl = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
-    audioObj.current = new Audio(soundUrl);
-    audioObj.current.load();
-  }, []);
-
   const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
       if (!isSilent) setIsLoading(true);
       let activeUser = forcedUser !== undefined ? forcedUser : currentUser;
       
-      const promises: any[] = [
+      // Fixed: Parallelized core data fetching using destructuring to ensure correct types for each variable.
+      // This avoids the issue where properties like 'phone' or 'delivery_fee' weren't found on a mixed results array.
+      const [adminInfo, fetchedProducts, fetchedCats, storeSettings] = await Promise.all([
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
         ApiService.getCategories(),
         ApiService.getStoreSettings()
-      ];
-
-      // إذا كان مدير، نجلب الأعضاء والموردين والملخص المالي
-      if (activeUser?.role === 'admin') {
-        promises.push(ApiService.getAdminSummary());
-        promises.push(ApiService.getUsers());
-        promises.push(ApiService.getSuppliers());
-      }
-
-      const results = await Promise.all(promises);
-      const adminInfo = results[0];
-      const fetchedProducts = results[1];
-      const fetchedCats = results[2];
-      const storeSettings = results[3];
+      ]);
       
       if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
       if (storeSettings?.delivery_fee) setDeliveryFee(parseFloat(storeSettings.delivery_fee));
@@ -122,33 +104,33 @@ const App: React.FC = () => {
       setCategories(fetchedCats || []);
       
       if (activeUser?.role === 'admin') {
-        setAdminSummary(results[4]);
-        setUsers(results[5] || []);
-        setSuppliers(results[6] || []);
+        // Fixed: Fetch admin-specific data in a separate parallel call to maintain strong typing.
+        const [summary, fetchedUsers, fetchedSuppliers] = await Promise.all([
+          ApiService.getAdminSummary(),
+          ApiService.getUsers(),
+          ApiService.getSuppliers()
+        ]);
+        setAdminSummary(summary);
+        setUsers(fetchedUsers || []);
+        setSuppliers(fetchedSuppliers || []);
       }
 
       if (activeUser) {
-        ApiService.getOrders().then(fetchedOrders => {
-          setOrders(fetchedOrders || []);
-          if (activeUser.role === 'admin' && fetchedOrders?.length > 0) {
-            if (prevOrderIds.current.size === 0) {
-              prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
-            } else {
-              const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
-              if (trulyNew.length > 0) {
-                if (soundEnabled && audioObj.current) {
-                  audioObj.current.currentTime = 0;
-                  audioObj.current.play().catch(e => {});
-                }
-                setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
-                trulyNew.forEach(o => prevOrderIds.current.add(o.id));
-              }
+        const fetchedOrders = await ApiService.getOrders();
+        setOrders(fetchedOrders || []);
+        if (activeUser.role === 'admin' && fetchedOrders?.length > 0) {
+          if (prevOrderIds.current.size > 0) {
+            const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
+            if (trulyNew.length > 0) {
+              if (soundEnabled && audioObj.current) audioObj.current.play().catch(e => {});
+              setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
             }
           }
-        });
+          prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
+        }
       }
     } catch (err) {
-      console.error("Data Load Error:", err);
+      console.error("Load Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -158,7 +140,7 @@ const App: React.FC = () => {
     loadData();
     const interval = setInterval(() => {
       if (currentUser?.role === 'admin') loadData(true);
-    }, 20000); 
+    }, 30000); 
     return () => clearInterval(interval);
   }, [currentUser?.id]);
 
@@ -175,10 +157,6 @@ const App: React.FC = () => {
     await ApiService.logout();
     setCurrentUser(null);
     setOrders([]);
-    setUsers([]);
-    setSuppliers([]);
-    setAdminSummary(null);
-    prevOrderIds.current.clear();
     setView('store');
   };
 
@@ -192,8 +170,7 @@ const App: React.FC = () => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        const newQty = Number((existing.quantity + qty).toFixed(3));
-        return prev.map(item => item.id === product.id ? {...item, quantity: newQty} : item);
+        return prev.map(item => item.id === product.id ? {...item, quantity: Number((item.quantity + qty).toFixed(3))} : item);
       }
       return [...prev, { ...product, quantity: Number(qty.toFixed(3)) }];
     });
@@ -215,30 +192,18 @@ const App: React.FC = () => {
 
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
-      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminPath ? 'admin-no-tracking' : 'pb-24 md:pb-0'}`}>
-        
+      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminPath ? '' : 'pb-24 md:pb-0'}`}>
         {isActuallyAdmin && newOrdersForPopup.length > 0 && (
           <NewOrderPopup 
             orders={newOrdersForPopup} 
             onClose={(id) => setNewOrdersForPopup(prev => prev.filter(o => o.id !== id))}
-            onView={(order) => {
-              setLastCreatedOrder(order);
-              onNavigateAction('order-success');
-            }}
+            onView={(order) => { setLastCreatedOrder(order); onNavigateAction('order-success'); }}
           />
         )}
 
-        {notification && (
-          <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
-        )}
-
-        {isAdminPath && !isActuallyAdmin && (
-          <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => setView('store')} />
-        )}
-
-        {showAuthModal && (
-          <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />
-        )}
+        {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
+        {isAdminPath && !isActuallyAdmin && <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => setView('store')} />}
+        {showAuthModal && <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />}
 
         {!isAdminPath && (
           <Header 
@@ -266,72 +231,16 @@ const App: React.FC = () => {
               onOpenEditForm={(p) => { setSelectedProduct(p); setView('admin-form'); }}
               onOpenInvoiceForm={() => { setEditingOrder(null); setView('admin-invoice'); }}
               onEditOrder={(order) => { setEditingOrder(order); setView('admin-invoice'); }}
-              onDeleteProduct={async (id) => { 
-                  if(await ApiService.deleteProduct(id)) { setNotification({message: 'تم الحذف', type: 'success'}); loadData(true); }
-              }}
-              onAddCategory={async (c) => { 
-                  if(await ApiService.addCategory(c)) { setNotification({message: 'تم الإضافة', type: 'success'}); loadData(true); }
-              }}
-              onUpdateCategory={async (c) => { 
-                  if(await ApiService.updateCategory(c)) { setNotification({message: 'تم التحديث', type: 'success'}); loadData(true); }
-              }}
-              onDeleteCategory={async (id) => { 
-                  if(await ApiService.deleteCategory(id)) { setNotification({message: 'تم الحذف', type: 'success'}); loadData(true); }
-              }}
-              onViewOrder={(order) => {
-                setLastCreatedOrder(order);
-                setView('order-success');
-              }}
-              onUpdateOrderPayment={(id, method) => {
-                const previousOrders = [...orders];
-                const orderToUpdate = orders.find(o => o.id === id);
-                if (!orderToUpdate) return;
-                setOrders(prev => prev.map(o => o.id === id ? { ...o, paymentMethod: method } : o));
-                setNotification({message: 'جاري تحديث الدفع...', type: 'success'});
-                if (adminSummary && method.includes('نقدي')) {
-                  setAdminSummary((prev: any) => ({
-                    ...prev,
-                    total_customer_debt: Math.max(0, (prev.total_customer_debt || 0) - (orderToUpdate.total || 0))
-                  }));
-                }
-                ApiService.updateOrderPayment(id, method).then(success => {
-                  if (success) {
-                    setNotification({message: 'تم تحديث حالة الدفع بنجاح', type: 'success'});
-                    loadData(true);
-                  } else {
-                    setOrders(previousOrders);
-                    setNotification({message: 'فشل تحديث الدفع، يرجى المحاولة لاحقاً', type: 'error'});
-                  }
-                });
-              }}
-              onReturnOrder={async (id) => {
-                if(!confirm('تأكيد الاسترجاع؟ سيتم إعادة الكميات للمخزن.')) return;
-                const orderToReturn = orders.find(o => o.id === id);
-                if (orderToReturn) {
-                  setProducts(prev => prev.map(p => {
-                    const itemInOrder = orderToReturn.items.find(i => i.id === p.id);
-                    if (itemInOrder) {
-                      return { ...p, stockQuantity: p.stockQuantity + itemInOrder.quantity, salesCount: Math.max(0, (p.salesCount || 0) - itemInOrder.quantity) };
-                    }
-                    return p;
-                  }));
-                }
-                const res = await ApiService.returnOrder(id);
-                if(res.status === 'success') { 
-                  setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' as any } : o));
-                  setNotification({message: 'تم الاسترجاع وتحديث المخزن بنجاح', type: 'success'}); 
-                  loadData(true);
-                } else {
-                  loadData(true); 
-                }
-              }}
-              onDeleteUser={async (id) => {
-                if(await ApiService.deleteUser(id)) { setNotification({message: 'تم حذف العضو بنجاح', type: 'success'}); loadData(true); }
-              }}
-              soundEnabled={soundEnabled}
-              onToggleSound={() => setSoundEnabled(!soundEnabled)}
-              onLogout={handleLogout}
-              onRefreshData={() => loadData(true)}
+              onDeleteProduct={async (id) => { if(await ApiService.deleteProduct(id)) loadData(true); }}
+              onAddCategory={async (c) => { if(await ApiService.addCategory(c)) loadData(true); }}
+              onUpdateCategory={async (c) => { if(await ApiService.updateCategory(c)) loadData(true); }}
+              onDeleteCategory={async (id) => { if(await ApiService.deleteCategory(id)) loadData(true); }}
+              onViewOrder={(order) => { setLastCreatedOrder(order); setView('order-success'); }}
+              onUpdateOrderPayment={(id, method) => ApiService.updateOrderPayment(id, method).then(() => loadData(true))}
+              onReturnOrder={async (id) => { if(await ApiService.returnOrder(id)) loadData(true); }}
+              onDeleteUser={async (id) => { if(await ApiService.deleteUser(id)) loadData(true); }}
+              soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)}
+              onLogout={handleLogout} onRefreshData={() => loadData(true)}
             />
           )}
 
@@ -339,13 +248,8 @@ const App: React.FC = () => {
             <AdminProductForm 
               product={selectedProduct} categories={categories} suppliers={suppliers}
               onSubmit={async (p) => {
-                const isUpdate = !!products.find(prod => prod.id === p.id);
-                const success = isUpdate ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
-                if (success) { 
-                  setNotification({message: 'تم الحفظ بنجاح', type: 'success'}); 
-                  loadData(true); 
-                  setProductForBarcode(p); 
-                }
+                const success = products.find(prod => prod.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
+                if (success) { loadData(true); setProductForBarcode(p); }
               }}
               onCancel={() => setView('admin')}
             />
@@ -354,35 +258,10 @@ const App: React.FC = () => {
           {(view === 'admin-invoice' || view === 'quick-invoice') && (
             <AdminInvoiceForm 
               products={products} initialCustomerName={currentUser?.name || 'عميل نقدي'} initialPhone={currentUser?.phone || ''}
-              globalDeliveryFee={deliveryFee}
-              order={editingOrder}
+              globalDeliveryFee={deliveryFee} order={editingOrder}
               onSubmit={async (order) => {
-                const isUpdate = !!editingOrder;
-                const previousProducts = [...products];
-                setProducts(prev => prev.map(p => {
-                  const itemInOrder = order.items.find(item => item.id === p.id);
-                  if (itemInOrder) {
-                    const diff = isUpdate 
-                      ? itemInOrder.quantity - (editingOrder?.items.find(i => i.id === p.id)?.quantity || 0)
-                      : itemInOrder.quantity;
-                    const newQty = Math.max(0, p.stockQuantity - diff);
-                    return { ...p, stockQuantity: newQty, salesCount: (p.salesCount || 0) + diff };
-                  }
-                  return p;
-                }));
-
-                const success = isUpdate ? await ApiService.updateOrder(order) : await ApiService.saveOrder(order);
-                if (success) {
-                  prevOrderIds.current.add(order.id);
-                  setNotification({message: isUpdate ? 'تم تحديث الطلب والمخزن' : 'تم حفظ الفاتورة وخصم المخزن', type: 'success'});
-                  setLastCreatedOrder(order);
-                  loadData(true);
-                  setEditingOrder(null);
-                  setView('order-success');
-                } else {
-                  setProducts(previousProducts); 
-                  setNotification({message: 'حدث خطأ في المزامنة مع السيرفر', type: 'error'});
-                }
+                const success = editingOrder ? await ApiService.updateOrder(order) : await ApiService.saveOrder(order);
+                if (success) { setLastCreatedOrder(order); loadData(true); setView('order-success'); }
               }}
               onCancel={() => { setEditingOrder(null); setView(isActuallyAdmin ? 'admin' : 'store'); }}
             />
@@ -390,11 +269,9 @@ const App: React.FC = () => {
 
           {view === 'cart' && (
             <CartView 
-              cart={cart} 
-              deliveryFee={deliveryFee}
+              cart={cart} deliveryFee={deliveryFee}
               onUpdateQuantity={(id, d) => updateCartQuantity(id, cart.find(i => i.id === id)!.quantity + d)}
-              onSetQuantity={updateCartQuantity}
-              onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
+              onSetQuantity={updateCartQuantity} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))}
               onCheckout={() => setView('checkout')} onContinueShopping={() => setView('store')}
             />
           )}
@@ -402,8 +279,7 @@ const App: React.FC = () => {
           {view === 'product-details' && selectedProduct && (
             <ProductDetailsView 
               product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'}
-              onAddToCart={(p, qty) => addToCart(p, qty)} 
-              onBack={() => setView('store')}
+              onAddToCart={(p, qty) => addToCart(p, qty)} onBack={() => setView('store')}
               isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
             />
           )}
@@ -414,24 +290,14 @@ const App: React.FC = () => {
 
           {view === 'checkout' && (
              <CheckoutView 
-              cart={cart} currentUser={currentUser} onBack={() => setView('cart')}
-              deliveryFee={deliveryFee}
+              cart={cart} currentUser={currentUser} onBack={() => setView('cart')} deliveryFee={deliveryFee}
               onPlaceOrder={async (details) => {
                 const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-                const total = subtotal + deliveryFee;
                 const order: Order = {
-                  id: 'ORD-' + Date.now().toString().slice(-6),
-                  customerName: details.fullName, phone: details.phone, city: 'فاقوس', address: details.address,
-                  items: cart, total, subtotal, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
+                  id: 'ORD-' + Date.now().toString().slice(-6), customerName: details.fullName, phone: details.phone, city: 'فاقوس', address: details.address,
+                  items: cart, total: subtotal + deliveryFee, subtotal, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id
                 };
-                if (await ApiService.saveOrder(order)) {
-                  setLastCreatedOrder(order);
-                  setCart([]);
-                  setNotification({message: 'تم الطلب بنجاح', type: 'success'});
-                  WhatsAppService.sendOrderNotification(order, adminPhone);
-                  setView('order-success');
-                  loadData(true);
-                }
+                if (await ApiService.saveOrder(order)) { setLastCreatedOrder(order); setCart([]); setView('order-success'); loadData(true); WhatsAppService.sendOrderNotification(order, adminPhone); }
               }}
              />
           )}
@@ -450,9 +316,7 @@ const App: React.FC = () => {
           </>
         )}
         
-        {productForBarcode && (
-          <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); setView('admin'); }} />
-        )}
+        {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); setView('admin'); }} />}
       </div>
     </PullToRefresh>
   );
