@@ -29,12 +29,12 @@ import { WhatsAppService } from './services/whatsappService.ts';
 const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
 const App: React.FC = () => {
-  // دالة محسنة ومضادة للأخطاء لاستخراج المسار من الرابط
+  // دالة مطورة لاستخراج المسار من الرابط بشكل مضاد للأخطاء
   const parseViewFromHash = (): View => {
     const hash = window.location.hash.toLowerCase();
     
-    // الأولوية القصوى لروابط الإدارة: إذا احتوى الرابط على admin بأي صيغة
-    if (hash.includes('admin')) {
+    // التحقق الصارم من روابط الإدارة
+    if (hash.includes('admincp') || (hash.includes('admin') && !hash.includes('profile'))) {
       if (hash.includes('form')) return 'admin-form';
       if (hash.includes('invoice')) return 'admin-invoice';
       return 'admincp';
@@ -42,7 +42,10 @@ const App: React.FC = () => {
     
     // تنظيف الـ Hash للمسارات العامة
     const cleanHash = hash.replace(/^#\/?/, '').split('?')[0] as View;
-    const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success', 'product-details'];
+    const publicViews: View[] = [
+      'cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 
+      'order-success', 'product-details', 'store'
+    ];
     
     if (publicViews.includes(cleanHash)) return cleanHash;
     return 'store';
@@ -95,18 +98,24 @@ const App: React.FC = () => {
   const prevOrderIds = useRef<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // مراقبة تغيير الرابط بشكل نشط
+  // تحديث الصفحة فوراً عند تغير الرابط وضمان المزامنة عند التحميل
   useEffect(() => {
     const handleHashChange = () => {
       const nextView = parseViewFromHash();
       setView(nextView);
       window.scrollTo(0, 0);
     };
+
     window.addEventListener('hashchange', handleHashChange);
-    // التأكد من المزامنة عند أول تحميل
-    handleHashChange();
+    
+    // تشغيل التحقق مرة واحدة عند التحميل للتأكد من أننا لسنا في واجهة المتجر بالخطأ
+    const currentRealView = parseViewFromHash();
+    if (view !== currentRealView) {
+      setView(currentRealView);
+    }
+
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [view]);
 
   const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
     try {
@@ -169,6 +178,7 @@ const App: React.FC = () => {
       setShowAuthModal(true);
       return;
     }
+    // تحديث الـ Hash سيؤدي لتلقائياً لتحديث الـ State عبر مستمع الـ Hashchange
     window.location.hash = (v === 'store') ? '' : v;
   };
 
@@ -206,18 +216,26 @@ const App: React.FC = () => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // التحقق مما إذا كان المسار الحالي يخص الإدارة
-  const isAdminPath = ADMIN_VIEWS.includes(view) || view === 'admincp';
+  // تحديد ما إذا كان المسار يخص الإدارة
+  const isAdminPath = ADMIN_VIEWS.includes(view);
   const isActuallyAdmin = currentUser?.role === 'admin';
 
-  // دالة عرض المحتوى المركزية لضمان الفصل التام
+  // صمام أمان: إذا اكتشفنا كلمة admin في الرابط ولكن الحالة ليست 'admincp'
+  useEffect(() => {
+    const h = window.location.hash.toLowerCase();
+    if (h.includes('admin') && !isAdminPath) {
+      setView('admincp');
+    }
+  }, [isAdminPath]);
+
+  // دالة العرض المركزية لضمان الفصل التام بين واجهة المتجر والإدارة
   const renderContent = () => {
-    // 1. حماية مسارات الإدارة
+    // 1. إذا كان المسار للإدارة والمستخدم غير مسجل دخوله كمدير
     if (isAdminPath && !isActuallyAdmin) {
       return <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => onNavigateAction('store')} />;
     }
 
-    // 2. محتوى الإدارة للمديرين فقط
+    // 2. محتوى الإدارة للمديرين
     if (isAdminPath && isActuallyAdmin) {
       switch(view) {
         case 'admin-form':
@@ -267,7 +285,7 @@ const App: React.FC = () => {
       }
     }
 
-    // 3. واجهة المتجر العامة (تعرض فقط إذا لم نكن في مسار إدارة)
+    // 3. واجهة المتجر العامة
     switch(view) {
       case 'cart':
         return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => updateCartQuantity(id, cart.find(i => i.id === id)!.quantity + d)} onSetQuantity={updateCartQuantity} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onCheckout={() => onNavigateAction('checkout')} onContinueShopping={() => onNavigateAction('store')} />;
