@@ -26,23 +26,20 @@ import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
 const App: React.FC = () => {
-  // دالة الفحص الصارم للرابط
-  const getRouteFromHash = (): View => {
-    const hash = window.location.hash.toLowerCase();
-    // إذا كان الرابط يحتوي على cp أو admin بأي شكل
-    if (hash.includes('cp') || hash.includes('admin')) {
-      if (hash.includes('form')) return 'admin-form';
-      if (hash.includes('invoice')) return 'admin-invoice';
+  // 1. الكشف الفوري والمباشر عن الرابط (بدون انتظار الحالة)
+  const getInitialRoute = (): View => {
+    const h = window.location.hash.toLowerCase();
+    if (h.includes('cp') || h.includes('admin')) {
+      if (h.includes('form')) return 'admin-form';
+      if (h.includes('invoice')) return 'admin-invoice';
       return 'admincp';
     }
-    
-    const cleanHash = hash.replace(/^#\/?/, '').split('?')[0];
+    const clean = h.replace(/^#\/?/, '').split('?')[0] as View;
     const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success', 'product-details'];
-    
-    if (publicViews.includes(cleanHash as View)) return cleanHash as View;
-    return 'store';
+    return publicViews.includes(clean) ? clean : 'store';
   };
 
+  const [view, setView] = useState<View>(getInitialRoute);
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem('souq_user_profile');
@@ -50,21 +47,29 @@ const App: React.FC = () => {
     } catch { return null; }
   });
 
-  const [view, setView] = useState<View>(getRouteFromHash());
-  const [adminPhone, setAdminPhone] = useState('201026034170'); 
-  const [deliveryFee, setDeliveryFee] = useState(0);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  
+  // حالات البيانات
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [adminSummary, setAdminSummary] = useState<any>(null);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [adminPhone, setAdminPhone] = useState('201026034170');
   
+  // حالات الواجهة
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBooting, setIsBooting] = useState(true); // حالة التشغيل الأولية
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [newOrdersForPopup, setNewOrdersForPopup] = useState<Order[]>([]);
   const [productForBarcode, setProductForBarcode] = useState<Product | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
+  const [soundEnabled, setSoundEnabled] = useState(true);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -80,228 +85,154 @@ const App: React.FC = () => {
     } catch { return []; }
   });
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-  
   const prevOrderIds = useRef<Set<string>>(new Set());
-  const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // مزامنة فورية وحتمية مع الرابط
+  // مزامنة الرابط
   useLayoutEffect(() => {
-    const syncRoute = () => {
-      const currentRoute = getRouteFromHash();
-      setView(currentRoute);
+    const sync = () => {
+      const route = getInitialRoute();
+      setView(route);
     };
-
-    window.addEventListener('hashchange', syncRoute);
-    syncRoute(); // تشغيل عند التحميل
-    return () => window.removeEventListener('hashchange', syncRoute);
+    window.addEventListener('hashchange', sync);
+    sync();
+    return () => window.removeEventListener('hashchange', sync);
   }, []);
 
-  const loadData = async (isSilent: boolean = false, forcedUser?: User | null) => {
+  const loadData = async (silent = false, user = currentUser) => {
+    if (!silent) setIsLoading(true);
     try {
-      if (!isSilent) setIsLoading(true);
-      let activeUser = forcedUser !== undefined ? forcedUser : currentUser;
-      
-      const [adminInfo, fetchedProducts, fetchedCats, storeSettings] = await Promise.all([
+      const [ph, pr, ct, st] = await Promise.all([
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
         ApiService.getCategories(),
         ApiService.getStoreSettings()
       ]);
-      
-      if (adminInfo?.phone) setAdminPhone(adminInfo.phone);
-      if (storeSettings?.delivery_fee) setDeliveryFee(parseFloat(storeSettings.delivery_fee));
-      setProducts(fetchedProducts || []);
-      setCategories(fetchedCats || []);
-      
-      if (activeUser?.role === 'admin') {
-        const [summary, fetchedUsers, fetchedSuppliers] = await Promise.all([
+      if (ph) setAdminPhone(ph.phone);
+      if (st?.delivery_fee) setDeliveryFee(parseFloat(st.delivery_fee));
+      setProducts(pr || []);
+      setCategories(ct || []);
+
+      if (user?.role === 'admin') {
+        const [sum, usrs, sups, ords] = await Promise.all([
           ApiService.getAdminSummary(),
           ApiService.getUsers(),
-          ApiService.getSuppliers()
+          ApiService.getSuppliers(),
+          ApiService.getOrders()
         ]);
-        setAdminSummary(summary);
-        setUsers(fetchedUsers || []);
-        setSuppliers(fetchedSuppliers || []);
-      }
-
-      if (activeUser) {
-        const fetchedOrders = await ApiService.getOrders();
-        setOrders(fetchedOrders || []);
-        if (activeUser.role === 'admin' && fetchedOrders?.length > 0) {
-          if (prevOrderIds.current.size > 0) {
-            const trulyNew = fetchedOrders.filter((o: Order) => !prevOrderIds.current.has(o.id));
-            if (trulyNew.length > 0) {
-              setNewOrdersForPopup(prev => [...prev, ...trulyNew]);
-            }
-          }
-          prevOrderIds.current = new Set(fetchedOrders.map((o: Order) => o.id));
+        setAdminSummary(sum);
+        setUsers(usrs || []);
+        setSuppliers(sups || []);
+        setOrders(ords || []);
+        
+        if (ords?.length > 0 && prevOrderIds.current.size > 0) {
+          const newOnes = ords.filter((o: Order) => !prevOrderIds.current.has(o.id));
+          if (newOnes.length > 0) setNewOrdersForPopup(prev => [...prev, ...newOnes]);
         }
+        prevOrderIds.current = new Set(ords.map((o: Order) => o.id));
+      } else if (user) {
+        const myOrds = await ApiService.getOrders();
+        setOrders(myOrds || []);
       }
-    } catch (err) {
-      console.error("Load Error:", err);
     } finally {
       setIsLoading(false);
+      setIsBooting(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(() => {
-      if (currentUser?.role === 'admin') loadData(true);
-    }, 30000); 
-    return () => clearInterval(interval);
-  }, [currentUser?.id]);
+  useEffect(() => { loadData(); }, [currentUser?.id]);
 
-  const onNavigateAction = (v: View) => {
-    if ((v === 'profile' || v === 'my-orders') && !currentUser) {
-      setShowAuthModal(true);
-      return;
+  const onNavigate = (v: View) => {
+    if ((v === 'profile' || v === 'my-orders') && !currentUser) { setShowAuthModal(true); return; }
+    const h = (v === 'admin' || v === 'admincp') ? 'cp' : (v === 'store' ? '' : v);
+    window.location.hash = h;
+  };
+
+  const handleAuth = (user: User) => { setCurrentUser(user); setShowAuthModal(false); loadData(false, user); };
+  const handleLogout = () => { ApiService.logout(); setCurrentUser(null); onNavigate('store'); };
+
+  // --- منطق العرض المنفصل تماماً ---
+  const currentHash = window.location.hash.toLowerCase();
+  const isAdminRequest = currentHash.includes('cp') || currentHash.includes('admin');
+  const isAuthorizedAdmin = currentUser?.role === 'admin';
+
+  // التحقق من حالة التحميل الأولية لمنع الوميض
+  if (isBooting && isAdminRequest) {
+    return <div className="min-h-screen bg-slate-900 flex items-center justify-center"><div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>;
+  }
+
+  // 1. نظام الإدارة (مستقل)
+  if (isAdminRequest) {
+    if (!isAuthorizedAdmin) {
+      return <AdminAuthView onSuccess={handleAuth} onClose={() => onNavigate('store')} />;
     }
-    // الرابط الموحد هو cp
-    const hash = (v === 'admin' || v === 'admincp') ? 'cp' : (v === 'store' ? '' : v);
-    window.location.hash = hash;
-  };
+    
+    return (
+      <div className="min-h-screen bg-slate-50 pt-4 px-2 md:px-4">
+        {newOrdersForPopup.length > 0 && <NewOrderPopup orders={newOrdersForPopup} onClose={(id) => setNewOrdersForPopup(p => p.filter(o => o.id !== id))} onView={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }} />}
+        {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigate('admincp'); }} />}
+        
+        {view === 'admin-form' ? (
+          <AdminProductForm product={selectedProduct} categories={categories} suppliers={suppliers} onSubmit={async (p) => { const s = products.find(x => x.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p); if (s) { loadData(true); setProductForBarcode(p); } }} onCancel={() => onNavigate('admincp')} />
+        ) : view === 'admin-invoice' ? (
+          <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
+        ) : (
+          <AdminDashboard 
+            products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
+            onOpenAddForm={() => { setSelectedProduct(null); onNavigate('admin-form'); }}
+            onOpenEditForm={(p) => { setSelectedProduct(p); onNavigate('admin-form'); }}
+            onOpenInvoiceForm={() => { setEditingOrder(null); onNavigate('admin-invoice'); }}
+            onEditOrder={(o) => { setEditingOrder(o); onNavigate('admin-invoice'); }}
+            onDeleteProduct={async (id) => { if(await ApiService.deleteProduct(id)) loadData(true); }}
+            onAddCategory={async (c) => { if(await ApiService.addCategory(c)) loadData(true); }}
+            onUpdateCategory={async (c) => { if(await ApiService.updateCategory(c)) loadData(true); }}
+            onDeleteCategory={async (id) => { if(await ApiService.deleteCategory(id)) loadData(true); }}
+            onViewOrder={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }}
+            onUpdateOrderPayment={(id, m) => ApiService.updateOrderPayment(id, m).then(() => loadData(true))}
+            onReturnOrder={async (id) => { if(await ApiService.returnOrder(id)) loadData(true); }}
+            onDeleteUser={async (id) => { if(await ApiService.deleteUser(id)) loadData(true); }}
+            soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)}
+            onLogout={handleLogout} onRefreshData={() => loadData(true)}
+          />
+        )}
+      </div>
+    );
+  }
 
-  const handleLogout = async () => {
-    await ApiService.logout();
-    setCurrentUser(null);
-    setOrders([]);
-    onNavigateAction('store');
-  };
-
-  const handleAuthSuccess = (user: User) => {
-    setCurrentUser(user);
-    setShowAuthModal(false);
-    loadData(false, user); 
-  };
-
-  const addToCart = (product: Product, qty: number = 1) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item => item.id === product.id ? {...item, quantity: Number((item.quantity + qty).toFixed(3))} : item);
-      }
-      return [...prev, { ...product, quantity: Number(qty.toFixed(3)) }];
-    });
-    setNotification({ message: 'تمت الإضافة للسلة', type: 'success' });
-  };
-
-  const updateCartQuantity = (id: string, newQty: number) => {
-    setCart(prev => prev.map(item => 
-      item.id === id ? { ...item, quantity: Number(Math.max(0.001, newQty).toFixed(3)) } : item
-    ));
-  };
-
-  useEffect(() => {
-    localStorage.setItem('souq_cart', JSON.stringify(cart));
-  }, [cart]);
-
-  // فحص مباشر أثناء الرندر لضمان عدم حدوث تداخل
-  const currentUrlHash = window.location.hash.toLowerCase();
-  const isAdminPath = currentUrlHash.includes('cp') || currentUrlHash.includes('admin');
-  const isActuallyAdmin = currentUser?.role === 'admin';
-
-  const renderContent = () => {
-    // 1. حماية فورية: إذا كان الرابط للإدارة والمستخدم ليس مديراً -> شاشة الدخول
-    if (isAdminPath && !isActuallyAdmin) {
-      return <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => onNavigateAction('store')} />;
-    }
-
-    // 2. واجهة الإدارة للمديرين
-    if (isAdminPath && isActuallyAdmin) {
-      switch(view) {
-        case 'admin-form':
-          return <AdminProductForm product={selectedProduct} categories={categories} suppliers={suppliers} onSubmit={async (p) => { const s = products.find(pr => pr.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p); if (s) { loadData(true); setProductForBarcode(p); } }} onCancel={() => onNavigateAction('admincp')} />;
-        case 'admin-invoice':
-          return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name || 'عميل نقدي'} initialPhone={currentUser?.phone || ''} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setLastCreatedOrder(o); loadData(true); onNavigateAction('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigateAction('admincp'); }} />;
-        default:
-          return (
-            <AdminDashboard 
-              products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser}
-              isLoading={isLoading} adminSummary={adminSummary}
-              onOpenAddForm={() => { setSelectedProduct(null); onNavigateAction('admin-form'); }}
-              onOpenEditForm={(p) => { setSelectedProduct(p); onNavigateAction('admin-form'); }}
-              onOpenInvoiceForm={() => { setEditingOrder(null); onNavigateAction('admin-invoice'); }}
-              onEditOrder={(order) => { setEditingOrder(order); onNavigateAction('admin-invoice'); }}
-              onDeleteProduct={async (id) => { if(await ApiService.deleteProduct(id)) loadData(true); }}
-              onAddCategory={async (c) => { if(await ApiService.addCategory(c)) loadData(true); }}
-              onUpdateCategory={async (c) => { if(await ApiService.updateCategory(c)) loadData(true); }}
-              onDeleteCategory={async (id) => { if(await ApiService.deleteCategory(id)) loadData(true); }}
-              onViewOrder={(order) => { setLastCreatedOrder(order); onNavigateAction('order-success'); }}
-              onUpdateOrderPayment={(id, method) => ApiService.updateOrderPayment(id, method).then(() => loadData(true))}
-              onReturnOrder={async (id) => { if(await ApiService.returnOrder(id)) loadData(true); }}
-              onDeleteUser={async (id) => { if(await ApiService.deleteUser(id)) loadData(true); }}
-              soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)}
-              onLogout={handleLogout} onRefreshData={() => loadData(true)}
-            />
-          );
-      }
-    }
-
-    // 3. واجهة المتجر العامة
+  // 2. نظام المتجر (مستقل)
+  const renderStoreContent = () => {
     switch(view) {
-      case 'cart':
-        return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => updateCartQuantity(id, cart.find(i => i.id === id)!.quantity + d)} onSetQuantity={updateCartQuantity} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onCheckout={() => onNavigateAction('checkout')} onContinueShopping={() => onNavigateAction('store')} />;
-      case 'product-details':
-        return selectedProduct ? <ProductDetailsView product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} onAddToCart={(p, qty) => addToCart(p, qty)} onBack={() => onNavigateAction('store')} isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} /> : null;
-      case 'checkout':
-        return <CheckoutView cart={cart} currentUser={currentUser} onBack={() => onNavigateAction('cart')} deliveryFee={deliveryFee} onPlaceOrder={async (details) => { const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const order: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: details.fullName, phone: details.phone, city: 'فاقوس', address: details.address, items: cart, total: subtotal + deliveryFee, subtotal, createdAt: Date.now(), status: 'completed', paymentMethod: 'عند الاستلام', userId: currentUser?.id }; if (await ApiService.saveOrder(order)) { setLastCreatedOrder(order); setCart([]); onNavigateAction('order-success'); loadData(true); WhatsAppService.sendOrderNotification(order, adminPhone); } }} />;
-      case 'order-success':
-        return lastCreatedOrder ? <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigateAction('store')} /> : null;
-      case 'my-orders':
-        return <MyOrdersView orders={orders} onViewDetails={(o) => {setLastCreatedOrder(o); onNavigateAction('order-success');}} onBack={() => onNavigateAction('store')} />;
-      case 'profile':
-        return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigateAction('store')} /> : null;
-      case 'quick-invoice':
-        return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name || 'عميل نقدي'} initialPhone={currentUser?.phone || ''} globalDeliveryFee={deliveryFee} onSubmit={async (order) => { if (await ApiService.saveOrder(order)) { setLastCreatedOrder(order); loadData(true); onNavigateAction('order-success'); } }} onCancel={() => onNavigateAction('store')} />;
-      default:
-        return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={(id) => setSelectedCategoryId(id)} onAddToCart={(p) => addToCart(p)} onViewProduct={(p) => { setSelectedProduct(p); onNavigateAction('product-details'); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} />;
+      case 'cart': return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))} onSetQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: q} : i))} onRemove={(id) => setCart(p => p.filter(x => x.id !== id))} onCheckout={() => onNavigate('checkout')} onContinueShopping={() => onNavigate('store')} />;
+      case 'product-details': return selectedProduct ? <ProductDetailsView product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} onAddToCart={(p, q) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + q} : x); return [...prev, {...p, quantity: q}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onBack={() => onNavigate('store')} isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} /> : null;
+      case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'completed', createdAt: Date.now(), userId: currentUser?.id }; if (await ApiService.saveOrder(o)) { setLastCreatedOrder(o); setCart([]); onNavigate('order-success'); loadData(true); WhatsAppService.sendOrderNotification(o, adminPhone); } }} />;
+      case 'order-success': return lastCreatedOrder ? <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigate('store')} /> : null;
+      case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setLastCreatedOrder(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
+      case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
+      case 'quick-invoice': return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
+      default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details'); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
     }
   };
 
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
-      <div className={`min-h-screen flex flex-col bg-[#f8fafc] ${isAdminPath ? 'admin-mode' : 'pb-24 md:pb-0'}`}>
-        {isActuallyAdmin && newOrdersForPopup.length > 0 && (
-          <NewOrderPopup 
-            orders={newOrdersForPopup} 
-            onClose={(id) => setNewOrdersForPopup(prev => prev.filter(o => o.id !== id))}
-            onView={(order) => { setLastCreatedOrder(order); onNavigateAction('order-success'); }}
-          />
-        )}
-
+      <div className="min-h-screen flex flex-col bg-[#f8fafc] pb-24 md:pb-0">
         {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
+        {showAuthModal && <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuth} />}
         
-        {showAuthModal && <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />}
-        {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigateAction('admincp'); }} />}
+        <Header 
+          cartCount={cart.length} wishlistCount={wishlist.length} categories={categories} currentUser={currentUser}
+          onNavigate={onNavigate} onLoginClick={() => setShowAuthModal(true)} onLogout={handleLogout}
+          onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); onNavigate('store'); }}
+        />
 
-        {!isAdminPath && (
-          <Header 
-            cartCount={cart.length} wishlistCount={wishlist.length} categories={categories} currentUser={currentUser}
-            onNavigate={onNavigateAction} onLoginClick={() => setShowAuthModal(true)} onLogout={handleLogout}
-            onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); onNavigateAction('store'); }}
-          />
-        )}
-
-        <main className={`flex-grow container mx-auto px-2 md:px-4 ${isAdminPath ? 'pt-4' : 'pt-24 md:pt-32'}`}>
-          {renderContent()}
+        <main className="flex-grow container mx-auto px-2 md:px-4 pt-24 md:pt-32">
+          {renderStoreContent()}
         </main>
 
-        {!isAdminPath && (
-          <>
-            <Footer categories={categories} onNavigate={onNavigateAction} onCategorySelect={setSelectedCategoryId} />
-            <FloatingCartButton count={cart.length} onClick={() => onNavigateAction('cart')} isVisible={!isAdminPath} />
-            <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigateAction} />
-            {isActuallyAdmin && <FloatingAdminButton currentView={view} onNavigate={onNavigateAction} />}
-            <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigateAction} onCartClick={() => onNavigateAction('cart')} isAdmin={isActuallyAdmin} />
-          </>
-        )}
+        <Footer categories={categories} onNavigate={onNavigate} onCategorySelect={setSelectedCategoryId} />
+        <FloatingCartButton count={cart.length} onClick={() => onNavigate('cart')} isVisible={true} />
+        <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigate} />
+        {isAuthorizedAdmin && <FloatingAdminButton currentView={view} onNavigate={onNavigate} />}
+        <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigate} onCartClick={() => onNavigate('cart')} isAdmin={isAuthorizedAdmin} />
       </div>
     </PullToRefresh>
   );
