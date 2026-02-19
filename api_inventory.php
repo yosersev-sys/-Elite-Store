@@ -1,6 +1,6 @@
 <?php
 /**
- * Inventory & Products Module
+ * Inventory & Products Module - Fix Image Library
  */
 if (!defined('DB_HOST')) exit;
 
@@ -14,6 +14,20 @@ switch ($action) {
             $p['stockQuantity'] = (float)$p['stockQuantity'];
         }
         sendRes($prods);
+        break;
+
+    case 'get_all_images':
+        // جلب الصور من كافة المنتجات لعرضها في المكتبة
+        $prods = $pdo->query("SELECT name, images FROM products")->fetchAll();
+        $res = [];
+        foreach ($prods as $p) {
+            $imgs = json_decode($p['images'] ?? '[]', true);
+            if ($imgs && count($imgs) > 0) {
+                // نأخذ الصورة الأولى فقط كمعاينة لكل منتج
+                $res[] = ['url' => $imgs[0], 'productName' => $p['name']];
+            }
+        }
+        sendRes($res);
         break;
 
     case 'add_product':
@@ -38,6 +52,13 @@ switch ($action) {
         sendRes(['status' => 'success']);
         break;
 
+    case 'delete_product':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
+        $stmt->execute([$_GET['id']]);
+        sendRes(['status' => 'success']);
+        break;
+
     case 'get_categories':
         sendRes($pdo->query("SELECT * FROM categories ORDER BY sortOrder ASC")->fetchAll());
         break;
@@ -46,6 +67,19 @@ switch ($action) {
         if (!isAdmin()) sendErr('غير مصرح');
         $stmt = $pdo->prepare("INSERT INTO categories (id, name, image, sortOrder) VALUES (?,?,?,?)");
         $stmt->execute([$input['id'], $input['name'], $input['image'] ?? '', $input['sortOrder'] ?? 0]);
+        sendRes(['status' => 'success']);
+        break;
+
+    case 'update_category':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $stmt = $pdo->prepare("UPDATE categories SET name=?, image=?, isActive=?, sortOrder=? WHERE id=?");
+        $stmt->execute([$input['name'], $input['image'], $input['isActive'] ? 1 : 0, $input['sortOrder'], $input['id']]);
+        sendRes(['status' => 'success']);
+        break;
+
+    case 'delete_category':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $pdo->prepare("DELETE FROM categories WHERE id = ?")->execute([$_GET['id']]);
         sendRes(['status' => 'success']);
         break;
 }
