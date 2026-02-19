@@ -1,226 +1,200 @@
-
 <?php
 /**
- * سوق العصر - المحرك الذكي v4.2
+ * سوق العصر - المحرك الخارق v8.7
+ * الإصلاح الجذري والأخير لمشكلة الموديولات (Module Resolution)
  */
 header('Content-Type: text/html; charset=utf-8');
+header('Access-Control-Allow-Origin: *'); 
+
 require_once 'config.php';
 
-// جلب مفتاح API من إعدادات النظام في قاعدة البيانات
 $gemini_key = '';
 try {
-    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'gemini_api_key' LIMIT 1");
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'gemini_api_key'");
     $stmt->execute();
     $gemini_key = $stmt->fetchColumn() ?: '';
-} catch (Exception $e) {
-    // في حال عدم وجود الجدول بعد
-}
+} catch (Exception $e) {}
+
+$meta_title = 'سوق العصر - فاقوس';
 ?>
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" style="scroll-behavior: smooth;">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>سوق العصر - اول سوق الكتروني في فاقوس</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <title><?php echo $meta_title; ?></title>
     
-    <!-- Favicon -->
     <link rel="icon" type="image/png" href="https://soqelasr.com/shopping-bag512.png">
-    
-    <!-- PWA & Android Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#10b981">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://soqelasr.com/shopping-bag512.png">
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     
-    <!-- External Libraries -->
-    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     <script type="importmap">
     {
       "imports": {
         "react": "https://esm.sh/react@19.0.0",
         "react-dom": "https://esm.sh/react-dom@19.0.0",
         "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-        "react-router-dom": "https://esm.sh/react-router-dom@7.1.0?external=react,react-dom",
         "@google/genai": "https://esm.sh/@google/genai@1.41.0"
       }
     }
     </script>
-    
+
     <style>
         :root { --primary: #10b981; }
-        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
+        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
-        @keyframes pulse-soft { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.95); opacity: 0.8; } }
-        
-        #splash-screen {
-            position: fixed; inset: 0; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; background: #f8fafc; z-index: 9999;
-        }
-        .splash-container { display: flex; flex-direction: column; align-items: center; width: 280px; text-align: center; }
-        .splash-logo {
-            width: 100px; height: 100px; background: #10b981; border-radius: 32px;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15);
-            animation: pulse-soft 2s infinite ease-in-out; margin-bottom: 24px;
-        }
-        .splash-logo img { width: 60px; height: 60px; object-fit: contain; }
-        .splash-text { color: #1e293b; font-weight: 900; font-size: 1.6rem; line-height: 1.2; }
-        .splash-tagline { color: #10b981; font-weight: 800; font-size: 0.75rem; margin-bottom: 12px; opacity: 0.9; letter-spacing: 0.5px; }
-        .splash-status { color: #94a3b8; font-size: 0.65rem; font-weight: 700; margin-bottom: 20px; height: 1rem; text-transform: uppercase; }
-        
-        .progress-box { width: 100%; height: 6px; background: #e2e8f0; border-radius: 10px; overflow: hidden; position: relative; }
-        #progress-bar {
-            position: absolute; top: 0; right: 0; height: 100%; width: 0%;
-            background: linear-gradient(90deg, #10b981, #34d399);
-            transition: width 0.3s cubic-bezier(0.1, 0.5, 0.5, 1);
-            border-radius: 10px;
-        }
-        #progress-text { margin-top: 12px; font-weight: 900; color: #10b981; font-size: 1.1rem; }
+        .skeleton { background: #edf2f7; background-image: linear-gradient(90deg, #edf2f7 0px, #f7fafc 40px, #edf2f7 80px); background-size: 600px; animation: shine-lines 1.6s infinite linear; }
+        @keyframes shine-lines { 0% { background-position: -100px; } 40%, 100% { background-position: 140px; } }
     </style>
 </head>
 <body>
     <div id="root">
-        <div id="splash-screen">
-            <div class="splash-container">
-                <div class="splash-logo">
-                    <img src="https://soqelasr.com/shopping-bag.png" alt="Logo">
-                </div>
-                <div class="splash-text">سوق العصر</div>
-                <div class="splash-tagline">اول سوق الكتروني في فاقوس</div>
-                <div id="splash-status-text" class="splash-status">جاري الاتصال...</div>
-                <div class="progress-box">
-                    <div id="progress-bar"></div>
-                </div>
-                <div id="progress-text">0%</div>
+        <div id="initial-skeleton" style="padding: 10px;">
+            <div class="skeleton" style="height: 60px; border-radius: 20px; margin-bottom: 20px;"></div>
+            <div class="skeleton" style="height: 200px; border-radius: 30px; margin-bottom: 20px;"></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
+                <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
             </div>
         </div>
     </div>
+
+    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
 
     <script type="module">
         import React from 'react';
         import ReactDOM from 'react-dom/client';
 
-        const progressBar = document.getElementById('progress-bar');
-        const progressText = document.getElementById('progress-text');
-        const statusText = document.getElementById('splash-status-text');
+        window.process = { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
+        
+        const LIB_MAP = {
+            'react': 'https://esm.sh/react@19.0.0',
+            'react-dom': 'https://esm.sh/react-dom@19.0.0',
+            'react-dom/client': 'https://esm.sh/react-dom@19.0.0/client',
+            '@google/genai': 'https://esm.sh/@google/genai@1.41.0'
+        };
 
-        let visualProgress = 0;
-        let targetProgress = 0;
-
-        function smoothUpdate() {
-            if (visualProgress < targetProgress) {
-                visualProgress += (targetProgress - visualProgress) * 0.1;
-                if (targetProgress - visualProgress < 0.5) visualProgress = targetProgress;
-                
-                const displayVal = Math.floor(visualProgress);
-                if (progressBar) progressBar.style.width = displayVal + '%';
-                if (progressText) progressText.innerText = displayVal + '%';
-            }
-            if (visualProgress < 100) requestAnimationFrame(smoothUpdate);
-        }
-        smoothUpdate();
-
-        function setProgress(percent, status) {
-            targetProgress = percent;
-            if (statusText && status) statusText.innerText = status;
-        }
-
-        window.process = window.process || { env: { API_KEY: '<?php echo $gemini_key; ?>' } };
-
-        const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
+        const VERSION = 'v8.7';
         const blobCache = new Map();
-        let filesProcessed = 0;
-        const estimatedTotalFiles = 25; 
+        const pendingTasks = new Map();
 
-        async function fetchWithFallback(url) {
-            const extensions = ['', '.tsx', '.ts', '.jsx', '.js'];
-            for (let ext of extensions) {
-                try {
-                    const fullUrl = url + (url.match(/\.(tsx?|jsx?)$/) ? '' : ext);
-                    const response = await fetch(fullUrl);
-                    if (response.ok) {
-                        const contentType = response.headers.get('content-type');
-                        if (contentType && contentType.includes('text/html')) continue;
-                        return { code: await response.text(), finalUrl: fullUrl };
-                    }
-                } catch (e) {}
-            }
-            throw new Error(`الملف مفقود: ${url}`);
+        function resolvePath(path, parent) {
+            if (!path.startsWith('.')) return path;
+            const parentBase = parent.includes('/') ? parent.substring(0, parent.lastIndexOf('/')) : '';
+            const dummy = new URL(path, 'http://app/' + (parentBase ? parentBase + '/' : ''));
+            return dummy.pathname.substring(1).replace(/\.(tsx|ts|jsx|js)$/, '');
         }
 
-        async function getTranspiledUrl(filePath) {
-            const absolutePath = new URL(filePath, BASE_URL).href;
-            if (blobCache.has(absolutePath)) return blobCache.get(absolutePath);
+        async function loadAndCompile(filePath, parentPath = '') {
+            const cleanPath = resolvePath(filePath, parentPath);
+            if (pendingTasks.has(cleanPath)) return pendingTasks.get(cleanPath);
+            
+            const task = (async () => {
+                if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
 
-            try {
-                const { code: rawCode, finalUrl } = await fetchWithFallback(absolutePath);
-                let code = rawCode;
+                console.debug(`[Loader] Fetching: ${cleanPath}`);
+                const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
+                if (!res.ok) throw new Error(`Missing module: ${cleanPath}`);
+                const source = await res.text();
                 
-                filesProcessed++;
-                // إخفاء أسماء الملفات واستخدام عبارات عامة احترافية
-                const calcPercent = 10 + Math.min(filesProcessed / estimatedTotalFiles * 75, 75);
-                
-                // رسائل متغيرة بناءً على نسبة التقدم بدلاً من أسماء الملفات
-                let loadingMsg = "جاري معالجة البيانات...";
-                if (calcPercent > 20) loadingMsg = "تحسين تجربة التصفح...";
-                if (calcPercent > 40) loadingMsg = "تجهيز مكونات المتجر...";
-                if (calcPercent > 60) loadingMsg = "تأمين الاتصال المشفر...";
-                if (calcPercent > 80) loadingMsg = "تنسيق واجهة المستخدم...";
-                
-                setProgress(calcPercent, loadingMsg);
+                // ترجمة الكود مع الحفاظ على صيغة الموديولات
+                const babelResult = window.Babel.transform(source, {
+                    presets: [
+                        ['react', { runtime: 'classic' }], 
+                        ['typescript', { isTSX: true, allExtensions: true }]
+                    ],
+                    filename: cleanPath + '.tsx',
+                    sourceMaps: false,
+                    compact: false // نترك الكود غير مضغوط لسهولة الفحص والاستبدال
+                });
 
-                const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
-                const matches = [...code.matchAll(importRegex)];
+                let code = babelResult.code;
+
+                // نظام استبدال المسارات الفائق
+                // يمسك: from "...", import "...", export ... from "...", import("...")
+                const importRegex = /(from|import|export)\s+(['"])([^'"]+)\2|import\((['"])([^'"]+)\4\)/g;
+                const matches = Array.from(code.matchAll(importRegex));
                 
-                for (const match of matches) {
-                    const relativePath = match[1];
-                    const fullImportPath = new URL(relativePath, finalUrl).href;
-                    const depBlobUrl = await getTranspiledUrl(fullImportPath);
-                    code = code.split(`'${relativePath}'`).join(`'${depBlobUrl}'`);
-                    code = code.split(`"${relativePath}"`).join(`"${depBlobUrl}"`);
+                // سنقوم بالاستبدال من النهاية إلى البداية للحفاظ على ثبات الفهارس (Offsets)
+                for (let i = matches.length - 1; i >= 0; i--) {
+                    const match = matches[i];
+                    const fullMatch = match[0];
+                    const pathInside = match[3] || match[5];
+                    const quote = match[2] || match[4];
+                    
+                    let resolved;
+                    if (LIB_MAP[pathInside]) {
+                        resolved = LIB_MAP[pathInside];
+                    } else if (pathInside.startsWith('.')) {
+                        resolved = await loadAndCompile(pathInside, cleanPath);
+                    } else if (pathInside.startsWith('http')) {
+                        resolved = pathInside;
+                    } else {
+                        resolved = `https://esm.sh/${pathInside}`;
+                    }
+
+                    // بناء الاستبدال الجديد بدقة
+                    let replacement;
+                    if (fullMatch.startsWith('import(')) {
+                        replacement = `import(${quote}${resolved}${quote})`;
+                    } else {
+                        const parts = fullMatch.split(quote);
+                        replacement = parts[0] + quote + resolved + quote + (parts[2] || '');
+                    }
+
+                    code = code.substring(0, match.index) + replacement + code.substring(match.index + fullMatch.length);
                 }
 
-                const transformed = Babel.transform(code, {
-                    presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
-                    filename: finalUrl,
-                }).code;
+                const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+                blobCache.set(cleanPath, url);
+                return url;
+            })();
 
-                const blob = new Blob([transformed], { type: 'application/javascript' });
-                const blobUrl = URL.createObjectURL(blob);
-                blobCache.set(absolutePath, blobUrl);
-                return blobUrl;
-            } catch (err) { throw err; }
+            pendingTasks.set(cleanPath, task);
+            return task;
         }
 
-        async function startApp() {
+        async function init() {
             try {
-                setProgress(5, "بدء تشغيل المحرك الذكي...");
-                const appBlobUrl = await getTranspiledUrl('App.tsx');
-                
-                setProgress(90, "فتح أبواب المتجر...");
-                const module = await import(appBlobUrl);
-                const App = module.default;
+                // تصفير الكاش عند تغيير الإصدار
+                if (localStorage.getItem('souq_v_v') !== VERSION) {
+                    localStorage.clear();
+                    localStorage.setItem('souq_v_v', VERSION);
+                    location.reload();
+                    return;
+                }
 
+                const appUrl = await loadAndCompile('App');
+                const { default: App } = await import(appUrl);
                 const root = ReactDOM.createRoot(document.getElementById('root'));
-                setProgress(100, "جاهز للتسوق!");
-                
-                setTimeout(() => {
-                    root.render(React.createElement(App));
-                }, 300);
-
-            } catch (err) {
-                console.error(err);
-                document.getElementById('root').innerHTML = `<div style="padding:40px; text-align:center; color:#e11d48; font-weight:900;">خطأ في تحميل المتجر: <br/> يرجى التأكد من اتصال الإنترنت</div>`;
+                root.render(React.createElement(App));
+                console.log("[System] App mounted successfully.");
+            } catch (e) {
+                console.error("[Boot Error]", e);
+                document.body.innerHTML = `
+                <div style="padding:40px;color:#d32f2f;font-family:sans-serif;direction:rtl;text-align:center;background:#fff5f5;min-height:100vh">
+                    <div style="font-size:60px">⚠️</div>
+                    <h2 style="margin:20px 0">عذراً، فشل تشغيل محرك المتجر</h2>
+                    <div style="display:inline-block;text-align:right;background:#fff;padding:20px;border-radius:20px;border:1px solid #ffcdd2;box-shadow:0 10px 30px rgba(0,0,0,0.05);max-width:500px">
+                        <p style="font-weight:bold;margin-bottom:10px">تفاصيل الخطأ التقني:</p>
+                        <code style="display:block;background:#eee;padding:10px;border-radius:10px;font-size:12px;word-break:break-all">${e.message}</code>
+                        <p style="font-size:13px;color:#666;margin-top:15px">سبب محتمل: المتصفح لا يدعم ميزات حديثة أو هناك تداخل في ملفات الكاش.</p>
+                    </div>
+                    <div style="margin-top:30px">
+                        <button onclick="localStorage.clear();location.reload()" style="padding:15px 40px;background:#10b981;color:#white;border:none;border-radius:15px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 10px 20px rgba(16,185,129,0.2)">
+                            تحديث وإصلاح فوري 🚀
+                        </button>
+                    </div>
+                </div>`;
             }
         }
 
-        startApp();
+        const checkBabel = setInterval(() => {
+            if (window.Babel) { clearInterval(checkBabel); init(); }
+        }, 50);
     </script>
 </body>
 </html>
