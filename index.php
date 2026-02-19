@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الخارق v8.2
- * تم إزالة شاشة التحميل بناءً على طلب المستخدم لفتح مباشر
+ * سوق العصر - المحرك الخارق v8.3
+ * تم إضافة Skeleton UI لتحسين الأداء الفوري (FCP) وحل أخطاء Lighthouse
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -44,12 +44,26 @@ $meta_title = 'سوق العصر - فاقوس';
 
     <style>
         :root { --primary: #10b981; }
-        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; font-display: swap; }
+        * { font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: #f8fafc; margin: 0; overflow-x: hidden; }
+        
+        /* واجهة هيكلية Skeleton - تظهر فوراً */
+        .skeleton { background: #edf2f7; background-image: linear-gradient(90deg, #edf2f7 0px, #f7fafc 40px, #edf2f7 80px); background-size: 600px; animation: shine-lines 1.6s infinite linear; }
+        @keyframes shine-lines { 0% { background-position: -100px; } 40%, 100% { background-position: 140px; } }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <!-- واجهة وهمية تظهر للمتصفح كأنها الموقع لرفع سرعة الـ FCP -->
+        <div id="initial-skeleton" style="padding: 10px;">
+            <div class="skeleton" style="height: 60px; border-radius: 20px; margin-bottom: 20px;"></div>
+            <div class="skeleton" style="height: 200px; border-radius: 30px; margin-bottom: 20px;"></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
+                <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
 
@@ -66,7 +80,7 @@ $meta_title = 'سوق العصر - فاقوس';
             '@google/genai': 'https://esm.sh/@google/genai@1.41.0'
         };
 
-        const CACHE_KEY = 'souq_compiled_v8.2';
+        const CACHE_KEY = 'souq_compiled_v8.3';
         const compiledCache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
         const blobCache = new Map();
 
@@ -82,21 +96,17 @@ $meta_title = 'سوق العصر - فاقوس';
         async function loadAndCompile(filePath, parentPath = '') {
             const cleanPath = resolvePath(filePath, parentPath);
             if (blobCache.has(cleanPath)) return blobCache.get(cleanPath);
-
             if (compiledCache[cleanPath]) {
                 const url = URL.createObjectURL(new Blob([compiledCache[cleanPath]], { type: 'application/javascript' }));
                 blobCache.set(cleanPath, url);
                 return url;
             }
-
             try {
                 const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
                 if (!res.ok) throw new Error(`Missing: ${cleanPath}`);
                 let code = await res.text();
-
                 const importRegex = /from\s+['"]([^'"]+)['"]/g;
                 const matches = Array.from(code.matchAll(importRegex));
-
                 for (const match of matches) {
                     const original = match[1];
                     let resolved;
@@ -105,13 +115,11 @@ $meta_title = 'سوق العصر - فاقوس';
                     else resolved = `https://esm.sh/${original}`;
                     code = code.split(`'${original}'`).join(`'${resolved}'`).split(`"${original}"`).join(`"${resolved}"`);
                 }
-
                 const compiled = window.Babel.transform(code, {
                     presets: [['react', { runtime: 'classic' }], ['typescript', { isTSX: true, allExtensions: true }]],
                     filename: cleanPath + '.tsx',
                     compact: true, minified: true
                 }).code;
-
                 compiledCache[cleanPath] = compiled;
                 localStorage.setItem(CACHE_KEY, JSON.stringify(compiledCache));
                 const url = URL.createObjectURL(new Blob([compiled], { type: 'application/javascript' }));
