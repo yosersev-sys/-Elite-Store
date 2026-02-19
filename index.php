@@ -1,7 +1,7 @@
 <?php
 /**
- * سوق العصر - المحرك الذكي المحسن v5.1
- * إصلاح أخطاء CORS وتحسين استقرار التحميل
+ * سوق العصر - المحرك الذكي المحسن v5.2
+ * معالجة أخطاء مسارات الملفات وضمان جلب الكود المصدري
  */
 header('Content-Type: text/html; charset=utf-8');
 header('Access-Control-Allow-Origin: *'); 
@@ -26,7 +26,6 @@ try {
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#10b981">
 
-    <!-- تحميل الخطوط مع التعامل مع حجب المتصفح -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
@@ -36,9 +35,9 @@ try {
     <script type="importmap">
     {
       "imports": {
-        "react": "https://esm.sh/react@19.0.0?dev",
-        "react-dom": "https://esm.sh/react-dom@19.0.0?dev",
-        "react-dom/client": "https://esm.sh/react-dom@19.0.0/client?dev",
+        "react": "https://esm.sh/react@19.0.0",
+        "react-dom": "https://esm.sh/react-dom@19.0.0",
+        "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
         "@google/genai": "https://esm.sh/@google/genai@1.41.0"
       }
     }
@@ -69,6 +68,7 @@ try {
             position: fixed; bottom: 20px; left: 20px; right: 20px;
             background: #fff1f2; border: 1px solid #fda4af; padding: 15px;
             border-radius: 15px; color: #9f1239; font-size: 12px; display: none; z-index: 10000;
+            max-height: 200px; overflow-y: auto;
         }
     </style>
 </head>
@@ -81,14 +81,13 @@ try {
                 </div>
                 <h1 style="font-weight:900; color:#1e293b; font-size:1.4rem;">سوق العصر</h1>
                 <div class="progress-box"><div id="progress-bar"></div></div>
-                <p id="loading-status" style="font-size:10px; color:#94a3b8; font-weight:bold; margin-top:10px;">جاري تحميل المحرك الذكي...</p>
+                <p id="loading-status" style="font-size:10px; color:#94a3b8; font-weight:bold; margin-top:10px;">جاري تشغيل المتجر...</p>
             </div>
         </div>
     </div>
 
     <div id="error-log"></div>
 
-    <!-- تحميل Babel مع تصريح الصلاحيات -->
     <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js" crossorigin></script>
 
     <script type="module">
@@ -102,27 +101,42 @@ try {
 
         function showError(msg) {
             const el = document.getElementById('error-log');
-            el.style.display = 'block';
-            el.innerText = 'خطأ في التحميل: ' + msg;
+            if (el) {
+                el.style.display = 'block';
+                el.innerHTML = '<strong>خطأ في التحميل:</strong><br>' + msg;
+            }
         }
         
         async function getTranspiledUrl(filePath) {
-            const abs = new URL(filePath, window.location.href).href;
+            // تنظيف المسار لضمان عدم وجود تكرار في الروابط
+            const cleanPath = filePath.replace(/^\.\//, '').replace(window.location.origin + '/', '');
+            const abs = new URL(cleanPath, window.location.origin).href;
+            
             if (blobCache.has(abs)) return blobCache.get(abs);
             
             try {
-                const res = await fetch(abs);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                // استخدام load.php لضمان جلب محتوى الملف الفعلي وتجنب إعادة التوجيه
+                const res = await fetch('load.php?file=' + encodeURIComponent(cleanPath));
+                if (!res.ok) throw new Error(`فشل جلب الملف: ${cleanPath} (HTTP ${res.status})`);
+                
                 let code = await res.text();
                 
+                // التحقق مما إذا كان المحتوى HTML بدلاً من كود برمجي (دليل على فشل الجلب)
+                if (code.trim().startsWith('<!DOCTYPE') || code.trim().startsWith('<html')) {
+                    throw new Error(`خطأ: الملف ${cleanPath} غير موجود أو تم تحويل الطلب لصفحة HTML.`);
+                }
+                
+                // معالجة الـ Imports داخل الكود
                 const importRegex = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
                 const matches = [...code.matchAll(importRegex)];
                 for (const match of matches) {
-                    const depUrl = await getTranspiledUrl(new URL(match[1], abs).href);
-                    code = code.split(match[1]).join(depUrl);
+                    const originalImport = match[1];
+                    // بناء المسار النسبي للملف المستورد بناءً على مسار الملف الحالي
+                    const relativePath = new URL(originalImport, abs).pathname.substring(1);
+                    const depUrl = await getTranspiledUrl(relativePath);
+                    code = code.replace(new RegExp(originalImport.replace('.', '\\.'), 'g'), depUrl);
                 }
 
-                // التأكد من جاهزية Babel
                 if (!window.Babel) {
                     await new Promise(r => {
                         const check = setInterval(() => {
@@ -140,6 +154,7 @@ try {
                 blobCache.set(abs, url);
                 return url;
             } catch (e) {
+                console.error('Transpilation Error:', e);
                 showError(e.message);
                 throw e;
             }
@@ -148,30 +163,26 @@ try {
         async function init() {
             try {
                 if (bar) bar.style.width = '20%';
-                if (statusEl) statusEl.innerText = 'جاري معالجة الملفات...';
-                
                 const appUrl = await getTranspiledUrl('App.tsx');
                 
                 if (bar) bar.style.width = '80%';
-                if (statusEl) statusEl.innerText = 'جاري بناء الواجهة...';
-                
                 const { default: App } = await import(appUrl);
-                const root = ReactDOM.createRoot(document.getElementById('root'));
                 
+                const root = ReactDOM.createRoot(document.getElementById('root'));
                 if (bar) bar.style.width = '100%';
+                
                 setTimeout(() => {
                     const splash = document.getElementById('splash-screen');
                     if (splash) splash.style.opacity = '0';
                     setTimeout(() => splash?.remove(), 500);
                     root.render(React.createElement(App));
-                }, 300);
+                }, 200);
             } catch (e) { 
-                console.error('Initialization error:', e);
-                showError('يرجى تحديث الصفحة أو التحقق من اتصال الإنترنت.');
+                console.error('App init failed:', e);
+                showError('تعذر تشغيل التطبيق. يرجى التأكد من وجود كافة الملفات (.tsx, .ts) على الخادم.');
             }
         }
         
-        // البدء عند اكتمال تحميل الصفحة
         if (document.readyState === 'complete') init();
         else window.addEventListener('load', init);
     </script>
