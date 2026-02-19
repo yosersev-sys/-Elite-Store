@@ -29,17 +29,18 @@ import { WhatsAppService } from './services/whatsappService.ts';
 const ADMIN_VIEWS: View[] = ['admin', 'admincp', 'admin-form', 'admin-invoice', 'admin-auth'];
 
 const App: React.FC = () => {
-  // دالة محسنة لاستخراج المسار من الرابط
+  // دالة محسنة ومضادة للأخطاء لاستخراج المسار من الرابط
   const parseViewFromHash = (): View => {
     const hash = window.location.hash.toLowerCase();
     
-    // التحقق الصارم: إذا وجدنا admin في الرابط بأي شكل
-    if (hash.includes('admincp') || hash.includes('admin-form') || hash.includes('admin-invoice')) {
+    // الأولوية القصوى لروابط الإدارة: إذا احتوى الرابط على admin بأي صيغة
+    if (hash.includes('admin')) {
       if (hash.includes('form')) return 'admin-form';
       if (hash.includes('invoice')) return 'admin-invoice';
       return 'admincp';
     }
     
+    // تنظيف الـ Hash للمسارات العامة
     const cleanHash = hash.replace(/^#\/?/, '').split('?')[0] as View;
     const publicViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success', 'product-details'];
     
@@ -94,7 +95,7 @@ const App: React.FC = () => {
   const prevOrderIds = useRef<Set<string>>(new Set());
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // تحديث الحالة فور تغير الرابط
+  // مراقبة تغيير الرابط بشكل نشط
   useEffect(() => {
     const handleHashChange = () => {
       const nextView = parseViewFromHash();
@@ -102,6 +103,8 @@ const App: React.FC = () => {
       window.scrollTo(0, 0);
     };
     window.addEventListener('hashchange', handleHashChange);
+    // التأكد من المزامنة عند أول تحميل
+    handleHashChange();
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
@@ -203,18 +206,18 @@ const App: React.FC = () => {
     localStorage.setItem('souq_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // تحديد ما إذا كان المسار الحالي يخص الإدارة
-  const isAdminPath = ADMIN_VIEWS.includes(view);
+  // التحقق مما إذا كان المسار الحالي يخص الإدارة
+  const isAdminPath = ADMIN_VIEWS.includes(view) || view === 'admincp';
   const isActuallyAdmin = currentUser?.role === 'admin';
 
-  // منطق العرض الشرطي الرئيسي لضمان الفصل التام
+  // دالة عرض المحتوى المركزية لضمان الفصل التام
   const renderContent = () => {
-    // 1. إذا كان المسار للإدارة ولكن المستخدم ليس مديراً -> شاشة تسجيل دخول المدير
+    // 1. حماية مسارات الإدارة
     if (isAdminPath && !isActuallyAdmin) {
       return <AdminAuthView onSuccess={handleAuthSuccess} onClose={() => onNavigateAction('store')} />;
     }
 
-    // 2. إذا كان مديراً وفي مسار الإدارة -> لوحة التحكم
+    // 2. محتوى الإدارة للمديرين فقط
     if (isAdminPath && isActuallyAdmin) {
       switch(view) {
         case 'admin-form':
@@ -264,7 +267,7 @@ const App: React.FC = () => {
       }
     }
 
-    // 3. واجهة المتجر العامة
+    // 3. واجهة المتجر العامة (تعرض فقط إذا لم نكن في مسار إدارة)
     switch(view) {
       case 'cart':
         return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => updateCartQuantity(id, cart.find(i => i.id === id)!.quantity + d)} onSetQuantity={updateCartQuantity} onRemove={(id) => setCart(prev => prev.filter(i => i.id !== id))} onCheckout={() => onNavigateAction('checkout')} onContinueShopping={() => onNavigateAction('store')} />;
@@ -298,11 +301,9 @@ const App: React.FC = () => {
 
         {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
         
-        {/* النماذج المنبثقة العامة */}
         {showAuthModal && <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuthSuccess} />}
         {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigateAction('admincp'); }} />}
 
-        {/* الهيدر يظهر فقط في المتجر */}
         {!isAdminPath && (
           <Header 
             cartCount={cart.length} wishlistCount={wishlist.length} categories={categories} currentUser={currentUser}
@@ -315,7 +316,6 @@ const App: React.FC = () => {
           {renderContent()}
         </main>
 
-        {/* الفوتر وأزرار التحكم تظهر فقط في المتجر */}
         {!isAdminPath && (
           <>
             <Footer categories={categories} onNavigate={onNavigateAction} onCategorySelect={setSelectedCategoryId} />
