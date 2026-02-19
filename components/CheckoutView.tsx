@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CartItem, User } from '../types';
 
@@ -47,9 +46,9 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, delivery
     }
     
     if (!formData.phone.trim()) {
-      newErrors.phone = 'يرجى إدخال رقم الجوال';
+      newErrors.phone = 'يرجى إدخال رقم الموبايل';
     } else if (!/^(01)\d{9}$/.test(formData.phone.trim())) {
-      newErrors.phone = 'يرجى إدخال رقم جوال مصري صحيح (11 رقم)';
+      newErrors.phone = 'يرجى إدخال رقم موبايل مصري صحيح (11 رقم)';
     }
 
     if (!formData.address.trim() || formData.address.trim().length < 5) {
@@ -121,9 +120,9 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, delivery
                 {errors.fullName && <p className="text-xs text-rose-500 font-bold mr-2">{errors.fullName}</p>}
               </div>
 
-              {/* رقم الجوال */}
+              {/* رقم الموبايل */}
               <div className="space-y-2">
-                <label className="text-sm font-black text-slate-600 mr-2">رقم الجوال</label>
+                <label className="text-sm font-black text-slate-600 mr-2">رقم الموبايل</label>
                 <input 
                   type="tel"
                   value={formData.phone}

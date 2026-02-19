@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { User } from '../../types';
 import { ApiService } from '../../services/api';
@@ -50,7 +49,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
 
   const handleAddUser = async () => {
     if (!formData.name || !formData.phone || !formData.password) return alert('يرجى ملء كافة الحقول');
-    if (!/^01[0125][0-9]{8}$/.test(formData.phone)) return alert('رقم هاتف غير صحيح');
+    if (!/^01[0125][0-9]{8}$/.test(formData.phone)) return alert('رقم موبايل غير صحيح');
 
     setIsSaving(true);
     try {
@@ -72,7 +71,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
 
   const handleUpdateUser = async () => {
     if (!editingUser) return;
-    if (!formData.name || !formData.phone) return alert('الاسم والهاتف مطلوبان');
+    if (!formData.name || !formData.phone) return alert('الاسم والموبايل مطلوبان');
 
     setIsSaving(true);
     try {
@@ -114,12 +113,10 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
   };
 
   const handleDeleteClick = (user: User) => {
-    // Fix: Using code blocks instead of direct return from void alert() function
     if (user.id === 'admin_root') {
       alert('لا يمكن حذف الحساب الرئيسي 🛡️');
       return;
     }
-    // Fix: Separated logic to avoid truthiness check on void return
     if (user.id === currentUser?.id) {
       alert('لا يمكنك حذف حسابك الحالي ⚠️');
       return;
@@ -138,7 +135,6 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
       {/* Modal Add/Edit */}
       {(isAddModalOpen || editingUser) && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-          {/* Fix: Replaced truthiness evaluation of void expressions with a clear function block on line 141 */}
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => { if (!isSaving) { setIsAddModalOpen(false); setEditingUser(null); } }}></div>
           <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 md:p-10 animate-slideUp">
             <div className="text-center mb-8">
@@ -154,7 +150,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
                 <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold" placeholder="الاسم" />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الموبايل</label>
                 <input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold text-left" dir="ltr" placeholder="01xxxxxxxxx" />
               </div>
               <div className="space-y-1">
@@ -187,7 +183,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
         <div className="relative w-full md:w-80">
           <input 
             type="text" 
-            placeholder="بحث بالاسم أو الهاتف..." 
+            placeholder="بحث بالاسم أو الموبايل..." 
             value={adminSearch} 
             onChange={e => setAdminSearch(e.target.value)} 
             className="w-full bg-slate-50 border-none rounded-2xl px-6 py-3 text-sm outline-none font-bold pr-12 focus:ring-2 focus:ring-emerald-500/20" 

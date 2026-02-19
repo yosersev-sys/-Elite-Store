@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User } from '../types';
 import { ApiService } from '../services/api';
@@ -64,7 +63,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ currentUser, onSuccess, onBac
       <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-emerald-50">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">الاسم بالكامل</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">الاسم بالكامل</label>
             <input 
               type="text"
               value={formData.name}
@@ -75,7 +74,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ currentUser, onSuccess, onBac
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">رقم الموبايل (رقم الدخول)</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم الموبايل (رقم الدخول)</label>
             <input 
               type="tel"
               value={formData.phone}
@@ -87,7 +86,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ currentUser, onSuccess, onBac
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase mr-2 tracking-widest">كلمة المرور الجديدة (English Only)</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">كلمة المرور الجديدة (English Only)</label>
             <div className="relative">
               <input 
                 type={showPassword ? "text" : "password"}

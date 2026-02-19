@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ApiService } from '../services/api.ts';
 import { User } from '../types.ts';
@@ -97,7 +96,7 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mr-2">رقم الجوال</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mr-2">رقم الموبايل</label>
               <input 
                 type="tel" 
                 required

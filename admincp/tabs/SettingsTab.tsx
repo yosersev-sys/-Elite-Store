@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ApiService } from '../../services/api';
 import { User } from '../../types';
@@ -82,7 +81,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   };
 
   const handleUpdateAdminProfile = async () => {
-    if (!adminData.name || !adminData.phone) return alert('الاسم ورقم الهاتف مطلوبان');
+    if (!adminData.name || !adminData.phone) return alert('الاسم ورقم الموبايل مطلوبان');
     
     if (window.confirm('تغيير بيانات الدخول سيؤدي إلى تسجيل خروجك لإعادة المصادقة، هل تريد المتابعة؟')) {
       setIsSaving(true);
@@ -148,7 +147,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
               <input 
                 value={storeSettings.whatsapp_number}
                 onChange={e => setStoreSettings({...storeSettings, whatsapp_number: e.target.value})}
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold transition-all shadow-inner text-left"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-black text-lg transition-all shadow-inner text-left"
                 dir="ltr"
               />
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500">💬</span>

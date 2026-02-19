@@ -63,7 +63,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
     e.preventDefault();
     
     if (!validatePhone(formData.phone)) {
-      alert('يرجى إدخال رقم جوال مصري صحيح مكون من 11 رقم');
+      alert('يرجى إدخال رقم موبايل مصري صحيح مكون من 11 رقم');
       return;
     }
 
@@ -89,7 +89,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
           onSuccess(res.user);
         }
       } else {
-        alert(res?.message || 'رقم الجوال أو كلمة المرور غير صحيحة');
+        alert(res?.message || 'رقم الموبايل أو كلمة المرور غير صحيحة');
       }
     } catch (err) {
       console.error("Auth Error:", err);

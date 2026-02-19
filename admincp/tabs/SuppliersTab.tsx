@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Supplier, SupplierPayment } from '../../types';
 import { ApiService } from '../../services/api';
@@ -121,7 +120,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
 
   const handleSave = async () => {
     if (isSaving) return;
-    if (!formData.name || !formData.phone) return alert('الاسم ورقم الهاتف مطلوبان');
+    if (!formData.name || !formData.phone) return alert('الاسم ورقم الموبايل مطلوبان');
     
     setIsSaving(true);
     try {
@@ -457,7 +456,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
           <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden">
              {isSaving && (
                <div className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center gap-4 animate-fadeIn">
-                 <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                 <div className="w-12 h-12 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin"></div>
                  <p className="font-black text-slate-800 text-sm">جاري تسجيل الدفعة وتحديث الحساب...</p>
                </div>
              )}
@@ -515,7 +514,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                   <input disabled={isSaving} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold border-2 border-transparent focus:border-emerald-500 shadow-inner" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الجوال</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2">رقم الموبايل</label>
                   <input disabled={isSaving} type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-5 py-3 bg-slate-50 rounded-xl outline-none font-bold text-left shadow-inner" dir="ltr" />
                 </div>
               </div>
