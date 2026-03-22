@@ -22,7 +22,6 @@ import PullToRefresh from './components/PullToRefresh.tsx';
 import NewOrderPopup from './components/NewOrderPopup.tsx';
 import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
 import Footer from './components/Footer.tsx';
-import AiAssistant from './components/AiAssistant.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 
@@ -232,7 +231,6 @@ const App: React.FC = () => {
         <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigate} />
         {isAdmin && <FloatingAdminButton currentView={view} onNavigate={onNavigate} />}
         <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigate} onCartClick={() => onNavigate('cart')} isAdmin={isAdmin} />
-        <AiAssistant products={products} onAddToCart={(p, q) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + q} : x); return [...prev, {...p, quantity: q}]; }); }} showNotification={showNotification} />
       </div>
     </PullToRefresh>
   );
