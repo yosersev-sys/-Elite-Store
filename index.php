@@ -29,10 +29,9 @@ $meta_title = 'سوق العصر - فاقوس';
     <meta name="theme-color" content="#10b981">
 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     
 <?php
-    $cssFiles = glob(__DIR__ . '/dist/assets/*.css');
+    $cssFiles = glob(__DIR__ . '/dist/assets/index-*.css');
     if ($cssFiles && count($cssFiles) > 0) {
         foreach ($cssFiles as $css) {
             $cssUrl = 'dist/assets/' . basename($css);
@@ -66,7 +65,7 @@ $meta_title = 'سوق العصر - فاقوس';
     </script>
 
     <?php
-    $jsFiles = glob(__DIR__ . '/dist/assets/*.js');
+    $jsFiles = glob(__DIR__ . '/dist/assets/index-*.js');
     if ($jsFiles && count($jsFiles) > 0) {
         foreach ($jsFiles as $js) {
             $jsUrl = 'dist/assets/' . basename($js);
