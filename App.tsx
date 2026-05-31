@@ -2,28 +2,30 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
 import Header from './components/Header.tsx';
 import StoreView from './components/StoreView.tsx';
-import AdminDashboard from './admincp/AdminDashboard.tsx';
-import AdminProductForm from './admincp/AdminProductForm.tsx';
-import AdminInvoiceForm from './admincp/AdminInvoiceForm.tsx';
-import CartView from './components/CartView.tsx';
-import ProductDetailsView from './components/ProductDetailsView.tsx';
-import CheckoutView from './components/CheckoutView.tsx';
-import OrderSuccessView from './components/OrderSuccessView.tsx';
-import AuthView from './components/AuthView.tsx';
-import AdminAuthView from './components/AdminAuthView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
 import FloatingCartButton from './components/FloatingCartButton.tsx';
 import FloatingQuickInvoiceButton from './components/FloatingQuickInvoiceButton.tsx';
 import Notification from './components/Notification.tsx';
-import MyOrdersView from './components/MyOrdersView.tsx';
-import ProfileView from './components/ProfileView.tsx';
 import MobileNav from './components/MobileNav.tsx';
 import PullToRefresh from './components/PullToRefresh.tsx';
-import NewOrderPopup from './components/NewOrderPopup.tsx';
-import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
 import Footer from './components/Footer.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
+
+// التحميل المتأخر (Lazy Loading) للمكونات الثانوية لتخفيف حجم حزمة الجافاسكريبت الأولية وتسريع فتح المتجر
+const AdminDashboard = React.lazy(() => import('./admincp/AdminDashboard.tsx'));
+const AdminProductForm = React.lazy(() => import('./admincp/AdminProductForm.tsx'));
+const AdminInvoiceForm = React.lazy(() => import('./admincp/AdminInvoiceForm.tsx'));
+const CartView = React.lazy(() => import('./components/CartView.tsx'));
+const ProductDetailsView = React.lazy(() => import('./components/ProductDetailsView.tsx'));
+const CheckoutView = React.lazy(() => import('./components/CheckoutView.tsx'));
+const OrderSuccessView = React.lazy(() => import('./components/OrderSuccessView.tsx'));
+const AuthView = React.lazy(() => import('./components/AuthView.tsx'));
+const AdminAuthView = React.lazy(() => import('./components/AdminAuthView.tsx'));
+const MyOrdersView = React.lazy(() => import('./components/MyOrdersView.tsx'));
+const ProfileView = React.lazy(() => import('./components/ProfileView.tsx'));
+const NewOrderPopup = React.lazy(() => import('./components/NewOrderPopup.tsx'));
+const BarcodePrintPopup = React.lazy(() => import('./components/BarcodePrintPopup.tsx'));
 
 const App: React.FC = () => {
   // 1. تحديد المسار الحالي بدقة مطلقة (فحص الهاش والمسار معاً)
@@ -101,6 +103,7 @@ const App: React.FC = () => {
   const loadData = async (silent = false, user = currentUser) => {
     if (!silent) setIsLoading(true);
     try {
+      // 1. جلب البيانات الأساسية للمتجر (دائماً)
       const [ph, pr, ct, st] = await Promise.all([
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
@@ -112,7 +115,8 @@ const App: React.FC = () => {
       setProducts(pr || []);
       setCategories(ct || []);
 
-      if (user?.role === 'admin') {
+      // 2. جلب بيانات الإدارة فقط إذا كان المستخدم مديراً وكان بالفعل في وضع لوحة التحكم
+      if (isTrulyInAdminMode && user?.role === 'admin') {
         const [sum, usrs, sups, ords] = await Promise.all([
           ApiService.getAdminSummary(),
           ApiService.getUsers(),
@@ -129,16 +133,23 @@ const App: React.FC = () => {
           if (newOnes.length > 0) setNewOrdersForPopup(prev => [...prev, ...newOnes]);
         }
         prevOrderIds.current = new Set(ords.map((o: Order) => o.id));
-      } else if (user) {
+      } 
+      // 3. جلب طلبات العميل فقط عند الانتقال إلى صفحة طلباتي
+      else if (view === 'my-orders' && user && user.role !== 'admin') {
         const myOrds = await ApiService.getOrders();
         setOrders(myOrds || []);
       }
+    } catch (error) {
+      console.error("Error loading data:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => { loadData(); }, [currentUser?.id]);
+  // جلب البيانات ذكياً عند تغيير المستخدم، أو التنقل بين الواجهات، أو الدخول لوضع الإدارة
+  useEffect(() => { 
+    loadData(); 
+  }, [currentUser?.id, view, isTrulyInAdminMode]);
 
   const onNavigate = (v: View) => {
     if ((v === 'profile' || v === 'my-orders') && !currentUser) { setShowAuthModal(true); return; }
@@ -159,38 +170,44 @@ const App: React.FC = () => {
   // 1. حالة "نظام الإدارة" (تظهر بشكل قاطع إذا طلب الرابط ذلك)
   if (isTrulyInAdminMode) {
     if (!isAdmin) {
-      return <AdminAuthView onSuccess={handleAuth} onClose={() => { window.location.hash = ''; setView('store'); }} />;
+      return (
+        <React.Suspense fallback={null}>
+          <AdminAuthView onSuccess={handleAuth} onClose={() => { window.location.hash = ''; setView('store'); }} />
+        </React.Suspense>
+      );
     }
     
     return (
-      <div className="min-h-screen bg-slate-50 pt-2 px-2 md:px-4">
-        {newOrdersForPopup.length > 0 && <NewOrderPopup orders={newOrdersForPopup} onClose={(id) => setNewOrdersForPopup(p => p.filter(o => o.id !== id))} onView={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }} />}
-        {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigate('admincp'); }} />}
-        
-        {view === 'admin-form' ? (
-          <AdminProductForm product={selectedProduct} categories={categories} suppliers={suppliers} onSubmit={async (p) => { const s = products.find(x => x.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p); if (s) { loadData(true); setProductForBarcode(p); } }} onCancel={() => onNavigate('admincp')} />
-        ) : view === 'admin-invoice' ? (
-          <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
-        ) : (
-          <AdminDashboard 
-            products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
-            onOpenAddForm={() => { setSelectedProduct(null); onNavigate('admin-form'); }}
-            onOpenEditForm={(p) => { setSelectedProduct(p); onNavigate('admin-form'); }}
-            onOpenInvoiceForm={() => { setEditingOrder(null); onNavigate('admin-invoice'); }}
-            onEditOrder={(o) => { setEditingOrder(o); onNavigate('admin-invoice'); }}
-            onDeleteProduct={async (id) => { if(await ApiService.deleteProduct(id)) loadData(true); }}
-            onAddCategory={async (c) => { if(await ApiService.addCategory(c)) loadData(true); }}
-            onUpdateCategory={async (c) => { if(await ApiService.updateCategory(c)) loadData(true); }}
-            onDeleteCategory={async (id) => { if(await ApiService.deleteCategory(id)) loadData(true); }}
-            onViewOrder={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }}
-            onUpdateOrderPayment={(id, m) => ApiService.updateOrderPayment(id, m).then(() => loadData(true))}
-            onReturnOrder={async (id) => { if(await ApiService.returnOrder(id)) loadData(true); }}
-            onDeleteUser={async (id) => { if(await ApiService.deleteUser(id)) loadData(true); }}
-            soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)}
-            onLogout={handleLogout} onRefreshData={() => loadData(true)}
-          />
-        )}
-      </div>
+      <React.Suspense fallback={null}>
+        <div className="min-h-screen bg-slate-50 pt-2 px-2 md:px-4">
+          {newOrdersForPopup.length > 0 && <NewOrderPopup orders={newOrdersForPopup} onClose={(id) => setNewOrdersForPopup(p => p.filter(o => o.id !== id))} onView={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }} />}
+          {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigate('admincp'); }} />}
+          
+          {view === 'admin-form' ? (
+            <AdminProductForm product={selectedProduct} categories={categories} suppliers={suppliers} onSubmit={async (p) => { const s = products.find(x => x.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p); if (s) { loadData(true); setProductForBarcode(p); } }} onCancel={() => onNavigate('admincp')} />
+          ) : view === 'admin-invoice' ? (
+            <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
+          ) : (
+            <AdminDashboard 
+              products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
+              onOpenAddForm={() => { setSelectedProduct(null); onNavigate('admin-form'); }}
+              onOpenEditForm={(p) => { setSelectedProduct(p); onNavigate('admin-form'); }}
+              onOpenInvoiceForm={() => { setEditingOrder(null); onNavigate('admin-invoice'); }}
+              onEditOrder={(o) => { setEditingOrder(o); onNavigate('admin-invoice'); }}
+              onDeleteProduct={async (id) => { if(await ApiService.deleteProduct(id)) loadData(true); }}
+              onAddCategory={async (c) => { if(await ApiService.addCategory(c)) loadData(true); }}
+              onUpdateCategory={async (c) => { if(await ApiService.updateCategory(c)) loadData(true); }}
+              onDeleteCategory={async (id) => { if(await ApiService.deleteCategory(id)) loadData(true); }}
+              onViewOrder={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }}
+              onUpdateOrderPayment={(id, m) => ApiService.updateOrderPayment(id, m).then(() => loadData(true))}
+              onReturnOrder={async (id) => { if(await ApiService.returnOrder(id)) loadData(true); }}
+              onDeleteUser={async (id) => { if(await ApiService.deleteUser(id)) loadData(true); }}
+              soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)}
+              onLogout={handleLogout} onRefreshData={() => loadData(true)}
+            />
+          )}
+        </div>
+      </React.Suspense>
     );
   }
 
@@ -214,7 +231,9 @@ const App: React.FC = () => {
     <PullToRefresh onRefresh={() => loadData(true)}>
       <div className="min-h-screen flex flex-col bg-[#f8fafc] pb-24 md:pb-0">
         {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
-        {showAuthModal && <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuth} />}
+        <React.Suspense fallback={null}>
+          {showAuthModal && <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuth} />}
+        </React.Suspense>
         
         <Header 
           cartCount={cart.length} wishlistCount={wishlist.length} categories={categories} currentUser={currentUser}
@@ -223,7 +242,9 @@ const App: React.FC = () => {
         />
 
         <main className="flex-grow container mx-auto px-2 md:px-4 pt-24 md:pt-32">
-          {renderStoreContent()}
+          <React.Suspense fallback={null}>
+            {renderStoreContent()}
+          </React.Suspense>
         </main>
 
         <Footer categories={categories} onNavigate={onNavigate} onCategorySelect={setSelectedCategoryId} />
