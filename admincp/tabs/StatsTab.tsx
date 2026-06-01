@@ -12,11 +12,12 @@ interface StatsTabProps {
   onOpenAddForm: () => void;
   // يمكن تمرير ملخص جاهز من السيرفر لسرعة فائقة
   adminSummary?: any; 
+  loadProgress?: number;
 }
 
 const StatsTab: React.FC<StatsTabProps> = ({ 
   products = [], orders = [], categories = [], suppliers = [], 
-  isLoading, onNavigateToTab, onOpenAddForm, adminSummary 
+  isLoading, onNavigateToTab, onOpenAddForm, adminSummary, loadProgress
 }) => {
   const stats = useMemo(() => {
     // إذا كان لدينا ملخص جاهز من السيرفر، نستخدمه فوراً
@@ -76,9 +77,20 @@ const StatsTab: React.FC<StatsTabProps> = ({
   return (
     <div className="space-y-10 animate-fadeIn">
       {isLoading && (
-        <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-2xl flex items-center justify-center gap-3 animate-pulse">
-           <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-           <p className="text-emerald-700 text-[10px] font-black uppercase tracking-widest">مزامنة أحدث الأرقام المباشرة...</p>
+        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-3xl space-y-3 animate-fadeIn">
+           <div className="flex justify-between items-center font-black text-xs text-emerald-800">
+              <span className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                مزامنة أحدث الأرقام المباشرة...
+              </span>
+              <span>{loadProgress || 0}%</span>
+           </div>
+           <div className="w-full bg-emerald-100/50 h-2.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-emerald-500 h-full rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${loadProgress || 0}%` }}
+              ></div>
+           </div>
         </div>
       )}
 

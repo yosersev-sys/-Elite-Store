@@ -39,6 +39,7 @@ interface AdminDashboardProps {
   isOnline?: boolean;
   offlineQueueCount?: number;
   onSyncOffline?: () => void;
+  loadProgress?: number;
 }
 
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'settings' | 'api-keys';
@@ -177,10 +178,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
         {/* المؤشر الرئيسي يظهر عند أي تحميل أولي للبيانات لضمان عدم ظهور أرقام فارغة */}
         {props.isLoading && safeProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 animate-fadeIn bg-white rounded-[3rem] shadow-sm border-2 border-dashed border-slate-100">
-            <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-            <h4 className="font-black text-slate-800 text-xl">جاري جلب أحدث البيانات...</h4>
-            <p className="text-slate-400 text-sm font-bold mt-2">يتم الآن مزامنة بيانات المتجر من السيرفر الرئيسي</p>
+          <div className="flex flex-col items-center justify-center py-32 animate-fadeIn bg-white rounded-[3rem] shadow-sm border-2 border-dashed border-slate-100 w-full max-w-xl mx-auto px-6">
+            <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-6 mx-auto"></div>
+            <h4 className="font-black text-slate-800 text-xl text-center">جاري جلب أحدث البيانات...</h4>
+            <p className="text-slate-400 text-sm font-bold mt-2 mb-6 text-center">يتم الآن مزامنة بيانات المتجر من السيرفر الرئيسي</p>
+            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden mb-2">
+               <div 
+                 className="bg-emerald-500 h-full rounded-full transition-all duration-500 ease-out animate-pulse" 
+                 style={{ width: `${props.loadProgress || 0}%` }}
+               ></div>
+            </div>
+            <p className="text-[10px] font-black text-emerald-600 text-center">{props.loadProgress || 0}%</p>
           </div>
         ) : (
           <div className="animate-fadeIn">

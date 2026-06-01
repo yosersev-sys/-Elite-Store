@@ -79,6 +79,7 @@ const App: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [loadProgress, setLoadProgress] = useState(0);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -135,27 +136,38 @@ const App: React.FC = () => {
     const isSilent = silent || hasCache;
     if (!isSilent) setIsLoading(true);
 
+    let totalRequests = 4;
+    if (isTrulyInAdminMode && user?.role === 'admin') totalRequests = 8;
+    else if (view === 'my-orders' && user && user.role !== 'admin') totalRequests = 5;
+
+    setLoadProgress(0);
+    let completed = 0;
+    const step = () => {
+      completed++;
+      setLoadProgress(Math.min(100, Math.round((completed / totalRequests) * 100)));
+    };
+
     try {
-      // 3. جلب البيانات الأساسية للمتجر من السيرفر
-      const [ph, pr, ct, st] = await Promise.all([
-        ApiService.getAdminPhone(),
-        ApiService.getProducts(),
-        ApiService.getCategories(),
-        ApiService.getStoreSettings()
-      ]);
+      // 3. جلب البيانات الأساسية للمتجر من السيرفر بالتوازي مع تتبع التقدم
+      const p1 = ApiService.getAdminPhone().then(r => { step(); return r; });
+      const p2 = ApiService.getProducts().then(r => { step(); return r; });
+      const p3 = ApiService.getCategories().then(r => { step(); return r; });
+      const p4 = ApiService.getStoreSettings().then(r => { step(); return r; });
+
+      const [ph, pr, ct, st] = await Promise.all([p1, p2, p3, p4]);
       if (ph) setAdminPhone(ph.phone);
       if (st?.delivery_fee) setDeliveryFee(parseFloat(st.delivery_fee));
       setProducts(pr || []);
       setCategories(ct || []);
 
-      // 4. جلب بيانات الإدارة من السيرفر
+      // 4. جلب بيانات الإدارة من السيرفر بالتوازي مع تتبع التقدم
       if (isTrulyInAdminMode && user?.role === 'admin') {
-        const [sum, usrs, sups, ords] = await Promise.all([
-          ApiService.getAdminSummary(),
-          ApiService.getUsers(),
-          ApiService.getSuppliers(),
-          ApiService.getOrders()
-        ]);
+        const p5 = ApiService.getAdminSummary().then(r => { step(); return r; });
+        const p6 = ApiService.getUsers().then(r => { step(); return r; });
+        const p7 = ApiService.getSuppliers().then(r => { step(); return r; });
+        const p8 = ApiService.getOrders().then(r => { step(); return r; });
+
+        const [sum, usrs, sups, ords] = await Promise.all([p5, p6, p7, p8]);
         setAdminSummary(sum);
         setUsers(usrs || []);
         setSuppliers(sups || []);
@@ -169,13 +181,14 @@ const App: React.FC = () => {
       } 
       // 5. جلب طلبات العميل
       else if (view === 'my-orders' && user && user.role !== 'admin') {
-        const myOrds = await ApiService.getOrders();
+        const myOrds = await ApiService.getOrders().then(r => { step(); return r; });
         setOrders(myOrds || []);
       }
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
       setIsLoading(false);
+      setLoadProgress(100);
     }
   };
 
@@ -270,7 +283,7 @@ const App: React.FC = () => {
           ) : (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
-              isOnline={isOnline} offlineQueueCount={offlineQueueCount}
+              isOnline={isOnline} offlineQueueCount={offlineQueueCount} loadProgress={loadProgress}
               onSyncOffline={async () => {
                 showNotification('جاري المزامنة...', 'success');
                 const syncResult = await ApiService.syncOfflineData();
