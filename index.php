@@ -30,13 +30,32 @@ $meta_title = 'سوق العصر - فاقوس';
 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     
-<?php
-    $cssFiles = glob(__DIR__ . '/dist/assets/index-*.css');
-    if ($cssFiles && count($cssFiles) > 0) {
-        foreach ($cssFiles as $css) {
-            $cssUrl = 'dist/assets/' . basename($css);
-            echo '<link rel="stylesheet" crossorigin href="' . $cssUrl . '?v=' . filemtime($css) . '">';
+    <?php
+    // جلب ملفات التنسيق الذكية: نحاول القراءة من dist/index.html أولاً لمعرفة الملف النشط بدقة
+    // وإلا سنقوم بالبحث في المجلد واختيار الملف الأحدث فقط لتجنب التكرار
+    $cssUrl = '';
+    $jsUrl = '';
+    $indexHtmlPath = __DIR__ . '/dist/index.html';
+    if (file_exists($indexHtmlPath)) {
+        $indexHtml = file_get_contents($indexHtmlPath);
+        if (preg_match('/href="([^"]+\.css)"/', $indexHtml, $m)) {
+            $cssUrl = 'dist/' . ltrim($m[1], './');
         }
+        if (preg_match('/src="([^"]+\.js)"/', $indexHtml, $m)) {
+            $jsUrl = 'dist/' . ltrim($m[1], './');
+        }
+    }
+
+    if (!$cssUrl) {
+        $cssFiles = glob(__DIR__ . '/dist/assets/index-*.css');
+        if ($cssFiles && count($cssFiles) > 0) {
+            usort($cssFiles, function($a, $b) { return filemtime($b) - filemtime($a); });
+            $cssUrl = 'dist/assets/' . basename($cssFiles[0]);
+        }
+    }
+
+    if ($cssUrl && file_exists(__DIR__ . '/' . strtok($cssUrl, '?'))) {
+        echo '<link rel="stylesheet" crossorigin href="' . $cssUrl . '?v=' . filemtime(__DIR__ . '/' . strtok($cssUrl, '?')) . '">';
     }
     ?>
 
@@ -65,12 +84,16 @@ $meta_title = 'سوق العصر - فاقوس';
     </script>
 
     <?php
-    $jsFiles = glob(__DIR__ . '/dist/assets/index-*.js');
-    if ($jsFiles && count($jsFiles) > 0) {
-        foreach ($jsFiles as $js) {
-            $jsUrl = 'dist/assets/' . basename($js);
-            echo '<script type="module" crossorigin src="' . $jsUrl . '?v=' . filemtime($js) . '"></script>';
+    if (!$jsUrl) {
+        $jsFiles = glob(__DIR__ . '/dist/assets/index-*.js');
+        if ($jsFiles && count($jsFiles) > 0) {
+            usort($jsFiles, function($a, $b) { return filemtime($b) - filemtime($a); });
+            $jsUrl = 'dist/assets/' . basename($jsFiles[0]);
         }
+    }
+
+    if ($jsUrl && file_exists(__DIR__ . '/' . strtok($jsUrl, '?'))) {
+        echo '<script type="module" crossorigin src="' . $jsUrl . '?v=' . filemtime(__DIR__ . '/' . strtok($jsUrl, '?')) . '"></script>';
     } else {
         echo '<div style="padding:40px;color:#d32f2f;font-family:sans-serif;direction:rtl;text-align:center;">
                 <div style="font-size:60px">⚠️</div>
