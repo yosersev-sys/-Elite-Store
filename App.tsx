@@ -114,9 +114,29 @@ const App: React.FC = () => {
   }, [view]);
 
   const loadData = async (silent = false, user = currentUser) => {
-    if (!silent) setIsLoading(true);
+    // 1. جلب البيانات المخزنة محلياً لعرضها فوراً وتسريع فتح التطبيق
+    const local = await ApiService.getLocalState();
+    let hasCache = false;
+    if (local.products && local.products.length > 0) {
+      setProducts(local.products);
+      if (local.categories && local.categories.length > 0) setCategories(local.categories);
+      if (local.settings && local.settings.delivery_fee) setDeliveryFee(parseFloat(local.settings.delivery_fee));
+      
+      if (isTrulyInAdminMode && user?.role === 'admin') {
+        if (local.adminSummary) setAdminSummary(local.adminSummary);
+        if (local.users && local.users.length > 0) setUsers(local.users);
+        if (local.suppliers && local.suppliers.length > 0) setSuppliers(local.suppliers);
+        if (local.orders && local.orders.length > 0) setOrders(local.orders);
+      }
+      hasCache = true;
+    }
+
+    // 2. تفعيل المزامنة الصامتة في الخلفية إذا كانت البيانات مخزنة مسبقاً لمنع ظهور شريط التحميل
+    const isSilent = silent || hasCache;
+    if (!isSilent) setIsLoading(true);
+
     try {
-      // 1. جلب البيانات الأساسية للمتجر (دائماً)
+      // 3. جلب البيانات الأساسية للمتجر من السيرفر
       const [ph, pr, ct, st] = await Promise.all([
         ApiService.getAdminPhone(),
         ApiService.getProducts(),
@@ -128,7 +148,7 @@ const App: React.FC = () => {
       setProducts(pr || []);
       setCategories(ct || []);
 
-      // 2. جلب بيانات الإدارة فقط إذا كان المستخدم مديراً وكان بالفعل في وضع لوحة التحكم
+      // 4. جلب بيانات الإدارة من السيرفر
       if (isTrulyInAdminMode && user?.role === 'admin') {
         const [sum, usrs, sups, ords] = await Promise.all([
           ApiService.getAdminSummary(),
@@ -147,7 +167,7 @@ const App: React.FC = () => {
         }
         prevOrderIds.current = new Set(ords.map((o: Order) => o.id));
       } 
-      // 3. جلب طلبات العميل فقط عند الانتقال إلى صفحة طلباتي
+      // 5. جلب طلبات العميل
       else if (view === 'my-orders' && user && user.role !== 'admin') {
         const myOrds = await ApiService.getOrders();
         setOrders(myOrds || []);

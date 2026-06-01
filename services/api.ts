@@ -144,7 +144,12 @@ export const ApiService = {
   },
 
   async getAdminSummary(): Promise<any> {
-    return await safeFetch('get_admin_summary');
+    const result = await safeFetch('get_admin_summary');
+    if (result) {
+      await idbSet('admin_summary', result);
+      return result;
+    }
+    return (await idbGet<any>('admin_summary')) || null;
   },
 
   async login(phone: string, password: string): Promise<{status: string, user?: User, message?: string}> {
@@ -373,5 +378,35 @@ export const ApiService = {
   async getOfflineQueueCount(): Promise<number> {
     const queue = await idbGet<Order[]>('offline_sync_queue');
     return queue ? queue.length : 0;
+  },
+
+  // Get entire cached state for instant PWA loading
+  async getLocalState(): Promise<{
+    products: Product[];
+    categories: Category[];
+    settings: Record<string, string>;
+    adminSummary: any;
+    users: User[];
+    suppliers: Supplier[];
+    orders: Order[];
+  }> {
+    const [products, categories, settings, adminSummary, users, suppliers, orders] = await Promise.all([
+      idbGet<Product[]>('products'),
+      idbGet<Category[]>('categories'),
+      idbGet<Record<string, string>>('settings'),
+      idbGet<any>('admin_summary'),
+      idbGet<User[]>('users'),
+      idbGet<Supplier[]>('suppliers'),
+      idbGet<Order[]>('orders')
+    ]);
+    return {
+      products: products || [],
+      categories: categories || [],
+      settings: settings || {},
+      adminSummary: adminSummary || null,
+      users: users || [],
+      suppliers: suppliers || [],
+      orders: orders || []
+    };
   }
 };
