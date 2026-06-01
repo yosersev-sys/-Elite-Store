@@ -10,9 +10,12 @@ interface AdminProductFormProps {
   suppliers: Supplier[];
   onSubmit: (product: Product) => void;
   onCancel: () => void;
+  onRefreshData?: () => void;
 }
 
-const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories, suppliers, onSubmit, onCancel }) => {
+const AdminProductForm: React.FC<AdminProductFormProps> = ({ 
+  product, categories, suppliers, onSubmit, onCancel, onRefreshData 
+}) => {
   const [showScanner, setShowScanner] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -21,6 +24,23 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  
+  const [localCategories, setLocalCategories] = useState<Category[]>(categories);
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(suppliers);
+  
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
+  
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newSupplier, setNewSupplier] = useState({
+    name: '',
+    phone: '',
+    companyName: '',
+    type: 'wholesale' as 'wholesale' | 'factory' | 'farm' | 'importer'
+  });
+  
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [isSavingSupplier, setIsSavingSupplier] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const prevProductIdRef = useRef<string | null>(null);
@@ -111,6 +131,81 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
       setFormData(prev => ({ ...prev, categoryId: categories[0].id }));
     }
   }, [categories, product, formData.categoryId]);
+
+  useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
+
+  useEffect(() => {
+    setLocalSuppliers(suppliers);
+  }, [suppliers]);
+
+  const handleAddCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return alert('يرجى إدخال اسم القسم');
+    
+    setIsSavingCategory(true);
+    try {
+      const newCat: Category = {
+        id: 'CAT-' + Date.now().toString().slice(-6),
+        name: newCategoryName.trim(),
+        isActive: true
+      };
+      
+      const success = await ApiService.addCategory(newCat);
+      if (success) {
+        setLocalCategories(prev => [...prev, newCat]);
+        setFormData(prev => ({ ...prev, categoryId: newCat.id }));
+        setNewCategoryName('');
+        setShowAddCategoryModal(false);
+        if (onRefreshData) onRefreshData();
+      } else {
+        alert('حدث خطأ أثناء إضافة القسم');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ تقني');
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleAddSupplierSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSupplier.name.trim()) return alert('يرجى إدخال اسم المورد');
+    if (!newSupplier.phone.trim()) return alert('يرجى إدخال رقم الهاتف');
+
+    setIsSavingSupplier(true);
+    try {
+      const newSup: Supplier = {
+        id: 'SUP-' + Date.now().toString().slice(-6),
+        name: newSupplier.name.trim(),
+        phone: newSupplier.phone.trim(),
+        companyName: newSupplier.companyName.trim() || undefined,
+        type: newSupplier.type,
+        balance: 0,
+        rating: 5,
+        status: 'active',
+        createdAt: Date.now()
+      };
+
+      const success = await ApiService.addSupplier(newSup);
+      if (success) {
+        setLocalSuppliers(prev => [...prev, newSup]);
+        setFormData(prev => ({ ...prev, supplierId: newSup.id }));
+        setNewSupplier({ name: '', phone: '', companyName: '', type: 'wholesale' });
+        setShowAddSupplierModal(false);
+        if (onRefreshData) onRefreshData();
+      } else {
+        alert('حدث خطأ أثناء إضافة المورد');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ تقني');
+    } finally {
+      setIsSavingSupplier(false);
+    }
+  };
 
   const openLibrary = async () => {
     setShowLibrary(true);
@@ -351,17 +446,23 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">القسم</label>
-              <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
-                <option value="">-- اختر القسم --</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <div className="flex gap-2">
+                <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
+                  <option value="">-- اختر القسم --</option>
+                  {localCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button type="button" onClick={() => setShowAddCategoryModal(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-2xl shadow-lg font-black text-xs shrink-0 active:scale-95 transition-all">إضافة قسم +</button>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">المورد (اختياري)</label>
-              <select value={formData.supplierId} onChange={e => setFormData({...formData, supplierId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
-                <option value="">-- بدون مورد --</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <div className="flex gap-2">
+                <select value={formData.supplierId} onChange={e => setFormData({...formData, supplierId: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
+                  <option value="">-- بدون مورد --</option>
+                  {localSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <button type="button" onClick={() => setShowAddSupplierModal(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-2xl shadow-lg font-black text-xs shrink-0 active:scale-95 transition-all">إضافة مورد +</button>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
@@ -507,6 +608,121 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
            {isSubmitting ? 'جاري الحفظ...' : (product ? 'حفظ التعديلات النهائية 💾' : 'نشر المنتج الآن 🚀')}
         </button>
       </form>
+
+      {/* مودال إضافة قسم جديد */}
+      {showAddCategoryModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => !isSavingCategory && setShowAddCategoryModal(false)}></div>
+          <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp">
+            <h3 className="text-2xl font-black text-slate-800 mb-6 text-center">إضافة قسم جديد 🏷️</h3>
+            <form onSubmit={handleAddCategorySubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">اسم القسم</label>
+                <input 
+                  required
+                  type="text"
+                  value={newCategoryName}
+                  onChange={e => setNewCategoryName(e.target.value)}
+                  placeholder="مثال: بقالة، مجمدات..."
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button 
+                  disabled={isSavingCategory}
+                  type="submit" 
+                  className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50"
+                >
+                  {isSavingCategory ? 'جاري الحفظ...' : 'إضافة القسم'}
+                </button>
+                <button 
+                  disabled={isSavingCategory}
+                  type="button" 
+                  onClick={() => setShowAddCategoryModal(false)} 
+                  className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* مودال إضافة مورد جديد */}
+      {showAddSupplierModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => !isSavingSupplier && setShowAddSupplierModal(false)}></div>
+          <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp max-h-[90vh] overflow-y-auto no-scrollbar">
+            <h3 className="text-2xl font-black text-slate-800 mb-6 text-center">إضافة مورد جديد 🚛</h3>
+            <form onSubmit={handleAddSupplierSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">اسم المورد</label>
+                <input 
+                  required
+                  type="text"
+                  value={newSupplier.name}
+                  onChange={e => setNewSupplier({...newSupplier, name: e.target.value})}
+                  placeholder="اسم الشخص أو المورد"
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">رقم الهاتف</label>
+                <input 
+                  required
+                  type="tel"
+                  value={newSupplier.phone}
+                  onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})}
+                  placeholder="01xxxxxxxxx"
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold text-center shadow-inner"
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">اسم الشركة (اختياري)</label>
+                <input 
+                  type="text"
+                  value={newSupplier.companyName}
+                  onChange={e => setNewSupplier({...newSupplier, companyName: e.target.value})}
+                  placeholder="مثال: شركة النور للأغذية"
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">نوع المورد</label>
+                <select 
+                  value={newSupplier.type}
+                  onChange={e => setNewSupplier({...newSupplier, type: e.target.value as any})}
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner"
+                >
+                  <option value="wholesale">جملة</option>
+                  <option value="factory">مصنع</option>
+                  <option value="farm">مزرعة</option>
+                  <option value="importer">مستورد</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button 
+                  disabled={isSavingSupplier}
+                  type="submit" 
+                  className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50"
+                >
+                  {isSavingSupplier ? 'جاري الحفظ...' : 'إضافة المورد'}
+                </button>
+                <button 
+                  disabled={isSavingSupplier}
+                  type="button" 
+                  onClick={() => setShowAddSupplierModal(false)} 
+                  className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
