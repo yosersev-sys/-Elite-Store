@@ -93,7 +93,7 @@ $meta_title = 'سوق العصر - فاقوس';
     }
 
     if ($jsUrl && file_exists(__DIR__ . '/' . strtok($jsUrl, '?'))) {
-        echo '<script type="module" crossorigin src="' . $jsUrl . '?v=' . filemtime(__DIR__ . '/' . strtok($jsUrl, '?')) . '"></script>';
+        echo '<script type="module" crossorigin src="' . strtok($jsUrl, '?') . '"></script>';
     } else {
         echo '<div style="padding:40px;color:#d32f2f;font-family:sans-serif;direction:rtl;text-align:center;">
                 <div style="font-size:60px">⚠️</div>
