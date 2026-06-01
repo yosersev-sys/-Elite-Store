@@ -90,6 +90,13 @@ const App: React.FC = () => {
 
   const prevOrderIds = useRef<Set<string>>(new Set());
 
+  // --- التحقق الحاسم من وضع "الإدارة" ---
+  // نقرأ من window.location مباشرة لضمان عدم وجود تأخير في الحالة (State)
+  const currentHash = window.location.hash.toLowerCase();
+  const currentPath = window.location.pathname.toLowerCase();
+  const isTrulyInAdminMode = currentHash.includes('admin') || currentHash.includes('cp') || currentPath.includes('admincp');
+  const isAdmin = currentUser?.role === 'admin';
+
   // مزامنة فورية للرابط عند التغيير (قبل الرندرة)
   useLayoutEffect(() => {
     const sync = () => {
@@ -159,13 +166,6 @@ const App: React.FC = () => {
 
   const handleAuth = (user: User) => { setCurrentUser(user); setShowAuthModal(false); loadData(false, user); };
   const handleLogout = () => { ApiService.logout(); setCurrentUser(null); onNavigate('store'); };
-
-  // --- التحقق الحاسم من وضع "الإدارة" ---
-  // نقرأ من window.location مباشرة لضمان عدم وجود تأخير في الحالة (State)
-  const currentHash = window.location.hash.toLowerCase();
-  const currentPath = window.location.pathname.toLowerCase();
-  const isTrulyInAdminMode = currentHash.includes('admin') || currentHash.includes('cp') || currentPath.includes('admincp');
-  const isAdmin = currentUser?.role === 'admin';
 
   // 1. حالة "نظام الإدارة" (تظهر بشكل قاطع إذا طلب الرابط ذلك)
   if (isTrulyInAdminMode) {
