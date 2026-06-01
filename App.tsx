@@ -40,6 +40,10 @@ const App: React.FC = () => {
       return 'admincp';
     }
     
+    if (h.startsWith('#/product/') || h.startsWith('#product/')) {
+      return 'product-details';
+    }
+    
     const clean = h.replace(/^#\/?/, '').split('?')[0] as View;
     const storeViews: View[] = ['cart', 'my-orders', 'profile', 'checkout', 'quick-invoice', 'order-success', 'product-details'];
     return storeViews.includes(clean) ? clean : 'store';
@@ -158,9 +162,27 @@ const App: React.FC = () => {
     loadData(); 
   }, [currentUser?.id, view, isTrulyInAdminMode]);
 
-  const onNavigate = (v: View) => {
+  // مزامنة المنتج المحدد بناءً على الهاش في الرابط (لإتاحة مشاركة الروابط والنسخ)
+  useEffect(() => {
+    const h = window.location.hash;
+    const match = h.match(/^#\/?product\/([^\/?]+)/);
+    if (match && products.length > 0) {
+      const pSlug = decodeURIComponent(match[1]);
+      const found = products.find(p => pSlug === p.id || pSlug.startsWith(p.id + '-'));
+      if (found) {
+        setSelectedProduct(found);
+      }
+    }
+  }, [view, products]);
+
+  const onNavigate = (v: View, param?: any) => {
     if ((v === 'profile' || v === 'my-orders') && !currentUser) { setShowAuthModal(true); return; }
-    const h = (v === 'admin' || v === 'admincp') ? 'admincp' : (v === 'store' ? '' : v);
+    let h = (v === 'admin' || v === 'admincp') ? 'admincp' : (v === 'store' ? '' : v);
+    if (v === 'product-details' && param) {
+      const p = param as Product;
+      const slug = p.name.trim().toLowerCase().replace(/[^\u0600-\u06FFa-zA-Z0-9]+/g, '-');
+      h = `product/${p.id}-${slug}`;
+    }
     window.location.hash = h;
   };
 
@@ -215,13 +237,13 @@ const App: React.FC = () => {
   const renderStoreContent = () => {
     switch(view) {
       case 'cart': return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))} onSetQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: q} : i))} onRemove={(id) => setCart(p => p.filter(x => x.id !== id))} onCheckout={() => onNavigate('checkout')} onContinueShopping={() => onNavigate('store')} />;
-      case 'product-details': return selectedProduct ? <ProductDetailsView product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} onAddToCart={(p, q) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + q} : x); return [...prev, {...p, quantity: q}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onBack={() => onNavigate('store')} isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} /> : null;
+      case 'product-details': return selectedProduct ? <ProductDetailsView product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} onAddToCart={(p, q) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + q} : x); return [...prev, {...p, quantity: q}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onBack={() => onNavigate('store')} isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} /> : <div className="p-20 text-center font-bold text-gray-500">جاري تحميل تفاصيل المنتج...</div>;
       case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'completed', createdAt: Date.now(), userId: currentUser?.id }; if (await ApiService.saveOrder(o)) { setLastCreatedOrder(o); setCart([]); onNavigate('order-success'); loadData(true); WhatsAppService.sendOrderNotification(o, adminPhone); } }} />;
       case 'order-success': return lastCreatedOrder ? <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigate('store')} /> : null;
       case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setLastCreatedOrder(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
       case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
       case 'quick-invoice': return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
-      default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details'); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
+      default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
     }
   };
 

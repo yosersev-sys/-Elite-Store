@@ -43,18 +43,22 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
     onAddToCart(product, quantity, selectedSize, selectedColor, rect);
   };
 
+  const productSlug = product ? product.name.trim().toLowerCase().replace(/[^\u0600-\u06FFa-zA-Z0-9]+/g, '-') : '';
+  const shareUrl = product ? `${window.location.origin}${window.location.pathname}#product/${product.id}-${encodeURIComponent(productSlug)}` : '';
+  const shareText = product ? `شاهد هذا المنتج الرائع "${product.name}" على سوق العصر!` : '';
+
   const handleShare = async () => {
     const shareData = {
       title: product.name,
-      text: `شاهد هذا المنتج الرائع "${product.name}" على سوق العصر!`,
-      url: window.location.href,
+      text: shareText,
+      url: shareUrl,
     };
 
     try {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(shareUrl);
         setCopyFeedback(true);
         setTimeout(() => setCopyFeedback(false), 2000);
       }
@@ -203,6 +207,55 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                   </svg>
                   {isOutOfStock ? 'نفذت الكمية' : 'إضافة للسلة الآن'}
                 </button>
+              </div>
+
+              {/* أزرار المشاركة عبر التواصل الاجتماعي */}
+              <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">مشاركة المنتج:</span>
+                <div className="flex flex-wrap gap-2.5">
+                  <a 
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-[#25D366] text-white px-4 py-2.5 rounded-2xl text-sm font-bold shadow-md hover:bg-[#20ba5a] hover:shadow-lg transition active:scale-95"
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.733-1.458L0 24zm6.208-3.82c1.647.978 3.264 1.488 4.887 1.49 5.485-.004 9.985-4.485 9.988-9.93.001-2.639-1.02-5.12-2.871-6.973-1.852-1.854-4.328-2.877-6.974-2.878-5.49 0-9.99 4.483-9.993 9.93-.001 1.79.467 3.541 1.357 5.093l-.95 3.473 3.568-.936zM17.472 14.382c-.301-.15-1.78-.879-2.056-.98-.276-.101-.476-.15-.676.15-.2.3-.778.98-.953 1.18-.175.2-.35.225-.651.075-3.007-1.5-5.05-2.778-6.196-4.747-.302-.518-.03-.8.228-1.056.232-.232.502-.589.752-.888.25-.299.333-.512.502-.852.167-.34.084-.639-.042-.889-.125-.25-1.008-2.433-1.38-3.328-.363-.872-.736-.753-.984-.766-.254-.012-.544-.015-.834-.015s-.76.11-1.157.545c-.397.436-1.517 1.484-1.517 3.619s1.554 4.195 1.77 4.492c.217.297 3.056 4.667 7.404 6.551 1.035.447 1.84.714 2.468.914 1.042.33 1.99.283 2.742.171.838-.125 1.78-.727 2.03-1.396.25-.67.25-1.242.175-1.396-.075-.15-.275-.25-.575-.401z"/>
+                    </svg>
+                    واتساب
+                  </a>
+                  <a 
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-[#1877F2] text-white px-4 py-2.5 rounded-2xl text-sm font-bold shadow-md hover:bg-[#1464cc] hover:shadow-lg transition active:scale-95"
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                    فيسبوك
+                  </a>
+                  <a 
+                    href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-[#0088cc] text-white px-4 py-2.5 rounded-2xl text-sm font-bold shadow-md hover:bg-[#0077b3] hover:shadow-lg transition active:scale-95"
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.62.15-.16 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.89 1.2-5.33 3.52-.5.35-.96.52-1.37.51-.46-.01-1.34-.26-1.99-.47-.8-.26-1.44-.4-1.38-.85.03-.23.35-.47.96-.71 3.76-1.64 6.27-2.72 7.53-3.25 3.58-1.51 4.32-1.77 4.8-.18z"/>
+                    </svg>
+                    تليجرام
+                  </a>
+                  <button 
+                    onClick={handleShare}
+                    className="flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-2xl text-sm font-bold shadow-md hover:bg-slate-200 transition active:scale-95"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    نسخ الرابط
+                  </button>
+                </div>
               </div>
             </div>
           </div>
