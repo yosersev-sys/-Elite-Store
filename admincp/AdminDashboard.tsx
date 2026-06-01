@@ -152,7 +152,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         </div>
 
         {/* شريط حالة الكاشير دون اتصال */}
-        {(!props.isOnline || (props.offlineQueueCount && props.offlineQueueCount > 0)) && (
+        {(!props.isOnline || (props.offlineQueueCount !== undefined && props.offlineQueueCount > 0)) ? (
           <div className={`mb-6 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm border ${props.isOnline ? 'bg-amber-50 border-amber-200' : 'bg-rose-50 border-rose-200'}`}>
              <div className="flex items-center gap-3">
                 <span className="text-3xl">{props.isOnline ? '🔄' : '📡'}</span>
@@ -173,7 +173,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                </button>
              )}
           </div>
-        )}
+        ) : null}
 
         {/* المؤشر الرئيسي يظهر عند أي تحميل أولي للبيانات لضمان عدم ظهور أرقام فارغة */}
         {props.isLoading && safeProducts.length === 0 ? (
