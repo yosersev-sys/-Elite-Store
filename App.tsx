@@ -171,14 +171,14 @@ const App: React.FC = () => {
   if (isTrulyInAdminMode) {
     if (!isAdmin) {
       return (
-        <React.Suspense fallback={null}>
+        <React.Suspense fallback={<div className="flex justify-center p-8 text-gray-500">جاري التحميل...</div>}>
           <AdminAuthView onSuccess={handleAuth} onClose={() => { window.location.hash = ''; setView('store'); }} />
         </React.Suspense>
       );
     }
     
     return (
-      <React.Suspense fallback={null}>
+      <React.Suspense fallback={<div className="flex justify-center p-8 text-gray-500">جاري التحميل...</div>}>
         <div className="min-h-screen bg-slate-50 pt-2 px-2 md:px-4">
           {newOrdersForPopup.length > 0 && <NewOrderPopup orders={newOrdersForPopup} onClose={(id) => setNewOrdersForPopup(p => p.filter(o => o.id !== id))} onView={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }} />}
           {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigate('admincp'); }} />}
@@ -231,7 +231,7 @@ const App: React.FC = () => {
     <PullToRefresh onRefresh={() => loadData(true)}>
       <div className="min-h-screen flex flex-col bg-[#f8fafc] pb-24 md:pb-0">
         {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
-        <React.Suspense fallback={null}>
+        <React.Suspense fallback={<div className="flex justify-center p-8 text-gray-500">جاري التحميل...</div>}>
           {showAuthModal && <AuthView onClose={() => setShowAuthModal(false)} onSuccess={handleAuth} />}
         </React.Suspense>
         
@@ -242,7 +242,7 @@ const App: React.FC = () => {
         />
 
         <main className="flex-grow container mx-auto px-2 md:px-4 pt-24 md:pt-32">
-          <React.Suspense fallback={null}>
+          <React.Suspense fallback={<div className="flex justify-center p-8 text-gray-500">جاري التحميل...</div>}>
             {renderStoreContent()}
           </React.Suspense>
         </main>
