@@ -57,3 +57,15 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-offline-orders') {
+    event.waitUntil(
+      clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({ type: 'TRIGGER_SYNC' });
+        });
+      })
+    );
+  }
+});

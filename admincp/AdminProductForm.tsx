@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings, StockBatch, Supplier } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
-import { generateProductDescription, generateSeoData } from '../services/geminiService';
 
 interface AdminProductFormProps {
   product: Product | null;
@@ -20,8 +19,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
   const [libraryImages, setLibraryImages] = useState<{url: string, productName: string}[]>([]);
   const [librarySearch, setLibrarySearch] = useState('');
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
-  const [isLoadingSeo, setIsLoadingSeo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   
@@ -128,22 +125,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
     img.productName.toLowerCase().includes(librarySearch.toLowerCase())
   );
 
-  const handleAiDescription = async () => {
-    if (!formData.name) return alert('يرجى إدخل اسم المنتج أولاً');
-    setIsLoadingAi(true);
-    const catName = categories.find(c => c.id === formData.categoryId)?.name || 'عام';
-    const desc = await generateProductDescription(formData.name, catName);
-    setFormData(prev => ({ ...prev, description: desc }));
-    setIsLoadingAi(false);
-  };
 
-  const handleAiSeo = async () => {
-    if (!formData.name || !formData.description) return alert('يرجى إدخل الاسم والوصف أولاً');
-    setIsLoadingSeo(true);
-    const data = await generateSeoData(formData.name, formData.description);
-    if (data) setSeoData(data);
-    setIsLoadingSeo(false);
-  };
 
   const handleGenerateBarcode = () => {
     const randomCode = Math.floor(Math.random() * 9000000000000) + 1000000000000;
@@ -360,7 +342,12 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">اسم المنتج</label>
-              <input required value={formData.name} onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner" />
+              <input required value={formData.name} onChange={e => {
+                const val = e.target.value;
+                const generatedSlug = val.trim().toLowerCase().replace(/[^\u0600-\u06FFa-zA-Z0-9]+/g, '-');
+                setFormData(prev => ({ ...prev, name: val, description: val }));
+                setSeoData(prev => ({ ...prev, metaTitle: val, slug: generatedSlug }));
+              }} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">القسم</label>
@@ -387,7 +374,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">الباركود</label>
               <div className="flex gap-2">
-                 <input value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold shadow-inner" />
+                 <input 
+                   value={formData.barcode} 
+                   onChange={e => setFormData({...formData, barcode: e.target.value})} 
+                   onKeyDown={e => {
+                     if (e.key === 'Enter') {
+                       e.preventDefault();
+                     }
+                   }}
+                   className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold shadow-inner" 
+                 />
                  <button type="button" onClick={handleGenerateBarcode} className="bg-indigo-600 text-white px-5 rounded-2xl shadow-lg">✨</button>
                  <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-5 rounded-2xl shadow-lg">📷</button>
               </div>
@@ -492,21 +488,17 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({ product, categories
         </section>
 
         <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
-           <div className="space-y-2 relative">
+           <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">وصف المنتج</label>
               <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-8 bg-slate-50 rounded-[2rem] outline-none min-h-[180px] focus:ring-2 focus:ring-indigo-400 shadow-inner" />
-              <button type="button" onClick={handleAiDescription} disabled={isLoadingAi} className="absolute left-6 bottom-6 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] shadow-xl disabled:opacity-50">✨ وصف ذكي</button>
            </div>
-           <div className="pt-10 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="space-y-4">
+           <div className="pt-10 border-t border-slate-50">
+              <div className="space-y-4 max-w-xl">
                  <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><span>🌍</span> محركات البحث (SEO)</h3>
                  <div className="space-y-4">
                     <input placeholder="عنوان Meta" value={seoData.metaTitle} onChange={e => setSeoData({...seoData, metaTitle: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border font-bold text-sm shadow-sm" />
                     <input placeholder="رابط المنتج (Slug)" value={seoData.slug} onChange={e => setSeoData({...seoData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none border font-bold text-sm text-indigo-600 shadow-sm" />
                  </div>
-              </div>
-              <div className="flex items-end">
-                <button type="button" onClick={handleAiSeo} disabled={isLoadingSeo} className="w-full py-5 bg-emerald-500 text-white rounded-[1.5rem] font-black shadow-xl hover:bg-emerald-600 transition-all disabled:opacity-50">توليد بيانات SEO ✨</button>
               </div>
            </div>
         </section>

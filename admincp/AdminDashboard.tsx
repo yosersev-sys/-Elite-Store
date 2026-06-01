@@ -36,6 +36,9 @@ interface AdminDashboardProps {
   // Fix: Added adminSummary to props interface and allowed onRefreshData to return Promise
   adminSummary?: any;
   onRefreshData?: () => void | Promise<void>;
+  isOnline?: boolean;
+  offlineQueueCount?: number;
+  onSyncOffline?: () => void;
 }
 
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'settings' | 'api-keys';
@@ -147,6 +150,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
              <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">📦 صنف جديد</button>
            </div>
         </div>
+
+        {/* شريط حالة الكاشير دون اتصال */}
+        {(!props.isOnline || (props.offlineQueueCount && props.offlineQueueCount > 0)) && (
+          <div className={`mb-6 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm border ${props.isOnline ? 'bg-amber-50 border-amber-200' : 'bg-rose-50 border-rose-200'}`}>
+             <div className="flex items-center gap-3">
+                <span className="text-3xl">{props.isOnline ? '🔄' : '📡'}</span>
+                <div>
+                  <h4 className={`font-black text-sm ${props.isOnline ? 'text-amber-800' : 'text-rose-800'}`}>
+                    {props.isOnline ? 'يوجد بيانات معلقة بانتظار المزامنة' : 'وضع الكاشير دون اتصال (أوفلاين)'}
+                  </h4>
+                  <p className={`text-xs font-bold mt-1 ${props.isOnline ? 'text-amber-600' : 'text-rose-600'}`}>
+                    {props.isOnline 
+                      ? `تم حفظ ${props.offlineQueueCount} فواتير محلياً. يرجى الضغط على مزامنة لرفعها للسيرفر.`
+                      : `أنت الآن غير متصل بالإنترنت. يمكنك عمل فواتير الكاشير وخصم المخزون وستُحفظ محلياً.`}
+                  </p>
+                </div>
+             </div>
+             {(props.offlineQueueCount ?? 0) > 0 && props.isOnline && (
+               <button onClick={props.onSyncOffline} className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2.5 rounded-xl font-black text-xs shadow-md transition-all whitespace-nowrap">
+                 مزامنة الآن 🔄
+               </button>
+             )}
+          </div>
+        )}
 
         {/* المؤشر الرئيسي يظهر عند أي تحميل أولي للبيانات لضمان عدم ظهور أرقام فارغة */}
         {props.isLoading && safeProducts.length === 0 ? (

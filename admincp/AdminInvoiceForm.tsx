@@ -165,10 +165,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
   const handleFinalSubmit = async () => {
     if (isSaving) return;
-    if (!isOnline) {
-      alert('لا يمكن حفظ الفاتورة في وضع الأوفلاين. يرجى الاتصال بالإنترنت للمتابعة.');
-      return;
-    }
     if (invoiceItems.length === 0) return alert('يرجى إضافة منتجات للفاتورة');
     if (!customerInfo.phone) return alert('يرجى إدخال رقم الهاتف لمتابعة الطلب');
     if (isDeliveryEnabled && !customerInfo.address.trim()) return alert('يرجى إدخال عنوان التوصيل');
@@ -233,8 +229,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                 <h3 className="text-xl md:text-2xl font-black text-slate-800">{order ? 'حفظ التعديلات' : 'حفظ الفاتورة'}</h3>
                 
                 {!isOnline && (
-                  <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl text-rose-800 text-xs font-bold animate-pulse">
-                    🚫 عذراً، لا يوجد اتصال بالإنترنت. يرجى الاتصال بالشبكة لتتمكن من حفظ الفاتورة على السيرفر.
+                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-amber-800 text-xs font-bold animate-pulse">
+                    ⚠️ وضع الكاشير (أوفلاين): سيتم حفظ الفاتورة محلياً وخصم الكمية من المخازن مؤقتاً، ورفعها للسيرفر فور عودة الاتصال.
                   </div>
                 )}
 
@@ -255,7 +251,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
                 <div className="flex flex-col gap-3 pt-2">
                    <button 
-                    disabled={!isOnline || isSaving}
+                    disabled={isSaving}
                     onClick={handleFinalSubmit} 
                     className={`w-full py-4 md:py-5 rounded-2xl font-black shadow-xl active:scale-95 text-base text-white transition-all ${isSaving ? 'bg-slate-400 shadow-none' : 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700'} disabled:opacity-50 flex items-center justify-center gap-3`}
                    >
@@ -265,7 +261,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                          <span>جاري الحفظ...</span>
                        </>
                      ) : (
-                       isOnline ? (order ? 'تحديث الفاتورة الآن' : 'إتمام وحفظ الفاتورة') : 'انتظار الاتصال...'
+                       isOnline ? (order ? 'تحديث الفاتورة الآن' : 'إتمام وحفظ الفاتورة') : 'حفظ الفاتورة محلياً (أوفلاين)'
                      )}
                    </button>
                    {!isSaving && (
@@ -306,6 +302,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                    placeholder="ابحث هنا..." 
                    value={searchQuery}
                    onChange={(e) => setSearchQuery(e.target.value)}
+                   onKeyDown={e => {
+                     if (e.key === 'Enter') {
+                       e.preventDefault();
+                     }
+                   }}
                    className="w-full px-4 md:px-8 py-3.5 md:py-5 pr-12 md:pr-16 bg-slate-50 rounded-xl md:rounded-3xl outline-none focus:ring-4 focus:ring-emerald-500/10 font-black text-sm md:text-lg border-2 border-transparent focus:border-emerald-500 transition-all shadow-inner disabled:opacity-50"
                  />
                  <button 
@@ -501,11 +502,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                  </div>
 
                  <button 
-                   disabled={invoiceItems.length === 0 || !isOnline || isSaving}
+                   disabled={invoiceItems.length === 0 || isSaving}
                    onClick={() => setShowPreview(true)}
                    className={`w-full text-white py-4 md:py-6 rounded-2xl md:rounded-3xl font-black text-sm md:text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-40 bg-slate-900 hover:bg-emerald-600`}
                  >
-                    {isOnline ? (order ? 'تحديث الفاتورة 🔄' : 'حفظ الطلب الفوري') : 'غير متصل بالإنترنت'}
+                    {order ? 'تحديث الفاتورة 🔄' : (isOnline ? 'حفظ الطلب الفوري' : 'حفظ الفاتورة محلياً (أوفلاين)')}
                  </button>
               </div>
            </div>

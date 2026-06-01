@@ -1,30 +1,53 @@
-
 import { Product, Category, Order, User, Supplier } from '../types.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
-const LOCAL_DB_KEY = 'souq_local_database';
 
-// الحالة الافتراضية للبيانات في حال عدم وجود سيرفر
-const INITIAL_MOCK_DATA = {
-  products: [],
-  categories: [],
-  orders: [],
-  users: [],
-  suppliers: [],
-  settings: { delivery_fee: '0', whatsapp_number: '201026034170' }
+// IndexedDB Wrapper
+const IDB_NAME = 'SouqAlAsrDB';
+const IDB_VERSION = 1;
+
+const initDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains('store')) {
+        db.createObjectStore('store');
+      }
+    };
+  });
 };
 
-const LocalDB = {
-  get() {
-    const data = localStorage.getItem(LOCAL_DB_KEY);
-    if (!data) {
-      localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(INITIAL_MOCK_DATA));
-      return INITIAL_MOCK_DATA;
-    }
-    return JSON.parse(data);
-  },
-  save(data: any) {
-    localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(data));
+const idbGet = async <T>(key: string): Promise<T | null> => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('store', 'readonly');
+      const store = transaction.objectStore('store');
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result as T || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error('IDB Get Error', e);
+    return null;
+  }
+};
+
+const idbSet = async (key: string, value: any): Promise<void> => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction('store', 'readwrite');
+      const store = transaction.objectStore('store');
+      const request = store.put(value, key);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error('IDB Set Error', e);
   }
 };
 
@@ -43,7 +66,6 @@ const safeFetch = async (action: string, options?: RequestInit) => {
 
     const url = new URL(baseUrl);
     
-    // إصلاح: فصل الأكشن عن المعاملات الإضافية لضمان وصولها للسيرفر بشكل صحيح
     const [actionName, ...rest] = action.split('&');
     url.searchParams.set('action', actionName);
     
@@ -69,11 +91,48 @@ const safeFetch = async (action: string, options?: RequestInit) => {
     return await response.json();
   } catch (error) {
     console.warn(`API Network Error (${action}), switching to Local Fallback Mode.`);
-    return null;
+    return null; // Signals fallback
   }
 };
 
 export const ApiService = {
+  // Sync Engine: Manges offline queue
+  async syncOfflineData(): Promise<{ success: boolean; syncedCount: number; remainingCount: number; errors: any[] }> {
+    const syncQueue: Order[] = (await idbGet<Order[]>('offline_sync_queue')) || [];
+    if (syncQueue.length === 0) return { success: true, syncedCount: 0, remainingCount: 0, errors: [] };
+
+    let syncedCount = 0;
+    const remainingQueue: Order[] = [];
+    const errors: any[] = [];
+
+    for (const order of syncQueue) {
+      try {
+        const result = await safeFetch('save_order', {
+          method: 'POST',
+          body: JSON.stringify({ ...order, is_offline_sync: true }) 
+        });
+
+        if (result?.status === 'success') {
+          syncedCount++;
+        } else {
+          remainingQueue.push(order);
+          errors.push(result?.message || 'Server rejected order');
+        }
+      } catch (err) {
+        remainingQueue.push(order);
+        errors.push(err);
+      }
+    }
+
+    await idbSet('offline_sync_queue', remainingQueue);
+    return {
+      success: remainingQueue.length === 0,
+      syncedCount,
+      remainingCount: remainingQueue.length,
+      errors
+    };
+  },
+
   async getCurrentUser(): Promise<User | null> {
     const user = await safeFetch('get_current_user');
     if (user && user.id) {
@@ -121,14 +180,20 @@ export const ApiService = {
 
   async getProducts(): Promise<Product[]> {
     const result = await safeFetch('get_products');
-    if (result && Array.isArray(result)) return result;
-    return LocalDB.get().products;
+    if (result && Array.isArray(result)) {
+      await idbSet('products', result);
+      return result;
+    }
+    return (await idbGet<Product[]>('products')) || [];
   },
 
   async getCategories(): Promise<Category[]> {
     const result = await safeFetch('get_categories');
-    if (result && Array.isArray(result)) return result;
-    return LocalDB.get().categories;
+    if (result && Array.isArray(result)) {
+      await idbSet('categories', result);
+      return result;
+    }
+    return (await idbGet<Category[]>('categories')) || [];
   },
 
   async addCategory(category: Category): Promise<boolean> {
@@ -148,13 +213,48 @@ export const ApiService = {
 
   async getOrders(): Promise<Order[]> {
     const result = await safeFetch('get_orders');
-    if (result && Array.isArray(result)) return result;
-    return LocalDB.get().orders;
+    if (result && Array.isArray(result)) {
+      await idbSet('orders', result);
+      return result;
+    }
+    return (await idbGet<Order[]>('orders')) || [];
   },
 
   async saveOrder(order: Order): Promise<boolean> {
     const result = await safeFetch('save_order', { method: 'POST', body: JSON.stringify(order) });
-    return result?.status === 'success';
+    if (result?.status === 'success') return true;
+
+    // Offline Handling
+    // 1. Save to Sync Queue with real timestamp
+    const offlineOrder = { ...order, offline_timestamp: Date.now() };
+    const queue = (await idbGet<Order[]>('offline_sync_queue')) || [];
+    queue.push(offlineOrder as Order);
+    await idbSet('offline_sync_queue', queue);
+
+    // 2. Deduct Stock Locally
+    const products = (await idbGet<Product[]>('products')) || [];
+    let updated = false;
+    order.items.forEach(item => {
+      const prod = products.find(p => p.id === item.id);
+      if (prod) {
+        const currentStock = prod.stockQuantity || 0;
+        prod.stockQuantity = Math.max(0, currentStock - item.quantity);
+        updated = true;
+      }
+    });
+    if (updated) await idbSet('products', products);
+
+    // 3. Add to Local Orders view
+    const orders = (await idbGet<Order[]>('orders')) || [];
+    orders.unshift(offlineOrder as Order);
+    await idbSet('orders', orders);
+
+    // Trigger background sync if possible
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+      navigator.serviceWorker.ready.then((reg: any) => reg.sync.register('sync-offline-orders')).catch(console.error);
+    }
+
+    return true; // Fakes success so UI can proceed
   },
 
   async updateOrder(order: Order): Promise<boolean> {
@@ -168,7 +268,6 @@ export const ApiService = {
   },
 
   async returnOrder(id: string): Promise<{status: string}> {
-    // إصلاح: تمرير id في الجسم بالإضافة للمعامل لضمان وصوله مهما كانت إعدادات السيرفر
     return await safeFetch(`return_order&id=${id}`, { 
       method: 'POST',
       body: JSON.stringify({ id }) 
@@ -177,8 +276,11 @@ export const ApiService = {
 
   async getStoreSettings(): Promise<Record<string, string>> {
     const result = await safeFetch('get_store_settings');
-    if (result) return result;
-    return LocalDB.get().settings;
+    if (result) {
+      await idbSet('settings', result);
+      return result;
+    }
+    return (await idbGet<Record<string, string>>('settings')) || { delivery_fee: '0', whatsapp_number: '201026034170' };
   },
 
   async updateStoreSettings(settings: Record<string, string>): Promise<boolean> {
@@ -213,7 +315,11 @@ export const ApiService = {
 
   async getUsers(): Promise<User[]> {
     const result = await safeFetch('get_users');
-    return Array.isArray(result) ? result : [];
+    if (Array.isArray(result)) {
+      await idbSet('users', result);
+      return result;
+    }
+    return (await idbGet<User[]>('users')) || [];
   },
 
   async updateProfile(data: any): Promise<{status: string, message?: string}> {
@@ -231,7 +337,11 @@ export const ApiService = {
 
   async getSuppliers(): Promise<Supplier[]> {
     const result = await safeFetch('get_suppliers');
-    return Array.isArray(result) ? result : [];
+    if (Array.isArray(result)) {
+      await idbSet('suppliers', result);
+      return result;
+    }
+    return (await idbGet<Supplier[]>('suppliers')) || [];
   },
 
   async addSupplier(supplier: Supplier): Promise<boolean> {
@@ -257,5 +367,11 @@ export const ApiService = {
   async generateSitemap(): Promise<boolean> {
     const result = await safeFetch('generate_sitemap');
     return result?.status === 'success';
+  },
+  
+  // Public access to offline IDB queue count
+  async getOfflineQueueCount(): Promise<number> {
+    const queue = await idbGet<Order[]>('offline_sync_queue');
+    return queue ? queue.length : 0;
   }
 };

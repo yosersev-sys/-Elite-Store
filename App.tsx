@@ -77,6 +77,8 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -162,6 +164,42 @@ const App: React.FC = () => {
     loadData(); 
   }, [currentUser?.id, view, isTrulyInAdminMode]);
 
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true);
+      showNotification('عاد الاتصال بالإنترنت، جاري المزامنة...', 'success');
+      const syncResult = await ApiService.syncOfflineData();
+      if (syncResult.syncedCount > 0) {
+        showNotification(`تم مزامنة ${syncResult.syncedCount} فاتورة بنجاح.`, 'success');
+        loadData(true);
+      }
+      setOfflineQueueCount(syncResult.remainingCount);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      showNotification('أنت الآن غير متصل. تُحفظ الفواتير محلياً.', 'error');
+    };
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'TRIGGER_SYNC') {
+        if (navigator.onLine) handleOnline();
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    navigator.serviceWorker?.addEventListener('message', handleMessage);
+
+    ApiService.getOfflineQueueCount().then(setOfflineQueueCount);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      navigator.serviceWorker?.removeEventListener('message', handleMessage);
+    };
+  }, []);
+
   // مزامنة المنتج المحدد بناءً على الهاش في الرابط (لإتاحة مشاركة الروابط والنسخ)
   useEffect(() => {
     const h = window.location.hash;
@@ -212,6 +250,20 @@ const App: React.FC = () => {
           ) : (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
+              isOnline={isOnline} offlineQueueCount={offlineQueueCount}
+              onSyncOffline={async () => {
+                showNotification('جاري المزامنة...', 'success');
+                const syncResult = await ApiService.syncOfflineData();
+                setOfflineQueueCount(syncResult.remainingCount);
+                if (syncResult.syncedCount > 0) {
+                  showNotification(`تم مزامنة ${syncResult.syncedCount} فاتورة بنجاح.`, 'success');
+                  loadData(true);
+                } else if (syncResult.remainingCount > 0) {
+                   showNotification(`فشلت مزامنة ${syncResult.remainingCount} فاتورة. تحقق من الاتصال.`, 'error');
+                } else {
+                   showNotification('لا توجد فواتير معلقة.', 'success');
+                }
+              }}
               onOpenAddForm={() => { setSelectedProduct(null); onNavigate('admin-form'); }}
               onOpenEditForm={(p) => { setSelectedProduct(p); onNavigate('admin-form'); }}
               onOpenInvoiceForm={() => { setEditingOrder(null); onNavigate('admin-invoice'); }}
@@ -238,11 +290,11 @@ const App: React.FC = () => {
     switch(view) {
       case 'cart': return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))} onSetQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: q} : i))} onRemove={(id) => setCart(p => p.filter(x => x.id !== id))} onCheckout={() => onNavigate('checkout')} onContinueShopping={() => onNavigate('store')} />;
       case 'product-details': return selectedProduct ? <ProductDetailsView product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} onAddToCart={(p, q) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + q} : x); return [...prev, {...p, quantity: q}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onBack={() => onNavigate('store')} isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} /> : <div className="p-20 text-center font-bold text-gray-500">جاري تحميل تفاصيل المنتج...</div>;
-      case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'completed', createdAt: Date.now(), userId: currentUser?.id }; if (await ApiService.saveOrder(o)) { setLastCreatedOrder(o); setCart([]); onNavigate('order-success'); loadData(true); WhatsAppService.sendOrderNotification(o, adminPhone); } }} />;
+      case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'completed', createdAt: Date.now(), userId: currentUser?.id }; if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setLastCreatedOrder(o); setCart([]); onNavigate('order-success'); loadData(true); WhatsAppService.sendOrderNotification(o, adminPhone); } }} />;
       case 'order-success': return lastCreatedOrder ? <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigate('store')} /> : null;
       case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setLastCreatedOrder(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
       case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
-      case 'quick-invoice': return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
+      case 'quick-invoice': return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
       default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
     }
   };
