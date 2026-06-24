@@ -197,6 +197,16 @@ const App: React.FC = () => {
     loadData(); 
   }, [currentUser?.id, view, isTrulyInAdminMode]);
 
+  // الاستماع لحدث انتهاء الجلسة وتنبيه المستخدم
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      alert('انتهت جلستك كمدير! يرجى تسجيل الخروج والدخول من جديد لتفعيل الصلاحيات وحفظ المنتجات.');
+      showNotification('انتهت الجلسة! يرجى تسجيل الخروج والدخول من جديد.', 'error');
+    };
+    window.addEventListener('souq-session-expired', handleSessionExpired);
+    return () => window.removeEventListener('souq-session-expired', handleSessionExpired);
+  }, []);
+
   useEffect(() => {
     const handleOnline = async () => {
       setIsOnline(true);
@@ -277,7 +287,15 @@ const App: React.FC = () => {
           {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigate('admincp'); }} />}
           
           {view === 'admin-form' ? (
-            <AdminProductForm product={selectedProduct} categories={categories} suppliers={suppliers} onSubmit={async (p) => { const s = products.find(x => x.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p); if (s) { loadData(true); setProductForBarcode(p); } }} onCancel={() => onNavigate('admincp')} onRefreshData={() => loadData(true)} />
+            <AdminProductForm product={selectedProduct} categories={categories} suppliers={suppliers} onSubmit={async (p) => {
+              const res = products.find(x => x.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
+              if (res.success) {
+                loadData(true);
+                setProductForBarcode(p);
+              } else {
+                showNotification(res.message || 'حدث خطأ أثناء حفظ المنتج', 'error');
+              }
+            }} onCancel={() => onNavigate('admincp')} onRefreshData={() => loadData(true)} />
           ) : view === 'admin-invoice' ? (
             <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
           ) : (

@@ -87,8 +87,23 @@ const safeFetch = async (action: string, options?: RequestInit) => {
       },
     });
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      // Response is not valid JSON
+    }
+
+    if (!response.ok) {
+      if (data && data.message) {
+        if (data.message === 'غير مصرح') {
+          window.dispatchEvent(new CustomEvent('souq-session-expired'));
+        }
+        return data; // Return parsed data so caller can read the backend message
+      }
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return data;
   } catch (error) {
     console.warn(`API Network Error (${action}), switching to Local Fallback Mode.`);
     return null; // Signals fallback
@@ -145,7 +160,7 @@ export const ApiService = {
 
   async getAdminSummary(): Promise<any> {
     const result = await safeFetch('get_admin_summary');
-    if (result) {
+    if (result && result.status !== 'error') {
       await idbSet('admin_summary', result);
       return result;
     }
@@ -281,7 +296,7 @@ export const ApiService = {
 
   async getStoreSettings(): Promise<Record<string, string>> {
     const result = await safeFetch('get_store_settings');
-    if (result) {
+    if (result && result.status !== 'error') {
       await idbSet('settings', result);
       return result;
     }
@@ -293,14 +308,20 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async addProduct(product: Product): Promise<boolean> {
+  async addProduct(product: Product): Promise<{ success: boolean; message?: string }> {
     const result = await safeFetch('add_product', { method: 'POST', body: JSON.stringify(product) });
-    return result?.status === 'success';
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشلت إضافة المنتج. قد يكون هناك مشكلة في صلاحيات الأدمن، حجم الصور، أو انتهاء الجلسة.' };
   },
 
-  async updateProduct(product: Product): Promise<boolean> {
+  async updateProduct(product: Product): Promise<{ success: boolean; message?: string }> {
     const result = await safeFetch('update_product', { method: 'POST', body: JSON.stringify(product) });
-    return result?.status === 'success';
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل تحديث المنتج. قد يكون هناك مشكلة في الصلاحيات أو حجم الصور.' };
   },
 
   async deleteProduct(id: string): Promise<boolean> {
