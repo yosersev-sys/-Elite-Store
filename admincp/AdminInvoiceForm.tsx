@@ -335,7 +335,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                            </div>
                            <div>
                               <p className="font-black text-slate-800 text-[11px] md:text-base">{p.name}</p>
-                              <p className="text-[8px] md:text-[10px] font-black text-emerald-600">{p.price} ج.م</p>
+                              <p className="text-[8px] md:text-[10px] font-black text-emerald-600">
+                                {p.price} ج.م
+                                <span className="text-slate-400 font-bold mr-2">| المتاح: {p.stockQuantity} {p.unit === 'piece' ? 'قطعة' : p.unit === 'kg' ? 'كجم' : 'جرام'}</span>
+                              </p>
                            </div>
                         </div>
                         <span className="bg-emerald-100 text-emerald-600 w-8 h-8 rounded-full flex items-center justify-center font-black text-sm">+</span>
@@ -374,6 +377,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                             <td className="px-4 md:px-8 py-3">
                               <div className="flex flex-col">
                                 <span className="font-black text-slate-800 text-[11px] md:text-sm leading-tight">{item.name}</span>
+                                <span className="text-[9px] text-slate-400 font-black text-right mt-0.5">المخزون المتبقي: {item.stockQuantity} {item.unit === 'piece' ? 'قطعة' : item.unit === 'kg' ? 'كجم' : 'جرام'}</span>
                                 {!isSaving && (
                                   <button onClick={() => removeItem(item.id)} className="text-[8px] text-rose-400 font-bold text-right mt-0.5 hover:text-rose-600">حذف ✕</button>
                                 )}
