@@ -32,6 +32,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
     auditLogs: any[];
   } | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [modalTab, setModalTab] = useState<'financial' | 'products' | 'invoices' | 'logs'>('financial');
 
   const loadShiftsData = async () => {
     setIsLoading(true);
@@ -154,6 +155,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
     try {
       const details = await ApiService.getShiftDetails(shiftId);
       setSelectedShiftDetails(details);
+      setModalTab('financial');
     } catch (e) {
       alert('فشل جلب تفاصيل الوردية');
     } finally {
@@ -201,6 +203,12 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                   className="flex-grow md:flex-initial bg-amber-50 hover:bg-amber-100 text-amber-600 px-5 py-3 rounded-xl font-black text-xs active:scale-95 transition-all"
                 >
                   ➖ سحب نقدية
+                </button>
+                <button
+                  onClick={() => handleViewShiftDetails(activeShift.id)}
+                  className="flex-grow md:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-3 rounded-xl font-black text-xs active:scale-95 transition-all"
+                >
+                  📊 إحصائيات الوردية
                 </button>
                 <button
                   onClick={() => setShowCloseModal(true)}
@@ -463,129 +471,322 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
       )}
 
       {/* 5. مودال تفاصيل الوردية القديمة وملخص التجميد المالي */}
-      {selectedShiftDetails && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedShiftDetails(null)}></div>
-          <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl p-8 animate-slideUp max-h-[85vh] overflow-y-auto no-scrollbar flex flex-col space-y-6">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-              <div>
-                <h3 className="text-2xl font-black text-slate-800">تفاصيل الوردية المغلقة #{selectedShiftDetails.shift.id}</h3>
-                <p className="text-slate-400 text-xs font-bold mt-1">
-                  المحاسب المسؤول: {selectedShiftDetails.shift.openedByName}
-                </p>
-              </div>
-              <button onClick={() => setSelectedShiftDetails(null)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-            </div>
+      {selectedShiftDetails && (() => {
+        const completedOrders = selectedShiftDetails.orders.filter(o => o.status !== 'cancelled');
+        const cancelledOrders = selectedShiftDetails.orders.filter(o => o.status === 'cancelled');
+        const netProfit = completedOrders.reduce((sum, order) => {
+          return sum + order.items.reduce((itemSum, item) => {
+            const wholesale = item.actualWholesalePrice ?? item.wholesalePrice ?? 0;
+            return itemSum + (item.price - wholesale) * item.quantity;
+          }, 0);
+        }, 0);
+        const totalItemsSold = completedOrders.reduce((sum, order) => {
+          return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0);
+        }, 0);
 
-            {/* محتويات تفاصيل الوردية */}
-            <div className="space-y-6 flex-grow">
-              {/* ملخص مالي نهائي */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-slate-50 p-5 rounded-2xl border">
-                  <p className="text-[10px] text-slate-400 font-bold mb-1">رصيد البداية</p>
-                  <p className="text-base font-black text-slate-800">{selectedShiftDetails.shift.startingCash.toFixed(2)} ج.م</p>
+        const productStats: Record<string, { name: string; quantity: number; unit: string; totalSales: number; totalProfit: number }> = {};
+        completedOrders.forEach(order => {
+          order.items.forEach(item => {
+            const key = item.id;
+            const qty = item.quantity;
+            const wholesale = item.actualWholesalePrice ?? item.wholesalePrice ?? 0;
+            const profit = (item.price - wholesale) * qty;
+            const sales = item.price * qty;
+            if (!productStats[key]) {
+              productStats[key] = {
+                name: item.name,
+                quantity: 0,
+                unit: item.unit,
+                totalSales: 0,
+                totalProfit: 0
+              };
+            }
+            productStats[key].quantity += qty;
+            productStats[key].totalSales += sales;
+            productStats[key].totalProfit += profit;
+          });
+        });
+        const productStatsList = Object.values(productStats).sort((a, b) => b.quantity - a.quantity);
+
+        return (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedShiftDetails(null)}></div>
+            <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl p-8 animate-slideUp max-h-[85vh] overflow-y-auto no-scrollbar flex flex-col space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                    <span>تفاصيل الوردية #{selectedShiftDetails.shift.id}</span>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-black ${selectedShiftDetails.shift.status === 'open' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                      {selectedShiftDetails.shift.status === 'open' ? 'مفتوحة نشطة 🟢' : 'مغلقة'}
+                    </span>
+                  </h3>
+                  <p className="text-slate-400 text-xs font-bold mt-1">
+                    المحاسب المسؤول: {selectedShiftDetails.shift.openedByName}
+                  </p>
                 </div>
-                {/* قراءة بيانات الـ Snapshot */}
-                {(() => {
-                  const snap = parseSnapshot(selectedShiftDetails.shift.snapshotData);
-                  return (
-                    <>
-                      <div className="bg-slate-50 p-5 rounded-2xl border">
-                        <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات النقدية</p>
-                        <p className="text-base font-black text-emerald-600">{snap ? snap.cashSales.toFixed(2) : '0.00'} ج.م</p>
-                      </div>
-                      <div className="bg-slate-50 p-5 rounded-2xl border">
-                        <p className="text-[10px] text-slate-400 font-bold mb-1">المرتجع النقدي</p>
-                        <p className="text-base font-black text-rose-500">{snap ? snap.cashReturns.toFixed(2) : '0.00'} ج.m</p>
-                      </div>
-                      <div className="bg-slate-50 p-5 rounded-2xl border">
-                        <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات البنكية</p>
-                        <p className="text-base font-black text-indigo-600">{snap ? snap.cardSales.toFixed(2) : '0.00'} ج.م</p>
-                      </div>
-                      <div className="bg-slate-50 p-5 rounded-2xl border">
-                        <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات الآجلة</p>
-                        <p className="text-base font-black text-amber-600">{snap ? snap.debtSales.toFixed(2) : '0.00'} ج.م</p>
-                      </div>
-                      <div className="bg-slate-50 p-5 rounded-2xl border">
-                        <p className="text-[10px] text-slate-400 font-bold mb-1">إجمالي الإيداعات</p>
-                        <p className="text-base font-black text-emerald-600">{snap ? snap.totalDeposits.toFixed(2) : '0.00'} ج.م</p>
-                      </div>
-                      <div className="bg-slate-50 p-5 rounded-2xl border">
-                        <p className="text-[10px] text-slate-400 font-bold mb-1">إجمالي السحوبات</p>
-                        <p className="text-base font-black text-rose-600">{snap ? snap.totalWithdrawals.toFixed(2) : '0.00'} ج.م</p>
-                      </div>
-                    </>
-                  );
-                })()}
-                <div className="bg-slate-50 p-5 rounded-2xl border">
-                  <p className="text-[10px] text-slate-400 font-bold mb-1">الرصيد المتوقع بالدرج</p>
-                  <p className="text-base font-black text-slate-800">{selectedShiftDetails.shift.expectedCash.toFixed(2)} ج.م</p>
-                </div>
-                <div className="bg-slate-900 text-white p-5 rounded-2xl border">
-                  <p className="text-[10px] text-slate-300 font-bold mb-1">الرصيد الفعلي (المجرود)</p>
-                  <p className="text-base font-black text-emerald-400">{selectedShiftDetails.shift.actualCash.toFixed(2)} ج.م</p>
-                </div>
+                <button onClick={() => setSelectedShiftDetails(null)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
               </div>
 
-              {/* عجز / زيادة */}
-              {selectedShiftDetails.shift.difference !== 0 && (
-                <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs font-bold text-rose-700 flex justify-between">
-                  <span>فرق الجرد: {selectedShiftDetails.shift.difference.toFixed(2)} ج.م</span>
-                  <span>سبب الفرق: {selectedShiftDetails.shift.discrepancyReason}</span>
-                </div>
-              )}
+              {/* أزرار التبويبات داخل المودال */}
+              <div className="flex gap-2 border-b border-slate-100 pb-2 overflow-x-auto no-scrollbar">
+                <button
+                  onClick={() => setModalTab('financial')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${modalTab === 'financial' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
+                >
+                  📊 الملخص المالي
+                </button>
+                <button
+                  onClick={() => setModalTab('products')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${modalTab === 'products' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
+                >
+                  📦 المنتجات المباعة ({productStatsList.length})
+                </button>
+                <button
+                  onClick={() => setModalTab('invoices')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${modalTab === 'invoices' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
+                >
+                  🧾 قائمة الفواتير ({selectedShiftDetails.orders.length})
+                </button>
+                <button
+                  onClick={() => setModalTab('logs')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${modalTab === 'logs' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
+                >
+                  ⏳ سجل الدرج والتدقيق
+                </button>
+              </div>
 
-              {/* تفاصيل المبيعات وسجل الدرج */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                {/* حركات الخزينة */}
-                <div className="space-y-3">
-                  <h4 className="font-black text-sm text-slate-700">حركات الإيداع والسحب اليدوية</h4>
-                  <div className="max-h-[200px] overflow-y-auto space-y-2 no-scrollbar">
-                    {selectedShiftDetails.transactions.length === 0 ? (
-                      <p className="text-[10px] font-bold text-slate-400">لا يوجد حركات نقدية يدوية في هذه الوردية</p>
-                    ) : (
-                      selectedShiftDetails.transactions.map((t) => (
-                        <div key={t.id} className="p-3 bg-slate-50 rounded-xl border text-[10px] font-bold flex justify-between items-center">
-                          <div>
-                            <span className={`px-2 py-0.5 rounded text-[8px] ${t.type === 'deposit' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                              {t.type === 'deposit' ? 'إيداع' : 'سحب'}
-                            </span>
-                            <span className="text-slate-500 mr-2">{t.reason}</span>
-                          </div>
-                          <span className="font-black">{t.amount.toFixed(2)} ج.م</span>
-                        </div>
-                      ))
+              {/* محتويات تفاصيل الوردية */}
+              <div className="space-y-6 flex-grow overflow-y-auto no-scrollbar">
+                {modalTab === 'financial' && (
+                  <div className="space-y-6">
+                    {/* ملخص مالي نهائي */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-slate-50 p-5 rounded-2xl border">
+                        <p className="text-[10px] text-slate-400 font-bold mb-1">رصيد البداية</p>
+                        <p className="text-base font-black text-slate-800">{selectedShiftDetails.shift.startingCash.toFixed(2)} ج.م</p>
+                      </div>
+                      {/* قراءة بيانات الـ Snapshot */}
+                      {(() => {
+                        const snap = parseSnapshot(selectedShiftDetails.shift.snapshotData);
+                        // في حال كانت الوردية مفتوحة، نقوم بحساب الأرقام بشكل فوري من الطلبات الحالية
+                        const cashSalesVal = snap ? snap.cashSales : selectedShiftDetails.orders.reduce((sum, o) => {
+                          if (o.status !== 'cancelled' && (o.paymentMethod.includes('نقدي') || o.paymentMethod.includes('عند الاستلام'))) {
+                            return sum + o.total;
+                          }
+                          return sum;
+                        }, 0);
+                        const cashReturnsVal = snap ? snap.cashReturns : selectedShiftDetails.orders.reduce((sum, o) => {
+                          if (o.status === 'cancelled' && (o.paymentMethod.includes('نقدي') || o.paymentMethod.includes('عند الاستلام'))) {
+                            return sum + o.total;
+                          }
+                          return sum;
+                        }, 0);
+                        const cardSalesVal = snap ? snap.cardSales : selectedShiftDetails.orders.reduce((sum, o) => {
+                          if (o.status !== 'cancelled' && !o.paymentMethod.includes('نقدي') && !o.paymentMethod.includes('عند الاستلام') && !o.paymentMethod.includes('آجل')) {
+                            return sum + o.total;
+                          }
+                          return sum;
+                        }, 0);
+                        const debtSalesVal = snap ? snap.debtSales : selectedShiftDetails.orders.reduce((sum, o) => {
+                          if (o.status !== 'cancelled' && o.paymentMethod.includes('آجل')) {
+                            return sum + o.total;
+                          }
+                          return sum;
+                        }, 0);
+                        const depVal = snap ? snap.totalDeposits : selectedShiftDetails.transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
+                        const witVal = snap ? snap.totalWithdrawals : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + t.amount, 0);
+
+                        return (
+                          <>
+                            <div className="bg-slate-50 p-5 rounded-2xl border">
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات النقدية</p>
+                              <p className="text-base font-black text-emerald-600">{cashSalesVal.toFixed(2)} ج.م</p>
+                            </div>
+                            <div className="bg-slate-50 p-5 rounded-2xl border">
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">المرتجع النقدي</p>
+                              <p className="text-base font-black text-rose-500">{cashReturnsVal.toFixed(2)} ج.م</p>
+                            </div>
+                            <div className="bg-slate-50 p-5 rounded-2xl border">
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات البنكية</p>
+                              <p className="text-base font-black text-indigo-600">{cardSalesVal.toFixed(2)} ج.م</p>
+                            </div>
+                            <div className="bg-slate-50 p-5 rounded-2xl border">
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات الآجلة</p>
+                              <p className="text-base font-black text-amber-600">{debtSalesVal.toFixed(2)} ج.م</p>
+                            </div>
+                            <div className="bg-slate-50 p-5 rounded-2xl border">
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">إجمالي الإيداعات</p>
+                              <p className="text-base font-black text-emerald-600">{depVal.toFixed(2)} ج.م</p>
+                            </div>
+                            <div className="bg-slate-50 p-5 rounded-2xl border">
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">إجمالي السحوبات</p>
+                              <p className="text-base font-black text-rose-600">{witVal.toFixed(2)} ج.م</p>
+                            </div>
+                          </>
+                        );
+                      })()}
+                      <div className="bg-slate-50 p-5 rounded-2xl border">
+                        <p className="text-[10px] text-slate-400 font-bold mb-1">الرصيد المتوقع بالدرج</p>
+                        <p className="text-base font-black text-slate-800">{selectedShiftDetails.shift.expectedCash.toFixed(2)} ج.م</p>
+                      </div>
+                      <div className="bg-slate-900 text-white p-5 rounded-2xl border">
+                        <p className="text-[10px] text-slate-300 font-bold mb-1">{selectedShiftDetails.shift.status === 'open' ? 'الرصيد الفعلي المتوقع' : 'الرصيد الفعلي (المجرود)'}</p>
+                        <p className="text-base font-black text-emerald-400">{(selectedShiftDetails.shift.status === 'open' ? selectedShiftDetails.shift.currentCashBalance : selectedShiftDetails.shift.actualCash).toFixed(2)} ج.م</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-emerald-500 text-white p-5 rounded-2xl border border-emerald-600 shadow-md">
+                        <p className="text-[10px] text-emerald-100 font-bold mb-1">صافي أرباح الوردية</p>
+                        <p className="text-xl font-black">{netProfit.toFixed(2)} ج.م</p>
+                      </div>
+                      <div className="bg-slate-50 p-5 rounded-2xl border">
+                        <p className="text-[10px] text-slate-400 font-bold mb-1">عدد الفواتير الصادرة</p>
+                        <p className="text-xl font-black text-slate-800">{completedOrders.length} فواتير</p>
+                      </div>
+                      <div className="bg-slate-50 p-5 rounded-2xl border">
+                        <p className="text-[10px] text-slate-400 font-bold mb-1">إجمالي الوحدات المباعة</p>
+                        <p className="text-xl font-black text-slate-800">{totalItemsSold} وحدة</p>
+                      </div>
+                    </div>
+
+                    {/* عجز / زيادة */}
+                    {selectedShiftDetails.shift.status === 'closed' && selectedShiftDetails.shift.difference !== 0 && (
+                      <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs font-bold text-rose-700 flex justify-between">
+                        <span>فرق الجرد: {selectedShiftDetails.shift.difference.toFixed(2)} ج.م</span>
+                        <span>سبب الفرق: {selectedShiftDetails.shift.discrepancyReason}</span>
+                      </div>
                     )}
                   </div>
-                </div>
+                )}
 
-                {/* سجل التدقيق للوردية */}
-                <div className="space-y-3">
-                  <h4 className="font-black text-sm text-slate-700">سجل تدقيق الوردية (Audit Log)</h4>
-                  <div className="max-h-[200px] overflow-y-auto space-y-2 no-scrollbar">
-                    {selectedShiftDetails.auditLogs.map((log) => (
-                      <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl border text-[10px] font-bold text-slate-500">
-                        <div className="flex justify-between mb-1">
-                          <span className="text-indigo-600 font-black">{log.action}</span>
-                          <span className="text-[8px] text-slate-400">{new Date(log.createdAt).toLocaleTimeString('ar-EG')}</span>
-                        </div>
-                        <p className="text-slate-700">{log.details}</p>
+                {modalTab === 'products' && (
+                  <div className="space-y-4">
+                    <h4 className="font-black text-sm text-slate-700">المنتجات المباعة خلال هذه الوردية</h4>
+                    {productStatsList.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400 font-bold text-xs">لا يوجد منتجات مباعة في هذه الوردية بعد</div>
+                    ) : (
+                      <div className="overflow-x-auto no-scrollbar border rounded-2xl max-h-[350px]">
+                        <table className="w-full text-right border-collapse">
+                          <thead>
+                            <tr className="border-b bg-slate-50 text-slate-500 text-[10px] font-black">
+                              <th className="py-3 px-4">اسم المنتج</th>
+                              <th className="py-3 px-4 text-center">الكمية المباعة</th>
+                              <th className="py-3 px-4">إجمالي المبيعات</th>
+                              <th className="py-3 px-4 text-emerald-600">صافي الربح</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {productStatsList.map((p, idx) => (
+                              <tr key={idx} className="text-slate-700 text-xs font-bold hover:bg-slate-50/30 transition">
+                                <td className="py-3 px-4 font-black">{p.name}</td>
+                                <td className="py-3 px-4 text-center">{p.quantity} {p.unit === 'piece' ? 'قطعة' : p.unit === 'kg' ? 'كجم' : 'جرام'}</td>
+                                <td className="py-3 px-4">{p.totalSales.toFixed(2)} ج.م</td>
+                                <td className="py-3 px-4 text-emerald-600">+{p.totalProfit.toFixed(2)} ج.م</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              </div>
-            </div>
+                )}
 
-            <button
-              onClick={() => setSelectedShiftDetails(null)}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-2xl font-black text-sm active:scale-95"
-            >
-              إغلاق
-            </button>
+                {modalTab === 'invoices' && (
+                  <div className="space-y-4">
+                    <h4 className="font-black text-sm text-slate-700">سجل الفواتير الصادرة بالوردية</h4>
+                    {selectedShiftDetails.orders.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400 font-bold text-xs">لا يوجد فواتير صادرة في هذه الوردية بعد</div>
+                    ) : (
+                      <div className="overflow-x-auto no-scrollbar border rounded-2xl max-h-[350px]">
+                        <table className="w-full text-right border-collapse">
+                          <thead>
+                            <tr className="border-b bg-slate-50 text-slate-500 text-[10px] font-black">
+                              <th className="py-3 px-4">رقم الفاتورة</th>
+                              <th className="py-3 px-4">العميل</th>
+                              <th className="py-3 px-4">طريقة الدفع</th>
+                              <th className="py-3 px-4">الوقت</th>
+                              <th className="py-3 px-4">المبلغ</th>
+                              <th className="py-3 px-4 text-center">الحالة</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {selectedShiftDetails.orders.map((o) => (
+                              <tr key={o.id} className="text-slate-700 text-xs font-bold hover:bg-slate-50/30 transition">
+                                <td className="py-3 px-4 font-black text-indigo-600">{o.id}</td>
+                                <td className="py-3 px-4">{o.customerName || 'عميل نقدي'}</td>
+                                <td className="py-3 px-4">
+                                  <span className="bg-slate-100 px-2 py-0.5 rounded text-[9px]">{o.paymentMethod}</span>
+                                </td>
+                                <td className="py-3 px-4 text-slate-400">{new Date(o.createdAt).toLocaleTimeString('ar-EG')}</td>
+                                <td className="py-3 px-4 font-black">{o.total.toFixed(2)} ج.م</td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className={`px-2 py-0.5 rounded text-[8px] font-black ${o.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : o.status === 'cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
+                                    {o.status === 'completed' ? 'مكتمل' : o.status === 'cancelled' ? 'مرتجع/ملغى' : 'معلق'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {modalTab === 'logs' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* حركات الخزينة */}
+                    <div className="space-y-3">
+                      <h4 className="font-black text-sm text-slate-700">حركات الإيداع والسحب اليدوية</h4>
+                      <div className="max-h-[300px] overflow-y-auto space-y-2 no-scrollbar">
+                        {selectedShiftDetails.transactions.length === 0 ? (
+                          <p className="text-[10px] font-bold text-slate-400 py-4 text-center">لا يوجد حركات نقدية يدوية في هذه الوردية</p>
+                        ) : (
+                          selectedShiftDetails.transactions.map((t) => (
+                            <div key={t.id} className="p-3 bg-slate-50 rounded-xl border text-[10px] font-bold flex justify-between items-center">
+                              <div>
+                                <span className={`px-2 py-0.5 rounded text-[8px] ${t.type === 'deposit' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                  {t.type === 'deposit' ? 'إيداع' : 'سحب'}
+                                </span>
+                                <span className="text-slate-500 mr-2">{t.reason}</span>
+                              </div>
+                              <span className="font-black">{t.amount.toFixed(2)} ج.م</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* سجل التدقيق للوردية */}
+                    <div className="space-y-3">
+                      <h4 className="font-black text-sm text-slate-700">سجل تدقيق الوردية (Audit Log)</h4>
+                      <div className="max-h-[300px] overflow-y-auto space-y-2 no-scrollbar">
+                        {selectedShiftDetails.auditLogs.map((log) => (
+                          <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl border text-[10px] font-bold text-slate-500">
+                            <div className="flex justify-between mb-1">
+                              <span className="text-indigo-600 font-black">{log.action}</span>
+                              <span className="text-[8px] text-slate-400">{new Date(log.createdAt).toLocaleTimeString('ar-EG')}</span>
+                            </div>
+                            <p className="text-slate-700">{log.details}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setSelectedShiftDetails(null)}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-2xl font-black text-sm active:scale-95"
+              >
+                إغلاق
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
