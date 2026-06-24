@@ -1,6 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
-import { Order } from '../../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Order, Expense } from '../../types';
+import { ApiService } from '../../services/api';
 
 interface ReportsTabProps {
   orders: Order[];
@@ -9,6 +10,13 @@ interface ReportsTabProps {
 const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
   const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]); 
   const [reportEnd, setReportEnd] = useState(new Date().toISOString().split('T')[0]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+
+  useEffect(() => {
+    ApiService.getExpenses()
+      .then(setExpenses)
+      .catch(err => console.error('Failed to load expenses for reports', err));
+  }, []);
 
   const financialData = useMemo(() => {
     const start = new Date(reportStart).setHours(0, 0, 0, 0);
@@ -43,9 +51,23 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
       };
     });
 
-    const netProfit = totalRevenue - totalCost;
+    // Calculate active expenses in this period
+    const periodExpenses = expenses.filter(e => {
+      const d = Number(e.date);
+      return d >= start && d <= end && e.status !== 'cancelled';
+    });
+    const totalExpenses = periodExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+
+    const grossProfit = totalRevenue - totalCost;
+    const netProfit = grossProfit - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     const avgOrderValue = periodOrders.length > 0 ? totalRevenue / periodOrders.length : 0;
+
+    // تصنيف المصروفات
+    const categoryBreakdown: Record<string, number> = {};
+    periodExpenses.forEach(e => {
+      categoryBreakdown[e.category] = (categoryBreakdown[e.category] || 0) + Number(e.amount);
+    });
 
     // الطلبات الأكثر ربحاً
     const topProfitableOrders = [...detailedOrders]
@@ -55,14 +77,18 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
     return { 
       totalRevenue, 
       totalCost, 
+      grossProfit,
+      totalExpenses,
       netProfit, 
       profitMargin, 
       avgOrderValue, 
       orderCount: periodOrders.length,
       totalItemsSold,
-      topProfitableOrders
+      topProfitableOrders,
+      periodExpenses,
+      categoryBreakdown
     };
-  }, [orders, reportStart, reportEnd]);
+  }, [orders, expenses, reportStart, reportEnd]);
 
   return (
     <div className="space-y-10 animate-fadeIn pb-20">
@@ -89,11 +115,12 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
       </div>
 
       {/* المؤشرات الرئيسية (KPIs) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard title="إجمالي المبيعات" value={financialData.totalRevenue} icon="💰" color="indigo" />
-        <KPICard title="صافي الربح" value={financialData.netProfit} icon="📈" color="emerald" isSpecial />
-        <KPICard title="عدد الطلبات" value={financialData.orderCount} icon="🛍️" color="amber" isUnitless />
-        <KPICard title="هامش الربح" value={financialData.profitMargin.toFixed(1) + '%'} icon="🎯" color="rose" isUnitless />
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <KPICard title="إجمالي المبيعات (Revenue)" value={financialData.totalRevenue} icon="💰" color="indigo" />
+        <KPICard title="تكلفة البضاعة (COGS)" value={financialData.totalCost} icon="🏷️" color="rose" />
+        <KPICard title="مجمل الربح (Gross Profit)" value={financialData.grossProfit} icon="⚖️" color="amber" />
+        <KPICard title="المصروفات والتكاليف" value={financialData.totalExpenses} icon="💸" color="rose" />
+        <KPICard title="صافي الربح (Net Profit)" value={financialData.netProfit} icon="📈" color="emerald" isSpecial />
       </div>
 
       {/* التحليل البصري والمخطط */}
@@ -102,8 +129,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
         {/* المخطط البصري للمقارنة */}
         <div className="lg:col-span-2 bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-100 flex flex-col justify-between">
            <div className="mb-8">
-              <h4 className="font-black text-xl text-slate-800">تحليل هيكل الإيرادات</h4>
-              <p className="text-slate-400 text-xs font-bold">مقارنة بين إجمالي التكاليف وصافي الأرباح</p>
+              <h4 className="font-black text-xl text-slate-800">تحليل هيكل الإيرادات والتكاليف</h4>
+              <p className="text-slate-400 text-xs font-bold">توزيع الإيرادات بين تكلفة البضاعة، المصروفات الجارية، وصافي الأرباح</p>
            </div>
            
            <div className="space-y-10">
@@ -113,23 +140,39 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
                     <span className="text-xs font-bold text-slate-400">الإجمالي: {financialData.totalRevenue.toLocaleString()} ج.م</span>
                  </div>
                  <div className="h-14 w-full bg-slate-100 rounded-2xl overflow-hidden flex shadow-inner border-4 border-slate-50">
-                    <div 
-                      style={{ width: `${(financialData.totalCost / financialData.totalRevenue) * 100}%` }} 
-                      className="h-full bg-slate-400 flex items-center justify-center text-[10px] text-white font-black transition-all duration-1000"
-                    >
-                      {financialData.totalRevenue > 0 && 'التكاليف'}
-                    </div>
-                    <div 
-                      style={{ width: `${(financialData.netProfit / financialData.totalRevenue) * 100}%` }} 
-                      className="h-full bg-emerald-500 flex items-center justify-center text-[10px] text-white font-black transition-all duration-1000"
-                    >
-                      {financialData.totalRevenue > 0 && 'الأرباح'}
-                    </div>
+                    {financialData.totalRevenue > 0 && financialData.totalCost > 0 && (
+                      <div 
+                        style={{ width: `${(financialData.totalCost / financialData.totalRevenue) * 100}%` }} 
+                        className="h-full bg-slate-400 flex items-center justify-center text-[10px] text-white font-black transition-all duration-1000"
+                      >
+                        التكلفة
+                      </div>
+                    )}
+                    {financialData.totalRevenue > 0 && financialData.totalExpenses > 0 && (
+                      <div 
+                        style={{ width: `${(financialData.totalExpenses / financialData.totalRevenue) * 100}%` }} 
+                        className="h-full bg-rose-500 flex items-center justify-center text-[10px] text-white font-black transition-all duration-1000"
+                      >
+                        المصروفات
+                      </div>
+                    )}
+                    {financialData.totalRevenue > 0 && financialData.netProfit > 0 && (
+                      <div 
+                        style={{ width: `${(financialData.netProfit / financialData.totalRevenue) * 100}%` }} 
+                        className="h-full bg-emerald-500 flex items-center justify-center text-[10px] text-white font-black transition-all duration-1000"
+                      >
+                        صافي الربح
+                      </div>
+                    )}
                  </div>
-                 <div className="flex gap-6 px-2">
+                 <div className="flex flex-wrap gap-4 px-2">
                     <div className="flex items-center gap-2">
                        <span className="w-3 h-3 bg-slate-400 rounded-full"></span>
                        <span className="text-[10px] font-black text-slate-500">تكلفة البضاعة: {financialData.totalCost.toLocaleString()} ج.م</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <span className="w-3 h-3 bg-rose-500 rounded-full"></span>
+                       <span className="text-[10px] font-black text-slate-500">المصروفات: {financialData.totalExpenses.toLocaleString()} ج.م</span>
                     </div>
                     <div className="flex items-center gap-2">
                        <span className="w-3 h-3 bg-emerald-500 rounded-full"></span>
@@ -138,7 +181,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
                  </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">متوسط قيمة الطلب</p>
                     <p className="text-xl font-black text-slate-800">{financialData.avgOrderValue.toFixed(0)} <small className="text-[10px]">ج.م</small></p>
@@ -146,6 +189,14 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">إجمالي القطع المباعة</p>
                     <p className="text-xl font-black text-slate-800">{financialData.totalItemsSold} <small className="text-[10px]">وحدة</small></p>
+                 </div>
+                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">عدد الطلبات</p>
+                    <p className="text-xl font-black text-slate-800">{financialData.orderCount} <small className="text-[10px]">طلب</small></p>
+                 </div>
+                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">هامش صافي الربح</p>
+                    <p className="text-xl font-black text-slate-800">{financialData.profitMargin.toFixed(1)}%</p>
                  </div>
               </div>
            </div>
@@ -178,6 +229,65 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
         </div>
 
       </div>
+
+      {/* تحليل المصروفات وقائمتها */}
+      {financialData.periodExpenses.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* تصنيف المصروفات */}
+          <div className="bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-100">
+             <h4 className="font-black text-xl text-slate-800 mb-6">تحليل فئات المصروفات 📊</h4>
+             <div className="space-y-4">
+                {Object.entries(financialData.categoryBreakdown).map(([cat, amt]) => {
+                  const percent = financialData.totalExpenses > 0 ? (amt / financialData.totalExpenses) * 100 : 0;
+                  return (
+                    <div key={cat} className="space-y-1.5">
+                       <div className="flex justify-between text-xs font-black">
+                          <span className="text-slate-700">{cat}</span>
+                          <span className="text-slate-500">{amt.toFixed(2)} ج.م ({percent.toFixed(1)}%)</span>
+                       </div>
+                       <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div className="bg-rose-500 h-full rounded-full" style={{ width: `${percent}%` }}></div>
+                       </div>
+                    </div>
+                  );
+                })}
+             </div>
+          </div>
+
+          {/* قائمة المصروفات */}
+          <div className="lg:col-span-2 bg-white p-8 md:p-10 rounded-[3rem] shadow-xl border border-slate-100">
+             <h4 className="font-black text-xl text-slate-800 mb-6">قائمة المصروفات خلال الفترة 💸</h4>
+             <div className="overflow-x-auto no-scrollbar max-h-[300px]">
+               <table className="w-full text-right border-collapse">
+                 <thead>
+                   <tr className="border-b border-slate-100 text-slate-400 text-xs font-black">
+                     <th className="py-3 px-2">التاريخ</th>
+                     <th className="py-3 px-2">البيان</th>
+                     <th className="py-3 px-2">الفئة</th>
+                     <th className="py-3 px-2">المصدر</th>
+                     <th className="py-3 px-2">القيمة</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-50 text-xs text-slate-700 font-bold">
+                   {financialData.periodExpenses.map(e => (
+                     <tr key={e.id} className="hover:bg-slate-50 transition-colors">
+                       <td className="py-3 px-2 text-slate-400">{new Date(e.date).toLocaleDateString('ar-EG')}</td>
+                       <td className="py-3 px-2 font-black">{e.title}</td>
+                       <td className="py-3 px-2">
+                         <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-black">{e.category}</span>
+                       </td>
+                       <td className="py-3 px-2">
+                         {e.paymentSource === 'drawer' ? 'نقدي (الدرج)' : 'خارجي'}
+                       </td>
+                       <td className="py-3 px-2 font-black text-rose-600">{e.amount.toFixed(2)} ج.م</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+             </div>
+          </div>
+        </div>
+      )}
 
       {/* ملخص ذكي */}
       <div className="bg-indigo-900 text-white p-8 md:p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden">

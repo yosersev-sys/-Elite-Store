@@ -1,4 +1,4 @@
-import { Product, Category, Order, User, Supplier, Shift, DrawerTransaction } from '../types.ts';
+import { Product, Category, Order, User, Supplier, Shift, DrawerTransaction, Expense } from '../types.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
 
@@ -475,5 +475,43 @@ export const ApiService = {
 
   async getShiftDetails(id: number): Promise<{ shift: Shift; transactions: DrawerTransaction[]; orders: Order[]; auditLogs: any[] } | null> {
     return await safeFetch(`get_shift_details&id=${id}`);
+  },
+
+  async getExpenses(filters?: { month?: number; year?: number; category?: string; paymentSource?: string; status?: string }): Promise<Expense[]> {
+    let query = 'get_expenses';
+    if (filters) {
+      const params = new URLSearchParams();
+      if (filters.month) params.set('month', String(filters.month));
+      if (filters.year) params.set('year', String(filters.year));
+      if (filters.category) params.set('category', filters.category);
+      if (filters.paymentSource) params.set('paymentSource', filters.paymentSource);
+      if (filters.status) params.set('status', filters.status);
+      const str = params.toString();
+      if (str) query += '&' + str;
+    }
+    const result = await safeFetch(query);
+    return Array.isArray(result) ? result : [];
+  },
+
+  async addExpense(expense: Omit<Expense, 'id' | 'userId' | 'status' | 'date'>): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch('add_expense', {
+      method: 'POST',
+      body: JSON.stringify(expense)
+    });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل تسجيل المصروف.' };
+  },
+
+  async cancelExpense(id: number): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch('cancel_expense', {
+      method: 'POST',
+      body: JSON.stringify({ id })
+    });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل إلغاء المصروف.' };
   }
 };

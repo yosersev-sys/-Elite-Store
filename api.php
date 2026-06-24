@@ -95,6 +95,13 @@ try {
             require_once 'api_shifts.php';
             break;
 
+        // --- موديول المصروفات والتكاليف ---
+        case 'add_expense':
+        case 'cancel_expense':
+        case 'get_expenses':
+            require_once 'api_expenses.php';
+            break;
+
         // --- موديول الإحصائيات والنظام ---
         case 'get_admin_summary':
         case 'get_store_settings':

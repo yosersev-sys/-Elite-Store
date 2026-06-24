@@ -121,4 +121,21 @@ export interface DrawerTransaction {
   userId: string;
 }
 
+export interface Expense {
+  id: number;
+  title: string;
+  amount: number;
+  category: string;
+  paymentSource: 'drawer' | 'external';
+  referenceNumber?: string;
+  attachment?: string;
+  status: 'active' | 'cancelled';
+  shiftId?: number;
+  drawerTransactionId?: number;
+  userId: string;
+  notes?: string;
+  date: number;
+}
+
 export type View = 'store' | 'admin' | 'admincp' | 'cart' | 'product-details' | 'admin-form' | 'admin-invoice' | 'auth' | 'checkout' | 'wishlist' | 'order-success' | 'category-page' | 'admin-auth' | 'my-orders' | 'profile' | 'quick-invoice';
+
