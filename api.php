@@ -85,6 +85,16 @@ try {
             require_once 'api_crm.php';
             break;
 
+        // --- موديول الورديات والدرج النقدية ---
+        case 'get_active_shift':
+        case 'open_shift':
+        case 'close_shift':
+        case 'add_drawer_transaction':
+        case 'get_shifts':
+        case 'get_shift_details':
+            require_once 'api_shifts.php';
+            break;
+
         // --- موديول الإحصائيات والنظام ---
         case 'get_admin_summary':
         case 'get_store_settings':

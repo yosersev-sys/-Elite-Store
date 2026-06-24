@@ -4,7 +4,7 @@
  */
 
 // بيانات الاتصال (قم بتعديلها إذا تغيرت بيانات الاستضافة)
-define('DB_HOST', 'localhost');
+define('DB_HOST', '127.0.0.1');
 define('DB_NAME', 'u588213546_store');
 define('DB_USER', 'u588213546_store');
 define('DB_PASS', 'sK0KAGUm|');

@@ -9,6 +9,8 @@ import SuppliersTab from './tabs/SuppliersTab.tsx';
 import ReportsTab from './tabs/ReportsTab.tsx';
 import SettingsTab from './tabs/SettingsTab.tsx';
 import ApiKeysTab from './tabs/ApiKeysTab.tsx';
+import ShiftsTab from './tabs/ShiftsTab.tsx';
+
 
 interface AdminDashboardProps {
   products: Product[];
@@ -42,7 +44,7 @@ interface AdminDashboardProps {
   loadProgress?: number;
 }
 
-export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'settings' | 'api-keys';
+export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   // صمامات أمان نهائية لضمان وجود مصفوفات دائماً قبل العرض
@@ -75,6 +77,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     members: 'الأعضاء',
     suppliers: 'الموردين',
     reports: 'الأرباح',
+    shifts: 'الورديات ونقدية الدرج',
     settings: 'الإعدادات',
     'api-keys': 'مفاتيح API'
   };
@@ -97,6 +100,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'members': return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'suppliers': return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
       case 'reports': return <ReportsTab orders={safeOrders} />;
+      case 'shifts': return <ShiftsTab onRefreshData={props.onRefreshData} />;
       case 'settings': return <SettingsTab currentUser={props.currentUser} onLogout={props.onLogout} />;
       case 'api-keys': return <ApiKeysTab />;
       default: return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
@@ -129,6 +133,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
           <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
           <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
+          <AdminNavButton active={activeTab === 'shifts'} onClick={() => handleTabChange('shifts')} icon="⏱️" label="الورديات" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon="🛠️" label="الإعدادات" />
         </nav>
 

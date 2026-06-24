@@ -20,17 +20,33 @@ switch ($action) {
         break;
 
     case 'save_order':
+        // التحقق من وجود وردية مفتوحة لبدء البيع
+        $activeShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
+        if (!$activeShift) {
+            sendErr('يجب فتح وردية أولاً لتسجيل المبيعات.');
+        }
+        $shiftId = $activeShift['id'];
+
         $pdo->beginTransaction();
         try {
-            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt, shiftId) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
                 $input['id'], $input['customerName'], $input['phone'], $input['city'] ?? 'سوق العصر', $input['address'],
                 $input['subtotal'], $input['total'], json_encode($input['items']),
-                $input['paymentMethod'], $input['status'], $input['userId'] ?? null, time() * 1000
+                $input['paymentMethod'], $input['status'], $input['userId'] ?? null, time() * 1000,
+                $shiftId
             ]);
             foreach ($input['items'] as $item) {
                 $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")->execute([$item['quantity'], $item['quantity'], $item['id']]);
             }
+
+            // زيادة نقدية الدرج في الوردية النشطة إذا كانت طريقة الدفع نقداً
+            $method = $input['paymentMethod'] ?? '';
+            if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
+                $newBalance = (float)$activeShift['currentCashBalance'] + (float)$input['total'];
+                $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $shiftId]);
+            }
+
             $pdo->commit();
             sendRes(['status' => 'success']);
         } catch (Exception $e) {
@@ -44,18 +60,41 @@ switch ($action) {
         $pdo->beginTransaction();
         try {
             $id = $input['id'] ?? $_GET['id'] ?? '';
-            $stmt = $pdo->prepare("SELECT items, status FROM orders WHERE id = ? FOR UPDATE");
+            $stmt = $pdo->prepare("SELECT items, status, total, paymentMethod, shiftId FROM orders WHERE id = ? FOR UPDATE");
             $stmt->execute([$id]);
             $order = $stmt->fetch();
-            if ($order && $order['status'] !== 'cancelled') {
-                $items = json_decode($order['items'], true);
-                foreach ($items as $item) {
-                    $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?")->execute([$item['quantity'], $item['quantity'], $item['id']]);
+            if ($order) {
+                // منع التعديل أو الاسترجاع للفواتير التابعة لورديات مغلقة
+                if ($order['shiftId']) {
+                    $stmtShift = $pdo->prepare("SELECT status FROM shifts WHERE id = ?");
+                    $stmtShift->execute([$order['shiftId']]);
+                    $shift = $stmtShift->fetch();
+                    if ($shift && $shift['status'] === 'closed') {
+                        sendErr('لا يمكن إلغاء أو استرجاع فواتير تابعة لورديات مغلقة.');
+                    }
                 }
-                $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?")->execute([$id]);
-                $pdo->commit();
-                sendRes(['status' => 'success']);
-            } else sendErr('الطلب ملغي مسبقاً');
+
+                if ($order['status'] !== 'cancelled') {
+                    $items = json_decode($order['items'], true);
+                    foreach ($items as $item) {
+                        $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?")->execute([$item['quantity'], $item['quantity'], $item['id']]);
+                    }
+                    $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?")->execute([$id]);
+
+                    // خصم قيمة المرتجع النقدي من الوردية المفتوحة الحالية
+                    $activeOpenShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
+                    if ($activeOpenShift) {
+                        $method = $order['paymentMethod'] ?? '';
+                        if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
+                            $newBalance = (float)$activeOpenShift['currentCashBalance'] - (float)$order['total'];
+                            $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $activeOpenShift['id']]);
+                        }
+                    }
+
+                    $pdo->commit();
+                    sendRes(['status' => 'success']);
+                } else sendErr('الطلب ملغي مسبقاً');
+            } else sendErr('الطلب غير موجود');
         } catch (Exception $e) {
             $pdo->rollBack();
             sendErr('خطأ في الاسترجاع');

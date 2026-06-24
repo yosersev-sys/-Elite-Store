@@ -1,4 +1,4 @@
-import { Product, Category, Order, User, Supplier } from '../types.ts';
+import { Product, Category, Order, User, Supplier, Shift, DrawerTransaction } from '../types.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
 
@@ -429,5 +429,51 @@ export const ApiService = {
       suppliers: suppliers || [],
       orders: orders || []
     };
+  },
+
+  async getActiveShift(): Promise<Shift | null> {
+    return await safeFetch('get_active_shift');
+  },
+
+  async openShift(startingCash: number): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch('open_shift', {
+      method: 'POST',
+      body: JSON.stringify({ startingCash })
+    });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل فتح الوردية.' };
+  },
+
+  async addDrawerTransaction(type: 'deposit' | 'withdrawal', amount: number, reason: string): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch('add_drawer_transaction', {
+      method: 'POST',
+      body: JSON.stringify({ type, amount, reason })
+    });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل تسجيل حركة الدرج.' };
+  },
+
+  async closeShift(actualCash: number, discrepancyReason?: string, notes?: string): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch('close_shift', {
+      method: 'POST',
+      body: JSON.stringify({ actualCash, discrepancyReason, notes })
+    });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل إغلاق الوردية.' };
+  },
+
+  async getShifts(): Promise<Shift[]> {
+    const result = await safeFetch('get_shifts');
+    return Array.isArray(result) ? result : [];
+  },
+
+  async getShiftDetails(id: number): Promise<{ shift: Shift; transactions: DrawerTransaction[]; orders: Order[]; auditLogs: any[] } | null> {
+    return await safeFetch(`get_shift_details&id=${id}`);
   }
 };

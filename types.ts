@@ -91,6 +91,34 @@ export interface Order {
   status: 'pending' | 'completed' | 'cancelled';
   createdAt: number;
   userId?: string;
+  shiftId?: number;
+}
+
+export interface Shift {
+  id: number;
+  openedById: string;
+  closedById?: string;
+  status: 'open' | 'closed';
+  startTime: number;
+  endTime?: number;
+  startingCash: number;
+  expectedCash: number;
+  actualCash: number;
+  currentCashBalance: number;
+  difference: number;
+  discrepancyReason?: string;
+  notes?: string;
+  snapshotData?: string; // serialized JSON
+}
+
+export interface DrawerTransaction {
+  id: number;
+  shiftId: number;
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  reason: string;
+  createdAt: number;
+  userId: string;
 }
 
 export type View = 'store' | 'admin' | 'admincp' | 'cart' | 'product-details' | 'admin-form' | 'admin-invoice' | 'auth' | 'checkout' | 'wishlist' | 'order-success' | 'category-page' | 'admin-auth' | 'my-orders' | 'profile' | 'quick-invoice';

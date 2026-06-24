@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { View, Product, CartItem, Category, Order, User, Supplier } from './types.ts';
+import { View, Product, CartItem, Category, Order, User, Supplier, Shift } from './types.ts';
 import Header from './components/Header.tsx';
 import StoreView from './components/StoreView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
@@ -80,6 +80,9 @@ const App: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [loadProgress, setLoadProgress] = useState(0);
+  const [activeShift, setActiveShift] = useState<Shift | null>(null);
+  const [startingCashInput, setStartingCashInput] = useState('');
+  const [isOpeningShift, setIsOpeningShift] = useState(false);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -159,6 +162,15 @@ const App: React.FC = () => {
       if (st?.delivery_fee) setDeliveryFee(parseFloat(st.delivery_fee));
       setProducts(pr || []);
       setCategories(ct || []);
+
+      if (user?.role === 'admin') {
+        try {
+          const active = await ApiService.getActiveShift();
+          setActiveShift(active);
+        } catch (err) {
+          console.warn("Failed to fetch active shift", err);
+        }
+      }
 
       // 4. جلب بيانات الإدارة من السيرفر بالتوازي مع تتبع التقدم
       if (isTrulyInAdminMode && user?.role === 'admin') {
@@ -267,8 +279,33 @@ const App: React.FC = () => {
     window.location.hash = h;
   };
 
+  const handleOpenShiftFromBlocker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cash = parseFloat(startingCashInput);
+    if (isNaN(cash) || cash < 0) {
+      showNotification('يرجى إدخال مبلغ صحيح غير سالب', 'error');
+      return;
+    }
+
+    setIsOpeningShift(true);
+    try {
+      const res = await ApiService.openShift(cash);
+      if (res.success) {
+        showNotification('تم فتح الوردية بنجاح.', 'success');
+        setStartingCashInput('');
+        await loadData(true);
+      } else {
+        showNotification(res.message || 'فشل فتح الوردية', 'error');
+      }
+    } catch (e) {
+      showNotification('حدث خطأ فني أثناء فتح الوردية', 'error');
+    } finally {
+      setIsOpeningShift(false);
+    }
+  };
+
   const handleAuth = (user: User) => { setCurrentUser(user); setShowAuthModal(false); loadData(false, user); };
-  const handleLogout = () => { ApiService.logout(); setCurrentUser(null); onNavigate('store'); };
+  const handleLogout = () => { ApiService.logout(); setCurrentUser(null); setActiveShift(null); onNavigate('store'); };
 
   // 1. حالة "نظام الإدارة" (تظهر بشكل قاطع إذا طلب الرابط ذلك)
   if (isTrulyInAdminMode) {
@@ -297,7 +334,51 @@ const App: React.FC = () => {
               }
             }} onCancel={() => onNavigate('admincp')} onRefreshData={() => loadData(true)} />
           ) : view === 'admin-invoice' ? (
-            <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
+            !activeShift ? (
+              <div className="min-h-screen bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                <form onSubmit={handleOpenShiftFromBlocker} className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6 animate-slideUp border border-slate-100">
+                  <div className="text-center space-y-2">
+                    <span className="text-5xl">🔒</span>
+                    <h3 className="text-2xl font-black text-slate-800">يجب فتح وردية أولاً</h3>
+                    <p className="text-slate-400 font-bold text-xs leading-relaxed">
+                      لتتمكن من إنشاء فواتير أو تعديل المبيعات، يجب بدء وردية جديدة وتحديد نقدية الدرج.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-500 mr-2">نقدية بداية الوردية (الدرج)</label>
+                    <input
+                      required
+                      type="number"
+                      step="any"
+                      value={startingCashInput}
+                      onChange={(e) => setStartingCashInput(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 font-black text-lg text-center"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-3 pt-2">
+                    <button
+                      disabled={isOpeningShift}
+                      type="submit"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50 transition-all"
+                    >
+                      {isOpeningShift ? 'جاري فتح الوردية...' : '🚀 فتح الوردية وبدء العمل'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('admincp')}
+                      className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95 transition-all"
+                    >
+                      العودة للوحة التحكم
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
+            )
           ) : (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
@@ -345,7 +426,53 @@ const App: React.FC = () => {
       case 'order-success': return lastCreatedOrder ? <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigate('store')} /> : null;
       case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setLastCreatedOrder(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
       case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
-      case 'quick-invoice': return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
+      case 'quick-invoice': 
+        if (isAdmin && !activeShift) {
+          return (
+            <div className="flex items-center justify-center p-4 py-12">
+              <form onSubmit={handleOpenShiftFromBlocker} className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6 animate-slideUp border border-slate-100">
+                <div className="text-center space-y-2">
+                  <span className="text-5xl">🔒</span>
+                  <h3 className="text-2xl font-black text-slate-800">يجب فتح وردية أولاً</h3>
+                  <p className="text-slate-400 font-bold text-xs leading-relaxed">
+                    لتتمكن من إنشاء فواتير سريعة، يجب بدء وردية جديدة وتحديد نقدية الدرج.
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-500 mr-2">نقدية بداية الوردية (الدرج)</label>
+                  <input
+                    required
+                    type="number"
+                    step="any"
+                    value={startingCashInput}
+                    onChange={(e) => setStartingCashInput(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 font-black text-lg text-center"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3 pt-2">
+                  <button
+                    disabled={isOpeningShift}
+                    type="submit"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50 transition-all"
+                  >
+                    {isOpeningShift ? 'جاري فتح الوردية...' : '🚀 فتح الوردية وبدء العمل'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('store')}
+                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95 transition-all"
+                  >
+                    العودة للمتجر
+                  </button>
+                </div>
+              </form>
+            </div>
+          );
+        }
+        return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
       default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
     }
   };
