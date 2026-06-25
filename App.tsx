@@ -73,7 +73,7 @@ const App: React.FC = () => {
   const [productForBarcode, setProductForBarcode] = useState<Product | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
+  const [recentCreatedOrderFlow, setRecentCreatedOrderFlow] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -360,7 +360,7 @@ const App: React.FC = () => {
       <React.Suspense fallback={<div className="flex justify-center p-8 text-gray-500">جاري التحميل...</div>}>
         <div className="min-h-screen bg-slate-50 pt-2 px-2 md:px-4">
           {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
-          {newOrdersForPopup.length > 0 && <NewOrderPopup orders={newOrdersForPopup} onClose={(id) => setNewOrdersForPopup(p => p.filter(o => o.id !== id))} onView={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }} />}
+          {newOrdersForPopup.length > 0 && <NewOrderPopup orders={newOrdersForPopup} onClose={(id) => setNewOrdersForPopup(p => p.filter(o => o.id !== id))} onView={(o) => { setRecentCreatedOrderFlow(o); onNavigate('order-success'); }} />}
           {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigate('admincp'); }} />}
           
           {view === 'admin-form' ? (
@@ -417,7 +417,7 @@ const App: React.FC = () => {
                 </form>
               </div>
             ) : (
-              <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
+              <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setRecentCreatedOrderFlow(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
             )
           ) : (
             <AdminDashboard 
@@ -444,7 +444,7 @@ const App: React.FC = () => {
               onAddCategory={async (c) => { if(await ApiService.addCategory(c)) loadData(true); }}
               onUpdateCategory={async (c) => { if(await ApiService.updateCategory(c)) loadData(true); }}
               onDeleteCategory={async (id) => { if(await ApiService.deleteCategory(id)) loadData(true); }}
-              onViewOrder={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }}
+              onViewOrder={(o) => { setRecentCreatedOrderFlow(o); onNavigate('order-success'); }}
               onUpdateOrderPayment={(id, m) => ApiService.updateOrderPayment(id, m).then(() => loadData(true))}
               onReturnOrder={async (id) => { if(await ApiService.returnOrder(id)) loadData(true); }}
               onDeleteUser={async (id) => { if(await ApiService.deleteUser(id)) loadData(true); }}
@@ -462,9 +462,9 @@ const App: React.FC = () => {
     switch(view) {
       case 'cart': return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))} onSetQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: q} : i))} onRemove={(id) => setCart(p => p.filter(x => x.id !== id))} onCheckout={() => onNavigate('checkout')} onContinueShopping={() => onNavigate('store')} />;
       case 'product-details': return selectedProduct ? <ProductDetailsView product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} onAddToCart={(p, q) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + q} : x); return [...prev, {...p, quantity: q}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onBack={() => onNavigate('store')} isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} /> : <div className="p-20 text-center font-bold text-gray-500">جاري تحميل تفاصيل المنتج...</div>;
-      case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'completed', createdAt: Date.now(), userId: currentUser?.id }; if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setLastCreatedOrder(o); setCart([]); onNavigate('order-success'); loadData(true); WhatsAppService.sendOrderNotification(o, adminPhone); } }} />;
-      case 'order-success': return lastCreatedOrder ? <OrderSuccessView order={lastCreatedOrder} onContinueShopping={() => onNavigate('store')} /> : null;
-      case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setLastCreatedOrder(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
+      case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'completed', createdAt: Date.now(), userId: currentUser?.id }; if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); setCart([]); onNavigate('order-success'); loadData(true); WhatsAppService.sendOrderNotification(o, adminPhone); } }} />;
+      case 'order-success': return recentCreatedOrderFlow ? <OrderSuccessView order={recentCreatedOrderFlow} onContinueShopping={() => onNavigate('store')} /> : null;
+      case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setRecentCreatedOrderFlow(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
       case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
       case 'quick-invoice': 
         if (isAdmin && !activeShift) {
@@ -512,7 +512,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setLastCreatedOrder(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
+        return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
       default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
     }
   };

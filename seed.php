@@ -65,6 +65,84 @@ try {
         setting_value LONGTEXT
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS orders (
+        id VARCHAR(50) PRIMARY KEY, 
+        customerName VARCHAR(255) NOT NULL, 
+        phone VARCHAR(20) NOT NULL, 
+        city VARCHAR(100) DEFAULT 'سوق العصر', 
+        address TEXT, 
+        subtotal DECIMAL(10,2) DEFAULT 0.00, 
+        total DECIMAL(10,2) DEFAULT 0.00, 
+        items LONGTEXT, 
+        paymentMethod VARCHAR(50) DEFAULT 'عند الاستلام', 
+        status VARCHAR(20) DEFAULT 'completed', 
+        userId VARCHAR(50), 
+        createdAt BIGINT,
+        shiftId INT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS shifts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        openedById VARCHAR(50) NOT NULL,
+        closedById VARCHAR(50) NULL,
+        status VARCHAR(20) DEFAULT 'open',
+        startTime BIGINT NOT NULL,
+        endTime BIGINT NULL,
+        startingCash DECIMAL(10,2) NOT NULL,
+        expectedCash DECIMAL(10,2) DEFAULT 0.00,
+        actualCash DECIMAL(10,2) DEFAULT 0.00,
+        currentCashBalance DECIMAL(10,2) DEFAULT 0.00,
+        difference DECIMAL(10,2) DEFAULT 0.00,
+        discrepancyReason VARCHAR(255) NULL,
+        notes TEXT NULL,
+        snapshotData LONGTEXT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS drawer_transactions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        shiftId INT NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        reason VARCHAR(255) NOT NULL,
+        createdAt BIGINT NOT NULL,
+        userId VARCHAR(50) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS expenses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        paymentSource VARCHAR(50) NOT NULL,
+        referenceNumber VARCHAR(100) NULL,
+        attachment VARCHAR(255) NULL,
+        status VARCHAR(20) DEFAULT 'active',
+        shiftId INT NULL,
+        drawerTransactionId INT NULL,
+        userId VARCHAR(50) NOT NULL,
+        notes TEXT NULL,
+        date BIGINT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50) NOT NULL,
+        shiftId INT NULL,
+        action VARCHAR(100) NOT NULL,
+        details TEXT NOT NULL,
+        createdAt BIGINT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // التحقق من وجود عمود shiftId في جدول orders وإضافته إن لم يكن موجوداً
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM orders LIKE 'shiftId'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN shiftId INT NULL");
+        }
+    } catch (PDOException $e) {
+        // إذا لم يكن الجدول موجوداً بعد، سيتم إنشاؤه في الخطوة السابقة
+    }
+
     // 2. إضافة الأقسام الأساسية
     $categories = [
         ['id' => 'cat_supermarket', 'name' => 'سوبر ماركت', 'order' => 1],
