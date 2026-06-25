@@ -155,7 +155,7 @@ try {
 
     // 3. إضافة حساب مدير افتراضي
     $adminPhone = '01000000000';
-    $checkAdmin = $pdo->prepare("SELECT id FROM users WHERE phone = ?");
+    $checkAdmin = $pdo->prepare("SELECT id FROM users WHERE id = 'admin_root' OR phone = ?");
     $checkAdmin->execute([$adminPhone]);
     if (!$checkAdmin->fetch()) {
         $adminPass = password_hash('admin123', PASSWORD_DEFAULT);
