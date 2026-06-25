@@ -24,7 +24,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
     
     const periodOrders = orders.filter(o => {
       const d = Number(o.createdAt);
-      return d >= start && d <= end && o.status !== 'cancelled';
+      return d >= start && d <= end && o.status === 'completed';
     });
 
     let totalRevenue = 0;

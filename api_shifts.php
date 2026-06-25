@@ -118,7 +118,7 @@ switch ($action) {
         $shiftId = $active['id'];
 
         // 1. حساب المبيعات والمرتجع النقدي والإلكتروني والآجل
-        $ordersQuery = $pdo->prepare("SELECT total, paymentMethod, status FROM orders WHERE shiftId = ?");
+        $ordersQuery = $pdo->prepare("SELECT total, paymentMethod, status FROM orders WHERE confirmedShiftId = ?");
         $ordersQuery->execute([$shiftId]);
         $ordersList = $ordersQuery->fetchAll();
 
@@ -262,7 +262,7 @@ switch ($action) {
         }
 
         // جلب فواتير الوردية
-        $orders = $pdo->prepare("SELECT * FROM orders WHERE shiftId = ? ORDER BY createdAt DESC");
+        $orders = $pdo->prepare("SELECT * FROM orders WHERE confirmedShiftId = ? ORDER BY createdAt DESC");
         $orders->execute([$shiftId]);
         $ordersList = $orders->fetchAll();
         foreach ($ordersList as &$o) {

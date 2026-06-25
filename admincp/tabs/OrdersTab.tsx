@@ -16,18 +16,28 @@ interface OrdersTabProps {
 
 const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onEditOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'cancelled'>('all');
   const ordersPerPage = 10;
 
   const filteredOrders = useMemo(() => {
+    let result = orders;
+    if (statusFilter !== 'all') {
+      result = result.filter(o => o.status === statusFilter);
+    }
     const q = adminSearch.toLowerCase().trim();
-    if (!q) return orders;
-    return orders.filter(o => 
+    if (!q) return result;
+    return result.filter(o => 
       o.id.toLowerCase().includes(q) || 
       (o.customerName && o.customerName.toLowerCase().includes(q)) ||
       (o.phone && o.phone.includes(q)) ||
       (o.paymentMethod && String(o.paymentMethod).toLowerCase().includes(q))
     );
-  }, [orders, adminSearch]);
+  }, [orders, adminSearch, statusFilter]);
+
+  const handleStatusFilterChange = (filter: 'all' | 'pending' | 'completed' | 'cancelled') => {
+    setStatusFilter(filter);
+    setOrderPage(1);
+  };
 
   const paginatedOrders = useMemo(() => {
     const start = (orderPage - 1) * ordersPerPage;
@@ -67,7 +77,41 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-end">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-wrap gap-2">
+          {(['all', 'pending', 'completed', 'cancelled'] as const).map(f => {
+            let label = 'الكل';
+            let colorClass = 'bg-slate-50 text-slate-500 border-slate-200';
+            let activeColorClass = 'bg-slate-900 text-white border-slate-900';
+            
+            if (f === 'pending') {
+              label = 'المعلقة ⏳';
+              colorClass = 'bg-amber-50 text-amber-600 border-amber-100';
+              activeColorClass = 'bg-amber-500 text-white border-amber-500';
+            } else if (f === 'completed') {
+              label = 'المكتملة ✓';
+              colorClass = 'bg-emerald-50 text-emerald-600 border-emerald-100';
+              activeColorClass = 'bg-emerald-600 text-white border-emerald-600';
+            } else if (f === 'cancelled') {
+              label = 'الملغاة ✕';
+              colorClass = 'bg-rose-50 text-rose-600 border-rose-100';
+              activeColorClass = 'bg-rose-500 text-white border-rose-500';
+            }
+            
+            const isActive = statusFilter === f;
+            
+            return (
+              <button
+                key={f}
+                onClick={() => handleStatusFilterChange(f)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${isActive ? activeColorClass : `${colorClass} hover:bg-slate-100`}`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="relative w-full md:w-80">
           <input 
             type="text" 
@@ -105,6 +149,8 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                   <td className="px-8 py-5">
                     {isCancelled ? (
                       <span className="px-4 py-1.5 bg-rose-100 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-widest">مسترجع ↩️</span>
+                    ) : o.status === 'pending' ? (
+                      <span className="px-4 py-1.5 bg-amber-100 text-amber-600 rounded-xl text-[9px] font-black uppercase tracking-widest border border-amber-200">معلق بانتظار التأكيد ⏳</span>
                     ) : isDebt ? (
                       <span className="px-4 py-1.5 bg-orange-100 text-orange-600 rounded-xl text-[9px] font-black uppercase tracking-widest border border-orange-200">آجل (مديونية) ⏳</span>
                     ) : (
@@ -113,6 +159,9 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex justify-center gap-2">
+                       {o.status === 'pending' && (
+                         <button onClick={() => { if(confirm('هل تريد تأكيد استلام النقدية وإتمام الفاتورة؟')) onUpdateOrderPayment(o.id, o.paymentMethod); }} className="p-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-sm font-black" title="تأكيد واستلام النقدية">✓</button>
+                       )}
                        <button onClick={() => WhatsAppService.sendInvoiceToCustomer(o, o.phone)} className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" title="إرسال واتساب">📱</button>
                        <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
                        {!isCancelled && (

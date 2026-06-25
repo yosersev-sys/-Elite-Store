@@ -36,7 +36,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
     const todayOrders = safeOrders.filter(o => {
       if (!o) return false;
       const d = Number(o.createdAt);
-      return d >= todayStart && d <= todayEnd && o.status !== 'cancelled';
+      return d >= todayStart && d <= todayEnd && o.status === 'completed';
     });
 
     const todaySales = todayOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
@@ -84,7 +84,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
 
     // الطريقة التقليدية (Fallback) في حال عدم وصول الملخص
     const safeOrders = Array.isArray(orders) ? orders : [];
-    const activeOrders = safeOrders.filter(o => o && o.status !== 'cancelled');
+    const activeOrders = safeOrders.filter(o => o && o.status === 'completed');
     const totalSales = activeOrders.reduce((s, o) => s + Number(o.total || 0), 0);
     
     let totalCost = 0;

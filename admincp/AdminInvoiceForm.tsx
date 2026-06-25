@@ -24,7 +24,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     phone: initialPhone,
     city: 'فاقوس',
     address: '',
-    paymentMethod: 'نقدي (تم الدفع)'
+    paymentMethod: 'نقدي (تم الدفع)',
+    status: 'completed'
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -44,7 +45,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         phone: order.phone || '',
         city: order.city || 'فاقوس',
         address: isDeliv ? order.address : '',
-        paymentMethod: order.paymentMethod || 'نقدي (تم الدفع)'
+        paymentMethod: order.paymentMethod || 'نقدي (تم الدفع)',
+        status: order.status || 'completed'
       });
     }
   }, [order]);
@@ -183,7 +185,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         subtotal,
         total,
         paymentMethod: customerInfo.paymentMethod,
-        status: order ? order.status : 'completed',
+        status: customerInfo.status as any,
         createdAt: order ? order.createdAt : Date.now()
       };
 
@@ -242,6 +244,12 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                    <div className="flex justify-between font-bold text-xs md:text-sm">
                       <span className="text-slate-400">الدفع:</span>
                       <span className={customerInfo.paymentMethod.includes('آجل') ? 'text-orange-600' : 'text-emerald-600'}>{customerInfo.paymentMethod}</span>
+                   </div>
+                   <div className="flex justify-between font-bold text-xs md:text-sm">
+                      <span className="text-slate-400">الحالة:</span>
+                      <span className={customerInfo.status === 'pending' ? 'text-amber-500 font-black' : customerInfo.status === 'cancelled' ? 'text-rose-500 font-black' : 'text-emerald-600 font-black'}>
+                        {customerInfo.status === 'pending' ? '⏳ معلق بانتظار التأكيد' : customerInfo.status === 'cancelled' ? '✕ ملغاة' : '✓ مكتمل'}
+                      </span>
                    </div>
                    <div className="flex justify-between text-xl md:text-2xl font-black pt-4 mt-2 border-t border-slate-200">
                       <span className="text-slate-400">الإجمالي:</span>
@@ -494,6 +502,36 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                        </button>
                     </div>
                  </div>
+
+                  {order && (
+                    <div className="space-y-2 animate-fadeIn">
+                       <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">حالة الطلب</label>
+                       <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border">
+                          <button 
+                            disabled={isSaving || order.status === 'completed'}
+                            type="button"
+                            onClick={() => setCustomerInfo({...customerInfo, status: 'pending'})}
+                            className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.status === 'pending' ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'} disabled:opacity-30`}
+                            title={order.status === 'completed' ? "لا يمكن إعادة الفاتورة المكتملة إلى حالة معلق" : "تعليق الطلب"}
+                          >
+                            <span>⏳</span> معلق
+                          </button>
+                          <button 
+                            disabled={isSaving}
+                            type="button"
+                            onClick={() => setCustomerInfo({...customerInfo, status: 'completed'})}
+                            className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.status === 'completed' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'} disabled:opacity-30`}
+                          >
+                            <span>✓</span> مكتمل
+                          </button>
+                       </div>
+                       {order.status === 'completed' && (
+                         <p className="text-[9px] text-slate-400 font-bold text-center mt-1">
+                           ⚠️ لا يمكن تحويل الفاتورة المكتملة إلى معلقة محاسبياً.
+                         </p>
+                       )}
+                    </div>
+                  )}
 
                  <div className="space-y-3 pt-4 border-t border-slate-50">
                     <div className="flex justify-between items-baseline text-lg md:text-3xl font-black text-slate-900 pt-1">

@@ -195,6 +195,29 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
           <div className="text-center pt-3 text-[9px] font-bold text-gray-400 italic">
             طريقة الدفع: {order.paymentMethod}
           </div>
+          
+          {order.status === 'completed' && order.confirmedAt && (
+            <div className="mt-3 pt-2 border-t border-dashed border-gray-200 space-y-1 text-[9px] text-gray-500 font-bold">
+              <div className="flex justify-between">
+                <span>تاريخ الإنشاء:</span>
+                <span>{new Date(order.createdAt).toLocaleString('ar-EG')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>تاريخ التأكيد:</span>
+                <span>{new Date(order.confirmedAt).toLocaleString('ar-EG')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>الموظف المؤكّد:</span>
+                <span>{order.confirmedByName || 'الكاشير'}</span>
+              </div>
+              {order.confirmedShiftId && (
+                <div className="flex justify-between">
+                  <span>الوردية:</span>
+                  <span>#{order.confirmedShiftId}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* التذييل */}

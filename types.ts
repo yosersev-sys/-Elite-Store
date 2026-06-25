@@ -92,6 +92,9 @@ export interface Order {
   createdAt: number;
   userId?: string;
   shiftId?: number;
+  confirmedAt?: number;
+  confirmedBy?: string;
+  confirmedShiftId?: number;
 }
 
 export interface Shift {
