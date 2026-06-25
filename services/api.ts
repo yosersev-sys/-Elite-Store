@@ -548,5 +548,31 @@ export const ApiService = {
       return { success: true };
     }
     return { success: false, message: result?.message || 'فشل إلغاء المصروف.' };
+  },
+
+  async getCustomerLedger(userId: string): Promise<{ ledger: CustomerLedgerEntry[]; creditOrders: Order[] } | null> {
+    const result = await safeFetch(`get_customer_ledger&userId=${userId}`);
+    if (result && result.status === 'error') {
+      return null;
+    }
+    return result;
+  },
+
+  async collectCustomerPayment(data: {
+    userId: string;
+    amount: number;
+    type: 'PAYMENT' | 'ADJUSTMENT';
+    paymentMethod: string;
+    notes?: string;
+    orderId?: string;
+  }): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch('collect_customer_payment', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشلت عملية الدفع.' };
   }
 };

@@ -5,9 +5,10 @@ import { ApiService } from '../../services/api';
 
 interface ReportsTabProps {
   orders: Order[];
+  adminSummary?: any;
 }
 
-const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
+const ReportsTab: React.FC<ReportsTabProps> = ({ orders, adminSummary }) => {
   const [reportStart, setReportStart] = useState(new Date(new Date().setDate(1)).toISOString().split('T')[0]); 
   const [reportEnd, setReportEnd] = useState(new Date().toISOString().split('T')[0]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -115,12 +116,14 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders }) => {
       </div>
 
       {/* المؤشرات الرئيسية (KPIs) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
         <KPICard title="إجمالي المبيعات (Revenue)" value={financialData.totalRevenue} icon="💰" color="indigo" />
         <KPICard title="تكلفة البضاعة (COGS)" value={financialData.totalCost} icon="🏷️" color="rose" />
         <KPICard title="مجمل الربح (Gross Profit)" value={financialData.grossProfit} icon="⚖️" color="amber" />
         <KPICard title="المصروفات والتكاليف" value={financialData.totalExpenses} icon="💸" color="rose" />
         <KPICard title="صافي الربح (Net Profit)" value={financialData.netProfit} icon="📈" color="emerald" isSpecial />
+        <KPICard title="ديون العملاء القائمة" value={adminSummary?.total_customer_debt || 0} icon="⌛" color="amber" />
+        <KPICard title="التحصيل المالي والدرج" value={adminSummary?.collected_cash || 0} icon="💵" color="emerald" />
       </div>
 
       {/* التحليل البصري والمخطط */}

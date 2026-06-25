@@ -11,6 +11,7 @@ import SettingsTab from './tabs/SettingsTab.tsx';
 import ApiKeysTab from './tabs/ApiKeysTab.tsx';
 import ShiftsTab from './tabs/ShiftsTab.tsx';
 import ExpensesTab from './tabs/ExpensesTab.tsx';
+import CustomerLedgerTab from './tabs/CustomerLedgerTab.tsx';
 
 
 interface AdminDashboardProps {
@@ -45,7 +46,7 @@ interface AdminDashboardProps {
   loadProgress?: number;
 }
 
-export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses';
+export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   // صمامات أمان نهائية لضمان وجود مصفوفات دائماً قبل العرض
@@ -81,7 +82,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     shifts: 'الورديات ونقدية الدرج',
     settings: 'الإعدادات',
     'api-keys': 'مفاتيح API',
-    expenses: 'المصروفات والتكاليف'
+    expenses: 'المصروفات والتكاليف',
+    ledger: 'كشوف حسابات العملاء'
   };
 
   const renderTabContent = () => {
@@ -101,8 +103,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'orders': return <OrdersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
       case 'members': return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'suppliers': return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
-      case 'reports': return <ReportsTab orders={safeOrders} />;
+      case 'reports': return <ReportsTab orders={safeOrders} adminSummary={props.adminSummary} />;
       case 'shifts': return <ShiftsTab onRefreshData={props.onRefreshData} />;
+      case 'ledger': return <CustomerLedgerTab {...tabProps} onRefreshData={props.onRefreshData} />;
       case 'expenses':
         if (props.currentUser?.role !== 'admin') {
           return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
@@ -138,6 +141,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
           <AdminNavButton active={activeTab === 'orders'} onClick={() => handleTabChange('orders', '')} icon="🛍️" label="الطلبات" />
           <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
+          <AdminNavButton active={activeTab === 'ledger'} onClick={() => handleTabChange('ledger')} icon="💸" label="كشوف الحسابات" />
           <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
           <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
           {props.currentUser?.role === 'admin' && (

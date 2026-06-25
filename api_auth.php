@@ -33,7 +33,7 @@ switch ($action) {
 
     case 'get_users':
         if (!isAdmin()) sendErr('غير مصرح');
-        sendRes($pdo->query("SELECT id, name, phone, role, createdAt FROM users ORDER BY createdAt DESC")->fetchAll());
+        sendRes($pdo->query("SELECT id, name, phone, role, createdAt, (SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE userId = users.id) AS balance FROM users ORDER BY createdAt DESC")->fetchAll());
         break;
 
     case 'admin_add_user':

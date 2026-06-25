@@ -167,8 +167,11 @@ switch ($action) {
             }
         }
 
-        // 3. حساب الرصيد المتوقع بالمعادلة المحاسبية
-        $expectedCash = (float)$active['startingCash'] + $cashSales - $cashReturns + $totalDeposits - $totalWithdrawals;
+        // 2.5 حساب تحصيلات ديون العملاء النقدية خلال هذه الوردية
+        $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND paymentMethod LIKE '%نقدي%'")->fetchColumn());
+
+        // 3. حساب الرصيد المتوقع بالمعادلة المحاسبية الشاملة
+        $expectedCash = (float)$active['startingCash'] + $cashSales - $cashReturns + $totalDeposits - $totalWithdrawals + $ledgerCashPayments;
 
         // 4. احتساب الفرق
         $difference = $actualCash - $expectedCash;
@@ -187,6 +190,7 @@ switch ($action) {
             'debtSales' => $debtSales,
             'totalDeposits' => $totalDeposits,
             'totalWithdrawals' => $totalWithdrawals,
+            'ledgerCashPayments' => $ledgerCashPayments,
             'ordersCount' => $ordersCount,
             'returnsCount' => $returnsCount
         ];

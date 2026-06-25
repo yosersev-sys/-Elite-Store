@@ -149,7 +149,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                 <p className="text-orange-50 font-bold text-[10px] mt-1 tracking-wide">مطلوب تحصيل {stats.totalDebtAmount.toLocaleString()} ج.م</p>
               </div>
             </div>
-            <button onClick={() => onNavigateToTab('orders', 'آجل')} className="relative z-10 bg-white text-orange-600 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl">🔍</button>
+            <button onClick={() => onNavigateToTab('ledger')} className="relative z-10 bg-white text-orange-600 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-xl">🔍</button>
           </div>
         )}
 

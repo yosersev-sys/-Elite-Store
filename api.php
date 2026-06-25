@@ -74,6 +74,8 @@ try {
         case 'update_order':
         case 'update_order_payment':
         case 'return_order':
+        case 'collect_customer_payment':
+        case 'get_customer_ledger':
             require_once 'api_sales.php';
             break;
 

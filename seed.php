@@ -134,6 +134,23 @@ try {
         createdAt BIGINT NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS customer_ledger (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId VARCHAR(50) NOT NULL,
+        orderId VARCHAR(50) NULL,
+        type VARCHAR(50) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        balanceAfter DECIMAL(10,2) NOT NULL,
+        paymentMethod VARCHAR(50) NULL,
+        shiftId INT NULL,
+        notes TEXT NULL,
+        createdAt BIGINT NOT NULL,
+        createdById VARCHAR(50) NOT NULL,
+        KEY idx_userId (userId),
+        KEY idx_createdAt (createdAt),
+        KEY idx_orderId (orderId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
     // التحقق من وجود عمود shiftId في جدول orders وإضافته إن لم يكن موجوداً
     try {
         $q = $pdo->query("SHOW COLUMNS FROM orders LIKE 'shiftId'");
@@ -144,8 +161,19 @@ try {
         // إذا لم يكن الجدول موجوداً بعد، سيتم إنشاؤه في الخطوة السابقة
     }
 
+    // التحقق من وجود عمود paymentStatus في جدول orders وإضافته إن لم يكن موجوداً
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM orders LIKE 'paymentStatus'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN paymentStatus VARCHAR(50) DEFAULT 'unpaid'");
+            $pdo->exec("UPDATE orders SET paymentStatus = 'paid' WHERE paymentMethod NOT LIKE '%آجل%' AND status = 'completed'");
+        }
+    } catch (PDOException $e) {
+        // تجاهل
+    }
+
     // 1.5 إصلاح تعارض ترميز الحقول (Collation Mismatch) لجميع الجداول لضمان التوافق التام
-    $tablesToConvert = ['categories', 'products', 'suppliers', 'users', 'settings', 'orders', 'shifts', 'drawer_transactions', 'expenses', 'audit_logs'];
+    $tablesToConvert = ['categories', 'products', 'suppliers', 'users', 'settings', 'orders', 'shifts', 'drawer_transactions', 'expenses', 'audit_logs', 'customer_ledger'];
     foreach ($tablesToConvert as $tableToConvert) {
         try {
             $pdo->exec("ALTER TABLE `$tableToConvert` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");

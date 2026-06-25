@@ -5,6 +5,22 @@ export interface User {
   phone: string;
   role: 'user' | 'admin';
   createdAt: number;
+  balance?: number;
+}
+
+export interface CustomerLedgerEntry {
+  id: number;
+  userId: string;
+  orderId?: string;
+  type: 'SALE_ON_CREDIT' | 'PAYMENT' | 'RETURN' | 'ADJUSTMENT';
+  amount: number;
+  balanceAfter: number;
+  paymentMethod?: string;
+  shiftId?: number;
+  notes?: string;
+  createdAt: number;
+  createdById: string;
+  createdByName?: string;
 }
 
 export interface SupplierPayment {
@@ -95,6 +111,7 @@ export interface Order {
   confirmedAt?: number;
   confirmedBy?: string;
   confirmedShiftId?: number;
+  paymentStatus?: 'unpaid' | 'partially_paid' | 'paid';
 }
 
 export interface Shift {
