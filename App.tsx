@@ -81,7 +81,7 @@ const App: React.FC = () => {
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [loadProgress, setLoadProgress] = useState(0);
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
-  const [startingCashInput, setStartingCashInput] = useState('');
+  const [startingCashInput, setStartingCashInput] = useState('0');
   const [isOpeningShift, setIsOpeningShift] = useState(false);
   const isLoggingOutRef = useRef(false);
   
@@ -326,7 +326,7 @@ const App: React.FC = () => {
       const res = await ApiService.openShift(cash);
       if (res.success) {
         showNotification('تم فتح الوردية بنجاح.', 'success');
-        setStartingCashInput('');
+        setStartingCashInput('0');
         await loadData(true);
       } else {
         showNotification(res.message || 'فشل فتح الوردية', 'error');
@@ -359,6 +359,7 @@ const App: React.FC = () => {
     return (
       <React.Suspense fallback={<div className="flex justify-center p-8 text-gray-500">جاري التحميل...</div>}>
         <div className="min-h-screen bg-slate-50 pt-2 px-2 md:px-4">
+          {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
           {newOrdersForPopup.length > 0 && <NewOrderPopup orders={newOrdersForPopup} onClose={(id) => setNewOrdersForPopup(p => p.filter(o => o.id !== id))} onView={(o) => { setLastCreatedOrder(o); onNavigate('order-success'); }} />}
           {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigate('admincp'); }} />}
           
