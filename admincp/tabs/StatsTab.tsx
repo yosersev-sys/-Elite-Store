@@ -217,14 +217,25 @@ const StatsTab: React.FC<StatsTabProps> = ({
                 <p className="text-[10px] text-slate-400 font-bold max-w-xs mx-auto">الفواتير الجديدة ستبقي معلقة حتى يتم فتح وردية جديدة لتسجيل حركات الخزينة.</p>
              </div>
            )}
-           <div className="mt-6 pt-4 border-t border-slate-50 flex justify-end">
-              <button 
-                onClick={() => onNavigateToTab('shifts')} 
-                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-5 py-2.5 rounded-xl font-black text-xs transition-all"
-              >
-                 إدارة الخزينة والورديات ←
-              </button>
-           </div>
+            <div className="mt-6 pt-4 border-t border-slate-50 flex justify-end gap-3">
+               {activeShift && activeShift.id && (
+                 <button 
+                   onClick={() => {
+                     localStorage.setItem('shifts_tab_initial_action', 'close');
+                     onNavigateToTab('shifts');
+                   }} 
+                   className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all shadow-lg shadow-rose-100 active:scale-95 cursor-pointer"
+                 >
+                    إغلاق الوردية 🔒
+                 </button>
+               )}
+               <button 
+                 onClick={() => onNavigateToTab('shifts')} 
+                 className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-5 py-2.5 rounded-xl font-black text-xs transition-all"
+               >
+                  إدارة الخزينة والورديات ←
+               </button>
+            </div>
         </div>
 
         {/* مبيعات اليوم وتفاصيل الدفع */}

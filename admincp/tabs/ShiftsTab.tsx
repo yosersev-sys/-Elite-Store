@@ -55,6 +55,12 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
 
   useEffect(() => {
     loadShiftsData();
+
+    const initialAction = localStorage.getItem('shifts_tab_initial_action');
+    if (initialAction === 'close') {
+      localStorage.removeItem('shifts_tab_initial_action');
+      setShowCloseModal(true);
+    }
   }, []);
 
   const handleOpenShiftSubmit = async (e: React.FormEvent) => {
