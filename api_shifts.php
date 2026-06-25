@@ -138,6 +138,7 @@ switch ($action) {
                 $returnsCount++;
                 if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
                     $cashReturns += $total;
+                    $cashSales += $total; // Count in sales as well so it balances out with returns to 0 net cash change
                 }
             } else {
                 $ordersCount++;
