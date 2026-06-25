@@ -50,6 +50,10 @@ switch ($action) {
         $id = $input['id'] ?? '';
         if ($id === 'admin_root' && $_SESSION['user']['id'] !== 'admin_root') sendErr('لا يمكن تعديل الحساب الرئيسي إلا من قبل صاحبه');
         
+        $oldUserStmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $oldUserStmt->execute([$id]);
+        $oldUser = $oldUserStmt->fetch();
+
         if (!empty($input['password'])) {
             $pass = password_hash($input['password'], PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, password=?, role=? WHERE id=?");
@@ -59,8 +63,20 @@ switch ($action) {
             $res = $stmt->execute([$input['name'], $input['phone'], $input['role'], $id]);
         }
         
-        if ($res) sendRes(['status' => 'success']);
-        else sendErr('فشل تحديث بيانات العضو');
+        if ($res) {
+            if ($oldUser && $oldUser['name'] !== $input['name'] && strlen(trim($input['name'])) >= 3) {
+                $activeShift = $pdo->query("SELECT id FROM shifts WHERE status = 'open'")->fetch();
+                $shiftId = $activeShift ? $activeShift['id'] : null;
+                $stmtLog = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'UPDATE_USER_NAME', ?, ?)");
+                $stmtLog->execute([
+                    $_SESSION['user']['id'] ?? 'admin',
+                    $shiftId,
+                    "تم تعديل اسم العميل من '" . $oldUser['name'] . "' إلى '" . $input['name'] . "' للهاتف '" . $input['phone'] . "'",
+                    time() * 1000
+                ]);
+            }
+            sendRes(['status' => 'success']);
+        } else sendErr('فشل تحديث بيانات العضو');
         break;
 
     case 'update_profile':

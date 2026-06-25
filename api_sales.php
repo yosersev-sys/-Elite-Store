@@ -17,6 +17,28 @@ try {
     // تجاهل أي خطأ مؤقت لتفادي التوقف
 }
 
+// التحقق وإضافة عمود lastOrderAt ديناميكياً لجدول المستخدمين إذا لم يكن موجوداً
+try {
+    $checkUserCols = $pdo->query("SHOW COLUMNS FROM users LIKE 'lastOrderAt'")->fetch();
+    if (!$checkUserCols) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN lastOrderAt BIGINT NULL");
+    }
+} catch (Exception $e) {
+    // تجاهل أي خطأ
+// دالة لتطهير وتوحيد رقم الهاتف
+if (!function_exists('normalizePhone')) {
+    function normalizePhone($phone) {
+        $cleaned = preg_replace('/\D/', '', $phone);
+        if (strlen($cleaned) > 11 && substr($cleaned, 0, 2) === '20') {
+            $cleaned = substr($cleaned, 2);
+        }
+        if (strlen($cleaned) == 10 && substr($cleaned, 0, 1) !== '0') {
+            $cleaned = '0' . $cleaned;
+        }
+        return $cleaned;
+    }
+}
+
 switch ($action) {
     case 'get_orders':
         if (isAdmin()) {
@@ -48,11 +70,50 @@ switch ($action) {
 
         $pdo->beginTransaction();
         try {
+            $phone = isset($input['phone']) ? normalizePhone($input['phone']) : '';
+            $userId = $input['userId'] ?? null;
+
+            if (!empty($phone)) {
+                $userStmt = $pdo->prepare("SELECT id FROM users WHERE phone = ?");
+                $userStmt->execute([$phone]);
+                $existingUser = $userStmt->fetch();
+                
+                if ($existingUser) {
+                    $userId = $existingUser['id'];
+                    $pdo->prepare("UPDATE users SET lastOrderAt = ? WHERE id = ?")->execute([time() * 1000, $userId]);
+                } else {
+                    try {
+                        $userId = 'u_' . time() . '_' . rand(100, 999);
+                        $randomPass = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+                        $insertUser = $pdo->prepare("INSERT INTO users (id, name, phone, password, role, createdAt, lastOrderAt) VALUES (?, ?, ?, ?, 'user', ?, ?)");
+                        $insertUser->execute([
+                            $userId,
+                            $input['customerName'] ?: 'عميل',
+                            $phone,
+                            $randomPass,
+                            time() * 1000,
+                            time() * 1000
+                        ]);
+                    } catch (PDOException $e) {
+                        // التعامل مع إدخال متزامن لنفس الهاتف
+                        $getUser = $pdo->prepare("SELECT id FROM users WHERE phone = ?");
+                        $getUser->execute([$phone]);
+                        $existingUser = $getUser->fetch();
+                        if ($existingUser) {
+                            $userId = $existingUser['id'];
+                            $pdo->prepare("UPDATE users SET lastOrderAt = ? WHERE id = ?")->execute([time() * 1000, $userId]);
+                        } else {
+                            throw $e;
+                        }
+                    }
+                }
+            }
+
             $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt, shiftId, confirmedAt, confirmedById, confirmedShiftId) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
-                $input['id'], $input['customerName'], $input['phone'], $input['city'] ?? 'سوق العصر', $input['address'],
+                $input['id'], $input['customerName'], $phone, $input['city'] ?? 'سوق العصر', $input['address'],
                 $input['subtotal'], $input['total'], json_encode($input['items']),
-                $input['paymentMethod'], $input['status'], $input['userId'] ?? null, time() * 1000,
+                $input['paymentMethod'], $input['status'], $userId, time() * 1000,
                 $shiftId,
                 $input['status'] === 'completed' ? time() * 1000 : null,
                 $input['status'] === 'completed' ? ($_SESSION['user']['id'] ?? 'admin') : null,

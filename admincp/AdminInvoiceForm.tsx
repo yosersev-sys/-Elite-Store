@@ -1,10 +1,13 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Product, Order, CartItem } from '../types';
+import { Product, Order, CartItem, User } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
+import { ApiService } from '../services/api';
 
 interface AdminInvoiceFormProps {
   products: Product[];
+  users: User[];
+  orders: Order[];
   globalDeliveryFee: number;
   onSubmit: (order: Order) => Promise<void> | void;
   onCancel: () => void;
@@ -14,7 +17,7 @@ interface AdminInvoiceFormProps {
 }
 
 const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ 
-  products, globalDeliveryFee, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null 
+  products, users = [], orders = [], globalDeliveryFee, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null 
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
   const [isDeliveryEnabled, setIsDeliveryEnabled] = useState<boolean>(false);
@@ -33,6 +36,67 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [showScanner, setShowScanner] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const [showPhoneSuggestions, setShowPhoneSuggestions] = useState(false);
+
+  const normalizePhone = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length > 11 && cleaned.startsWith('20')) {
+      return cleaned.slice(2);
+    }
+    if (cleaned.length === 10 && !cleaned.startsWith('0')) {
+      return '0' + cleaned;
+    }
+    return cleaned;
+  };
+
+  const formatTimeAgo = (timestamp: number) => {
+    if (!timestamp) return '';
+    const diffMs = Date.now() - timestamp;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'اليوم';
+    if (diffDays === 1) return 'أمس';
+    if (diffDays === 2) return 'منذ يومين';
+    if (diffDays < 7) return `منذ ${diffDays} أيام`;
+    return new Date(timestamp).toLocaleDateString('ar-EG');
+  };
+
+  const getUserStats = (userPhone: string) => {
+    const normPhone = normalizePhone(userPhone);
+    const userOrders = orders.filter(o => normalizePhone(o.phone) === normPhone && o.status === 'completed');
+    const count = userOrders.length;
+    const lastOrder = count > 0 ? Math.max(...userOrders.map(o => o.createdAt)) : null;
+    return { count, lastOrder };
+  };
+
+  const matchedUsers = useMemo(() => {
+    const q = customerInfo.phone.trim();
+    if (!q) return [];
+    const normQ = normalizePhone(q);
+    if (normQ.length < 4) return [];
+    
+    const filtered = users.filter(u => {
+      const normU = normalizePhone(u.phone);
+      return normU.includes(normQ) || (u.name && u.name.toLowerCase().includes(q.toLowerCase()));
+    });
+
+    return filtered.sort((a, b) => {
+      const normA = normalizePhone(a.phone);
+      const normB = normalizePhone(b.phone);
+      const aStarts = normA.startsWith(normQ) ? 1 : 0;
+      const bStarts = normB.startsWith(normQ) ? 1 : 0;
+      if (aStarts !== bStarts) return bStarts - aStarts;
+      return a.name.localeCompare(b.name, 'ar');
+    }).slice(0, 5);
+  }, [users, customerInfo.phone]);
+
+  const duplicateWarning = useMemo(() => {
+    const q = customerInfo.phone.trim();
+    if (!q) return false;
+    const normQ = normalizePhone(q);
+    const matched = users.filter(u => normalizePhone(u.phone) === normQ);
+    return matched.length > 1;
+  }, [users, customerInfo.phone]);
 
   // تحميل بيانات الطلب في حال وجوده (وضع التعديل)
   useEffect(() => {
@@ -173,6 +237,27 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     
     setIsSaving(true);
     try {
+      const normPhone = normalizePhone(customerInfo.phone);
+      const existingUser = users.find(u => normalizePhone(u.phone) === normPhone);
+      if (existingUser && existingUser.name !== customerInfo.name) {
+        const newNameTrimmed = customerInfo.name.trim();
+        if (newNameTrimmed.length >= 3) {
+          const updateName = window.confirm(`تنبيه: رقم الهاتف هذا مسجل باسم "${existingUser.name}". هل تريد تحديث الاسم المسجل في النظام ليكون "${newNameTrimmed}"؟`);
+          if (updateName) {
+            try {
+              await ApiService.adminUpdateUser({
+                id: existingUser.id,
+                name: newNameTrimmed,
+                phone: existingUser.phone,
+                role: existingUser.role
+              });
+            } catch (err) {
+              console.error("Failed to update customer name profile", err);
+            }
+          }
+        }
+      }
+
       const orderId = order ? order.id : 'INV-' + Date.now().toString().slice(-8);
       
       const newOrder: Order = {
@@ -438,7 +523,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     />
                  </div>
 
-                 <div className="space-y-1.5">
+                 <div className="space-y-1.5 relative">
                     <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">رقم الموبايل</label>
                     <input 
                       disabled={isSaving}
