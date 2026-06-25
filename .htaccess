@@ -11,7 +11,7 @@ Options -Indexes
     RewriteRule ^ - [L]
 
     # 2. السماح لملفات النظام بالعمل مباشرة دون توجيه
-    RewriteRule ^(load\.php|api\.php|config\.php|seed\.php|sitemap\.xml|sw\.js|test_db\.php) - [L]
+    RewriteRule ^(load\.php|api\.php|config\.php|seed\.php|sitemap\.xml|sw\.js) - [L]
     
     # 3. توجيه كافة الطلبات الأخرى لـ index.php للتعامل معها برمجياً
     # هذا يضمن أن رابط مثل /admincp سيفتح index.php بدلاً من خطأ 404

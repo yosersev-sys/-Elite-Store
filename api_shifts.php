@@ -5,7 +5,7 @@
 if (!defined('DB_HOST')) exit;
 
 // التحقق من تسجيل الدخول العام لكافة حركات الورديات
-if (!isset($_SESSION['user']) && $action !== 'get_active_shift') {
+if (!isset($_SESSION['user'])) {
     sendErr('يجب تسجيل الدخول أولاً', 401);
 }
 
