@@ -20,12 +20,17 @@ switch ($action) {
         break;
 
     case 'save_order':
-        // التحقق من وجود وردية مفتوحة لبدء البيع
+        // التحقق من وجود وردية مفتوحة لبدء البيع (فقط للفواتير الصادرة من الكاشير/الإدارة وليس لطلبات العملاء من المتجر)
         $activeShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
-        if (!$activeShift) {
+        
+        $orderId = $input['id'] ?? '';
+        $isCashierInvoice = (strpos($orderId, 'INV-') === 0 || strpos($orderId, 'OFF-') === 0);
+        
+        if ($isCashierInvoice && !$activeShift) {
             sendErr('يجب فتح وردية أولاً لتسجيل المبيعات.');
         }
-        $shiftId = $activeShift['id'];
+        
+        $shiftId = $activeShift ? $activeShift['id'] : null;
 
         $pdo->beginTransaction();
         try {
@@ -40,9 +45,9 @@ switch ($action) {
                 $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")->execute([$item['quantity'], $item['quantity'], $item['id']]);
             }
 
-            // زيادة نقدية الدرج في الوردية النشطة إذا كانت طريقة الدفع نقداً
+            // زيادة نقدية الدرج في الوردية النشطة إذا كانت طريقة الدفع نقداً وفقط إذا كان هناك وردية مفتوحة
             $method = $input['paymentMethod'] ?? '';
-            if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
+            if ($shiftId && (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false)) {
                 $newBalance = (float)$activeShift['currentCashBalance'] + (float)$input['total'];
                 $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $shiftId]);
             }
