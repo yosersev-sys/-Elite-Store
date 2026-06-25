@@ -17,9 +17,19 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
     phone: '',
     password: '',
   });
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [whatsappNumber, setWhatsappNumber] = useState('201026034170');
 
   // تعبئة البيانات المحفوظة عند التحميل
   useEffect(() => {
+    ApiService.getStoreSettings()
+      .then(settings => {
+        if (settings && settings.whatsapp_number) {
+          setWhatsappNumber(settings.whatsapp_number);
+        }
+      })
+      .catch(err => console.error("Failed to load whatsapp number in AuthView", err));
+
     const savedPhone = localStorage.getItem('souq_user_phone');
     const savedPass = localStorage.getItem('souq_user_pass');
     if (savedPhone && savedPass) {
@@ -59,15 +69,22 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
     setFormData({ ...formData, password: input.value });
   };
 
+  const handleForgotPassword = () => {
+    const message = encodeURIComponent(`مرحباً إدارة سوق العصر، أريد إعادة تعيين كلمة المرور لحسابي المرتبط برقم الهاتف: ${formData.phone || '____'}`);
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${message}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validatePhone(formData.phone)) {
-      alert('يرجى إدخال رقم موبايل مصري صحيح مكون من 11 رقم');
+      setErrorMessage('يرجى إدخال رقم موبايل مصري صحيح مكون من 11 رقم');
       return;
     }
 
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const res = isLogin 
         ? await ApiService.login(formData.phone, formData.password)
@@ -75,7 +92,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
 
       if (res && res.status === 'success' && res.user) {
         if (res.user.role === 'admin') {
-          alert('هذا الحساب مخصص للإدارة فقط. يرجى تسجيل الدخول من خلال لوحة التحكم الخاصة بالمديرين.');
+          setErrorMessage('هذا الحساب مخصص للإدارة فقط. يرجى تسجيل الدخول من خلال لوحة التحكم الخاصة بالمديرين.');
           await ApiService.logout();
         } else {
           // حفظ البيانات إذا تم اختيار "تذكرني"
@@ -89,11 +106,11 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
           onSuccess(res.user);
         }
       } else {
-        alert(res?.message || 'رقم الموبايل أو كلمة المرور غير صحيحة');
+        setErrorMessage(res?.message || 'رقم الموبايل أو كلمة المرور غير صحيحة');
       }
     } catch (err) {
       console.error("Auth Error:", err);
-      alert('عذراً، حدث خطأ في الاتصال. يرجى المحاولة لاحقاً.');
+      setErrorMessage('عذراً، حدث خطأ في الاتصال. يرجى المحاولة لاحقاً.');
     } finally {
       setIsLoading(false);
     }
@@ -201,16 +218,40 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 px-2">
-               <input 
-                  type="checkbox" 
-                  id="user-remember" 
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-5 h-5 accent-emerald-600 cursor-pointer"
-               />
-               <label htmlFor="user-remember" className="text-xs font-black text-slate-500 cursor-pointer select-none">تذكر بياناتي للدخول السريع</label>
+            <div className="flex items-center justify-between gap-2 px-2">
+               <div className="flex items-center gap-2">
+                 <input 
+                    type="checkbox" 
+                    id="user-remember" 
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-5 h-5 accent-emerald-600 cursor-pointer"
+                 />
+                 <label htmlFor="user-remember" className="text-xs font-black text-slate-500 cursor-pointer select-none">تذكر بياناتي للدخول السريع</label>
+               </div>
+               {isLogin && (
+                 <button
+                   type="button"
+                   onClick={handleForgotPassword}
+                   className="text-xs font-black text-rose-500 hover:text-rose-600 hover:underline transition-all cursor-pointer"
+                 >
+                   نسيت كلمة المرور؟
+                 </button>
+               )}
             </div>
+
+            {errorMessage && (
+              <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-800 text-xs font-bold text-center space-y-2 animate-fadeIn">
+                <p>{errorMessage}</p>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-[10px] font-black shadow-lg shadow-rose-100 inline-flex items-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <span>💬</span> راسل المدير عبر واتساب لإعادة تعيينها
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"
