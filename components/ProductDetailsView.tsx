@@ -70,7 +70,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   return (
     <div className="animate-fadeIn max-w-6xl mx-auto py-4 md:py-8 px-2 md:px-4">
       {copyFeedback && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-2xl animate-slideDown">
+        <div className="fixed top-24 left-0 right-0 mx-auto w-fit z-[1000] bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-2xl animate-slideDown">
           تم نسخ رابط المنتج! 🔗
         </div>
       )}
