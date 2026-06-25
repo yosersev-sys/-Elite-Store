@@ -1,6 +1,7 @@
 
-import React, { useMemo } from 'react';
-import { Product, Order, Category, Supplier } from '../../types';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Product, Order, Category, Supplier, Shift } from '../../types';
+import { ApiService } from '../../services/api';
 
 interface StatsTabProps {
   products: Product[];
@@ -19,6 +20,49 @@ const StatsTab: React.FC<StatsTabProps> = ({
   products = [], orders = [], categories = [], suppliers = [], 
   isLoading, onNavigateToTab, onOpenAddForm, adminSummary, loadProgress
 }) => {
+  const [activeShift, setActiveShift] = useState<Shift | null>(null);
+
+  useEffect(() => {
+    ApiService.getActiveShift()
+      .then(setActiveShift)
+      .catch(err => console.error('Failed to load active shift for stats dashboard', err));
+  }, []);
+
+  const todayStats = useMemo(() => {
+    const todayStart = new Date().setHours(0, 0, 0, 0);
+    const todayEnd = new Date().setHours(23, 59, 59, 999);
+    
+    const safeOrders = Array.isArray(orders) ? orders : [];
+    const todayOrders = safeOrders.filter(o => {
+      if (!o) return false;
+      const d = Number(o.createdAt);
+      return d >= todayStart && d <= todayEnd && o.status !== 'cancelled';
+    });
+
+    const todaySales = todayOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const todayOrdersCount = todayOrders.length;
+
+    const todayCashSales = todayOrders
+      .filter(o => String(o.paymentMethod).includes('نقدي') || String(o.paymentMethod).includes('عند الاستلام'))
+      .reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+    const todayDigitalSales = todayOrders
+      .filter(o => !String(o.paymentMethod).includes('نقدي') && !String(o.paymentMethod).includes('عند الاستلام') && !String(o.paymentMethod).includes('آجل'))
+      .reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+    const todayDebtSales = todayOrders
+      .filter(o => String(o.paymentMethod).includes('آجل'))
+      .reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+    return {
+      todaySales,
+      todayOrdersCount,
+      todayCashSales,
+      todayDigitalSales,
+      todayDebtSales
+    };
+  }, [orders]);
+
   const stats = useMemo(() => {
     // إذا كان لدينا ملخص جاهز من السيرفر، نستخدمه فوراً
     if (adminSummary) {
@@ -125,10 +169,140 @@ const StatsTab: React.FC<StatsTabProps> = ({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-         <StatCard title="إجمالي المبيعات" value={`${stats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" />
-         <StatCard title="صافي الأرباح" value={`${stats.netProfit.toLocaleString()} ج.م`} icon="📈" color="indigo" isDark />
-         <StatCard title="نواقص المخزن" value={stats.lowStockCount} icon="⚠️" color="rose" onClick={() => onNavigateToTab('products', '', 'low_stock')} />
-         <StatCard title="طلبات اليوم" value={stats.newOrders} icon="⚡" color="amber" onClick={() => onNavigateToTab('orders')} />
+          <StatCard title="إجمالي المبيعات" value={`${stats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" />
+          <StatCard title="صافي الأرباح" value={`${stats.netProfit.toLocaleString()} ج.م`} icon="📈" color="indigo" isDark />
+          <StatCard title="نواقص المخزن" value={stats.lowStockCount} icon="⚠️" color="rose" onClick={() => onNavigateToTab('products', '', 'low_stock')} />
+          <StatCard title="طلبات اليوم" value={stats.newOrders || todayStats.todayOrdersCount} icon="⚡" color="amber" onClick={() => onNavigateToTab('orders')} />
+      </div>
+
+      {/* قسم النشاط المالي وحالة الوردية */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* حالة الوردية الجارية */}
+        <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 flex flex-col justify-between">
+           <div>
+              <h4 className="font-black text-lg text-slate-800 flex items-center gap-2">
+                 <span>حالة الوردية الجارية</span>
+                 <span className="animate-pulse">⏱️</span>
+              </h4>
+              <p className="text-slate-400 text-xs font-bold mt-1">تتبع كاشير الوردية الحالية ونقدية الخزينة</p>
+           </div>
+           
+           {activeShift && activeShift.id ? (
+             <div className="mt-6 space-y-4">
+                <div className="flex justify-between items-center bg-emerald-50 text-emerald-800 p-4 rounded-2xl border border-emerald-100">
+                   <div className="text-right">
+                      <p className="text-[10px] font-black uppercase">الوردية المفتوحة</p>
+                      <p className="text-sm font-black mt-0.5">#{activeShift.id} - {activeShift.openedByName || 'أدمن'}</p>
+                   </div>
+                   <span className="text-2xl">🟢</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <p className="text-slate-400 text-[10px] font-black mb-1">نقدية البداية</p>
+                      <p className="text-sm font-black text-slate-800">{Number(activeShift.startingCash).toFixed(2)} ج.م</p>
+                   </div>
+                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <p className="text-slate-400 text-[10px] font-black mb-1">رصيد الدرج المتوقع</p>
+                      <p className="text-sm font-black text-emerald-600">{Number(activeShift.currentCashBalance).toFixed(2)} ج.م</p>
+                   </div>
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold text-center mt-2">
+                   بدأت الوردية في: {new Date(activeShift.startTime).toLocaleString('ar-EG')}
+                </p>
+             </div>
+           ) : (
+             <div className="mt-6 p-8 bg-slate-50 rounded-3xl border border-dashed text-center space-y-3">
+                <span className="text-3xl">🔒</span>
+                <p className="text-xs font-black text-slate-700">لا توجد وردية مفتوحة بالدرج حالياً</p>
+                <p className="text-[10px] text-slate-400 font-bold max-w-xs mx-auto">الفواتير الجديدة ستبقي معلقة حتى يتم فتح وردية جديدة لتسجيل حركات الخزينة.</p>
+             </div>
+           )}
+           <div className="mt-6 pt-4 border-t border-slate-50 flex justify-end">
+              <button 
+                onClick={() => onNavigateToTab('shifts')} 
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-5 py-2.5 rounded-xl font-black text-xs transition-all"
+              >
+                 إدارة الخزينة والورديات ←
+              </button>
+           </div>
+        </div>
+
+        {/* مبيعات اليوم وتفاصيل الدفع */}
+        <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 flex flex-col justify-between">
+           <div>
+              <h4 className="font-black text-lg text-slate-800">حركة المبيعات اليومية</h4>
+              <p className="text-slate-400 text-xs font-bold mt-1">تفاصيل فواتير اليوم وتصنيف طرق تحصيلها</p>
+           </div>
+
+           <div className="mt-6 space-y-6">
+              <div className="flex justify-between items-end">
+                 <div>
+                    <p className="text-[10px] font-black text-slate-400 mb-1">إجمالي مبيعات اليوم</p>
+                    <p className="text-3xl font-black text-slate-800">{todayStats.todaySales.toLocaleString()} <span className="text-xs font-bold text-slate-400">ج.م</span></p>
+                 </div>
+                 <div className="text-left font-bold text-slate-500 text-xs">
+                    {todayStats.todayOrdersCount} فواتير مكتملة
+                 </div>
+              </div>
+
+              {/* شريط توزيع طرق الدفع لليوم */}
+              {todayStats.todaySales > 0 ? (
+                <div className="space-y-4">
+                   <div className="h-6 w-full bg-slate-100 rounded-xl overflow-hidden flex shadow-inner border border-slate-50">
+                      {todayStats.todayCashSales > 0 && (
+                        <div 
+                          style={{ width: `${(todayStats.todayCashSales / todayStats.todaySales) * 100}%` }} 
+                          className="h-full bg-emerald-500 flex items-center justify-center text-[8px] text-white font-black"
+                        >
+                           نقدي
+                        </div>
+                      )}
+                      {todayStats.todayDigitalSales > 0 && (
+                        <div 
+                          style={{ width: `${(todayStats.todayDigitalSales / todayStats.todaySales) * 100}%` }} 
+                          className="h-full bg-indigo-500 flex items-center justify-center text-[8px] text-white font-black"
+                        >
+                           بنكي
+                        </div>
+                      )}
+                      {todayStats.todayDebtSales > 0 && (
+                        <div 
+                          style={{ width: `${(todayStats.todayDebtSales / todayStats.todaySales) * 100}%` }} 
+                          className="h-full bg-amber-500 flex items-center justify-center text-[8px] text-white font-black"
+                        >
+                           آجل
+                        </div>
+                      )}
+                   </div>
+                   <div className="flex flex-wrap gap-4 text-[9px] font-black text-slate-500">
+                      <div className="flex items-center gap-1.5">
+                         <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
+                         <span>نقدي: {todayStats.todayCashSales.toLocaleString()} ج.م</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                         <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full"></span>
+                         <span>بنكي/فيزا: {todayStats.todayDigitalSales.toLocaleString()} ج.م</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                         <span className="w-2.5 h-2.5 bg-amber-500 rounded-full"></span>
+                         <span>آجل (ديون): {todayStats.todayDebtSales.toLocaleString()} ج.م</span>
+                      </div>
+                   </div>
+                </div>
+              ) : (
+                <div className="py-6 text-center text-slate-300 font-bold text-xs">لا يوجد مبيعات مسجلة لليوم بعد</div>
+              )}
+           </div>
+
+           <div className="mt-6 pt-4 border-t border-slate-50 flex justify-end">
+              <button 
+                onClick={() => onNavigateToTab('orders')} 
+                className="bg-slate-50 hover:bg-slate-100 text-slate-600 px-5 py-2.5 rounded-xl font-black text-xs transition-all"
+              >
+                 عرض فواتير اليوم ←
+              </button>
+           </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
