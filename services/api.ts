@@ -432,7 +432,11 @@ export const ApiService = {
   },
 
   async getActiveShift(): Promise<Shift | null> {
-    return await safeFetch('get_active_shift');
+    const result = await safeFetch('get_active_shift');
+    if (result && (result.status === 'error' || !result.id)) {
+      return null;
+    }
+    return result;
   },
 
   async openShift(startingCash: number): Promise<{ success: boolean; message?: string }> {
@@ -470,11 +474,18 @@ export const ApiService = {
 
   async getShifts(): Promise<Shift[]> {
     const result = await safeFetch('get_shifts');
+    if (result && (result as any).status === 'error') {
+      return [];
+    }
     return Array.isArray(result) ? result : [];
   },
 
   async getShiftDetails(id: number): Promise<{ shift: Shift; transactions: DrawerTransaction[]; orders: Order[]; auditLogs: any[] } | null> {
-    return await safeFetch(`get_shift_details&id=${id}`);
+    const result = await safeFetch(`get_shift_details&id=${id}`);
+    if (result && result.status === 'error') {
+      return null;
+    }
+    return result;
   },
 
   async getExpenses(filters?: { month?: number; year?: number; category?: string; paymentSource?: string; status?: string }): Promise<Expense[]> {
@@ -490,6 +501,9 @@ export const ApiService = {
       if (str) query += '&' + str;
     }
     const result = await safeFetch(query);
+    if (result && (result as any).status === 'error') {
+      return [];
+    }
     return Array.isArray(result) ? result : [];
   },
 

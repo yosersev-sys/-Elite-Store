@@ -175,7 +175,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
     <div className="space-y-8 animate-fadeIn">
       {/* 1. الوردية النشطة الحالية */}
       <section className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 relative overflow-hidden">
-        {activeShift ? (
+        {activeShift && activeShift.id ? (
           <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 pb-6 mb-6">
               <div>
@@ -222,11 +222,11 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
                 <p className="text-slate-400 text-[10px] font-black uppercase mb-1">نقدية البداية</p>
-                <p className="text-2xl font-black text-slate-800">{activeShift.startingCash.toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+                <p className="text-2xl font-black text-slate-800">{Number(activeShift.startingCash).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
               </div>
               <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100/30">
                 <p className="text-emerald-600 text-[10px] font-black uppercase mb-1">الرصيد الفعلي المتوقع</p>
-                <p className="text-2xl font-black text-emerald-600">{(activeShift.currentCashBalance).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+                <p className="text-2xl font-black text-emerald-600">{Number(activeShift.currentCashBalance).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
               </div>
               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
                 <p className="text-slate-400 text-[10px] font-black uppercase mb-1">المدخلات (الإيداعات)</p>
@@ -294,17 +294,17 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                       </span>
                     </td>
                     <td className="py-4 px-2 text-slate-400">{new Date(s.startTime).toLocaleString('ar-EG')}</td>
-                    <td className="py-4 px-2">{s.startingCash.toFixed(2)} ج.م</td>
-                    <td className="py-4 px-2">{s.status === 'open' ? 'نشط بالدرج' : `${s.actualCash.toFixed(2)} ج.م`}</td>
+                    <td className="py-4 px-2">{Number(s.startingCash).toFixed(2)} ج.م</td>
+                    <td className="py-4 px-2">{s.status === 'open' ? 'نشط بالدرج' : `${Number(s.actualCash).toFixed(2)} ج.م`}</td>
                     <td className="py-4 px-2">
                       {s.status === 'open' ? (
                         <span className="text-slate-400">-</span>
                       ) : s.difference === 0 ? (
                         <span className="text-emerald-600">متطابق</span>
                       ) : s.difference > 0 ? (
-                        <span className="text-indigo-600">+{s.difference.toFixed(2)} ج.م</span>
+                        <span className="text-indigo-600">+{Number(s.difference).toFixed(2)} ج.م</span>
                       ) : (
-                        <span className="text-rose-600">{s.difference.toFixed(2)} ج.م</span>
+                        <span className="text-rose-600">{Number(s.difference).toFixed(2)} ج.م</span>
                       )}
                     </td>
                     <td className="py-4 px-2 text-slate-500">{s.openedByName}</td>
@@ -382,7 +382,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
       )}
 
       {/* 4. مودال إغلاق الوردية وجرد النقدية */}
-      {showCloseModal && activeShift && (
+      {showCloseModal && activeShift && activeShift.id && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowCloseModal(false)}></div>
           <form onSubmit={handleCloseShiftSubmit} className="relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl p-8 animate-slideUp space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -394,11 +394,11 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
             <div className="bg-slate-50 p-5 rounded-2xl border space-y-2 text-xs font-bold text-slate-600">
               <div className="flex justify-between">
                 <span>رصيد البداية:</span>
-                <span>{activeShift.startingCash.toFixed(2)} ج.م</span>
+                <span>{Number(activeShift.startingCash).toFixed(2)} ج.م</span>
               </div>
               <div className="flex justify-between text-emerald-600">
                 <span>النقدية المتوقعة بالدرج (الرصيد الدفتري):</span>
-                <span>{activeShift.currentCashBalance.toFixed(2)} ج.م</span>
+                <span>{Number(activeShift.currentCashBalance).toFixed(2)} ج.م</span>
               </div>
             </div>
 
@@ -417,10 +417,10 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
               </div>
 
               {/* إذا كان هناك فرق، يتم عرض حقل التبرير وتلوينه */}
-              {actualCash !== '' && parseFloat(actualCash) !== activeShift.currentCashBalance && (
+              {actualCash !== '' && parseFloat(actualCash) !== Number(activeShift.currentCashBalance) && (
                 <div className="space-y-2 animate-fadeIn">
                   <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs font-bold text-rose-700">
-                    ⚠️ يوجد فرق جرد بقيمة: {(parseFloat(actualCash) - activeShift.currentCashBalance).toFixed(2)} ج.م
+                    ⚠️ يوجد فرق جرد بقيمة: {(parseFloat(actualCash) - Number(activeShift.currentCashBalance)).toFixed(2)} ج.م
                   </div>
                   <label className="text-sm font-bold text-slate-500 mr-2">سبب فرق الجرد (مطلوب)</label>
                   <input
