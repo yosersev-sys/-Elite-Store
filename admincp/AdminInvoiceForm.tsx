@@ -523,18 +523,69 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     />
                  </div>
 
-                 <div className="space-y-1.5 relative">
-                    <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">رقم الموبايل</label>
-                    <input 
-                      disabled={isSaving}
-                      type="tel"
-                      value={customerInfo.phone}
-                      onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
-                      placeholder="01xxxxxxxxx"
-                      className="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-bold text-center text-sm shadow-inner transition-all disabled:opacity-50"
-                      dir="ltr"
-                    />
-                 </div>
+                                   <div className="space-y-1.5 relative">
+                     <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">رقم الموبايل</label>
+                     <input 
+                       disabled={isSaving}
+                       type="tel"
+                       value={customerInfo.phone}
+                       onChange={e => {
+                         setCustomerInfo({...customerInfo, phone: e.target.value});
+                         setShowPhoneSuggestions(true);
+                       }}
+                       onFocus={() => setShowPhoneSuggestions(true)}
+                       onBlur={() => {
+                         setTimeout(() => setShowPhoneSuggestions(false), 200);
+                       }}
+                       placeholder="01xxxxxxxxx"
+                       className="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-bold text-center text-sm shadow-inner transition-all disabled:opacity-50"
+                       dir="ltr"
+                     />
+                     
+                     {showPhoneSuggestions && matchedUsers.length > 0 && (
+                       <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-slideUp max-h-60 overflow-y-auto no-scrollbar text-right">
+                         {matchedUsers.map(u => {
+                           const stats = getUserStats(u.phone);
+                           return (
+                             <button
+                               key={u.id}
+                               type="button"
+                               onClick={() => {
+                                 setCustomerInfo({
+                                   ...customerInfo,
+                                   name: u.name,
+                                   phone: u.phone
+                                 });
+                                 setShowPhoneSuggestions(false);
+                               }}
+                               className="w-full px-4 py-3 flex items-center justify-between hover:bg-emerald-50 transition-colors border-b last:border-none text-right font-bold"
+                             >
+                               <div className="text-right">
+                                 <p className="text-xs text-slate-800 font-black">{u.name}</p>
+                                 <p className="text-[10px] text-slate-400 mt-0.5" dir="ltr">{u.phone}</p>
+                               </div>
+                               <div className="text-left font-bold">
+                                 <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-black font-Cairo">
+                                   {stats.count} طلبات
+                                 </span>
+                                 {stats.lastOrder && (
+                                   <span className="text-[8px] text-slate-400 block mt-1">
+                                     آخر تعامل: {formatTimeAgo(stats.lastOrder)}
+                                   </span>
+                                 )}
+                               </div>
+                             </button>
+                           );
+                         })}
+                       </div>
+                     )}
+                     
+                     {duplicateWarning && (
+                       <p className="text-[9px] text-amber-600 font-bold mt-1 text-center font-Cairo">
+                         ⚠️ تنبيه: يوجد أكثر من عميل مسجل بنفس هذا الرقم في النظام.
+                       </p>
+                     )}
+                  </div>
 
                  {/* خيار رسوم التوصيل - Toggle Switch */}
                  <div className="flex items-center justify-between bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 transition-all">
