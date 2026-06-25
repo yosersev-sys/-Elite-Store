@@ -146,7 +146,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
                     className="w-full pr-12 pl-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-emerald-500/20 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all font-bold text-sm"
                     placeholder="الاسم بالكامل"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => { setFormData({...formData, name: e.target.value}); if (errorMessage) setErrorMessage(null); }}
                   />
                 </div>
               </div>
@@ -164,7 +164,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
                 placeholder="01xxxxxxxxx"
                 dir="ltr"
                 value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                onChange={(e) => { setFormData({...formData, phone: e.target.value}); if (errorMessage) setErrorMessage(null); }}
               />
             </div>
 
@@ -181,7 +181,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onClose }) => {
                 className="w-full pr-12 pl-12 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-emerald-500/20 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all font-bold text-sm placeholder:text-right"
                 placeholder="كلمة المرور"
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => { setFormData({...formData, password: e.target.value}); if (errorMessage) setErrorMessage(null); }}
               />
               <button 
                 type="button"
