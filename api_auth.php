@@ -6,7 +6,7 @@ if (!defined('DB_HOST')) exit;
 
 switch ($action) {
     case 'get_current_user':
-        sendRes($_SESSION['user'] ?? null);
+        sendRes($_SESSION['user'] ?? ['id' => null]);
         break;
 
     case 'login':

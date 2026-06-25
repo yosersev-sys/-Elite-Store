@@ -83,6 +83,7 @@ const App: React.FC = () => {
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
   const [startingCashInput, setStartingCashInput] = useState('');
   const [isOpeningShift, setIsOpeningShift] = useState(false);
+  const isLoggingOutRef = useRef(false);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -212,11 +213,44 @@ const App: React.FC = () => {
   // الاستماع لحدث انتهاء الجلسة وتنبيه المستخدم
   useEffect(() => {
     const handleSessionExpired = () => {
-      alert('انتهت جلستك كمدير! يرجى تسجيل الخروج والدخول من جديد لتفعيل الصلاحيات وحفظ المنتجات.');
-      showNotification('انتهت الجلسة! يرجى تسجيل الخروج والدخول من جديد.', 'error');
+      if (currentUser && !isLoggingOutRef.current) {
+        isLoggingOutRef.current = true;
+        alert('انتهت جلسة تسجيل الدخول، يرجى تسجيل الدخول مرة أخرى.');
+        handleLogout();
+      }
     };
     window.addEventListener('souq-session-expired', handleSessionExpired);
     return () => window.removeEventListener('souq-session-expired', handleSessionExpired);
+  }, [currentUser]);
+
+  // الاستماع لتغييرات التخزين لمزامنة تسجيل الخروج عبر التبويبات المختلفة
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'souq_user_profile' && !e.newValue) {
+        if (currentUser) {
+          setCurrentUser(null);
+          setActiveShift(null);
+          onNavigate('store');
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [currentUser]);
+
+  // التحقق من صحة الجلسة الحالية عند تحميل التطبيق إذا كان هناك مستخدم محفوظ
+  useEffect(() => {
+    const verifySession = async () => {
+      if (currentUser) {
+        const user = await ApiService.getCurrentUser();
+        if (!user && !isLoggingOutRef.current) {
+          isLoggingOutRef.current = true;
+          alert('انتهت جلسة تسجيل الدخول، يرجى تسجيل الدخول مرة أخرى.');
+          handleLogout();
+        }
+      }
+    };
+    verifySession();
   }, []);
 
   useEffect(() => {
@@ -304,7 +338,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAuth = (user: User) => { setCurrentUser(user); setShowAuthModal(false); loadData(false, user); };
+  const handleAuth = (user: User) => { 
+    isLoggingOutRef.current = false;
+    setCurrentUser(user); 
+    setShowAuthModal(false); 
+    loadData(false, user); 
+  };
   const handleLogout = () => { ApiService.logout(); setCurrentUser(null); setActiveShift(null); onNavigate('store'); };
 
   // 1. حالة "نظام الإدارة" (تظهر بشكل قاطع إذا طلب الرابط ذلك)

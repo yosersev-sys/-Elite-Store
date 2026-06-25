@@ -52,6 +52,7 @@ const idbSet = async (key: string, value: any): Promise<void> => {
 };
 
 let useMockMode = false;
+let sessionExpiredAlerted = false;
 
 const safeFetch = async (action: string, options?: RequestInit) => {
   if (useMockMode) return null; 
@@ -96,10 +97,23 @@ const safeFetch = async (action: string, options?: RequestInit) => {
 
     if (!response.ok) {
       if (data && data.message) {
-        if (data.message === 'غير مصرح') {
-          window.dispatchEvent(new CustomEvent('souq-session-expired'));
+        if (
+          data.message === 'غير مصرح' || 
+          data.message === 'يجب تسجيل الدخول أولاً' || 
+          response.status === 401
+        ) {
+          if (!sessionExpiredAlerted) {
+            sessionExpiredAlerted = true;
+            window.dispatchEvent(new CustomEvent('souq-session-expired'));
+          }
         }
         return data; // Return parsed data so caller can read the backend message
+      }
+      if (response.status === 401) {
+        if (!sessionExpiredAlerted) {
+          sessionExpiredAlerted = true;
+          window.dispatchEvent(new CustomEvent('souq-session-expired'));
+        }
       }
       throw new Error(`HTTP ${response.status}`);
     }
@@ -150,9 +164,14 @@ export const ApiService = {
 
   async getCurrentUser(): Promise<User | null> {
     const user = await safeFetch('get_current_user');
-    if (user && user.id) {
-      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
-      return user;
+    if (user) {
+      if (user.id) {
+        localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+        return user;
+      } else {
+        localStorage.removeItem(USER_CACHE_KEY);
+        return null;
+      }
     }
     const saved = localStorage.getItem(USER_CACHE_KEY);
     return saved ? JSON.parse(saved) : null;
@@ -174,6 +193,7 @@ export const ApiService = {
     });
     if (result?.status === 'success') {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user));
+      sessionExpiredAlerted = false;
       return result;
     }
     return { status: 'error', message: result?.message || 'بيانات الدخول غير صحيحة' };
@@ -186,6 +206,7 @@ export const ApiService = {
     });
     if (result?.status === 'success') {
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(result.user));
+      sessionExpiredAlerted = false;
       return result;
     }
     return { status: 'error', message: result?.message || 'رقم الهاتف مسجل مسبقاً' };
