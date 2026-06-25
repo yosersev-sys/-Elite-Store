@@ -145,9 +145,9 @@ const CartView: React.FC<CartViewProps> = ({ cart, deliveryFee, onUpdateQuantity
             </button>
             <button 
               onClick={onContinueShopping}
-              className="w-full text-slate-400 py-3 rounded-2xl font-black hover:bg-slate-50 transition text-[10px] md:text-xs tracking-widest uppercase"
+              className="w-full text-emerald-600 border-2 border-emerald-100 hover:border-emerald-600 py-4 rounded-2xl font-black transition text-xs flex items-center justify-center gap-2 bg-emerald-50/30 hover:bg-emerald-50 active:scale-95"
             >
-              العودة للتسوق
+              <span>🛒</span> عودة إلى المتجر لإضافة منتجات أخرى إلى السلة
             </button>
           </div>
         </div>

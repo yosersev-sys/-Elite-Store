@@ -16,10 +16,10 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onClose }) =
   const icon = type === 'success' ? '✅' : '❌';
 
   return (
-    <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-slideDown">
-      <div className={`${bgColor} text-white px-8 py-4 rounded-[1.5rem] shadow-2xl flex items-center gap-3 min-w-[300px] border-4 border-white`}>
-        <span className="text-xl">{icon}</span>
-        <p className="font-black text-sm md:text-base whitespace-nowrap">{message}</p>
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] animate-slideDown w-[90vw] max-w-[320px]">
+      <div className={`${bgColor} text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center justify-center gap-2.5 border-2 border-white`}>
+        <span className="text-lg shrink-0">{icon}</span>
+        <p className="font-bold text-xs md:text-sm text-center leading-tight whitespace-nowrap">{message}</p>
       </div>
       <style>{`
         @keyframes slideDown {

@@ -68,7 +68,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   };
 
   return (
-    <div className="animate-fadeIn max-w-6xl mx-auto py-8 px-4">
+    <div className="animate-fadeIn max-w-6xl mx-auto py-4 md:py-8 px-2 md:px-4">
       {copyFeedback && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-2xl animate-slideDown">
           تم نسخ رابط المنتج! 🔗
@@ -145,13 +145,13 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
             )}
           </div>
 
-          <div className="p-10 lg:p-16 flex flex-col justify-center">
-            <div className="space-y-8">
+          <div className="p-5 md:p-10 lg:p-16 flex flex-col justify-center">
+            <div className="space-y-5 md:space-y-8">
               <div>
                 <span className="bg-indigo-50 text-indigo-700 px-4 py-1.5 rounded-full text-xs font-black uppercase mb-4 inline-block tracking-widest">
                   {categoryName}
                 </span>
-                <h1 className="text-4xl lg:text-5xl font-black text-gray-900 leading-tight">
+                <h1 className="text-xl md:text-3xl lg:text-4xl font-black text-slate-800 leading-normal">
                   {product.name}
                 </h1>
               </div>
@@ -165,11 +165,11 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
                 </div>
               )}
 
-              <div className="flex items-baseline gap-4 py-4 border-y border-gray-100">
-                <span className="text-5xl font-black text-indigo-600">
-                  {product.price} <small className="text-lg font-bold">ج.م</small>
+              <div className="flex items-baseline gap-3 py-3 md:py-4 border-y border-slate-100">
+                <span className="text-2xl md:text-4xl font-black text-indigo-600">
+                  {product.price} <small className="text-sm md:text-lg font-bold">ج.م</small>
                 </span>
-                <span className="text-slate-400 font-bold text-sm">لكل {isWeightUnit ? 'كيلو' : 'وحدة'}</span>
+                <span className="text-slate-400 font-bold text-xs md:text-sm">لكل {isWeightUnit ? 'كيلو' : 'وحدة'}</span>
               </div>
 
               {/* حقل اختيار الكمية/الوزن بدقة */}
