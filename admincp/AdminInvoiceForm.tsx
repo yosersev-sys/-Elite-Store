@@ -73,7 +73,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     const q = customerInfo.phone.trim();
     if (!q) return [];
     const normQ = normalizePhone(q);
-    if (normQ.length < 4) return [];
+    if (normQ.length < 6) return [];
     
     const filtered = users.filter(u => {
       const normU = normalizePhone(u.phone);
