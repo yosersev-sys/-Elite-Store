@@ -103,6 +103,38 @@ const App: React.FC = () => {
 
   const showNotification = (msg: string, type: 'success' | 'error' = 'success') => setNotification({ message: msg, type });
 
+  const playChimeSound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(523.25, ctx.currentTime);
+      gain1.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.35);
+      
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15);
+      gain2.gain.setValueAtTime(0.2, ctx.currentTime + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(ctx.currentTime + 0.15);
+      osc2.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      console.warn("Failed to play synthesized sound", e);
+    }
+  };
+
   // --- التحقق الحاسم من وضع "الإدارة" ---
   // نقرأ من window.location مباشرة لضمان عدم وجود تأخير في الحالة (State)
   const currentHash = window.location.hash.toLowerCase();
@@ -190,7 +222,12 @@ const App: React.FC = () => {
         
         if (ords?.length > 0 && prevOrderIds.current.size > 0) {
           const newOnes = ords.filter((o: Order) => !prevOrderIds.current.has(o.id));
-          if (newOnes.length > 0) setNewOrdersForPopup(prev => [...prev, ...newOnes]);
+          if (newOnes.length > 0) {
+            setNewOrdersForPopup(prev => [...prev, ...newOnes]);
+            if (soundEnabled) {
+              playChimeSound();
+            }
+          }
         }
         prevOrderIds.current = new Set(ords.map((o: Order) => o.id));
       } 
@@ -211,6 +248,22 @@ const App: React.FC = () => {
   useEffect(() => { 
     loadData(); 
   }, [currentUser?.id, view, isTrulyInAdminMode]);
+
+  const loadDataRef = useRef(loadData);
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  });
+
+  // التحديث الدوري لطلبات لوحة التحكم (كل 10 ثوانٍ)
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'admin' || !isTrulyInAdminMode) return;
+
+    const intervalId = setInterval(() => {
+      loadDataRef.current(true);
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [currentUser?.id, isTrulyInAdminMode]);
 
   // الاستماع لحدث انتهاء الجلسة وتنبيه المستخدم
   useEffect(() => {
@@ -403,7 +456,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
+        return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
       default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
     }
   };
@@ -479,7 +532,7 @@ const App: React.FC = () => {
                 </form>
               </div>
             ) : (
-              <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setRecentCreatedOrderFlow(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
+              <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
             )
           ) : (
             <AdminDashboard 
