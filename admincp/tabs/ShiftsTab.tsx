@@ -12,6 +12,10 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  // حوار فتح الوردية
+  const [showOpenModal, setShowOpenModal] = useState(false);
+  const [startingCash, setStartingCash] = useState('');
+
   // حوار حركة الخزينة (إيداع/سحب)
   const [showTxModal, setShowTxModal] = useState(false);
   const [txType, setTxType] = useState<'deposit' | 'withdrawal'>('deposit');
@@ -53,11 +57,9 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
     loadShiftsData();
   }, []);
 
-  const handleOpenShift = async (e: React.FormEvent) => {
+  const handleOpenShiftSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cashInput = prompt('يرجى إدخال مبلغ نقدية بداية الوردية (الدرج):');
-    if (cashInput === null) return;
-    const cash = parseFloat(cashInput);
+    const cash = parseFloat(startingCash);
     if (isNaN(cash) || cash < 0) {
       alert('يرجى إدخال مبلغ صحيح غير سالب');
       return;
@@ -68,6 +70,8 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
       const res = await ApiService.openShift(cash);
       if (res.success) {
         alert('تم فتح الوردية بنجاح.');
+        setShowOpenModal(false);
+        setStartingCash('');
         loadShiftsData();
         if (onRefreshData) onRefreshData();
       } else {
@@ -246,7 +250,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
               يرجى فتح وردية جديدة وتحديد رصيد نقدية الدرج لبدء استقبال فواتير المبيعات.
             </p>
             <button
-              onClick={handleOpenShift}
+              onClick={() => setShowOpenModal(true)}
               disabled={isSaving}
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3.5 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-all"
             >
@@ -787,6 +791,56 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
           </div>
         );
       })()}
+
+      {/* 6. مودال فتح وردية جديدة */}
+      {showOpenModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSaving && setShowOpenModal(false)}></div>
+          <form onSubmit={handleOpenShiftSubmit} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp space-y-6">
+            <div className="text-center space-y-2">
+              <span className="text-5xl">🚀</span>
+              <h3 className="text-2xl font-black text-slate-800">فتح وردية عمل جديدة</h3>
+              <p className="text-slate-400 font-bold text-xs leading-relaxed">
+                يرجى إدخال مبلغ نقدية بداية الوردية الموجود في الدرج لبدء استقبال فواتير المبيعات.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">نقدية بداية الوردية (الدرج)</label>
+              <input
+                required
+                type="number"
+                step="any"
+                value={startingCash}
+                onChange={(e) => setStartingCash(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 font-black text-lg text-center"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                disabled={isSaving}
+                type="submit"
+                className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50 transition-all"
+              >
+                {isSaving ? 'جاري فتح الوردية...' : 'تأكيد وفتح الوردية'}
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => {
+                  setShowOpenModal(false);
+                  setStartingCash('');
+                }}
+                className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95"
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
