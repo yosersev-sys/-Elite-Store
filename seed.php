@@ -143,6 +143,16 @@ try {
         // إذا لم يكن الجدول موجوداً بعد، سيتم إنشاؤه في الخطوة السابقة
     }
 
+    // 1.5 إصلاح تعارض ترميز الحقول (Collation Mismatch) لجميع الجداول لضمان التوافق التام
+    $tablesToConvert = ['categories', 'products', 'suppliers', 'users', 'settings', 'orders', 'shifts', 'drawer_transactions', 'expenses', 'audit_logs'];
+    foreach ($tablesToConvert as $tableToConvert) {
+        try {
+            $pdo->exec("ALTER TABLE `$tableToConvert` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        } catch (PDOException $e) {
+            // تجاهل في حال عدم وجود الجدول
+        }
+    }
+
     // 2. إضافة الأقسام الأساسية
     $categories = [
         ['id' => 'cat_supermarket', 'name' => 'سوبر ماركت', 'order' => 1],
