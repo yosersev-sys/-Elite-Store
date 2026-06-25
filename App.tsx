@@ -101,6 +101,8 @@ const App: React.FC = () => {
 
   const prevOrderIds = useRef<Set<string>>(new Set());
 
+  const showNotification = (msg: string, type: 'success' | 'error' = 'success') => setNotification({ message: msg, type });
+
   // --- التحقق الحاسم من وضع "الإدارة" ---
   // نقرأ من window.location مباشرة لضمان عدم وجود تأخير في الحالة (State)
   const currentHash = window.location.hash.toLowerCase();
@@ -346,6 +348,66 @@ const App: React.FC = () => {
   };
   const handleLogout = () => { ApiService.logout(); setCurrentUser(null); setActiveShift(null); onNavigate('store'); };
 
+  // 2. حالة "نظام المتجر" (تظهر فقط إذا لم نكن في وضع الإدارة)
+  const renderStoreContent = () => {
+    switch(view) {
+      case 'cart': return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))} onSetQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: q} : i))} onRemove={(id) => setCart(p => p.filter(x => x.id !== id))} onCheckout={() => onNavigate('checkout')} onContinueShopping={() => onNavigate('store')} />;
+      case 'product-details': return selectedProduct ? <ProductDetailsView product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} onAddToCart={(p, q) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + q} : x); return [...prev, {...p, quantity: q}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onBack={() => onNavigate('store')} isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} /> : <div className="p-20 text-center font-bold text-gray-500">جاري تحميل تفاصيل المنتج...</div>;
+      case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'completed', createdAt: Date.now(), userId: currentUser?.id }; if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); setCart([]); onNavigate('order-success'); loadData(true); WhatsAppService.sendOrderNotification(o, adminPhone); } }} />;
+      case 'order-success': return recentCreatedOrderFlow ? <OrderSuccessView order={recentCreatedOrderFlow} onContinueShopping={() => onNavigate('store')} /> : null;
+      case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setRecentCreatedOrderFlow(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
+      case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
+      case 'quick-invoice': 
+        if (isAdmin && !activeShift) {
+          return (
+            <div className="flex items-center justify-center p-4 py-12">
+              <form onSubmit={handleOpenShiftFromBlocker} className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6 animate-slideUp border border-slate-100">
+                <div className="text-center space-y-2">
+                  <span className="text-5xl">🔒</span>
+                  <h3 className="text-2xl font-black text-slate-800">يجب فتح وردية أولاً</h3>
+                  <p className="text-slate-400 font-bold text-xs leading-relaxed">
+                    لتتمكن من إنشاء فواتير سريعة، يجب بدء وردية جديدة وتحديد نقدية الدرج.
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-500 mr-2">نقدية بداية الوردية (الدرج)</label>
+                  <input
+                    required
+                    type="number"
+                    step="any"
+                    value={startingCashInput}
+                    onChange={(e) => setStartingCashInput(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 font-black text-lg text-center"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3 pt-2">
+                  <button
+                    disabled={isOpeningShift}
+                    type="submit"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50 transition-all"
+                  >
+                    {isOpeningShift ? 'جاري فتح الوردية...' : '🚀 فتح الوردية وبدء العمل'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('store')}
+                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95 transition-all"
+                  >
+                    العودة للمتجر
+                  </button>
+                </div>
+              </form>
+            </div>
+          );
+        }
+        return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
+      default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
+    }
+  };
+
   // 1. حالة "نظام الإدارة" (تظهر بشكل قاطع إذا طلب الرابط ذلك)
   if (isTrulyInAdminMode) {
     if (!isAdmin) {
@@ -456,68 +518,6 @@ const App: React.FC = () => {
       </React.Suspense>
     );
   }
-
-  // 2. حالة "نظام المتجر" (تظهر فقط إذا لم نكن في وضع الإدارة)
-  const renderStoreContent = () => {
-    switch(view) {
-      case 'cart': return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))} onSetQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: q} : i))} onRemove={(id) => setCart(p => p.filter(x => x.id !== id))} onCheckout={() => onNavigate('checkout')} onContinueShopping={() => onNavigate('store')} />;
-      case 'product-details': return selectedProduct ? <ProductDetailsView product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} onAddToCart={(p, q) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + q} : x); return [...prev, {...p, quantity: q}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onBack={() => onNavigate('store')} isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} /> : <div className="p-20 text-center font-bold text-gray-500">جاري تحميل تفاصيل المنتج...</div>;
-      case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'completed', createdAt: Date.now(), userId: currentUser?.id }; if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); setCart([]); onNavigate('order-success'); loadData(true); WhatsAppService.sendOrderNotification(o, adminPhone); } }} />;
-      case 'order-success': return recentCreatedOrderFlow ? <OrderSuccessView order={recentCreatedOrderFlow} onContinueShopping={() => onNavigate('store')} /> : null;
-      case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setRecentCreatedOrderFlow(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
-      case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
-      case 'quick-invoice': 
-        if (isAdmin && !activeShift) {
-          return (
-            <div className="flex items-center justify-center p-4 py-12">
-              <form onSubmit={handleOpenShiftFromBlocker} className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6 animate-slideUp border border-slate-100">
-                <div className="text-center space-y-2">
-                  <span className="text-5xl">🔒</span>
-                  <h3 className="text-2xl font-black text-slate-800">يجب فتح وردية أولاً</h3>
-                  <p className="text-slate-400 font-bold text-xs leading-relaxed">
-                    لتتمكن من إنشاء فواتير سريعة، يجب بدء وردية جديدة وتحديد نقدية الدرج.
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-500 mr-2">نقدية بداية الوردية (الدرج)</label>
-                  <input
-                    required
-                    type="number"
-                    step="any"
-                    value={startingCashInput}
-                    onChange={(e) => setStartingCashInput(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 font-black text-lg text-center"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3 pt-2">
-                  <button
-                    disabled={isOpeningShift}
-                    type="submit"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50 transition-all"
-                  >
-                    {isOpeningShift ? 'جاري فتح الوردية...' : '🚀 فتح الوردية وبدء العمل'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('store')}
-                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95 transition-all"
-                  >
-                    العودة للمتجر
-                  </button>
-                </div>
-              </form>
-            </div>
-          );
-        }
-        return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
-      default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
-    }
-  };
-
-  const showNotification = (msg: string, type: 'success' | 'error' = 'success') => setNotification({ message: msg, type });
 
   return (
     <PullToRefresh onRefresh={() => loadData(true)}>
