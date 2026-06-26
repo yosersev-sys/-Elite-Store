@@ -1,13 +1,15 @@
 
 import React, { useRef, useState } from 'react';
 import { Order } from '../types';
+import { WhatsAppService } from '../services/whatsappService';
 
 interface OrderSuccessViewProps {
   order: Order;
+  adminPhone: string;
   onContinueShopping: () => void;
 }
 
-const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueShopping }) => {
+const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, onContinueShopping }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -18,6 +20,10 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleWhatsAppConfirm = () => {
+    WhatsAppService.sendOrderNotification(order, adminPhone);
   };
 
   const handleShareScreenshot = async () => {
@@ -114,6 +120,21 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
           }
         }
       `}</style>
+
+      {/* رسالة نجاح إتمام الطلب */}
+      <div className="no-print bg-emerald-50 border border-emerald-100 p-6 rounded-[2rem] text-center space-y-3 mb-6">
+        <span className="text-4xl">🎉</span>
+        <h4 className="font-black text-emerald-800 text-lg">تم تسجيل طلبك بنجاح!</h4>
+        <p className="text-xs font-bold text-emerald-600 leading-relaxed">
+          تم إتمام الطلب وحفظ الفاتورة بالمتجر. لتأكيد وتجهيز الطلب بشكل أسرع، يمكنك إرسال الفاتورة للإدارة عبر واتساب.
+        </p>
+        <button
+          onClick={handleWhatsAppConfirm}
+          className="w-full bg-[#25D366] hover:bg-[#20ba5a] text-white py-3.5 px-6 rounded-2xl font-black text-sm transition active:scale-95 shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <span>💬</span> تأكيد الطلب عبر واتساب
+        </button>
+      </div>
 
       {/* حاوية الفاتورة */}
       <div 
@@ -228,23 +249,29 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, onContinueSh
       </div>
 
       {/* أزرار التحكم */}
-      <div className="no-print mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="no-print mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <button 
           onClick={handlePrint} 
-          className="flex items-center justify-center gap-2 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition active:scale-95 shadow-xl"
+          className="flex items-center justify-center gap-2 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition active:scale-95 shadow-xl cursor-pointer"
         >
           <span>🖨️</span> طباعة الفاتورة
         </button>
         <button 
           onClick={handleShareScreenshot} 
           disabled={isCapturing}
-          className="flex items-center justify-center gap-2 bg-blue-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-blue-700 transition active:scale-95 shadow-xl disabled:opacity-50"
+          className="flex items-center justify-center gap-2 bg-blue-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-blue-700 transition active:scale-95 shadow-xl disabled:opacity-50 cursor-pointer"
         >
           <span>📸</span> {isCapturing ? 'جاري الحفظ...' : 'مشاركة صورة'}
         </button>
         <button 
+          onClick={handleWhatsAppConfirm} 
+          className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white py-4 rounded-2xl font-black text-sm transition active:scale-95 shadow-xl sm:col-span-2 cursor-pointer"
+        >
+          <span>💬</span> تأكيد وإرسال عبر واتساب
+        </button>
+        <button 
           onClick={onContinueShopping} 
-          className="flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-emerald-700 transition active:scale-95 shadow-xl"
+          className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-4 rounded-2xl font-black text-sm hover:bg-slate-250 transition active:scale-95 shadow-sm sm:col-span-2 cursor-pointer"
         >
           العودة للمتجر
         </button>
