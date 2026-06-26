@@ -244,7 +244,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
         {/* التذييل */}
         <div className="mt-4 text-center border-t-2 border-dashed border-gray-300 pt-3">
           <p className="text-[10px] font-black text-slate-800 mb-1">شكراً لزيارتكم!</p>
-          <p className="store-link text-[14px] text-emerald-600 font-black uppercase tracking-widest mt-1">souqalasr.com</p>
+          <p className="store-link text-[14px] text-emerald-600 font-black uppercase tracking-widest mt-1">soqelasr.com</p>
         </div>
       </div>
 
