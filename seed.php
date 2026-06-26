@@ -172,6 +172,49 @@ try {
         // تجاهل
     }
 
+    // التحقق وإضافة أعمدة المرتجعات التفصيلية لجدول orders
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM orders LIKE 'returnShiftId'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN returnShiftId INT NULL");
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM orders LIKE 'returnedAt'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN returnedAt BIGINT NULL");
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM orders LIKE 'returnedAmount'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN returnedAmount DECIMAL(10,2) DEFAULT 0.00");
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM orders LIKE 'returnStatus'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN returnStatus VARCHAR(20) DEFAULT 'none'");
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM orders LIKE 'returnedById'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN returnedById VARCHAR(50) NULL");
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM orders LIKE 'returnReason'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN returnReason TEXT NULL");
+        }
+    } catch (PDOException $e) {}
+
     // 1.5 إصلاح تعارض ترميز الحقول (Collation Mismatch) لجميع الجداول لضمان التوافق التام
     $tablesToConvert = ['categories', 'products', 'suppliers', 'users', 'settings', 'orders', 'shifts', 'drawer_transactions', 'expenses', 'audit_logs', 'customer_ledger'];
     foreach ($tablesToConvert as $tableToConvert) {

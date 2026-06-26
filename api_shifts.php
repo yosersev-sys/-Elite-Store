@@ -118,8 +118,8 @@ switch ($action) {
         $shiftId = $active['id'];
 
         // 1. حساب المبيعات والمرتجع النقدي والإلكتروني والآجل
-        $ordersQuery = $pdo->prepare("SELECT total, paymentMethod, status FROM orders WHERE confirmedShiftId = ?");
-        $ordersQuery->execute([$shiftId]);
+        $ordersQuery = $pdo->prepare("SELECT total, paymentMethod, status, confirmedShiftId, returnShiftId, returnedAmount FROM orders WHERE confirmedShiftId = ? OR returnShiftId = ?");
+        $ordersQuery->execute([$shiftId, $shiftId]);
         $ordersList = $ordersQuery->fetchAll();
 
         $cashSales = 0.0;
@@ -131,23 +131,52 @@ switch ($action) {
 
         foreach ($ordersList as $ord) {
             $total = (float)$ord['total'];
+            $returnedAmount = (float)($ord['returnedAmount'] ?? 0.0);
             $method = $ord['paymentMethod'] ?? '';
             $status = $ord['status'] ?? '';
+            $confShift = $ord['confirmedShiftId'] ? (int)$ord['confirmedShiftId'] : null;
+            $retShift = $ord['returnShiftId'] ? (int)$ord['returnShiftId'] : null;
 
-            if ($status === 'cancelled') {
-                $returnsCount++;
-                if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
-                    $cashReturns += $total;
-                    $cashSales += $total; // Count in sales as well so it balances out with returns to 0 net cash change
-                }
-            } else {
-                $ordersCount++;
-                if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
-                    $cashSales += $total;
-                } elseif (mb_strpos($method, 'آجل') !== false) {
-                    $debtSales += $total;
+            // احتساب المبيعات في هذه الوردية
+            if ($confShift === $shiftId) {
+                if ($status !== 'cancelled') {
+                    $ordersCount++;
+                    if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
+                        $cashSales += $total;
+                    } elseif (mb_strpos($method, 'آجل') !== false) {
+                        $debtSales += $total;
+                    } else {
+                        $cardSales += $total;
+                    }
                 } else {
-                    $cardSales += $total;
+                    // إذا بيعت واسترجعت في نفس الوردية
+                    if ($retShift === $shiftId || empty($retShift)) {
+                        if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
+                            $cashSales += $total;
+                            $cashReturns += $returnedAmount ?: $total;
+                            $returnsCount++;
+                        }
+                    } else {
+                        // إذا بيعت في هذه الوردية واسترجعت في وردية أخرى لاحقة
+                        if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
+                            $cashSales += $total;
+                        } elseif (mb_strpos($method, 'آجل') !== false) {
+                            $debtSales += $total;
+                        } else {
+                            $cardSales += $total;
+                        }
+                        $ordersCount++;
+                    }
+                }
+            }
+
+            // احتساب المرتجعات في هذه الوردية
+            if ($retShift === $shiftId) {
+                if ($confShift !== $shiftId) {
+                    $returnsCount++;
+                    if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
+                        $cashReturns += $returnedAmount ?: $total;
+                    }
                 }
             }
         }
@@ -266,8 +295,8 @@ switch ($action) {
         }
 
         // جلب فواتير الوردية
-        $orders = $pdo->prepare("SELECT * FROM orders WHERE confirmedShiftId = ? ORDER BY createdAt DESC");
-        $orders->execute([$shiftId]);
+        $orders = $pdo->prepare("SELECT * FROM orders WHERE confirmedShiftId = ? OR returnShiftId = ? ORDER BY createdAt DESC");
+        $orders->execute([$shiftId, $shiftId]);
         $ordersList = $orders->fetchAll();
         foreach ($ordersList as &$o) {
             $o['items'] = json_decode($o['items'], true) ?: [];

@@ -17,6 +17,22 @@ try {
     // تجاهل أي خطأ مؤقت لتفادي التوقف
 }
 
+// التحقق وإضافة أعمدة المرتجعات التفصيلية لجدول الطلبات إذا لم تكن موجودة
+try {
+    $checkReturnCols = $pdo->query("SHOW COLUMNS FROM orders LIKE 'returnShiftId'")->fetch();
+    if (!$checkReturnCols) {
+        $pdo->exec("ALTER TABLE orders 
+            ADD COLUMN returnShiftId INT NULL,
+            ADD COLUMN returnedAt BIGINT NULL,
+            ADD COLUMN returnedAmount DECIMAL(10,2) DEFAULT 0.00,
+            ADD COLUMN returnStatus VARCHAR(20) DEFAULT 'none',
+            ADD COLUMN returnedById VARCHAR(50) NULL,
+            ADD COLUMN returnReason TEXT NULL");
+    }
+} catch (Exception $e) {
+    // تجاهل
+}
+
 // التحقق وإضافة عمود lastOrderAt ديناميكياً لجدول المستخدمين إذا لم يكن موجوداً
 try {
     $checkUserCols = $pdo->query("SHOW COLUMNS FROM users LIKE 'lastOrderAt'")->fetch();
@@ -556,42 +572,77 @@ switch ($action) {
 
     case 'return_order':
         if (!isAdmin()) sendErr('غير مصرح');
+        
+        // التحقق من وجود وردية نشطة مفتوحة حالياً لتسجيل المرتجع فيها
+        $activeOpenShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
+        if (!$activeOpenShift) {
+            sendErr('يرجى فتح وردية أولاً لتتمكن من تسجيل المرتجع فيها.');
+        }
+
         $pdo->beginTransaction();
         try {
             $id = $input['id'] ?? $_GET['id'] ?? '';
-            $stmt = $pdo->prepare("SELECT items, status, total, paymentMethod, shiftId, confirmedShiftId, userId FROM orders WHERE id = ? FOR UPDATE");
+            
+            // قفل السجل باستخدام FOR UPDATE لحماية التزامن ومنع المرتجع المكرر
+            $stmt = $pdo->prepare("SELECT items, status, total, paymentMethod, shiftId, confirmedShiftId, userId, returnStatus FROM orders WHERE id = ? FOR UPDATE");
             $stmt->execute([$id]);
             $order = $stmt->fetch();
+            
             if ($order) {
-                // منع التعديل أو الاسترجاع للفواتير التابعة لورديات مغلقة
-                $checkShiftId = $order['confirmedShiftId'] ?: $order['shiftId'];
-                if ($checkShiftId) {
-                    $stmtShift = $pdo->prepare("SELECT status FROM shifts WHERE id = ?");
-                    $stmtShift->execute([$checkShiftId]);
-                    $shift = $stmtShift->fetch();
-                    if ($shift && $shift['status'] === 'closed') {
-                        sendErr('لا يمكن إلغاء أو استرجاع فواتير تابعة لورديات مغلقة.');
-                    }
+                // منع المرتجع المكرر
+                if ($order['status'] === 'cancelled' || $order['returnStatus'] === 'full') {
+                    sendErr('هذه الفاتورة تم استرجاعها بالفعل مسبقاً.');
                 }
 
-                if ($order['status'] !== 'cancelled') {
-                    $items = json_decode($order['items'], true);
-                    foreach ($items as $item) {
-                        $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?")->execute([$item['quantity'], $item['quantity'], $item['id']]);
-                    }
-                    $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?")->execute([$id]);
+                $items = json_decode($order['items'], true);
+                
+                // إرجاع كميات المنتجات إلى المخزن
+                foreach ($items as $item) {
+                    $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?")
+                        ->execute([$item['quantity'], $item['quantity'], $item['id']]);
+                }
+                
+                $now = time() * 1000;
+                $currentUserId = $_SESSION['user']['id'] ?? 'admin';
+                $reason = trim($input['reason'] ?? 'إلغاء واسترجاع كامل للفاتورة');
+                
+                // تحديث بيانات المرتجع في الفاتورة
+                $stmtUpdateOrder = $pdo->prepare("UPDATE orders SET status = 'cancelled', returnShiftId = ?, returnedAt = ?, returnedAmount = ?, returnStatus = 'full', returnedById = ?, returnReason = ? WHERE id = ?");
+                $stmtUpdateOrder->execute([
+                    $activeOpenShift['id'],
+                    $now,
+                    (float)$order['total'],
+                    $currentUserId,
+                    $reason,
+                    $id
+                ]);
 
-                    $activeOpenShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
-
-                    // إذا كانت الفاتورة المسترجعة مكتملة وآجل، نسجل حركة مرتجع لخفض مديونية كشف الحساب
-                    if ($order['status'] === 'completed' && mb_strpos($order['paymentMethod'], 'آجل') !== false && !empty($order['userId'])) {
-                        // الحصول على آخر رصيد متراكم للعميل باستخدام قفل القراءة لمنع تعارض التزامن
+                // إذا كانت الفاتورة مكتملة، نتعامل مع المردود المالي بناءً على طريقة الدفع
+                if ($order['status'] === 'completed') {
+                    $method = $order['paymentMethod'] ?? '';
+                    
+                    if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
+                        // 1. المرتجع النقدي: خصم المبلغ من نقدية الوردية النشطة وإضافة حركة درج
+                        $newBalance = (float)$activeOpenShift['currentCashBalance'] - (float)$order['total'];
+                        $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $activeOpenShift['id']]);
+                        
+                        // إدراج حركة سحب تلقائية من نوع 'withdrawal_refund'
+                        $txStmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId) VALUES (?, 'withdrawal_refund', ?, ?, ?, ?)");
+                        $txStmt->execute([
+                            $activeOpenShift['id'],
+                            (float)$order['total'],
+                            "مرتجع نقدي للفاتورة #{$id}: {$reason}",
+                            $now,
+                            $currentUserId
+                        ]);
+                    } elseif (mb_strpos($method, 'آجل') !== false && !empty($order['userId'])) {
+                        // 2. المرتجع الآجل: تعديل مديونية العميل في كشف الحساب دون لمس نقدية الدرج
                         $stmtBal = $pdo->prepare("SELECT balanceAfter FROM customer_ledger WHERE userId = ? ORDER BY createdAt DESC, id DESC LIMIT 1 FOR UPDATE");
                         $stmtBal->execute([$order['userId']]);
                         $prevBalance = (float)($stmtBal->fetchColumn() ?: 0.00);
                         $balanceAfter = $prevBalance - (float)$order['total'];
-
-                        // إدراج حركة المرتجع
+                        
+                        // إدراج حركة المرتجع في كشف حساب العميل
                         $stmtLedger = $pdo->prepare("INSERT INTO customer_ledger (userId, orderId, type, amount, balanceAfter, paymentMethod, shiftId, notes, createdAt, createdById) VALUES (?, ?, 'RETURN', ?, ?, ?, ?, ?, ?, ?)");
                         $stmtLedger->execute([
                             $order['userId'],
@@ -599,35 +650,37 @@ switch ($action) {
                             -((float)$order['total']),
                             $balanceAfter,
                             $order['paymentMethod'],
-                            $activeOpenShift ? $activeOpenShift['id'] : null,
-                            'مرتجع فاتورة آجل',
-                            time() * 1000,
-                            $_SESSION['user']['id'] ?? 'admin'
+                            $activeOpenShift['id'],
+                            "مرتجع فاتورة آجل #{$id}: {$reason}",
+                            $now,
+                            $currentUserId
                         ]);
-
+                        
                         recalculateCustomerLedger($pdo, $order['userId']);
                     }
+                    // إذا كانت بطاقة أو بنك، لا نلمس رصيد الخزينة النقدي للوردية (يترك المرتجع مع البنك للمستقبل)
+                }
 
-                    updateOrderPaymentStatus($pdo, $id);
+                updateOrderPaymentStatus($pdo, $id);
 
-                    // خصم قيمة المرتجع النقدي من الوردية المفتوحة الحالية (فقط إذا كانت الفاتورة مكتملة)
-                    if ($order['status'] === 'completed') {
-                        if ($activeOpenShift) {
-                            $method = $order['paymentMethod'] ?? '';
-                            if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
-                                $newBalance = (float)$activeOpenShift['currentCashBalance'] - (float)$order['total'];
-                                $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $activeOpenShift['id']]);
-                            }
-                        }
-                    }
+                // تسجيل في سجل التدقيق (Audit Log)
+                $auditDetails = "تم استرجاع الفاتورة #{$id} بالكامل بقيمة " . $order['total'] . " ج.م. السبب: {$reason} بواسطة " . ($_SESSION['user']['name'] ?? $currentUserId);
+                $auditStmt = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'RETURN_ORDER', ?, ?)");
+                $auditStmt->execute([
+                    $currentUserId,
+                    $activeOpenShift['id'],
+                    $auditDetails,
+                    $now
+                ]);
 
-                    $pdo->commit();
-                    sendRes(['status' => 'success']);
-                } else sendErr('الطلب ملغي مسبقاً');
-            } else sendErr('الطلب غير موجود');
+                $pdo->commit();
+                sendRes(['status' => 'success']);
+            } else {
+                sendErr('الطلب غير موجود');
+            }
         } catch (Exception $e) {
             $pdo->rollBack();
-            sendErr('خطأ في الاسترجاع');
+            sendErr('خطأ في الاسترجاع: ' . $e->getMessage());
         }
         break;
 

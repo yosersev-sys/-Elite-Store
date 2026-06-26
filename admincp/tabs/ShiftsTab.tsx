@@ -769,32 +769,55 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
 
                 {modalTab === 'logs' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* حركات الخزينة */}
-                    <div className="space-y-3">
-                      <h4 className="font-black text-sm text-slate-700">حركات الإيداع والسحب اليدوية</h4>
-                      <div className="max-h-[300px] overflow-y-auto space-y-2 no-scrollbar">
-                        {selectedShiftDetails.transactions.length === 0 ? (
-                          <p className="text-[10px] font-bold text-slate-400 py-4 text-center">لا يوجد حركات نقدية يدوية في هذه الوردية</p>
-                        ) : (
-                          selectedShiftDetails.transactions.map((t) => (
-                            <div key={t.id} className="p-3 bg-slate-50 rounded-xl border text-[10px] font-bold flex justify-between items-center">
-                              <div>
-                                <span className={`px-2 py-0.5 rounded text-[8px] ${t.type === 'deposit' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                  {t.type === 'deposit' ? 'إيداع' : 'سحب'}
-                                </span>
-                                <span className="text-slate-500 mr-2">{t.reason}</span>
+                    {/* العمود الأول: الحركات والمرتجع */}
+                    <div className="space-y-6">
+                      {/* حركات الخزينة اليدوية */}
+                      <div className="space-y-3">
+                        <h4 className="font-black text-sm text-slate-700">حركات الإيداع والسحب اليدوية</h4>
+                        <div className="max-h-[200px] overflow-y-auto space-y-2 no-scrollbar">
+                          {selectedShiftDetails.transactions.filter(t => t.type !== 'withdrawal_refund').length === 0 ? (
+                            <p className="text-[10px] font-bold text-slate-400 py-4 text-center">لا يوجد حركات نقدية يدوية في هذه الوردية</p>
+                          ) : (
+                            selectedShiftDetails.transactions.filter(t => t.type !== 'withdrawal_refund').map((t) => (
+                              <div key={t.id} className="p-3 bg-slate-50 rounded-xl border text-[10px] font-bold flex justify-between items-center">
+                                <div>
+                                  <span className={`px-2 py-0.5 rounded text-[8px] ${t.type === 'deposit' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                    {t.type === 'deposit' ? 'إيداع' : 'سحب'}
+                                  </span>
+                                  <span className="text-slate-500 mr-2">{t.reason}</span>
+                                </div>
+                                <span className="font-black">{t.amount.toFixed(2)} ج.م</span>
                               </div>
-                              <span className="font-black">{t.amount.toFixed(2)} ج.م</span>
-                            </div>
-                          ))
-                        )}
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* مرتجع مبيعات الفواتير */}
+                      <div className="space-y-3">
+                        <h4 className="font-black text-sm text-slate-700">مرتجع مبيعات الفواتير</h4>
+                        <div className="max-h-[200px] overflow-y-auto space-y-2 no-scrollbar">
+                          {selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal_refund').length === 0 ? (
+                            <p className="text-[10px] font-bold text-slate-400 py-4 text-center">لا يوجد مرتجعات نقدية في هذه الوردية</p>
+                          ) : (
+                            selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal_refund').map((t) => (
+                              <div key={t.id} className="p-3 bg-rose-50/50 rounded-xl border border-rose-100 text-[10px] font-bold flex justify-between items-center">
+                                <div>
+                                  <span className="px-2 py-0.5 rounded text-[8px] bg-rose-100 text-rose-700">مرتجع نقدي</span>
+                                  <span className="text-slate-500 mr-2">{t.reason}</span>
+                                </div>
+                                <span className="font-black text-rose-600">-{t.amount.toFixed(2)} ج.م</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     {/* سجل التدقيق للوردية */}
                     <div className="space-y-3">
                       <h4 className="font-black text-sm text-slate-700">سجل تدقيق الوردية (Audit Log)</h4>
-                      <div className="max-h-[300px] overflow-y-auto space-y-2 no-scrollbar">
+                      <div className="max-h-[420px] overflow-y-auto space-y-2 no-scrollbar">
                         {selectedShiftDetails.auditLogs.map((log) => (
                           <div key={log.id} className="p-2.5 bg-slate-50 rounded-xl border text-[10px] font-bold text-slate-500">
                             <div className="flex justify-between mb-1">
