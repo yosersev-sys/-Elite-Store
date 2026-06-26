@@ -38,6 +38,14 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [modalTab, setModalTab] = useState<'financial' | 'products' | 'invoices' | 'logs'>('financial');
 
+  // ملخص الوردية المغلقة للطباعة والتسليم
+  const [closedShiftSummary, setClosedShiftSummary] = useState<{
+    shift: Shift;
+    transactions: DrawerTransaction[];
+    orders: Order[];
+    auditLogs: any[];
+  } | null>(null);
+
   const loadShiftsData = async () => {
     setIsLoading(true);
     try {
@@ -141,13 +149,28 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
 
     setIsSaving(true);
     try {
+      const shiftIdToFetch = activeShift?.id;
       const res = await ApiService.closeShift(actual, discrepancyReason.trim(), closeNotes.trim());
       if (res.success) {
+        let closedDetails = null;
+        if (shiftIdToFetch) {
+          try {
+            closedDetails = await ApiService.getShiftDetails(shiftIdToFetch);
+          } catch (detailsErr) {
+            console.error('Failed to load closed shift details for printing summary', detailsErr);
+          }
+        }
+
         alert('تم إغلاق الوردية بنجاح وتجميد التقرير المالي.');
         setShowCloseModal(false);
         setActualCash('');
         setDiscrepancyReason('');
         setCloseNotes('');
+        
+        if (closedDetails) {
+          setClosedShiftSummary(closedDetails);
+        }
+
         loadShiftsData();
         if (onRefreshData) onRefreshData();
       } else {
@@ -845,6 +868,179 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* مودال طباعة ملخص الوردية المغلقة */}
+      {closedShiftSummary && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 no-print bg-slate-900/60 backdrop-blur-sm">
+          <div className="relative bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden max-h-[90vh] flex flex-col justify-between">
+            <style>{`
+              @media print {
+                body * {
+                  visibility: hidden;
+                }
+                .print-shift-area, .print-shift-area * {
+                  visibility: visible !important;
+                }
+                .print-shift-area {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  max-width: 80mm !important;
+                  padding: 4mm !important;
+                  font-family: 'Courier New', Courier, monospace !important;
+                  direction: rtl !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `}</style>
+            
+            <div className="overflow-y-auto no-scrollbar flex-grow pr-2 pb-6 print-shift-area">
+              {/* ترويسة التقرير للطباعة */}
+              <div className="text-center border-b-2 border-dashed border-slate-300 pb-4 mb-4">
+                <h2 className="text-xl font-black text-slate-800">تقرير تسليم خزينة الوردية</h2>
+                <p className="text-xs text-slate-500 font-bold mt-1">سوق العصر - فاقوس</p>
+                <div className="mt-2 text-sm font-black text-slate-900 bg-slate-100 py-1.5 px-3 rounded-xl inline-block">
+                  رقم الوردية: #{closedShiftSummary.shift.id}
+                </div>
+              </div>
+
+              {/* البيانات العامة */}
+              <div className="space-y-2 text-xs font-bold text-slate-700 border-b border-slate-100 pb-3 mb-4">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">حالة الوردية:</span>
+                  <span className="text-rose-600 font-black">مغلقة 🔒</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">المحاسب المسؤول:</span>
+                  <span className="font-black">{closedShiftSummary.shift.openedByName || 'أدمن'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">أغلق بواسطة:</span>
+                  <span className="font-black">{closedShiftSummary.shift.closedByName || 'أدمن'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">وقت البدء:</span>
+                  <span className="ltr text-right">{new Date(closedShiftSummary.shift.startTime).toLocaleString('ar-EG')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">وقت الإغلاق:</span>
+                  <span className="ltr text-right">{closedShiftSummary.shift.endTime ? new Date(closedShiftSummary.shift.endTime).toLocaleString('ar-EG') : '-'}</span>
+                </div>
+              </div>
+
+              {/* أرقام الخزينة والجرد */}
+              <div className="bg-slate-50 p-4 rounded-2xl border space-y-2 text-xs font-bold text-slate-700 mb-4">
+                <div className="flex justify-between">
+                  <span>نقدية بداية الوردية (الافتتاح):</span>
+                  <span className="font-black text-slate-800">{Number(closedShiftSummary.shift.startingCash).toFixed(2)} ج.م</span>
+                </div>
+                {(() => {
+                  const snap = parseSnapshot(closedShiftSummary.shift.snapshotData) || {
+                    cashSales: 0,
+                    cashReturns: 0,
+                    cardSales: 0,
+                    debtSales: 0,
+                    totalDeposits: 0,
+                    totalWithdrawals: 0,
+                    ledgerCashPayments: 0,
+                    ordersCount: 0,
+                    returnsCount: 0
+                  };
+                  const cashSalesVal = Number(snap.cashSales || 0);
+                  const cashReturnsVal = Number(snap.cashReturns || 0);
+                  const depVal = Number(snap.totalDeposits || 0);
+                  const witVal = Number(snap.totalWithdrawals || 0);
+                  const ledgerCashVal = Number(snap.ledgerCashPayments || 0);
+                  
+                  return (
+                    <>
+                      <div className="flex justify-between text-emerald-600">
+                        <span>المبيعات النقدية (+):</span>
+                        <span>{cashSalesVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-rose-500">
+                        <span>المرتجع النقدي (-):</span>
+                        <span>{cashReturnsVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-600">
+                        <span>تحصيلات ديون نقدية (+):</span>
+                        <span>{ledgerCashVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-600">
+                        <span>إجمالي الإيداعات (+):</span>
+                        <span>{depVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-rose-600">
+                        <span>إجمالي السحوبات (-):</span>
+                        <span>{witVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between border-t border-slate-200 pt-2 text-slate-800">
+                        <span>النقدية المتوقعة بالدرج (الرصيد الدفتري):</span>
+                        <span className="font-black">{Number(closedShiftSummary.shift.expectedCash).toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-indigo-600 border-t border-slate-200 pt-1">
+                        <span>النقدية الفعلية (المجرود والمسلم):</span>
+                        <span className="font-black">{Number(closedShiftSummary.shift.actualCash).toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between border-t border-slate-200 pt-1 font-black">
+                        <span>فرق الجرد (عجز/زيادة):</span>
+                        <span className={closedShiftSummary.shift.difference === 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                          {closedShiftSummary.shift.difference > 0 ? '+' : ''}{Number(closedShiftSummary.shift.difference).toFixed(2)} ج.م
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* سبب فرق الجرد والملاحظات */}
+              {closedShiftSummary.shift.difference !== 0 && (
+                <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs font-bold text-rose-700 mb-4">
+                  <span className="block font-black mb-1">سبب فرق الجرد:</span>
+                  <span>{closedShiftSummary.shift.discrepancyReason || 'غير محدد'}</span>
+                </div>
+              )}
+
+              {closedShiftSummary.shift.notes && (
+                <div className="p-3 bg-slate-50 border rounded-xl text-xs font-bold text-slate-600 mb-4">
+                  <span className="block font-black mb-1">ملاحظات الوردية:</span>
+                  <p className="whitespace-pre-line">{closedShiftSummary.shift.notes}</p>
+                </div>
+              )}
+
+              {/* التواقيع */}
+              <div className="mt-8 grid grid-cols-2 gap-4 text-center text-[10px] font-bold text-slate-400 pt-4 border-t border-dashed border-slate-300">
+                <div>
+                  <span className="block mb-6">توقيع مسؤول الوردية</span>
+                  <span className="block border-t border-slate-200 pt-2 max-w-[100px] mx-auto text-slate-600">________________</span>
+                </div>
+                <div>
+                  <span className="block mb-6">توقيع المستلم (المدير)</span>
+                  <span className="block border-t border-slate-200 pt-2 max-w-[100px] mx-auto text-slate-600">________________</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-6 border-t border-slate-100 no-print">
+              <button
+                onClick={() => window.print()}
+                className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg shadow-emerald-100 transition-all"
+              >
+                🖨️ طباعة تقرير الوردية
+              </button>
+              <button
+                onClick={() => setClosedShiftSummary(null)}
+                className="px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-sm active:scale-95 transition-all"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
