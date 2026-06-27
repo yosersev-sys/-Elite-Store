@@ -231,7 +231,7 @@ const App: React.FC = () => {
           setOrders(ords);
           
           if (ords.length > 0 && prevOrderIds.current.size > 0) {
-            const newOnes = ords.filter((o: Order) => !prevOrderIds.current.has(o.id));
+            const newOnes = ords.filter((o: Order) => !prevOrderIds.current.has(o.id) && !o.id.startsWith('INV-') && !o.id.startsWith('OFF-'));
             if (newOnes.length > 0) {
               setNewOrdersForPopup(prev => [...prev, ...newOnes]);
               if (soundEnabled) {
