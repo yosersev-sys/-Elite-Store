@@ -12,6 +12,7 @@ import ApiKeysTab from './tabs/ApiKeysTab.tsx';
 import ShiftsTab from './tabs/ShiftsTab.tsx';
 import ExpensesTab from './tabs/ExpensesTab.tsx';
 import CustomerLedgerTab from './tabs/CustomerLedgerTab.tsx';
+import PaymentMethodsTab from './tabs/PaymentMethodsTab.tsx';
 
 
 interface AdminDashboardProps {
@@ -46,7 +47,7 @@ interface AdminDashboardProps {
   loadProgress?: number;
 }
 
-export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger';
+export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   // صمامات أمان نهائية لضمان وجود مصفوفات دائماً قبل العرض
@@ -83,7 +84,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     settings: 'الإعدادات',
     'api-keys': 'مفاتيح API',
     expenses: 'المصروفات والتكاليف',
-    ledger: 'كشوف حسابات العملاء'
+    ledger: 'كشوف حسابات العملاء',
+    'payment-methods': 'وسائل الدفع'
   };
 
   const renderTabContent = () => {
@@ -111,6 +113,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
         }
         return <ExpensesTab onRefreshData={props.onRefreshData} />;
+      case 'payment-methods':
+        if (props.currentUser?.role !== 'admin') {
+          return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
+        }
+        return <PaymentMethodsTab onRefreshData={props.onRefreshData} />;
       case 'settings': return <SettingsTab currentUser={props.currentUser} onLogout={props.onLogout} />;
       case 'api-keys': return <ApiKeysTab />;
       default: return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
@@ -146,6 +153,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
           {props.currentUser?.role === 'admin' && (
             <AdminNavButton active={activeTab === 'expenses'} onClick={() => handleTabChange('expenses')} icon="💸" label="المصروفات" />
+          )}
+          {props.currentUser?.role === 'admin' && (
+            <AdminNavButton active={activeTab === 'payment-methods'} onClick={() => handleTabChange('payment-methods')} icon="💳" label="وسائل الدفع" />
           )}
           <AdminNavButton active={activeTab === 'shifts'} onClick={() => handleTabChange('shifts')} icon="⏱️" label="الورديات" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon="🛠️" label="الإعدادات" />

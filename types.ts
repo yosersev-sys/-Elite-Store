@@ -117,6 +117,23 @@ export interface CartItem extends Product {
   purchasePrice?: number;
 }
 
+export interface Payment {
+  method: string;
+  amount: number;
+  reference?: string;
+}
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  type: 'cash' | 'digital';
+  icon?: string;
+  isSystem: number;
+  isActive: number;
+  sortOrder: number;
+  createdAt: number;
+}
+
 export interface Order {
   id: string;
   customerName: string;
@@ -143,23 +160,27 @@ export interface Order {
   subtotalBeforeDiscount?: number;
   finalTotal?: number;
   discountsMetadata?: string;
+  outstandingAmount?: number;
+  payments?: Payment[];
 }
 
 export interface Shift {
   id: number;
-  openedById: string;
+  openedById?: string;
   closedById?: string;
   status: 'open' | 'closed';
   startTime: number;
   endTime?: number;
   startingCash: number;
-  expectedCash: number;
-  actualCash: number;
+  expectedCash?: number;
+  actualCash?: number;
   currentCashBalance: number;
-  difference: number;
+  difference?: number;
   discrepancyReason?: string;
   notes?: string;
   snapshotData?: string; // serialized JSON
+  openedByName?: string;
+  closedByName?: string;
 }
 
 export interface DrawerTransaction {

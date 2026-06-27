@@ -1,4 +1,4 @@
-import { Product, Category, Order, User, Supplier, Shift, DrawerTransaction, Expense } from '../types.ts';
+import { Product, Category, Order, User, Supplier, Shift, DrawerTransaction, Expense, CustomerLedgerEntry, PaymentMethod } from '../types.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
 
@@ -598,5 +598,43 @@ export const ApiService = {
       return { success: true };
     }
     return { success: false, message: result?.message || 'فشلت عملية الدفع.' };
+  },
+
+  async getPaymentMethods(): Promise<PaymentMethod[]> {
+    const result = await safeFetch('get_payment_methods');
+    if (result && (result as any).status === 'error') {
+      return [];
+    }
+    return Array.isArray(result) ? result : [];
+  },
+
+  async addPaymentMethod(method: Omit<PaymentMethod, 'createdAt' | 'isSystem' | 'isActive'>): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch('add_payment_method', {
+      method: 'POST',
+      body: JSON.stringify(method)
+    });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشلت إضافة وسيلة الدفع.' };
+  },
+
+  async updatePaymentMethod(method: Partial<PaymentMethod> & { id: string }): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch('update_payment_method', {
+      method: 'POST',
+      body: JSON.stringify(method)
+    });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل تعديل وسيلة الدفع.' };
+  },
+
+  async deletePaymentMethod(id: string): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch(`delete_payment_method&id=${id}`);
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل حذف وسيلة الدفع.' };
   }
 };

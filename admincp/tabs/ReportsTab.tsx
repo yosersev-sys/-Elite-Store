@@ -282,12 +282,13 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders, adminSummary }) => {
              <h4 className="font-black text-xl text-slate-800 mb-6">تحليل فئات المصروفات 📊</h4>
              <div className="space-y-4">
                 {Object.entries(financialData.categoryBreakdown).map(([cat, amt]) => {
-                  const percent = financialData.totalExpenses > 0 ? (amt / financialData.totalExpenses) * 100 : 0;
+                  const numericAmt = amt as number;
+                  const percent = financialData.totalExpenses > 0 ? (numericAmt / financialData.totalExpenses) * 100 : 0;
                   return (
                     <div key={cat} className="space-y-1.5">
                        <div className="flex justify-between text-xs font-black">
                           <span className="text-slate-700">{cat}</span>
-                          <span className="text-slate-500">{amt.toFixed(2)} ج.م ({percent.toFixed(1)}%)</span>
+                          <span className="text-slate-500">{numericAmt.toFixed(2)} ج.م ({percent.toFixed(1)}%)</span>
                        </div>
                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                           <div className="bg-rose-500 h-full rounded-full" style={{ width: `${percent}%` }}></div>

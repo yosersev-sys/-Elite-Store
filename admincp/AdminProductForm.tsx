@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Product, Category, SeoSettings, StockBatch, Supplier } from '../types';
+import { Product, Category, SeoSettings, StockBatch, Supplier, ProductUnit } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
 

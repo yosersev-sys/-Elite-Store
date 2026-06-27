@@ -76,6 +76,70 @@ try {
 } catch (Exception $e) {
     // تجاهل
 }
+
+// التحقق وإضافة عمود outstandingAmount لجدول الطلبات ديناميكياً
+try {
+    $checkOutstanding = $pdo->query("SHOW COLUMNS FROM orders LIKE 'outstandingAmount'")->fetch();
+    if (!$checkOutstanding) {
+        $pdo->exec("ALTER TABLE orders ADD COLUMN outstandingAmount DECIMAL(10,2) DEFAULT 0.00");
+    }
+} catch (Exception $e) {
+    // تجاهل
+}
+
+// التحقق وإضافة عمود dueDate لجدول كشف حساب العميل ديناميكياً
+try {
+    $checkLedgerDueDate = $pdo->query("SHOW COLUMNS FROM customer_ledger LIKE 'dueDate'")->fetch();
+    if (!$checkLedgerDueDate) {
+        $pdo->exec("ALTER TABLE customer_ledger ADD COLUMN dueDate BIGINT NULL");
+    }
+} catch (Exception $e) {
+    // تجاهل
+}
+
+// التحقق وإنشاء جدول وسائل الدفع ديناميكياً
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS payment_methods (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        type VARCHAR(50) NOT NULL,
+        icon VARCHAR(50) NULL,
+        isSystem TINYINT DEFAULT 0,
+        isActive TINYINT DEFAULT 1,
+        sortOrder INT DEFAULT 0,
+        createdAt BIGINT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+    // إدراج الوسائل الافتراضية
+    $countMethods = $pdo->query("SELECT COUNT(*) FROM payment_methods")->fetchColumn();
+    if ($countMethods == 0) {
+        $now = time() * 1000;
+        $insert = $pdo->prepare("INSERT INTO payment_methods (id, name, type, icon, isSystem, isActive, sortOrder, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $insert->execute(['cash', 'نقدي', 'cash', '💰', 1, 1, 0, $now]);
+        $insert->execute(['vodafone', 'فودافون كاش', 'digital', '📱', 1, 1, 1, $now]);
+        $insert->execute(['instapay', 'انستا باي', 'digital', '💸', 1, 1, 2, $now]);
+        $insert->execute(['visa', 'فيزا / بطاقة بنكية', 'digital', '💳', 1, 1, 3, $now]);
+    }
+} catch (Exception $e) {
+    // تجاهل
+}
+
+// التحقق وإنشاء جدول سجل مدفوعات الفاتورة ديناميكياً
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS order_payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        orderId VARCHAR(50) NOT NULL,
+        paymentMethodId VARCHAR(50) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        reference VARCHAR(100) NULL,
+        createdAt BIGINT NOT NULL,
+        createdBy VARCHAR(50) NOT NULL,
+        KEY idx_orderId (orderId),
+        KEY idx_paymentMethodId (paymentMethodId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+} catch (Exception $e) {
+    // تجاهل
+}
 // دالة لتطهير وتوحيد رقم الهاتف
 if (!function_exists('normalizePhone')) {
     function normalizePhone($phone) {
@@ -111,35 +175,38 @@ if (!function_exists('recalculateCustomerLedger')) {
 if (!function_exists('updateOrderPaymentStatus')) {
     function updateOrderPaymentStatus($pdo, $orderId) {
         if (empty($orderId)) return;
-        $stmtOrder = $pdo->prepare("SELECT total, paymentMethod, status FROM orders WHERE id = ?");
+        $stmtOrder = $pdo->prepare("SELECT total, status FROM orders WHERE id = ?");
         $stmtOrder->execute([$orderId]);
         $order = $stmtOrder->fetch();
         if (!$order) return;
 
         if ($order['status'] === 'cancelled') {
-            $pdo->prepare("UPDATE orders SET paymentStatus = 'paid' WHERE id = ?")->execute([$orderId]);
+            $pdo->prepare("UPDATE orders SET paymentStatus = 'paid', outstandingAmount = 0.00 WHERE id = ?")->execute([$orderId]);
             return;
         }
 
-        if (mb_strpos($order['paymentMethod'], 'آجل') === false) {
-            $pdo->prepare("UPDATE orders SET paymentStatus = 'paid' WHERE id = ?")->execute([$orderId]);
-            return;
-        }
+        // Sum of all paid amounts from order_payments
+        $stmtSum = $pdo->prepare("SELECT IFNULL(SUM(amount), 0) FROM order_payments WHERE orderId = ?");
+        $stmtSum->execute([$orderId]);
+        $paymentsSum = (float)$stmtSum->fetchColumn();
 
-        $stmtPaid = $pdo->prepare("SELECT IFNULL(SUM(ABS(amount)), 0) FROM customer_ledger WHERE orderId = ? AND type = 'PAYMENT'");
-        $stmtPaid->execute([$orderId]);
-        $totalPaid = (float)$stmtPaid->fetchColumn();
+        // Sum of payments made later on ledger
+        $stmtLedgerPaid = $pdo->prepare("SELECT IFNULL(SUM(ABS(amount)), 0) FROM customer_ledger WHERE orderId = ? AND type = 'PAYMENT'");
+        $stmtLedgerPaid->execute([$orderId]);
+        $ledgerPaidSum = (float)$stmtLedgerPaid->fetchColumn();
 
+        $totalPaid = $paymentsSum + $ledgerPaidSum;
         $totalOrder = (float)$order['total'];
+        $outstanding = max(0.00, $totalOrder - $totalPaid);
 
         $paymentStatus = 'unpaid';
-        if ($totalPaid >= $totalOrder) {
+        if ($outstanding <= 0.00) {
             $paymentStatus = 'paid';
-        } elseif ($totalPaid > 0) {
+        } elseif ($totalPaid > 0.00) {
             $paymentStatus = 'partially_paid';
         }
 
-        $pdo->prepare("UPDATE orders SET paymentStatus = ? WHERE id = ?")->execute([$paymentStatus, $orderId]);
+        $pdo->prepare("UPDATE orders SET paymentStatus = ?, outstandingAmount = ? WHERE id = ?")->execute([$paymentStatus, $outstanding, $orderId]);
     }
 }
 
@@ -155,6 +222,12 @@ switch ($action) {
         foreach ($orders as &$o) {
             $o['items'] = json_decode($o['items'], true) ?: [];
             $o['total'] = (float)$o['total'];
+            $o['outstandingAmount'] = (float)($o['outstandingAmount'] ?? 0.00);
+
+            // Fetch actual payments
+            $payStmt = $pdo->prepare("SELECT paymentMethodId AS method, amount, reference FROM order_payments WHERE orderId = ?");
+            $payStmt->execute([$o['id']]);
+            $o['payments'] = $payStmt->fetchAll();
         }
         sendRes($orders);
         break;
@@ -263,20 +336,71 @@ switch ($action) {
                 sendErr('خطأ: المجموع النهائي للفاتورة لا يمكن أن يكون سالباً.');
             }
 
-            $paymentStatus = 'unpaid';
-            if ($input['status'] === 'completed') {
-                if (mb_strpos($input['paymentMethod'], 'آجل') !== false) {
-                    $paymentStatus = 'unpaid';
+            $payments = $input['payments'] ?? [];
+            $totalInvoiceAmount = (float)$finalTotal;
+            
+            // Backward compatibility fallback for store orders or simple saves
+            if (empty($payments)) {
+                $methodStr = $input['paymentMethod'] ?? 'نقدي';
+                if (mb_strpos($methodStr, 'آجل') !== false) {
+                    $payments = [];
+                } elseif (mb_strpos($methodStr, 'فودافون') !== false) {
+                    $payments = [['method' => 'vodafone', 'amount' => $totalInvoiceAmount]];
+                } elseif (mb_strpos($methodStr, 'انستا') !== false || mb_strpos($methodStr, 'Insta') !== false) {
+                    $payments = [['method' => 'instapay', 'amount' => $totalInvoiceAmount]];
+                } elseif (mb_strpos($methodStr, 'فيزا') !== false || mb_strpos($methodStr, 'كارت') !== false || mb_strpos($methodStr, 'Visa') !== false) {
+                    $payments = [['method' => 'visa', 'amount' => $totalInvoiceAmount]];
                 } else {
-                    $paymentStatus = 'paid';
+                    $payments = [['method' => 'cash', 'amount' => $totalInvoiceAmount]];
                 }
             }
 
-            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt, shiftId, confirmedAt, confirmedById, confirmedShiftId, paymentStatus, discount, discountType, discountValue, deliveryFee, totalItemDiscounts, subtotalBeforeDiscount, finalTotal, discountsMetadata) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            // Validate payments
+            $sumOfPayments = 0.00;
+            foreach ($payments as $pay) {
+                $payAmt = (float)$pay['amount'];
+                if ($payAmt < 0) {
+                    sendErr('خطأ: لا يمكن استخدام مبالغ دفع سالبة.');
+                }
+                $sumOfPayments += $payAmt;
+            }
+
+            if ($sumOfPayments > $totalInvoiceAmount + 0.01) {
+                sendErr('خطأ: إجمالي المدفوعات يتجاوز قيمة الفاتورة.');
+            }
+
+            $outstandingAmount = max(0.00, $totalInvoiceAmount - $sumOfPayments);
+
+            $paymentStatus = 'unpaid';
+            if ($outstandingAmount <= 0.00) {
+                $paymentStatus = 'paid';
+            } elseif ($sumOfPayments > 0.00) {
+                $paymentStatus = 'partially_paid';
+            }
+
+            // Create backward-compatible payment method name summary
+            $methodStrSummary = '';
+            if (count($payments) === 0) {
+                $methodStrSummary = 'آجل بالكامل';
+            } elseif (count($payments) === 1) {
+                $stmtMethodName = $pdo->prepare("SELECT name FROM payment_methods WHERE id = ?");
+                $stmtMethodName->execute([$payments[0]['method']]);
+                $methodStrSummary = $stmtMethodName->fetchColumn() ?: $payments[0]['method'];
+                if ($outstandingAmount > 0) {
+                    $methodStrSummary .= ' + آجل';
+                }
+            } else {
+                $methodStrSummary = 'دفع مشترك';
+                if ($outstandingAmount > 0) {
+                    $methodStrSummary .= ' + آجل';
+                }
+            }
+
+            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt, shiftId, confirmedAt, confirmedById, confirmedShiftId, paymentStatus, discount, discountType, discountValue, deliveryFee, totalItemDiscounts, subtotalBeforeDiscount, finalTotal, discountsMetadata, outstandingAmount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
                 $input['id'], $input['customerName'], $phone, $input['city'] ?? 'سوق العصر', $input['address'],
                 $subtotalBeforeDiscount, $finalTotal, json_encode($input['items']),
-                $input['paymentMethod'], $input['status'], $userId, time() * 1000,
+                $methodStrSummary, $input['status'], $userId, time() * 1000,
                 $shiftId,
                 $input['status'] === 'completed' ? time() * 1000 : null,
                 $input['status'] === 'completed' ? ($_SESSION['user']['id'] ?? 'admin') : null,
@@ -289,8 +413,25 @@ switch ($action) {
                 $totalItemDiscounts,
                 $subtotalBeforeDiscount,
                 $finalTotal,
-                $input['discountsMetadata'] ?? null
+                $input['discountsMetadata'] ?? null,
+                $outstandingAmount
             ]);
+
+            // Save payments in order_payments table
+            foreach ($payments as $pay) {
+                if ((float)$pay['amount'] > 0) {
+                    $stmtPay = $pdo->prepare("INSERT INTO order_payments (orderId, paymentMethodId, amount, reference, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmtPay->execute([
+                        $input['id'],
+                        $pay['method'],
+                        (float)$pay['amount'],
+                        $pay['reference'] ?? null,
+                        time() * 1000,
+                        $_SESSION['user']['id'] ?? 'admin'
+                    ]);
+                }
+            }
+
             // جلب الإعدادات والسياسة المطبقة
             $settings = [];
             foreach ($pdo->query("SELECT * FROM settings")->fetchAll() as $s) {
@@ -384,25 +525,32 @@ switch ($action) {
             }
 
             // إذا كانت الفاتورة مكتملة وآجل، يتم ربطها بالعميل مع إنشاء حركة مديونية في كشف الحساب
-            if ($input['status'] === 'completed' && mb_strpos($input['paymentMethod'], 'آجل') !== false && !empty($userId)) {
+            if ($input['status'] === 'completed' && $outstandingAmount > 0.00) {
+                if (empty($userId)) {
+                    sendErr('يرجى تحديد عميل لتسجيل المتبقي الآجل بقيمة ' . $outstandingAmount . ' ج.م');
+                }
+                
                 // الحصول على آخر رصيد متراكم للعميل باستخدام قفل القراءة لمنع تعارض التزامن
                 $stmtBal = $pdo->prepare("SELECT balanceAfter FROM customer_ledger WHERE userId = ? ORDER BY createdAt DESC, id DESC LIMIT 1 FOR UPDATE");
                 $stmtBal->execute([$userId]);
                 $prevBalance = (float)($stmtBal->fetchColumn() ?: 0.00);
-                $balanceAfter = $prevBalance + (float)$input['total'];
+                $balanceAfter = $prevBalance + $outstandingAmount;
+
+                $dueDate = isset($input['dueDate']) ? (int)$input['dueDate'] : null;
 
                 // إدراج حركة مديونية
-                $stmtLedger = $pdo->prepare("INSERT INTO customer_ledger (userId, orderId, type, amount, balanceAfter, paymentMethod, shiftId, notes, createdAt, createdById) VALUES (?, ?, 'SALE_ON_CREDIT', ?, ?, ?, ?, ?, ?, ?)");
+                $stmtLedger = $pdo->prepare("INSERT INTO customer_ledger (userId, orderId, type, amount, balanceAfter, paymentMethod, shiftId, notes, createdAt, createdById, dueDate) VALUES (?, ?, 'SALE_ON_CREDIT', ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmtLedger->execute([
                     $userId,
                     $input['id'],
-                    (float)$input['total'],
+                    $outstandingAmount,
                     $balanceAfter,
-                    $input['paymentMethod'],
+                    'آجل (متبقي)',
                     $shiftId,
-                    'فاتورة مبيعات آجل تلقائية',
+                    'مديونية متبقية من فاتورة مبيعات',
                     time() * 1000,
-                    $_SESSION['user']['id'] ?? 'admin'
+                    $_SESSION['user']['id'] ?? 'admin',
+                    $dueDate
                 ]);
                 
                 recalculateCustomerLedger($pdo, $userId);
@@ -410,12 +558,21 @@ switch ($action) {
             
             updateOrderPaymentStatus($pdo, $input['id']);
 
-            // زيادة نقدية الدرج في الوردية النشطة إذا كانت طريقة الدفع نقداً، الوردية مفتوحة، وحالة الطلب completed
-            $method = $input['paymentMethod'] ?? '';
-            $status = $input['status'] ?? 'pending';
-            if ($status === 'completed' && $shiftId && (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false)) {
-                $newBalance = (float)$activeShift['currentCashBalance'] + (float)$input['total'];
-                $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $shiftId]);
+            // زيادة نقدية الدرج بالمدفوعات النقدية الفعلية فقط
+            if ($input['status'] === 'completed' && $shiftId) {
+                $cashAmount = 0.00;
+                foreach ($payments as $pay) {
+                    $stmtMethod = $pdo->prepare("SELECT type FROM payment_methods WHERE id = ?");
+                    $stmtMethod->execute([$pay['method']]);
+                    $methodType = $stmtMethod->fetchColumn() ?: 'digital';
+                    if ($methodType === 'cash') {
+                        $cashAmount += (float)$pay['amount'];
+                    }
+                }
+                if ($cashAmount > 0) {
+                    $newBalance = (float)$activeShift['currentCashBalance'] + $cashAmount;
+                    $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $shiftId]);
+                }
             }
 
             $pdo->commit();
@@ -508,18 +665,28 @@ switch ($action) {
                     ->execute([$oldQtyInBase, $oldQtyInBase, $item['id']]);
             }
 
-            // خصم نقدية الدرج القديمة إذا كانت نقدية وكان الطلب مكتملاً
+            // جلب تفاصيل المدفوعات القديمة لخصم النقدية من الوردية السابقة
+            $oldPayments = $pdo->prepare("SELECT p.*, m.type FROM order_payments p JOIN payment_methods m ON p.paymentMethodId = m.id WHERE p.orderId = ?");
+            $oldPayments->execute([$id]);
+            $oldCashAmount = 0.00;
+            foreach ($oldPayments->fetchAll() as $op) {
+                if ($op['type'] === 'cash') {
+                    $oldCashAmount += (float)$op['amount'];
+                }
+            }
+
+            // حذف سجلات الدفع القديمة
+            $pdo->prepare("DELETE FROM order_payments WHERE orderId = ?")->execute([$id]);
+
+            // خصم نقدية الدرج القديمة إذا كان الطلب مكتملاً
             $oldConfirmedShiftId = $oldOrder['confirmedShiftId'] ?: $oldOrder['shiftId'];
-            if ($oldOrder['status'] === 'completed' && $oldConfirmedShiftId) {
-                $oldMethod = $oldOrder['paymentMethod'] ?? '';
-                if (mb_strpos($oldMethod, 'نقدي') !== false || mb_strpos($oldMethod, 'عند الاستلام') !== false) {
-                    $stmtShift = $pdo->prepare("SELECT id, status, currentCashBalance FROM shifts WHERE id = ?");
-                    $stmtShift->execute([$oldConfirmedShiftId]);
-                    $orderShift = $stmtShift->fetch();
-                    if ($orderShift && $orderShift['status'] === 'open') {
-                        $newBalance = (float)$orderShift['currentCashBalance'] - (float)$oldOrder['total'];
-                        $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $orderShift['id']]);
-                    }
+            if ($oldOrder['status'] === 'completed' && $oldConfirmedShiftId && $oldCashAmount > 0) {
+                $stmtShift = $pdo->prepare("SELECT id, status, currentCashBalance FROM shifts WHERE id = ?");
+                $stmtShift->execute([$oldConfirmedShiftId]);
+                $orderShift = $stmtShift->fetch();
+                if ($orderShift && $orderShift['status'] === 'open') {
+                    $newBalance = (float)$orderShift['currentCashBalance'] - $oldCashAmount;
+                    $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $orderShift['id']]);
                 }
             }
 
@@ -735,24 +902,111 @@ switch ($action) {
                     ->execute([$totalBaseQtyRequested, $totalBaseQtyRequested, $pId]);
             }
 
+            // [NEW PAYMENTS UPDATE LOGIC START]
+            $payments = $input['payments'] ?? [];
+            $totalInvoiceAmount = (float)$finalTotal;
+            
+            // Backward compatibility fallback
+            if (empty($payments)) {
+                $methodStr = $input['paymentMethod'] ?? 'نقدي';
+                if (mb_strpos($methodStr, 'آجل') !== false) {
+                    $payments = [];
+                } elseif (mb_strpos($methodStr, 'فودافون') !== false) {
+                    $payments = [['method' => 'vodafone', 'amount' => $totalInvoiceAmount]];
+                } elseif (mb_strpos($methodStr, 'انستا') !== false || mb_strpos($methodStr, 'Insta') !== false) {
+                    $payments = [['method' => 'instapay', 'amount' => $totalInvoiceAmount]];
+                } elseif (mb_strpos($methodStr, 'فيزا') !== false || mb_strpos($methodStr, 'كارت') !== false || mb_strpos($methodStr, 'Visa') !== false) {
+                    $payments = [['method' => 'visa', 'amount' => $totalInvoiceAmount]];
+                } else {
+                    $payments = [['method' => 'cash', 'amount' => $totalInvoiceAmount]];
+                }
+            }
+
+            // Validate payments
+            $sumOfPayments = 0.00;
+            foreach ($payments as $pay) {
+                $payAmt = (float)$pay['amount'];
+                if ($payAmt < 0) {
+                    sendErr('خطأ: لا يمكن استخدام مبالغ دفع سالبة.');
+                }
+                $sumOfPayments += $payAmt;
+            }
+
+            if ($sumOfPayments > $totalInvoiceAmount + 0.01) {
+                sendErr('خطأ: إجمالي المدفوعات يتجاوز قيمة الفاتورة.');
+            }
+
+            $outstandingAmount = max(0.00, $totalInvoiceAmount - $sumOfPayments);
+
+            $paymentStatus = 'unpaid';
+            if ($outstandingAmount <= 0.00) {
+                $paymentStatus = 'paid';
+            } elseif ($sumOfPayments > 0.00) {
+                $paymentStatus = 'partially_paid';
+            }
+
+            // Create backward-compatible payment method name summary
+            $methodStrSummary = '';
+            if (count($payments) === 0) {
+                $methodStrSummary = 'آجل بالكامل';
+            } elseif (count($payments) === 1) {
+                $stmtMethodName = $pdo->prepare("SELECT name FROM payment_methods WHERE id = ?");
+                $stmtMethodName->execute([$payments[0]['method']]);
+                $methodStrSummary = $stmtMethodName->fetchColumn() ?: $payments[0]['method'];
+                if ($outstandingAmount > 0) {
+                    $methodStrSummary .= ' + آجل';
+                }
+            } else {
+                $methodStrSummary = 'دفع مشترك';
+                if ($outstandingAmount > 0) {
+                    $methodStrSummary .= ' + آجل';
+                }
+            }
+
+            // Save payments in order_payments table
+            foreach ($payments as $pay) {
+                if ((float)$pay['amount'] > 0) {
+                    $stmtPay = $pdo->prepare("INSERT INTO order_payments (orderId, paymentMethodId, amount, reference, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmtPay->execute([
+                        $id,
+                        $pay['method'],
+                        (float)$pay['amount'],
+                        $pay['reference'] ?? null,
+                        time() * 1000,
+                        $_SESSION['user']['id'] ?? 'admin'
+                    ]);
+                }
+            }
+
+            // Update order record fields
+            $pdo->prepare("UPDATE orders SET paymentMethod = ?, paymentStatus = ?, outstandingAmount = ? WHERE id = ?")
+                ->execute([$methodStrSummary, $paymentStatus, $outstandingAmount, $id]);
+
             // إذا أصبحت الفاتورة مكتملة وآجل، ننشئ حركة المديونية الجديدة ونعيد احتساب الرصيد
-            if ($newStatus === 'completed' && mb_strpos($input['paymentMethod'], 'آجل') !== false && !empty($userId)) {
+            if ($newStatus === 'completed' && $outstandingAmount > 0.00) {
+                if (empty($userId)) {
+                    sendErr('يرجى تحديد عميل لتسجيل المتبقي الآجل بقيمة ' . $outstandingAmount . ' ج.م');
+                }
+
                 $stmtBal = $pdo->prepare("SELECT balanceAfter FROM customer_ledger WHERE userId = ? ORDER BY createdAt DESC, id DESC LIMIT 1 FOR UPDATE");
                 $stmtBal->execute([$userId]);
                 $prevBalance = (float)($stmtBal->fetchColumn() ?: 0.00);
-                $balanceAfter = $prevBalance + (float)$input['total'];
+                $balanceAfter = $prevBalance + $outstandingAmount;
 
-                $stmtLedger = $pdo->prepare("INSERT INTO customer_ledger (userId, orderId, type, amount, balanceAfter, paymentMethod, shiftId, notes, createdAt, createdById) VALUES (?, ?, 'SALE_ON_CREDIT', ?, ?, ?, ?, ?, ?, ?)");
+                $dueDate = isset($input['dueDate']) ? (int)$input['dueDate'] : null;
+
+                $stmtLedger = $pdo->prepare("INSERT INTO customer_ledger (userId, orderId, type, amount, balanceAfter, paymentMethod, shiftId, notes, createdAt, createdById, dueDate) VALUES (?, ?, 'SALE_ON_CREDIT', ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmtLedger->execute([
                     $userId,
                     $id,
-                    (float)$input['total'],
+                    $outstandingAmount,
                     $balanceAfter,
-                    $input['paymentMethod'],
+                    'آجل (متبقي)',
                     $confirmedShiftId ?: $shiftId,
                     'تعديل فاتورة مبيعات آجل تلقائي',
                     time() * 1000,
-                    $_SESSION['user']['id'] ?? 'admin'
+                    $_SESSION['user']['id'] ?? 'admin',
+                    $dueDate
                 ]);
 
                 recalculateCustomerLedger($pdo, $userId);
@@ -760,17 +1014,27 @@ switch ($action) {
 
             updateOrderPaymentStatus($pdo, $id);
 
-            // إضافة نقدية الدرج الجديدة للوردية النشطة إذا كانت طريقة الدفع نقداً والطلب الجديد مكتمل
-            $newMethod = $input['paymentMethod'] ?? '';
-            if ($newStatus === 'completed' && (mb_strpos($newMethod, 'نقدي') !== false || mb_strpos($newMethod, 'عند الاستلام') !== false)) {
-                // جلب رصيد الدرج الأحدث للوردية النشطة
-                $currentShift = $pdo->prepare("SELECT currentCashBalance FROM shifts WHERE id = ?");
-                $currentShift->execute([$activeShift['id']]);
-                $freshBalance = (float)$currentShift->fetchColumn();
+            // إضافة نقدية الدرج الجديدة للوردية النشطة بالمدفوعات النقدية فقط
+            if ($newStatus === 'completed') {
+                $cashAmount = 0.00;
+                foreach ($payments as $pay) {
+                    $stmtMethod = $pdo->prepare("SELECT type FROM payment_methods WHERE id = ?");
+                    $stmtMethod->execute([$pay['method']]);
+                    $methodType = $stmtMethod->fetchColumn() ?: 'digital';
+                    if ($methodType === 'cash') {
+                        $cashAmount += (float)$pay['amount'];
+                    }
+                }
+                if ($cashAmount > 0) {
+                    $currentShift = $pdo->prepare("SELECT currentCashBalance FROM shifts WHERE id = ?");
+                    $currentShift->execute([$activeShift['id']]);
+                    $freshBalance = (float)$currentShift->fetchColumn();
 
-                $newBalance = $freshBalance + (float)$input['total'];
-                $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $activeShift['id']]);
+                    $newBalance = $freshBalance + $cashAmount;
+                    $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $activeShift['id']]);
+                }
             }
+            // [NEW PAYMENTS UPDATE LOGIC END]
 
             $pdo->commit();
             sendRes(['status' => 'success']);
@@ -932,48 +1196,77 @@ switch ($action) {
                     $id
                 ]);
 
-                // إذا كانت الفاتورة مكتملة، نتعامل مع المردود المالي بناءً على طريقة الدفع
+                // إذا كانت الفاتورة مكتملة، نتعامل مع المردود المالي بناءً على تفاصيل المدفوعات المسجلة بـ order_payments
+                $refundSummary = '';
                 if ($order['status'] === 'completed') {
-                    $method = $order['paymentMethod'] ?? '';
-                    
-                    if (mb_strpos($method, 'نقدي') !== false || mb_strpos($method, 'عند الاستلام') !== false) {
-                        // 1. المرتجع النقدي: خصم المبلغ من نقدية الوردية النشطة وإضافة حركة درج
-                        $newBalance = (float)$activeOpenShift['currentCashBalance'] - (float)$order['total'];
+                    // جلب تفاصيل المدفوعات المسجلة
+                    $paymentsQuery = $pdo->prepare("SELECT p.*, m.type, m.name AS methodName FROM order_payments p JOIN payment_methods m ON p.paymentMethodId = m.id WHERE p.orderId = ?");
+                    $paymentsQuery->execute([$id]);
+                    $paymentsList = $paymentsQuery->fetchAll();
+
+                    $cashRefundAmount = 0.00;
+                    $refundSummaryParts = [];
+
+                    foreach ($paymentsList as $pay) {
+                        $payAmt = (float)$pay['amount'];
+                        if ($pay['type'] === 'cash') {
+                            $cashRefundAmount += $payAmt;
+                        }
+                        $refundSummaryParts[] = "{$pay['methodName']}: {$payAmt} ج.م";
+                    }
+
+                    // خصم النقدية المستردة من الوردية الجارية النشطة
+                    if ($cashRefundAmount > 0) {
+                        $newBalance = (float)$activeOpenShift['currentCashBalance'] - $cashRefundAmount;
                         $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $activeOpenShift['id']]);
                         
-                        // إدراج حركة سحب تلقائية من نوع 'withdrawal_refund'
+                        // إدراج حركة سحب تلقائية للمرتجع النقدي
                         $txStmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId) VALUES (?, 'withdrawal_refund', ?, ?, ?, ?)");
                         $txStmt->execute([
                             $activeOpenShift['id'],
-                            (float)$order['total'],
+                            $cashRefundAmount,
                             "مرتجع نقدي للفاتورة #{$id}: {$reason}",
                             $now,
                             $currentUserId
                         ]);
-                    } elseif (mb_strpos($method, 'آجل') !== false && !empty($order['userId'])) {
-                        // 2. المرتجع الآجل: تعديل مديونية العميل في كشف الحساب دون لمس نقدية الدرج
+                    }
+
+                    // قراءة المتبقي الآجل للعميل (outstandingAmount) من الفاتورة نفسها وتصفيره
+                    $stmtGetOutstanding = $pdo->prepare("SELECT outstandingAmount, userId FROM orders WHERE id = ?");
+                    $stmtGetOutstanding->execute([$id]);
+                    $orderOutstanding = $stmtGetOutstanding->fetch();
+                    $outstandingAmt = 0.00;
+                    
+                    if ($orderOutstanding && (float)$orderOutstanding['outstandingAmount'] > 0 && !empty($orderOutstanding['userId'])) {
+                        $custUserId = $orderOutstanding['userId'];
+                        $outstandingAmt = (float)$orderOutstanding['outstandingAmount'];
+
                         $stmtBal = $pdo->prepare("SELECT balanceAfter FROM customer_ledger WHERE userId = ? ORDER BY createdAt DESC, id DESC LIMIT 1 FOR UPDATE");
-                        $stmtBal->execute([$order['userId']]);
+                        $stmtBal->execute([$custUserId]);
                         $prevBalance = (float)($stmtBal->fetchColumn() ?: 0.00);
-                        $balanceAfter = $prevBalance - (float)$order['total'];
-                        
-                        // إدراج حركة المرتجع في كشف حساب العميل
+                        $balanceAfter = $prevBalance - $outstandingAmt;
+
+                        // إدراج حركة تصفير مديونية
                         $stmtLedger = $pdo->prepare("INSERT INTO customer_ledger (userId, orderId, type, amount, balanceAfter, paymentMethod, shiftId, notes, createdAt, createdById) VALUES (?, ?, 'RETURN', ?, ?, ?, ?, ?, ?, ?)");
                         $stmtLedger->execute([
-                            $order['userId'],
+                            $custUserId,
                             $id,
-                            -((float)$order['total']),
+                            -$outstandingAmt,
                             $balanceAfter,
-                            $order['paymentMethod'],
+                            'آجل (مرتجع)',
                             $activeOpenShift['id'],
-                            "مرتجع فاتورة آجل #{$id}: {$reason}",
+                            "مرتجع مديونية فاتورة #{$id}: {$reason}",
                             $now,
                             $currentUserId
                         ]);
-                        
-                        recalculateCustomerLedger($pdo, $order['userId']);
+
+                        recalculateCustomerLedger($pdo, $custUserId);
                     }
-                    // إذا كانت بطاقة أو بنك، لا نلمس رصيد الخزينة النقدي للوردية (يترك المرتجع مع البنك للمستقبل)
+                    
+                    $refundSummary = implode(' | ', $refundSummaryParts);
+                    if ($outstandingAmt > 0) {
+                        $refundSummary .= " | مديونية ملغاة: {$outstandingAmt} ج.م";
+                    }
                 }
 
                 updateOrderPaymentStatus($pdo, $id);
@@ -1253,5 +1546,73 @@ switch ($action) {
             $pdo->rollBack();
             sendErr('حدث خطأ أثناء تسجيل الدفعة الحسابية', 500, $e->getMessage());
         }
+        break;
+
+    case 'get_payment_methods':
+        $stmt = $pdo->query("SELECT * FROM payment_methods ORDER BY sortOrder ASC");
+        sendRes($stmt->fetchAll());
+        break;
+
+    case 'add_payment_method':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $id = $input['id'] ?? '';
+        $name = $input['name'] ?? '';
+        $type = $input['type'] ?? 'digital';
+        $icon = $input['icon'] ?? '';
+        $sortOrder = (int)($input['sortOrder'] ?? 0);
+        
+        if (empty($id) || empty($name)) {
+            sendErr('معرف وسيلة الدفع والاسم مطلوبان.');
+        }
+        
+        // Check if exists
+        $exists = $pdo->prepare("SELECT COUNT(*) FROM payment_methods WHERE id = ?");
+        $exists->execute([$id]);
+        if ($exists->fetchColumn() > 0) {
+            sendErr('معرف وسيلة الدفع مسجل بالفعل.');
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO payment_methods (id, name, type, icon, isSystem, isActive, sortOrder, createdAt) VALUES (?, ?, ?, ?, 0, 1, ?, ?)");
+        $stmt->execute([$id, $name, $type, $icon, $sortOrder, time() * 1000]);
+        sendRes(['status' => 'success']);
+        break;
+
+    case 'update_payment_method':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $id = $input['id'] ?? '';
+        $name = $input['name'] ?? '';
+        $type = $input['type'] ?? 'digital';
+        $icon = $input['icon'] ?? '';
+        $isActive = (int)($input['isActive'] ?? 1);
+        $sortOrder = (int)($input['sortOrder'] ?? 0);
+        
+        if (empty($id) || empty($name)) {
+            sendErr('المعرف والاسم مطلوبان للتحديث.');
+        }
+
+        $stmt = $pdo->prepare("UPDATE payment_methods SET name = ?, type = ?, icon = ?, isActive = ?, sortOrder = ? WHERE id = ?");
+        $stmt->execute([$name, $type, $icon, $isActive, $sortOrder, $id]);
+        sendRes(['status' => 'success']);
+        break;
+
+    case 'delete_payment_method':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $id = $input['id'] ?? $_GET['id'] ?? '';
+        
+        if (empty($id)) {
+            sendErr('يرجى تحديد المعرف.');
+        }
+        
+        // Prevent deleting system methods
+        $stmtCheck = $pdo->prepare("SELECT isSystem FROM payment_methods WHERE id = ?");
+        $stmtCheck->execute([$id]);
+        $method = $stmtCheck->fetch();
+        if ($method && $method['isSystem']) {
+            sendErr('لا يمكن حذف وسائل الدفع الأساسية للنظام.');
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM payment_methods WHERE id = ?");
+        $stmt->execute([$id]);
+        sendRes(['status' => 'success']);
         break;
 }

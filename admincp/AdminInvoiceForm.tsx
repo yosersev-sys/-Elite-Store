@@ -47,6 +47,20 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [invoiceDiscountType, setInvoiceDiscountType] = useState<'fixed' | 'percent'>('fixed');
   const [editReason, setEditReason] = useState<string>('');
 
+  // Payment methods and split payments states
+  const [dbPaymentMethods, setDbPaymentMethods] = useState<any[]>([]);
+  const [isSplitPayment, setIsSplitPayment] = useState<boolean>(false);
+  const [isFullDebt, setIsFullDebt] = useState<boolean>(false);
+  const [selectedSingleMethod, setSelectedSingleMethod] = useState<string>('cash');
+  const [singleReference, setSingleReference] = useState<string>('');
+  const [paymentAmounts, setPaymentAmounts] = useState<Record<string, string>>({});
+  const [paymentReferences, setPaymentReferences] = useState<Record<string, string>>({});
+  const [dueDate, setDueDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7); // Default due date is 7 days from now
+    return d.toISOString().split('T')[0];
+  });
+
   // Out of stock & barcode quick add states
   const [storeSettings, setStoreSettings] = useState({ out_of_stock_policy: 'prevent', negative_stock_limit: '0' });
   const [unregisteredBarcode, setUnregisteredBarcode] = useState<string | null>(null);
@@ -69,6 +83,31 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         }
       })
       .catch(err => console.error("Failed to load settings in AdminInvoiceForm", err));
+  }, []);
+
+  useEffect(() => {
+    ApiService.getPaymentMethods()
+      .then(methods => {
+        if (methods && methods.length > 0) {
+          setDbPaymentMethods(methods.filter(m => m.isActive));
+        } else {
+          setDbPaymentMethods([
+            { id: 'cash', name: 'نقدي', type: 'cash', icon: '💰', isSystem: 1, isActive: 1, sortOrder: 0, createdAt: 0 },
+            { id: 'vodafone', name: 'فودافون كاش', type: 'digital', icon: '📱', isSystem: 1, isActive: 1, sortOrder: 1, createdAt: 0 },
+            { id: 'instapay', name: 'انستا باي', type: 'digital', icon: '💸', isSystem: 1, isActive: 1, sortOrder: 2, createdAt: 0 },
+            { id: 'visa', name: 'فيزا / بطاقة بنكية', type: 'digital', icon: '💳', isSystem: 1, isActive: 1, sortOrder: 3, createdAt: 0 }
+          ]);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setDbPaymentMethods([
+          { id: 'cash', name: 'نقدي', type: 'cash', icon: '💰', isSystem: 1, isActive: 1, sortOrder: 0, createdAt: 0 },
+          { id: 'vodafone', name: 'فودافون كاش', type: 'digital', icon: '📱', isSystem: 1, isActive: 1, sortOrder: 1, createdAt: 0 },
+          { id: 'instapay', name: 'انستا باي', type: 'digital', icon: '💸', isSystem: 1, isActive: 1, sortOrder: 2, createdAt: 0 },
+          { id: 'visa', name: 'فيزا / بطاقة بنكية', type: 'digital', icon: '💳', isSystem: 1, isActive: 1, sortOrder: 3, createdAt: 0 }
+        ]);
+      });
   }, []);
 
   const normalizePhone = (phone: string) => {
@@ -146,6 +185,31 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       });
       setInvoiceDiscountValue(order.discountValue || 0);
       setInvoiceDiscountType(order.discountType || 'fixed');
+
+      // Load payments details from order
+      if (order.payments && order.payments.length > 0) {
+        if (order.payments.length === 1) {
+          setIsSplitPayment(false);
+          setIsFullDebt(false);
+          setSelectedSingleMethod(order.payments[0].method);
+          setSingleReference(order.payments[0].reference || '');
+        } else {
+          setIsSplitPayment(true);
+          setIsFullDebt(false);
+          const amts: Record<string, string> = {};
+          const refs: Record<string, string> = {};
+          order.payments.forEach(p => {
+            amts[p.method] = String(p.amount);
+            refs[p.method] = p.reference || '';
+          });
+          setPaymentAmounts(amts);
+          setPaymentReferences(refs);
+        }
+      } else {
+        // No payments means it's fully unpaid (outstanding debt)
+        setIsSplitPayment(false);
+        setIsFullDebt(true);
+      }
     }
   }, [order]);
 
@@ -430,6 +494,39 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const deliveryFee = isDeliveryEnabled ? globalDeliveryFee : 0;
   const total = Math.max(0, Number((subtotalAfterItemDiscounts - invoiceDiscount + deliveryFee).toFixed(2)));
 
+  const sumOfPayments = useMemo(() => {
+    if (isSplitPayment) {
+      return dbPaymentMethods.reduce((sum, m) => sum + (parseFloat(paymentAmounts[m.id] || '0') || 0), 0);
+    }
+    return isFullDebt ? 0 : total;
+  }, [isSplitPayment, isFullDebt, paymentAmounts, dbPaymentMethods, total]);
+
+  const outstanding = useMemo(() => {
+    return Math.max(0, Number((total - sumOfPayments).toFixed(2)));
+  }, [total, sumOfPayments]);
+
+  const paymentMethodSummary = useMemo(() => {
+    if (isSplitPayment) {
+      const parts = dbPaymentMethods
+        .filter(m => (parseFloat(paymentAmounts[m.id] || '0') || 0) > 0)
+        .map(m => m.name);
+      let s = parts.join(' + ');
+      if (outstanding > 0) {
+        s += ' + آجل';
+      }
+      return s || 'دفع مشترك';
+    } else if (isFullDebt) {
+      return 'آجل بالكامل';
+    } else {
+      const activeMethod = dbPaymentMethods.find(m => m.id === selectedSingleMethod);
+      let s = activeMethod?.name || 'نقدي';
+      if (outstanding > 0) {
+        s += ' + آجل';
+      }
+      return s;
+    }
+  }, [isSplitPayment, isFullDebt, selectedSingleMethod, paymentAmounts, dbPaymentMethods, outstanding]);
+
   const handleFinalSubmit = async () => {
     if (isSaving) return;
     if (invoiceItems.length === 0) return alert('يرجى إضافة منتجات للفاتورة');
@@ -437,6 +534,37 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     if (isDeliveryEnabled && !customerInfo.address.trim()) return alert('يرجى إدخال عنوان التوصيل');
     if (order && order.status === 'completed' && !editReason.trim()) {
       return alert('يرجى إدخال سبب تعديل الخصومات/الفاتورة للمتابعة المحاسبية');
+    }
+
+    // Front-end validations for payments
+    if (sumOfPayments > total + 0.01) {
+      return alert('خطأ: إجمالي المبالغ المدخلة يتجاوز إجمالي الفاتورة!');
+    }
+
+    if (outstanding > 0) {
+      const normPhone = normalizePhone(customerInfo.phone);
+      if (!customerInfo.name || customerInfo.name === 'عميل نقدي' || !normPhone) {
+        return alert('يرجى تحديد عميل حقيقي (اسم ورقم هاتف) لتسجيل المديونية المتبقية عليه بقيمة ' + outstanding + ' ج.م');
+      }
+      if (!dueDate) {
+        return alert('يرجى تحديد تاريخ استحقاق الدين');
+      }
+    }
+
+    if (isSplitPayment) {
+      for (const m of dbPaymentMethods) {
+        const amt = parseFloat(paymentAmounts[m.id] || '0') || 0;
+        if (amt > 0 && m.type === 'digital' && !paymentReferences[m.id]?.trim()) {
+          const confirmNoRef = window.confirm(`تنبيه: لم تقم بإدخال رقم مرجع لعملية الدفع الرقمي (${m.name}). هل تريد المتابعة بدون مرجع؟`);
+          if (!confirmNoRef) return;
+        }
+      }
+    } else {
+      const activeMethod = dbPaymentMethods.find(m => m.id === selectedSingleMethod);
+      if (activeMethod && activeMethod.type === 'digital' && !singleReference.trim() && !isFullDebt) {
+        const confirmNoRef = window.confirm(`تنبيه: لم تقم بإدخال رقم مرجع لعملية الدفع الرقمي (${activeMethod.name}). هل تريد المتابعة بدون مرجع؟`);
+        if (!confirmNoRef) return;
+      }
     }
 
     // Frontend validations
@@ -486,6 +614,20 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
       const orderId = order ? order.id : 'INV-' + Date.now().toString().slice(-8);
       
+      const paymentsToSend = isSplitPayment
+        ? dbPaymentMethods.map(m => ({
+            method: m.id,
+            amount: parseFloat(paymentAmounts[m.id] || '0') || 0,
+            reference: paymentReferences[m.id] || ''
+          })).filter(p => p.amount > 0)
+        : isFullDebt
+          ? []
+          : [{
+              method: selectedSingleMethod,
+              amount: total,
+              reference: singleReference
+            }];
+
       const newOrder: Order = {
         id: orderId,
         customerName: customerInfo.name,
@@ -495,7 +637,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         items: invoiceItems,
         subtotal: subtotalBeforeDiscount,
         total: total,
-        paymentMethod: customerInfo.paymentMethod,
+        paymentMethod: paymentMethodSummary,
         status: customerInfo.status as any,
         createdAt: order ? order.createdAt : Date.now(),
         discount: invoiceDiscount,
@@ -506,7 +648,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         subtotalBeforeDiscount: subtotalBeforeDiscount,
         finalTotal: total,
         discountsMetadata: order ? order.discountsMetadata : undefined,
-        editReason: (order && order.status === 'completed') ? editReason : undefined
+        editReason: (order && order.status === 'completed') ? editReason : undefined,
+        outstandingAmount: outstanding,
+        payments: paymentsToSend,
+        dueDate: outstanding > 0 ? new Date(dueDate).getTime() : undefined
       } as any;
 
       await onSubmit(newOrder);
@@ -791,7 +936,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     </div>
                     <div className="flex justify-between font-bold text-xs md:text-sm">
                        <span className="text-slate-400">الدفع:</span>
-                       <span className={customerInfo.paymentMethod.includes('آجل') ? 'text-orange-600' : 'text-emerald-600'}>{customerInfo.paymentMethod}</span>
+                       <span className={paymentMethodSummary.includes('آجل') ? 'text-orange-600' : 'text-emerald-600'}>{paymentMethodSummary}</span>
                     </div>
                     <div className="flex justify-between font-bold text-xs md:text-sm">
                        <span className="text-slate-400">الحالة:</span>
@@ -1161,6 +1306,178 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                        />
                     </div>
                  )}
+
+                  {/* قسم طريقة الدفع الاحترافي */}
+                  <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] md:text-xs font-black text-slate-700 uppercase tracking-wide">طريقة الدفع والسداد</label>
+                      <button 
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => {
+                          setIsSplitPayment(!isSplitPayment);
+                          setIsFullDebt(false);
+                          setPaymentAmounts({});
+                          setPaymentReferences({});
+                          setSingleReference('');
+                        }}
+                        className={`text-[9px] md:text-[10px] font-black px-2.5 py-1 rounded-lg border transition-all ${isSplitPayment ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                      >
+                        🔀 دفع مجزأ (مشترك)
+                      </button>
+                    </div>
+
+                    {!isSplitPayment && (
+                      <div className="flex items-center justify-between bg-amber-50/50 p-3 rounded-xl border border-amber-100">
+                        <div className="text-right">
+                          <p className="font-black text-amber-800 text-[10px]">شراء بالآجل (مديونية بالكامل)</p>
+                          <p className="text-[8px] text-amber-600 font-bold">تسجيل إجمالي الفاتورة كدين على العميل</p>
+                        </div>
+                        <button 
+                          disabled={isSaving}
+                          type="button"
+                          onClick={() => {
+                            setIsFullDebt(!isFullDebt);
+                            setSingleReference('');
+                          }}
+                          className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${isFullDebt ? 'bg-amber-600' : 'bg-slate-300'} disabled:opacity-50`}
+                        >
+                          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isFullDebt ? 'right-5' : 'right-0.5'}`}></div>
+                        </button>
+                      </div>
+                    )}
+
+                    {!isSplitPayment && !isFullDebt && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {dbPaymentMethods.map(m => {
+                          const isSelected = selectedSingleMethod === m.id;
+                          let themeClass = 'hover:bg-slate-100 text-slate-500 border-slate-200';
+                          if (isSelected) {
+                            if (m.id === 'cash') themeClass = 'bg-emerald-600 border-emerald-600 text-white shadow-emerald-100 shadow-md';
+                            else if (m.id === 'vodafone') themeClass = 'bg-rose-600 border-rose-600 text-white shadow-rose-100 shadow-md';
+                            else if (m.id === 'instapay') themeClass = 'bg-indigo-600 border-indigo-600 text-white shadow-indigo-100 shadow-md';
+                            else if (m.id === 'visa') themeClass = 'bg-cyan-600 border-cyan-600 text-white shadow-cyan-100 shadow-md';
+                            else themeClass = 'bg-slate-800 border-slate-800 text-white shadow-slate-100 shadow-md';
+                          }
+                          return (
+                            <button
+                              key={m.id}
+                              disabled={isSaving}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSingleMethod(m.id);
+                                setSingleReference('');
+                              }}
+                              className={`py-3 rounded-xl border font-black text-xs transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${themeClass}`}
+                            >
+                              <span className="text-lg">{m.icon || '💰'}</span>
+                              <span>{m.name}</span>
+                              <span className={`text-[8px] font-medium opacity-80 ${isSelected ? 'text-white' : 'text-slate-400'}`}>
+                                {m.type === 'cash' ? 'تضاف للدرج النقدي' : 'مزامنة رقمية'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {!isSplitPayment && !isFullDebt && dbPaymentMethods.find(m => m.id === selectedSingleMethod)?.type === 'digital' && (
+                      <div className="space-y-1.5 animate-slideDown text-right">
+                        <label className="text-[9px] font-black text-slate-400 mr-1 block">رقم مرجع المعاملة / التحويل (اختياري)</label>
+                        <input 
+                          disabled={isSaving}
+                          type="text"
+                          value={singleReference}
+                          onChange={e => setSingleReference(e.target.value)}
+                          placeholder="أدخل رقم العملية أو كود المرجع للتأكيد..."
+                          className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl outline-none font-bold text-xs"
+                        />
+                      </div>
+                    )}
+
+                    {isSplitPayment && (
+                      <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-right">
+                        <p className="text-[9px] font-black text-slate-400 uppercase text-center mb-1">توزيع مبالغ الدفع المشترك</p>
+                        {dbPaymentMethods.map(m => (
+                          <div key={m.id} className="space-y-2 border-b border-slate-200/50 pb-2.5 last:border-none last:pb-0">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-black text-slate-700 text-xs flex items-center gap-1.5">
+                                <span>{m.icon || '💰'}</span>
+                                {m.name}
+                              </span>
+                              <div className="relative w-36">
+                                <input 
+                                  disabled={isSaving}
+                                  type="number"
+                                  placeholder="0.00"
+                                  value={paymentAmounts[m.id] || ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setPaymentAmounts(prev => ({ ...prev, [m.id]: val }));
+                                  }}
+                                  className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-left font-black text-xs outline-none focus:border-indigo-500"
+                                />
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">ج.م</span>
+                              </div>
+                            </div>
+                            {(parseFloat(paymentAmounts[m.id] || '0') || 0) > 0 && m.type === 'digital' && (
+                              <div className="flex justify-end animate-slideDown">
+                                <input 
+                                  disabled={isSaving}
+                                  type="text"
+                                  placeholder={`رقم المرجع لعملية ${m.name}...`}
+                                  value={paymentReferences[m.id] || ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setPaymentReferences(prev => ({ ...prev, [m.id]: val }));
+                                  }}
+                                  className="w-48 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-right font-bold text-[10px] outline-none"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {(isSplitPayment || isFullDebt) && (
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs font-bold text-slate-600 text-right">
+                        <div className="flex justify-between">
+                          <span>إجمالي الفاتورة:</span>
+                          <span className="text-slate-800">{total.toFixed(2)} ج.م</span>
+                        </div>
+                        <div className="flex justify-between text-indigo-600">
+                          <span>مجموع المبالغ المسددة:</span>
+                          <span>{sumOfPayments.toFixed(2)} ج.م</span>
+                        </div>
+                        <div className="flex justify-between pt-1 border-t border-slate-200 text-sm font-black">
+                          <span>المتبقي كمديونية (آجل):</span>
+                          <span className={outstanding > 0 ? 'text-amber-600' : 'text-emerald-600'}>
+                            {outstanding.toFixed(2)} ج.م
+                          </span>
+                        </div>
+                        {sumOfPayments > total && (
+                          <div className="p-2 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black text-center animate-pulse">
+                            ⚠️ تنبيه: المجموع يتجاوز قيمة الفاتورة!
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {outstanding > 0 && (
+                      <div className="space-y-1.5 bg-amber-50/50 p-4 rounded-2xl border border-amber-100 animate-slideDown text-right">
+                        <label className="text-[10px] font-black text-amber-800 mr-1 tracking-wide block">تاريخ استحقاق الدين (سداد المديونية)</label>
+                        <input 
+                          disabled={isSaving}
+                          type="date"
+                          value={dueDate}
+                          onChange={e => setDueDate(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-white border border-amber-200 focus:border-amber-500 rounded-xl outline-none font-bold text-xs text-center"
+                        />
+                        <p className="text-[8px] text-amber-600 font-bold block mt-1">تنبيه: سيتم تسجيل {outstanding.toFixed(2)} ج.م في ذمة العميل، ويجب تحديد عميل حقيقي بالأعلى.</p>
+                      </div>
+                    )}
+                  </div>
 
                   {/* خصم الفاتورة */}
                   <div className="space-y-1.5 border-t border-slate-50 pt-4">

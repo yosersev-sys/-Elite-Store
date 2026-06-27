@@ -42,17 +42,30 @@ const StatsTab: React.FC<StatsTabProps> = ({
     const todaySales = todayOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
     const todayOrdersCount = todayOrders.length;
 
-    const todayCashSales = todayOrders
-      .filter(o => String(o.paymentMethod).includes('نقدي') || String(o.paymentMethod).includes('عند الاستلام'))
-      .reduce((sum, o) => sum + Number(o.total || 0), 0);
+    let todayCashSales = 0;
+    let todayDigitalSales = 0;
+    let todayDebtSales = 0;
 
-    const todayDigitalSales = todayOrders
-      .filter(o => !String(o.paymentMethod).includes('نقدي') && !String(o.paymentMethod).includes('عند الاستلام') && !String(o.paymentMethod).includes('آجل'))
-      .reduce((sum, o) => sum + Number(o.total || 0), 0);
-
-    const todayDebtSales = todayOrders
-      .filter(o => String(o.paymentMethod).includes('آجل'))
-      .reduce((sum, o) => sum + Number(o.total || 0), 0);
+    todayOrders.forEach(o => {
+      if (o.payments && o.payments.length > 0) {
+        o.payments.forEach(p => {
+          if (p.method === 'cash') {
+            todayCashSales += Number(p.amount);
+          } else {
+            todayDigitalSales += Number(p.amount);
+          }
+        });
+        todayDebtSales += Number(o.outstandingAmount || 0);
+      } else {
+        if (String(o.paymentMethod).includes('نقدي') || String(o.paymentMethod).includes('عند الاستلام')) {
+          todayCashSales += Number(o.total || 0);
+        } else if (String(o.paymentMethod).includes('آجل')) {
+          todayDebtSales += Number(o.total || 0);
+        } else {
+          todayDigitalSales += Number(o.total || 0);
+        }
+      }
+    });
 
     return {
       todaySales,
@@ -111,7 +124,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
       totalSales, 
       netProfit: totalSales - totalCost,
       lowStockCount: safeProducts.filter(p => Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5)).length,
-      totalDebtAmount: activeOrders.filter(o => String(o.paymentMethod).includes('آجل')).reduce((s, o) => s + Number(o.total || 0), 0),
+      totalDebtAmount: activeOrders.reduce((s, o) => {
+        if (o.outstandingAmount !== undefined) return s + Number(o.outstandingAmount || 0);
+        return String(o.paymentMethod).includes('آجل') ? s + Number(o.total || 0) : s;
+      }, 0),
       totalSupplierDebt: safeSuppliers.reduce((s, sup) => s + Number(sup.balance || 0), 0),
       catStats,
       newOrders: 0

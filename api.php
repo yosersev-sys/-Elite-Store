@@ -76,6 +76,10 @@ try {
         case 'return_order':
         case 'collect_customer_payment':
         case 'get_customer_ledger':
+        case 'get_payment_methods':
+        case 'add_payment_method':
+        case 'update_payment_method':
+        case 'delete_payment_method':
             require_once 'api_sales.php';
             break;
 
