@@ -570,7 +570,8 @@ const App: React.FC = () => {
                   showNotification(`تم مزامنة ${syncResult.syncedCount} فاتورة بنجاح.`, 'success');
                   loadData(true);
                 } else if (syncResult.remainingCount > 0) {
-                   showNotification(`فشلت مزامنة ${syncResult.remainingCount} فاتورة. تحقق من الاتصال.`, 'error');
+                   const firstErr = syncResult.errors && syncResult.errors.length > 0 ? String(syncResult.errors[0]) : '';
+                   showNotification(`فشلت المزامنة: ${firstErr || 'تحقق من الاتصال'}`, 'error');
                 } else {
                    showNotification('لا توجد فواتير معلقة.', 'success');
                 }

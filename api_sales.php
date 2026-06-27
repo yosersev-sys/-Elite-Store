@@ -579,7 +579,7 @@ switch ($action) {
             sendRes(['status' => 'success']);
         } catch (Exception $e) {
             $pdo->rollBack();
-            sendErr('فشل في حفظ الفاتورة');
+            sendErr('فشل في حفظ الفاتورة: ' . $e->getMessage(), 400, $e->getMessage());
         }
         break;
 
