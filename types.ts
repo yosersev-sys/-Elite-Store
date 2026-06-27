@@ -100,6 +100,7 @@ export interface Product {
   batches?: StockBatch[]; 
   reorderLevel?: number;
   units?: ProductUnit[];
+  baseUnit?: string;
 }
 
 export interface CartItem extends Product {

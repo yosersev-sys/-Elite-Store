@@ -147,7 +147,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
                           default: return u || 'قطعة';
                         }
                       };
-                      const unitText = getUnitArabic(p.unit || 'piece');
+                      const unitText = getUnitArabic(p.baseUnit || p.unit || 'piece');
                       const equivalents = p.units
                         ? p.units
                             .filter(u => u.isActive === 1 && (u.conversionFactor || 1) > 1)

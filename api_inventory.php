@@ -80,6 +80,7 @@ switch ($action) {
                 }
             }
             
+            $p['baseUnit'] = $p['unit'];
             if ($defaultUnit) {
                 $p['price'] = $defaultUnit['salePrice'];
                 $p['wholesalePrice'] = $defaultUnit['purchasePrice'];
