@@ -22,6 +22,20 @@ const CODE39_MAP: Record<string, string> = {
   '$': '010101000', '/': '010100010', '+': '010001010', '%': '000101010'
 };
 
+const getUnitArabic = (u: string) => {
+  switch (u) {
+    case 'piece': return 'قطعة';
+    case 'carton': return 'كرتونة';
+    case 'box': return 'علبة';
+    case 'bottle': return 'زجاجة';
+    case 'kg': return 'كجم';
+    case 'gram': return 'جم';
+    case 'liter': return 'لتر';
+    case 'meter': return 'متر';
+    default: return u || 'قطعة';
+  }
+};
+
 // مكون توليد خطوط الباركود (Code 39 Barcode Generator) باستخدام الحدود Borders لضمان ظهورها في الطباعة
 const BarcodeRenderer: React.FC<{ value: string }> = ({ value }) => {
   const normalized = value.toUpperCase().replace(/[^A-Z0-9\-\.\ \$\/\+\%]/g, '');
@@ -68,11 +82,49 @@ const BarcodeRenderer: React.FC<{ value: string }> = ({ value }) => {
 };
 
 const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose }) => {
+  // حصر كافة وحدات المنتج الصالحة للطباعة (الأساسية + الإضافية)
+  const printableUnits = React.useMemo(() => {
+    const list = [];
+    
+    // 1. الوحدة الأساسية (مثال: قطعة)
+    list.push({
+      id: 'base',
+      name: product.name,
+      unitName: product.unit || 'piece',
+      barcode: product.barcode || product.id.slice(-8),
+      price: product.price,
+      label: `${getUnitArabic(product.unit || 'piece')} (الأساسية)`
+    });
+    
+    // 2. الوحدات الإضافية المفعلة ولها باركود خاص بها
+    if (product.units) {
+      product.units.forEach(u => {
+        if (u.isActive === 1 && u.barcode) {
+          list.push({
+            id: u.id,
+            name: `${product.name} (${u.unitName})`,
+            unitName: u.unitName,
+            barcode: u.barcode,
+            price: u.salePrice,
+            label: `${u.unitName}`
+          });
+        }
+      });
+    }
+    
+    return list;
+  }, [product]);
+
+  const [selectedUnitId, setSelectedUnitId] = React.useState(printableUnits[0]?.id || 'base');
+
   const handlePrint = () => {
     window.print();
   };
 
-  const barcodeValue = product.barcode || product.id.slice(-8);
+  // الوحدة النشطة حالياً للمعاينة والطباعة
+  const activeUnit = React.useMemo(() => {
+    return printableUnits.find(u => u.id === selectedUnitId) || printableUnits[0];
+  }, [selectedUnitId, printableUnits]);
 
   return (
     <>
@@ -85,22 +137,37 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
             <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
               🏷️
             </div>
-            <h3 className="text-xl font-black text-slate-800 mb-2">تم حفظ المنتج بنجاح!</h3>
-            <p className="text-slate-400 font-bold text-xs mb-8">هل تريد طباعة ملصق الباركود الآن؟</p>
+            <h3 className="text-xl font-black text-slate-800 mb-2">طباعة ملصق الباركود</h3>
+            <p className="text-slate-400 font-bold text-xs mb-6">اختر الوحدة المراد طباعة ملصق الباركود لها:</p>
+
+            {/* أزرار التبديل بين الوحدات */}
+            {printableUnits.length > 1 && (
+              <div className="flex justify-center gap-2 mb-6 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 w-full overflow-x-auto no-scrollbar">
+                {printableUnits.map(unit => (
+                  <button
+                    key={unit.id}
+                    onClick={() => setSelectedUnitId(unit.id)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${selectedUnitId === unit.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    {unit.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* معاينة الملصق على الشاشة */}
             <div className="border-2 border-dashed border-slate-200 p-4 rounded-2xl mb-8 bg-slate-50">
                <div 
-                 className="bg-white p-3 mx-auto shadow-sm flex flex-col items-center justify-between border border-black"
+                 className="bg-white p-3 mx-auto shadow-sm flex flex-col items-center justify-between border border-black text-right"
                  style={{ width: '50mm', height: '25mm', fontFamily: 'monospace' }}
                >
-                  <p className="text-[8pt] font-black text-black truncate w-full text-center mb-1">{product.name}</p>
+                  <p className="text-[8pt] font-black text-black truncate w-full text-center mb-1">{activeUnit.name}</p>
                   <div className="flex flex-col items-center justify-center w-full my-auto">
-                     <BarcodeRenderer value={barcodeValue} />
-                     <p className="text-[7pt] font-bold text-black mt-1 font-mono tracking-wider">{barcodeValue}</p>
+                     <BarcodeRenderer value={activeUnit.barcode} />
+                     <p className="text-[7pt] font-bold text-black mt-1 font-mono tracking-wider">{activeUnit.barcode}</p>
                   </div>
                   <div className="flex justify-between w-full text-[8pt] font-black text-black mt-1">
-                     <span>السعر: {product.price} ج.م</span>
+                     <span>السعر: {activeUnit.price} ج.م</span>
                      <span className="font-sans text-[7.5pt]">soqelasr.com</span>
                   </div>
                </div>
@@ -128,13 +195,13 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
       {ReactDOM.createPortal(
         <div className="barcode-print-portal font-mono">
           <div className="print-sticker-box">
-            <p className="print-sticker-title">{product.name}</p>
+            <p className="print-sticker-title">{activeUnit.name}</p>
             <div className="print-sticker-barcode-box">
-              <BarcodeRenderer value={barcodeValue} />
-              <p className="print-sticker-txt">{barcodeValue}</p>
+              <BarcodeRenderer value={activeUnit.barcode} />
+              <p className="print-sticker-txt">{activeUnit.barcode}</p>
             </div>
             <div className="print-sticker-footer">
-              <span className="print-sticker-price">السعر: {product.price} ج.م</span>
+              <span className="print-sticker-price">السعر: {activeUnit.price} ج.م</span>
               <span className="print-sticker-link">soqelasr.com</span>
             </div>
           </div>
