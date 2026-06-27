@@ -606,12 +606,15 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                         invoiceItems.map(item => {
                           const itemDisc = getItemDiscountAmount(item);
                           const itemRowTotal = (item.price - itemDisc) * item.quantity;
+                          const originalQty = order ? (order.items.find(i => i.id === item.id)?.quantity || 0) : 0;
+                          const availableInStock = item.stockQuantity + originalQty;
+                          const remainingStock = Math.max(0, Number((availableInStock - item.quantity).toFixed(3)));
                           return (
                             <tr key={item.id} className="hover:bg-slate-50/50 transition group">
                               <td className="px-4 md:px-8 py-3">
                                 <div className="flex flex-col">
                                   <span className="font-black text-slate-800 text-[11px] md:text-sm leading-tight">{item.name}</span>
-                                  <span className="text-[9px] text-slate-400 font-black text-right mt-0.5">المخزون المتبقي: {item.stockQuantity} {item.unit === 'piece' ? 'قطعة' : item.unit === 'kg' ? 'كجم' : 'جرام'}</span>
+                                  <span className="text-[9px] text-slate-400 font-black text-right mt-0.5">المخزون المتبقي: {remainingStock} {item.unit === 'piece' ? 'قطعة' : item.unit === 'kg' ? 'كجم' : 'جرام'}</span>
                                   {!isSaving && (
                                     <button onClick={() => removeItem(item.id)} className="text-[8px] text-rose-400 font-bold text-right mt-0.5 hover:text-rose-600">حذف ✕</button>
                                   )}
