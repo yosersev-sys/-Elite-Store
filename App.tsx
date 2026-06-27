@@ -411,6 +411,14 @@ const App: React.FC = () => {
       case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setRecentCreatedOrderFlow(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
       case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
       case 'quick-invoice': 
+        if (isLoading) {
+          return (
+            <div className="flex flex-col items-center justify-center p-20 gap-4">
+              <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="font-black text-slate-800 text-sm">جاري تحميل بيانات الوردية والمخزن...</p>
+            </div>
+          );
+        }
         if (isAdmin && !activeShift) {
           return (
             <div className="flex items-center justify-center p-4 py-12">
@@ -489,7 +497,12 @@ const App: React.FC = () => {
               }
             }} onCancel={() => onNavigate('admincp')} onRefreshData={() => loadData(true)} />
           ) : view === 'admin-invoice' ? (
-            !activeShift ? (
+            isLoading ? (
+              <div className="flex flex-col items-center justify-center p-20 gap-4">
+                <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="font-black text-slate-800 text-sm animate-pulse">جاري تحميل بيانات الوردية والمخزن...</p>
+              </div>
+            ) : !activeShift ? (
               <div className="min-h-screen bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
                 <form onSubmit={handleOpenShiftFromBlocker} className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6 animate-slideUp border border-slate-100">
                   <div className="text-center space-y-2">
