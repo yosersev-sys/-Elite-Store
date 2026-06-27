@@ -258,6 +258,13 @@ switch ($action) {
         $activeShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
         
         $orderId = $input['id'] ?? '';
+        if (!empty($orderId)) {
+            $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE id = ?");
+            $checkStmt->execute([$orderId]);
+            if ($checkStmt->fetchColumn() > 0) {
+                sendRes(['status' => 'success', 'message' => 'الطلب مسجل بالفعل في قاعدة البيانات']);
+            }
+        }
         $isCashierInvoice = (strpos($orderId, 'INV-') === 0 || strpos($orderId, 'OFF-') === 0);
         
         if ($isCashierInvoice && !$activeShift) {
