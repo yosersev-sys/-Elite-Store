@@ -4,6 +4,33 @@
  */
 if (!defined('DB_HOST')) exit;
 
+// ضمان وجود الجداول والأعمدة الجديدة تلقائياً (Auto-healing Schema)
+try {
+    $q = $pdo->query("SHOW COLUMNS FROM products LIKE 'reorderLevel'");
+    if (!$q->fetch()) {
+        $pdo->exec("ALTER TABLE products ADD COLUMN reorderLevel DECIMAL(10,2) DEFAULT 5.00");
+    }
+} catch (Exception $e) {}
+
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS product_units (
+        id VARCHAR(50) PRIMARY KEY,
+        productId VARCHAR(50) NOT NULL,
+        unitName VARCHAR(100) NOT NULL,
+        barcode VARCHAR(100) UNIQUE NULL,
+        purchasePrice DECIMAL(10,2) DEFAULT 0.00,
+        salePrice DECIMAL(10,2) DEFAULT 0.00,
+        conversionFactor DECIMAL(10,2) DEFAULT 1.00,
+        isDefault TINYINT(1) DEFAULT 0,
+        isActive TINYINT(1) DEFAULT 1,
+        INDEX idx_productId (productId),
+        INDEX idx_barcode (barcode)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    
+    $pdo->exec("ALTER TABLE product_units MODIFY COLUMN barcode VARCHAR(100) UNIQUE NULL");
+} catch (Exception $e) {}
+
+
 function isUnitUsedInDB($pdo, $unitId) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE items LIKE ?");
     $stmt->execute(['%"selectedUnitId":"' . $unitId . '"%']);
