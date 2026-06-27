@@ -40,7 +40,7 @@ try {
         id VARCHAR(50) PRIMARY KEY,
         productId VARCHAR(50) NOT NULL,
         unitName VARCHAR(100) NOT NULL,
-        barcode VARCHAR(100) UNIQUE NOT NULL,
+        barcode VARCHAR(100) UNIQUE NULL,
         purchasePrice DECIMAL(10,2) DEFAULT 0.00,
         salePrice DECIMAL(10,2) DEFAULT 0.00,
         conversionFactor DECIMAL(10,2) DEFAULT 1.00,
@@ -49,6 +49,11 @@ try {
         INDEX idx_productId (productId),
         INDEX idx_barcode (barcode)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    try {
+        $pdo->exec("ALTER TABLE product_units MODIFY COLUMN barcode VARCHAR(100) UNIQUE NULL");
+    } catch (Exception $e) {
+    }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
         id VARCHAR(50) PRIMARY KEY, 

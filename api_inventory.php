@@ -137,11 +137,12 @@ switch ($action) {
                 $insertUnit = $pdo->prepare("INSERT INTO product_units (id, productId, unitName, barcode, purchasePrice, salePrice, conversionFactor, isDefault, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
                 foreach ($input['units'] as $u) {
                     $uId = !empty($u['id']) ? $u['id'] : ('unit_' . time() . '_' . rand(100, 999));
+                    $uBarcode = !empty($u['barcode']) ? trim($u['barcode']) : null;
                     $insertUnit->execute([
                         $uId,
                         $productId,
                         $u['unitName'],
-                        trim($u['barcode']),
+                        $uBarcode,
                         $u['purchasePrice'] ?: 0.00,
                         $u['salePrice'] ?: 0.00,
                         $u['conversionFactor'] ?: 1.00,
@@ -217,6 +218,7 @@ switch ($action) {
                 
                 foreach ($input['units'] as $u) {
                     $uId = $u['id'] ?? '';
+                    $uBarcode = !empty($u['barcode']) ? trim($u['barcode']) : null;
                     if (!empty($uId) && isset($existingUnitsMap[$uId])) {
                         $incomingUnitIds[] = $uId;
                         $oldUnit = $existingUnitsMap[$uId];
@@ -229,7 +231,7 @@ switch ($action) {
                         if ($factorChanged) {
                             $updateUnitWithFactor->execute([
                                 $u['unitName'],
-                                trim($u['barcode']),
+                                $uBarcode,
                                 $u['purchasePrice'] ?: 0.00,
                                 $u['salePrice'] ?: 0.00,
                                 $u['conversionFactor'] ?: 1.00,
@@ -240,7 +242,7 @@ switch ($action) {
                         } else {
                             $updateUnitWithoutFactor->execute([
                                 $u['unitName'],
-                                trim($u['barcode']),
+                                $uBarcode,
                                 $u['purchasePrice'] ?: 0.00,
                                 $u['salePrice'] ?: 0.00,
                                 $u['isDefault'] ? 1 : 0,
@@ -255,7 +257,7 @@ switch ($action) {
                             $newUId,
                             $productId,
                             $u['unitName'],
-                            trim($u['barcode']),
+                            $uBarcode,
                             $u['purchasePrice'] ?: 0.00,
                             $u['salePrice'] ?: 0.00,
                             $u['conversionFactor'] ?: 1.00,
