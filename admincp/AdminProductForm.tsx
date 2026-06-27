@@ -110,7 +110,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
           supplierId: product.supplierId || '',
           stockQuantity: product.stockQuantity?.toString() || '0', // نستخدم الكمية الحالية من قاعدة البيانات
           barcode: product.barcode ? String(product.barcode) : '', 
-          unit: product.unit || 'piece', 
+          unit: (product.baseUnit || product.unit || 'piece') as any, 
           sizes: product.sizes?.join(', ') || '',
           colors: product.colors?.join(', ') || '',
           images: product.images || [],
