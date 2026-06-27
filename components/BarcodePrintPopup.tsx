@@ -98,7 +98,10 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
                      <BarcodeRenderer value={barcodeValue} />
                      <p className="text-[7pt] font-bold text-black mt-1 font-mono tracking-wider">{barcodeValue}</p>
                   </div>
-                  <p className="text-[8pt] font-black text-black mt-1">السعر: {product.price} ج.م</p>
+                  <div className="flex justify-between w-full text-[8pt] font-black text-black mt-1">
+                     <span>السعر: {product.price} ج.م</span>
+                     <span className="font-sans text-[7.5pt]">soqelasr.com</span>
+                  </div>
                </div>
             </div>
 
@@ -129,7 +132,10 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
               <BarcodeRenderer value={barcodeValue} />
               <p className="print-sticker-txt">{barcodeValue}</p>
             </div>
-            <p className="print-sticker-price">السعر: {product.price} ج.م</p>
+            <div className="print-sticker-footer">
+              <span className="print-sticker-price">السعر: {product.price} ج.م</span>
+              <span className="print-sticker-link">soqelasr.com</span>
+            </div>
           </div>
         </div>,
         document.body
@@ -195,11 +201,22 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
             color: #000 !important;
             letter-spacing: 1px !important;
           }
+          .print-sticker-footer {
+            display: flex !important;
+            justify-content: space-between !important;
+            width: 100% !important;
+            margin: 0 !important;
+          }
           .print-sticker-price {
             font-size: 8.5pt !important;
             font-weight: 900 !important;
-            margin: 0 !important;
             color: #000 !important;
+          }
+          .print-sticker-link {
+            font-size: 7.5pt !important;
+            font-weight: 900 !important;
+            color: #000 !important;
+            font-family: sans-serif !important;
           }
         }
         @media screen {
