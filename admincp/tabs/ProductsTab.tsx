@@ -36,7 +36,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
 
     // تطبيق فلتر النواقص إذا كان نشطاً
     if (currentFilter === 'low_stock') {
-      result = result.filter(p => Number(p.stockQuantity || 0) < 5);
+      result = result.filter(p => Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5));
     }
 
     // تطبيق البحث النصي
@@ -74,7 +74,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
             onClick={() => setCurrentFilter('low_stock')}
             className={`flex-grow md:flex-initial px-6 py-2.5 rounded-xl font-black text-xs transition-all ${currentFilter === 'low_stock' ? 'bg-rose-500 text-white shadow-lg shadow-rose-100' : 'text-slate-400 hover:text-rose-500'}`}
           >
-            نواقص ({products.filter(p => Number(p.stockQuantity || 0) < 5).length})
+            نواقص ({products.filter(p => Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5)).length})
           </button>
         </div>
 
@@ -132,9 +132,15 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
                     </span>
                   </td>
                   <td className="px-8 py-5">
-                    <span className={`font-black px-3 py-1 rounded-full text-xs ${Number(p.stockQuantity || 0) < 5 ? 'bg-rose-50 text-rose-500 animate-pulse' : 'bg-emerald-50 text-emerald-600'}`}>
-                      {p.stockQuantity} {p.unit === 'kg' ? 'كيلو' : p.unit === 'gram' ? 'جرام' : 'قطعة'}
-                    </span>
+                    {(() => {
+                      const isLow = Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5);
+                      const unitText = p.unit === 'kg' ? 'كجم' : p.unit === 'gram' ? 'جرام' : p.unit === 'carton' ? 'كرتونة' : p.unit === 'box' ? 'علبة' : p.unit === 'bottle' ? 'زجاجة' : p.unit === 'liter' ? 'لتر' : p.unit === 'meter' ? 'متر' : 'قطعة';
+                      return (
+                        <span className={`font-black px-3 py-1 rounded-full text-xs ${isLow ? 'bg-rose-50 text-rose-500 animate-pulse' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {p.stockQuantity} {unitText}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-8 py-5 font-black text-slate-900 text-lg">
                     {p.price.toLocaleString()} <small className="text-[10px] text-emerald-600">ج.م</small>

@@ -110,7 +110,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
     return { 
       totalSales, 
       netProfit: totalSales - totalCost,
-      lowStockCount: safeProducts.filter(p => Number(p.stockQuantity || 0) < 5).length,
+      lowStockCount: safeProducts.filter(p => Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5)).length,
       totalDebtAmount: activeOrders.filter(o => String(o.paymentMethod).includes('آجل')).reduce((s, o) => s + Number(o.total || 0), 0),
       totalSupplierDebt: safeSuppliers.reduce((s, sup) => s + Number(sup.balance || 0), 0),
       catStats,

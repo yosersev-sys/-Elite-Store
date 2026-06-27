@@ -291,6 +291,82 @@ switch ($action) {
                 $finalTotal,
                 $input['discountsMetadata'] ?? null
             ]);
+            // جلب الإعدادات والسياسة المطبقة
+            $settings = [];
+            foreach ($pdo->query("SELECT * FROM settings")->fetchAll() as $s) {
+                $settings[$s['setting_key']] = $s['setting_value'];
+            }
+            $policy = $settings['out_of_stock_policy'] ?? 'prevent';
+            $negativeLimit = (float)($settings['negative_stock_limit'] ?? 0);
+            
+            // التحقق من الصلاحيات والمستخدم
+            $curUserId = $_SESSION['user']['id'] ?? '';
+            $curRole = $_SESSION['user']['role'] ?? '';
+            $curName = $_SESSION['user']['name'] ?? 'غير معروف';
+            $isAdminUser = ($curRole === 'admin');
+            $hasOverridePerm = false;
+            
+            if (!$isAdminUser && !empty($curUserId)) {
+                $uPerms = $pdo->prepare("SELECT permissions, name FROM users WHERE id = ?");
+                $uPerms->execute([$curUserId]);
+                $userRow = $uPerms->fetch();
+                if ($userRow) {
+                    $curName = $userRow['name'] ?: $curName;
+                    $permsList = $userRow['permissions'];
+                    if ($permsList) {
+                        $perms = array_map('trim', explode(',', $permsList));
+                        if (in_array('sell_without_stock', $perms) || in_array('override_stock_policy', $perms)) {
+                            $hasOverridePerm = true;
+                        }
+                    }
+                }
+            }
+
+            foreach ($input['items'] as $item) {
+                // قفل السطر الخاص بالمنتج (FOR UPDATE) لضمان اتساق مستويات المخزون ومنع التعارض
+                $stmtStock = $pdo->prepare("SELECT stockQuantity, name, barcode FROM products WHERE id = ? FOR UPDATE");
+                $stmtStock->execute([$item['id']]);
+                $prod = $stmtStock->fetch();
+                if ($prod) {
+                    $qty = (float)$item['quantity'];
+                    $currentStock = (float)$prod['stockQuantity'];
+                    $newStock = $currentStock - $qty;
+                    if ($newStock < 0) {
+                        // المخزون غير كافٍ، نتحقق من السياسة
+                        if ($policy === 'prevent') {
+                            sendErr("عذراً، المخزون غير كافٍ للمنتج ({$prod['name']}). المتاح: {$currentStock}.");
+                        } else if ($policy === 'admin_only' && !$isAdminUser && !$hasOverridePerm) {
+                            sendErr("عذراً، البيع بدون مخزون مسموح للمدير فقط. المنتج ({$prod['name']}) المتاح منه: {$currentStock}.");
+                        } else if ($policy === 'allow_negative') {
+                            if ($newStock < -$negativeLimit) {
+                                sendErr("عذراً، تجاوز الحد الأقصى للمخزون السالب للمنتج ({$prod['name']}). الحد المسموح: -{$negativeLimit}، بينما المطلوب سيصل إلى {$newStock}.");
+                            }
+                        }
+                        
+                        // تسجيل تجاوز المخزون في سجل التدقيق والمراجعة
+                        $stmtLog = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'SELL_OUT_OF_STOCK', ?, ?)");
+                        $stmtLog->execute([
+                            $curUserId ?: 'admin',
+                            $shiftId,
+                            json_encode([
+                                'userName' => $curName,
+                                'userRole' => $curRole ?: 'admin',
+                                'productId' => $item['id'],
+                                'productName' => $prod['name'],
+                                'barcode' => $prod['barcode'],
+                                'requestedQty' => $qty,
+                                'availableStock' => $currentStock,
+                                'remainingStockAfter' => $newStock,
+                                'policyUsed' => $policy,
+                                'negativeLimit' => $negativeLimit,
+                                'orderId' => $input['id']
+                            ], JSON_UNESCAPED_UNICODE),
+                            time() * 1000
+                        ]);
+                    }
+                }
+            }
+
             foreach ($input['items'] as $item) {
                 $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")->execute([$item['quantity'], $item['quantity'], $item['id']]);
             }
@@ -550,6 +626,82 @@ switch ($action) {
                 $input['discountsMetadata'] ?? null,
                 $id
             ]);
+
+            // جلب الإعدادات والسياسة المطبقة
+            $settings = [];
+            foreach ($pdo->query("SELECT * FROM settings")->fetchAll() as $s) {
+                $settings[$s['setting_key']] = $s['setting_value'];
+            }
+            $policy = $settings['out_of_stock_policy'] ?? 'prevent';
+            $negativeLimit = (float)($settings['negative_stock_limit'] ?? 0);
+            
+            // التحقق من الصلاحيات والمستخدم
+            $curUserId = $_SESSION['user']['id'] ?? '';
+            $curRole = $_SESSION['user']['role'] ?? '';
+            $curName = $_SESSION['user']['name'] ?? 'غير معروف';
+            $isAdminUser = ($curRole === 'admin');
+            $hasOverridePerm = false;
+            
+            if (!$isAdminUser && !empty($curUserId)) {
+                $uPerms = $pdo->prepare("SELECT permissions, name FROM users WHERE id = ?");
+                $uPerms->execute([$curUserId]);
+                $userRow = $uPerms->fetch();
+                if ($userRow) {
+                    $curName = $userRow['name'] ?: $curName;
+                    $permsList = $userRow['permissions'];
+                    if ($permsList) {
+                        $perms = array_map('trim', explode(',', $permsList));
+                        if (in_array('sell_without_stock', $perms) || in_array('override_stock_policy', $perms)) {
+                            $hasOverridePerm = true;
+                        }
+                    }
+                }
+            }
+
+            foreach ($input['items'] as $item) {
+                // قفل السطر الخاص بالمنتج (FOR UPDATE) لضمان اتساق مستويات المخزون ومنع التعارض
+                $stmtStock = $pdo->prepare("SELECT stockQuantity, name, barcode FROM products WHERE id = ? FOR UPDATE");
+                $stmtStock->execute([$item['id']]);
+                $prod = $stmtStock->fetch();
+                if ($prod) {
+                    $qty = (float)$item['quantity'];
+                    $currentStock = (float)$prod['stockQuantity'];
+                    $newStock = $currentStock - $qty;
+                    if ($newStock < 0) {
+                        // المخزون غير كافٍ، نتحقق من السياسة
+                        if ($policy === 'prevent') {
+                            sendErr("عذراً، المخزون غير كافٍ للمنتج ({$prod['name']}). المتاح: {$currentStock}.");
+                        } else if ($policy === 'admin_only' && !$isAdminUser && !$hasOverridePerm) {
+                            sendErr("عذراً، البيع بدون مخزون مسموح للمدير فقط. المنتج ({$prod['name']}) المتاح منه: {$currentStock}.");
+                        } else if ($policy === 'allow_negative') {
+                            if ($newStock < -$negativeLimit) {
+                                sendErr("عذراً، تجاوز الحد الأقصى للمخزون السالب للمنتج ({$prod['name']}). الحد المسموح: -{$negativeLimit}، بينما المطلوب سيصل إلى {$newStock}.");
+                            }
+                        }
+                        
+                        // تسجيل تجاوز المخزون في سجل التدقيق والمراجعة
+                        $stmtLog = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'SELL_OUT_OF_STOCK', ?, ?)");
+                        $stmtLog->execute([
+                            $curUserId ?: 'admin',
+                            $shiftId,
+                            json_encode([
+                                'userName' => $curName,
+                                'userRole' => $curRole ?: 'admin',
+                                'productId' => $item['id'],
+                                'productName' => $prod['name'],
+                                'barcode' => $prod['barcode'],
+                                'requestedQty' => $qty,
+                                'availableStock' => $currentStock,
+                                'remainingStockAfter' => $newStock,
+                                'policyUsed' => $policy,
+                                'negativeLimit' => $negativeLimit,
+                                'orderId' => $id
+                            ], JSON_UNESCAPED_UNICODE),
+                            time() * 1000
+                        ]);
+                    }
+                }
+            }
 
             // خصم الكميات الجديدة من المخزن
             foreach ($input['items'] as $item) {

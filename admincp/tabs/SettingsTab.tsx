@@ -19,7 +19,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
     delivery_fee: '0',
     homepage_title: 'سوق العصر - أول سوق إلكتروني في فاقوس',
     homepage_description: 'تسوق أفضل الخضروات، الفواكه، ومنتجات السوبر ماركت في فاقوس أونلاين بضغطة زر.',
-    homepage_keywords: 'سوق العصر، فاقوس، سوبر ماركت فاقوس، خضروات فاقوس، توصيل فاقوس'
+    homepage_keywords: 'سوق العصر، فاقوس، سوبر ماركت فاقوس، خضروات فاقوس، توصيل فاقوس',
+    out_of_stock_policy: 'prevent',
+    negative_stock_limit: '0'
   });
 
   // بيانات المدير
@@ -161,6 +163,59 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
           className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50"
         >
           {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات التوصيل 💾'}
+        </button>
+      </section>
+
+      {/* القسم الجديد: سياسة المخزون والبيع */}
+      <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 space-y-8">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm">📦</div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800">سياسة بيع المنتجات عند نفاد المخزون</h3>
+            <p className="text-slate-400 text-xs font-bold font-Cairo">تحديد سلوك الكاشير ونقاط البيع عند محاولة بيع منتج منتهي المخزون</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">سياسة البيع</label>
+            <select 
+              value={storeSettings.out_of_stock_policy}
+              onChange={e => setStoreSettings({...storeSettings, out_of_stock_policy: e.target.value})}
+              className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-bold text-sm transition-all shadow-inner"
+            >
+              <option value="prevent">منع البيع نهائياً (حظر البيع)</option>
+              <option value="admin_only">السماح للمدير فقط بالبيع</option>
+              <option value="allow_any">السماح للجميع بالبيع في أي حال</option>
+              <option value="allow_negative">السماح حتى حد مخزون سالب محدد</option>
+            </select>
+          </div>
+
+          {storeSettings.out_of_stock_policy === 'allow_negative' && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">حد المخزون السالب المسموح به</label>
+              <div className="relative">
+                <input 
+                  type="number"
+                  min="0"
+                  value={storeSettings.negative_stock_limit}
+                  onChange={e => setStoreSettings({...storeSettings, negative_stock_limit: e.target.value})}
+                  className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-2xl outline-none font-black text-lg transition-all shadow-inner"
+                  placeholder="0"
+                />
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 font-bold">وحدة</span>
+              </div>
+              <p className="text-[9px] text-slate-400 font-bold mr-2">مثال: إذا كان الحد 10، فسيسمح بخصم الكمية حتى يصل المخزون إلى -10.</p>
+            </div>
+          )}
+        </div>
+
+        <button 
+          onClick={handleSaveStoreSettings}
+          disabled={isSaving}
+          className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
+        >
+          {isSaving ? 'جاري الحفظ...' : 'حفظ سياسة المخزون 💾'}
         </button>
       </section>
 

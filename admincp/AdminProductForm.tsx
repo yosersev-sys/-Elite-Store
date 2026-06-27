@@ -57,11 +57,12 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
     supplierId: '',
     stockQuantity: '0',
     barcode: '',
-    unit: 'piece' as 'piece' | 'kg' | 'gram', 
+    unit: 'piece' as 'piece' | 'kg' | 'gram' | 'carton' | 'box' | 'bottle' | 'liter' | 'meter', 
     sizes: '',
     colors: '',
     images: [] as string[],
-    batches: [] as StockBatch[]
+    batches: [] as StockBatch[],
+    reorderLevel: '5'
   });
 
   const [seoData, setSeoData] = useState<SeoSettings>({
@@ -113,7 +114,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
           sizes: product.sizes?.join(', ') || '',
           colors: product.colors?.join(', ') || '',
           images: product.images || [],
-          batches: product.batches || []
+          batches: product.batches || [],
+          reorderLevel: product.reorderLevel?.toString() || '5'
         });
         
         if (product.seoSettings) {
@@ -308,7 +310,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
         batches: formData.batches,
         createdAt: product ? product.createdAt : Date.now(),
         salesCount: product ? product.salesCount : 0,
-        seoSettings: seoData
+        seoSettings: seoData,
+        reorderLevel: parseFloat(formData.reorderLevel) || 5
       };
       await onSubmit(productData);
     } catch (err) {
@@ -319,9 +322,17 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
   };
 
   const getUnitAr = (u: string) => {
-    if (u === 'kg') return 'كيلو';
-    if (u === 'gram') return 'جرام';
-    return 'وحدة';
+    switch (u) {
+      case 'piece': return 'قطعة';
+      case 'carton': return 'كرتونة';
+      case 'box': return 'علبة';
+      case 'bottle': return 'زجاجة';
+      case 'kg': return 'كجم';
+      case 'gram': return 'جرام';
+      case 'liter': return 'لتر';
+      case 'meter': return 'متر';
+      default: return 'قطعة';
+    }
   };
 
   return (
@@ -467,9 +478,14 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
               <select value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value as any})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
-                <option value="piece">وحدة/قطعة</option>
-                <option value="kg">كيلو جرام</option>
+                <option value="piece">قطعة</option>
+                <option value="carton">كرتونة</option>
+                <option value="box">علبة</option>
+                <option value="bottle">زجاجة</option>
+                <option value="kg">كجم (كيلو جرام)</option>
                 <option value="gram">جرام</option>
+                <option value="liter">لتر</option>
+                <option value="meter">متر</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -488,6 +504,16 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                  <button type="button" onClick={handleGenerateBarcode} className="bg-indigo-600 text-white px-5 rounded-2xl shadow-lg">✨</button>
                  <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-5 rounded-2xl shadow-lg">📷</button>
               </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">حد إعادة الطلب (تنبيه النواقص)</label>
+              <input 
+                type="number"
+                min="0"
+                value={formData.reorderLevel}
+                onChange={e => setFormData({...formData, reorderLevel: e.target.value})}
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner"
+              />
             </div>
           </div>
         </section>

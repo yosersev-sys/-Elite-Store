@@ -456,7 +456,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <AdminInvoiceForm products={products} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
+        return <AdminInvoiceForm products={products} categories={categories} currentUser={currentUser} onRefreshData={() => loadData(true)} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
       default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={setSearchQuery} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); if (ex) return prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x); return [...prev, {...p, quantity: 1}]; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} />;
     }
   };
@@ -532,7 +532,7 @@ const App: React.FC = () => {
                 </form>
               </div>
             ) : (
-              <AdminInvoiceForm products={products} users={users} orders={orders} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
+              <AdminInvoiceForm products={products} users={users} orders={orders} categories={categories} currentUser={currentUser} onRefreshData={() => loadData(true)} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
             )
           ) : (
             <AdminDashboard 

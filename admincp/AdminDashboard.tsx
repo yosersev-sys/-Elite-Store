@@ -117,7 +117,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     }
   };
 
-  const lowStockCount = safeProducts.filter(p => Number(p.stockQuantity || 0) < 5).length;
+  const lowStockCount = safeProducts.filter(p => Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5)).length;
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[90vh] bg-white rounded-[1.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">

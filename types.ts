@@ -6,6 +6,7 @@ export interface User {
   role: 'user' | 'admin';
   createdAt: number;
   balance?: number;
+  permissions?: string[];
 }
 
 export interface CustomerLedgerEntry {
@@ -85,6 +86,7 @@ export interface Product {
   salesCount?: number;
   seoSettings?: SeoSettings;
   batches?: StockBatch[]; 
+  reorderLevel?: number;
 }
 
 export interface CartItem extends Product {

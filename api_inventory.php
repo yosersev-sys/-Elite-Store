@@ -31,23 +31,89 @@ switch ($action) {
         break;
 
     case 'add_product':
-        if (!isAdmin()) sendErr('غير مصرح');
-        $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, wholesalePrice, categoryId, supplierId, images, stockQuantity, unit, barcode, batches, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
-        $stmt->execute([
-            $input['id'], $input['name'], $input['description'], $input['price'], $input['wholesalePrice'] ?? 0,
-            $input['categoryId'], $input['supplierId'] ?? null, json_encode($input['images']),
-            $input['stockQuantity'], $input['unit'], $input['barcode'] ?? null, '[]', time()*1000
-        ]);
-        sendRes(['status' => 'success']);
+        $userId = $_SESSION['user']['id'] ?? '';
+        $role = $_SESSION['user']['role'] ?? '';
+        $hasPerm = false;
+        if ($role === 'admin') {
+            $hasPerm = true;
+        } else if (!empty($userId)) {
+            $uPerms = $pdo->prepare("SELECT permissions FROM users WHERE id = ?");
+            $uPerms->execute([$userId]);
+            $permsList = $uPerms->fetchColumn();
+            if ($permsList) {
+                $perms = array_map('trim', explode(',', $permsList));
+                if (in_array('add_products', $perms)) {
+                    $hasPerm = true;
+                }
+            }
+        }
+        if (!$hasPerm) {
+            sendErr('عذراً، لا تملك الصلاحيات الكافية لإضافة منتجات جديدة.');
+        }
+
+        $barcode = !empty($input['barcode']) ? trim($input['barcode']) : null;
+        if ($barcode) {
+            $checkBarcode = $pdo->prepare("SELECT * FROM products WHERE barcode = ?");
+            $checkBarcode->execute([$barcode]);
+            $existingProduct = $checkBarcode->fetch();
+            if ($existingProduct) {
+                $existingProduct['images'] = json_decode($existingProduct['images'] ?? '[]', true) ?: [];
+                $existingProduct['batches'] = json_decode($existingProduct['batches'] ?? '[]', true) ?: [];
+                $existingProduct['price'] = (float)$existingProduct['price'];
+                $existingProduct['stockQuantity'] = (float)$existingProduct['stockQuantity'];
+                sendRes([
+                    'status' => 'barcode_exists',
+                    'message' => 'هذا الباركود مسجل بالفعل لمنتج آخر.',
+                    'product' => $existingProduct
+                ]);
+            }
+        }
+
+        $productId = $input['id'] ?? ('prod_' . time() . '_' . rand(100, 999));
+        $reorderLevel = isset($input['reorderLevel']) ? (float)$input['reorderLevel'] : 5.00;
+        
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, wholesalePrice, categoryId, supplierId, images, stockQuantity, unit, barcode, batches, reorderLevel, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([
+                $productId, $input['name'], $input['description'] ?? '', $input['price'], $input['wholesalePrice'] ?? 0,
+                $input['categoryId'], $input['supplierId'] ?? null, json_encode($input['images'] ?? []),
+                $input['stockQuantity'] ?? 0, $input['unit'] ?? 'piece', $barcode, '[]', $reorderLevel, time()*1000
+            ]);
+            
+            $activeShift = $pdo->query("SELECT id FROM shifts WHERE status = 'open' LIMIT 1")->fetch();
+            $shiftId = $activeShift ? $activeShift['id'] : null;
+            
+            $stmtLog = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'ADD_PRODUCT_QUICK', ?, ?)");
+            $stmtLog->execute([
+                $userId,
+                $shiftId,
+                json_encode([
+                    'productId' => $productId,
+                    'name' => $input['name'],
+                    'barcode' => $barcode,
+                    'stockQuantity' => $input['stockQuantity'] ?? 0,
+                    'price' => $input['price']
+                ], JSON_UNESCAPED_UNICODE),
+                time() * 1000
+            ]);
+            
+            $pdo->commit();
+            sendRes(['status' => 'success']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            sendErr('فشل في حفظ المنتج الجديد: ' . $e->getMessage());
+        }
         break;
 
     case 'update_product':
         if (!isAdmin()) sendErr('غير مصرح');
-        $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, wholesalePrice=?, categoryId=?, supplierId=?, images=?, stockQuantity=?, unit=?, barcode=?, batches=? WHERE id=?");
+        $reorderLevel = isset($input['reorderLevel']) ? (float)$input['reorderLevel'] : 5.00;
+        $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, wholesalePrice=?, categoryId=?, supplierId=?, images=?, stockQuantity=?, unit=?, barcode=?, batches=?, reorderLevel=? WHERE id=?");
         $stmt->execute([
             $input['name'], $input['description'], $input['price'], $input['wholesalePrice'],
             $input['categoryId'], $input['supplierId'], json_encode($input['images']),
-            $input['stockQuantity'], $input['unit'], $input['barcode'], json_encode($input['batches'] ?? []), $input['id']
+            $input['stockQuantity'], $input['unit'], $input['barcode'], json_encode($input['batches'] ?? []), $reorderLevel, $input['id']
         ]);
         sendRes(['status' => 'success']);
         break;

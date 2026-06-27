@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Product, Order, CartItem, User } from '../types';
+import { Product, Order, CartItem, User, Category } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
 
@@ -8,16 +8,19 @@ interface AdminInvoiceFormProps {
   products: Product[];
   users: User[];
   orders: Order[];
+  categories?: Category[];
+  currentUser?: User | null;
   globalDeliveryFee: number;
   onSubmit: (order: Order) => Promise<void> | void;
   onCancel: () => void;
+  onRefreshData?: () => void;
   initialCustomerName?: string;
   initialPhone?: string;
   order?: Order | null;
 }
 
 const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ 
-  products, users = [], orders = [], globalDeliveryFee, onSubmit, onCancel, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null 
+  products, users = [], orders = [], categories = [], currentUser = null, globalDeliveryFee, onSubmit, onCancel, onRefreshData, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null 
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
   const [isDeliveryEnabled, setIsDeliveryEnabled] = useState<boolean>(false);
@@ -43,6 +46,30 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [invoiceDiscountValue, setInvoiceDiscountValue] = useState<number>(0);
   const [invoiceDiscountType, setInvoiceDiscountType] = useState<'fixed' | 'percent'>('fixed');
   const [editReason, setEditReason] = useState<string>('');
+
+  // Out of stock & barcode quick add states
+  const [storeSettings, setStoreSettings] = useState({ out_of_stock_policy: 'prevent', negative_stock_limit: '0' });
+  const [unregisteredBarcode, setUnregisteredBarcode] = useState<string | null>(null);
+  const [quickAddForm, setQuickAddForm] = useState({
+    name: '',
+    categoryId: '',
+    wholesalePrice: '',
+    price: '',
+    stockQuantity: '0',
+    unit: 'piece'
+  });
+  const [isSubmittingQuickAdd, setIsSubmittingQuickAdd] = useState(false);
+  const [insufficientStockProduct, setInsufficientStockProduct] = useState<{ product: Product; requestedQty: number } | null>(null);
+
+  useEffect(() => {
+    ApiService.getStoreSettings()
+      .then(s => {
+        if (s) {
+          setStoreSettings(prev => ({ ...prev, ...s }));
+        }
+      })
+      .catch(err => console.error("Failed to load settings in AdminInvoiceForm", err));
+  }, []);
 
   const normalizePhone = (phone: string) => {
     const cleaned = phone.replace(/\D/g, '');
@@ -147,30 +174,90 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     ).slice(0, 8);
   }, [products, searchQuery]);
 
-  const addItemToInvoice = (product: Product) => {
-    if (!order && product.stockQuantity <= 0) {
-      alert('عذراً، هذا المنتج غير متوفر في المخزن حالياً!');
+  const triggerQuickAdd = (barcode: string) => {
+    const isUserAdmin = currentUser?.role === 'admin';
+    const hasAddProductsPerm = currentUser?.permissions?.includes('add_products');
+    
+    if (!isUserAdmin && !hasAddProductsPerm) {
+      alert("عذراً، هذا الباركود غير مسجل وليس لديك صلاحية إضافة أصناف جديدة.");
+      setSearchQuery('');
+      return;
+    }
+
+    setUnregisteredBarcode(barcode);
+    setQuickAddForm({
+      name: '',
+      categoryId: categories[0]?.id || '',
+      wholesalePrice: '',
+      price: '',
+      stockQuantity: '1',
+      unit: 'piece'
+    });
+    setSearchQuery('');
+  };
+
+  const addItemToInvoice = (product: Product, bypassStockCheck = false) => {
+    const existing = invoiceItems.find(item => item.id === product.id);
+    const step = product.unit === 'kg' ? 0.1 : 1;
+    const requestedQty = existing ? Number((existing.quantity + step).toFixed(3)) : 1;
+    
+    const availableInStock = order 
+       ? product.stockQuantity + (order.items.find(i => i.id === product.id)?.quantity || 0)
+       : product.stockQuantity;
+
+    if (!bypassStockCheck && requestedQty > availableInStock) {
+      setInsufficientStockProduct({ product, requestedQty });
       return;
     }
     
     setInvoiceItems(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        const availableInStock = order 
-           ? product.stockQuantity + (order.items.find(i => i.id === product.id)?.quantity || 0)
-           : product.stockQuantity;
-
-        if (existing.quantity >= availableInStock) {
-          alert('وصلت للحد الأقصى المتاح في المخزن لهذا المنتج');
-          return prev;
-        }
-        const step = existing.unit === 'kg' ? 0.1 : 1;
+      const ex = prev.find(item => item.id === product.id);
+      if (ex) {
         return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: Number((item.quantity + step).toFixed(3)) } : item
+          item.id === product.id ? { ...item, quantity: requestedQty } : item
         );
       }
       return [...prev, { ...product, quantity: 1, discountType: 'fixed', discountValue: 0 }];
     });
+  };
+
+  const updateQuantity = (id: string, delta: number, bypassStockCheck = false) => {
+    const item = invoiceItems.find(x => x.id === id);
+    if (!item) return;
+    
+    const product = products.find(p => p.id === id);
+    const newQty = Math.max(0.001, Number((item.quantity + delta).toFixed(3)));
+    
+    const availableInStock = (order && product)
+       ? product.stockQuantity + (order.items.find(i => i.id === id)?.quantity || 0)
+       : (product?.stockQuantity || 0);
+
+    if (product && !bypassStockCheck && newQty > availableInStock) {
+      setInsufficientStockProduct({ product, requestedQty: newQty });
+      return;
+    }
+
+    setInvoiceItems(prev => prev.map(x => x.id === id ? { ...x, quantity: newQty } : x));
+  };
+
+  const setDirectQuantity = (id: string, value: string, bypassStockCheck = false) => {
+    const val = parseFloat(value);
+    if (isNaN(val)) return;
+    
+    const item = invoiceItems.find(x => x.id === id);
+    if (!item) return;
+
+    const product = products.find(p => p.id === id);
+    const availableInStock = (order && product)
+       ? product.stockQuantity + (order.items.find(i => i.id === id)?.quantity || 0)
+       : (product?.stockQuantity || 0);
+
+    if (product && !bypassStockCheck && val > availableInStock) {
+      setInsufficientStockProduct({ product, requestedQty: Number(val.toFixed(3)) });
+      return;
+    }
+
+    setInvoiceItems(prev => prev.map(x => x.id === id ? { ...x, quantity: Number(val.toFixed(3)) } : x));
   };
 
   useEffect(() => {
@@ -184,45 +271,17 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     }
   }, [searchQuery, products]);
 
-  const updateQuantity = (id: string, delta: number) => {
-    setInvoiceItems(prev => prev.map(item => {
-      if (item.id === id) {
-        const product = products.find(p => p.id === id);
-        const newQty = Math.max(0.001, Number((item.quantity + delta).toFixed(3)));
-        
-        const availableInStock = (order && product)
-           ? product.stockQuantity + (order.items.find(i => i.id === id)?.quantity || 0)
-           : (product?.stockQuantity || 0);
+  const handleBarcodeSearchOrTriggerNotFound = () => {
+    const q = searchQuery.trim();
+    if (!q) return;
 
-        if (product && newQty > availableInStock) {
-          alert('الكمية المطلوبة غير متوفرة بالكامل في المخزن');
-          return item;
-        }
-        return { ...item, quantity: newQty };
-      }
-      return item;
-    }));
-  };
-
-  const setDirectQuantity = (id: string, value: string) => {
-    const val = parseFloat(value);
-    if (isNaN(val)) return;
-    
-    setInvoiceItems(prev => prev.map(item => {
-      if (item.id === id) {
-        const product = products.find(p => p.id === id);
-        const availableInStock = (order && product)
-           ? product.stockQuantity + (order.items.find(i => i.id === id)?.quantity || 0)
-           : (product?.stockQuantity || 0);
-
-        if (product && val > availableInStock) {
-          alert('الكمية المدخلة تتجاوز المتاح بالمخزن');
-          return item;
-        }
-        return { ...item, quantity: Number(val.toFixed(3)) };
-      }
-      return item;
-    }));
+    const exactMatch = products.find(p => p.barcode && String(p.barcode) === q);
+    if (exactMatch) {
+      addItemToInvoice(exactMatch);
+      setSearchQuery('');
+    } else {
+      triggerQuickAdd(q);
+    }
   };
 
   const removeItem = (id: string) => {
@@ -382,13 +441,241 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   };
 
   const handleScanResult = (code: string) => {
-    setSearchQuery(code);
     setShowScanner(false);
+    const q = code.trim();
+    if (!q) return;
+    const exactMatch = products.find(p => p.barcode && String(p.barcode) === q);
+    if (exactMatch) {
+      addItemToInvoice(exactMatch);
+    } else {
+      triggerQuickAdd(q);
+    }
+  };
+
+  const handleQuickAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unregisteredBarcode) return;
+    
+    const finalPrice = parseFloat(quickAddForm.price);
+    const finalWholesale = parseFloat(quickAddForm.wholesalePrice) || 0;
+    const finalStock = parseFloat(quickAddForm.stockQuantity) || 0;
+
+    if (!quickAddForm.name.trim()) return alert('يرجى إدخال اسم المنتج');
+    if (!quickAddForm.categoryId) return alert('يرجى اختيار القسم');
+    if (isNaN(finalPrice) || finalPrice <= 0) return alert('يرجى إدخال سعر بيع صحيح');
+
+    setIsSubmittingQuickAdd(true);
+    try {
+      const payload = {
+        id: 'prod_' + Date.now().toString().slice(-8),
+        name: quickAddForm.name.trim(),
+        description: quickAddForm.name.trim(),
+        price: finalPrice,
+        wholesalePrice: finalWholesale,
+        categoryId: quickAddForm.categoryId,
+        stockQuantity: finalStock,
+        unit: quickAddForm.unit,
+        barcode: unregisteredBarcode,
+        images: ['/assets/images/placeholder.png']
+      };
+
+      const result = await ApiService.addProduct(payload as any);
+      
+      if (result && result.status === 'barcode_exists') {
+        alert('تنبيه: قام كاشير آخر بإضافة هذا المنتج للتو. تم استيراد بياناته وإضافته للفاتورة.');
+        const existingProd = result.product;
+        if (existingProd) {
+          addItemToInvoice(existingProd, true);
+        }
+        if (onRefreshData) onRefreshData();
+        setUnregisteredBarcode(null);
+        setTimeout(() => searchInputRef.current?.focus(), 200);
+      } else if (result && result.success) {
+        if (onRefreshData) onRefreshData();
+        const addedProduct: Product = {
+          ...payload,
+          batches: [],
+          createdAt: Date.now()
+        } as any;
+        
+        setInvoiceItems(prev => [...prev, { ...addedProduct, quantity: 1, discountType: 'fixed', discountValue: 0 }]);
+        setUnregisteredBarcode(null);
+        setTimeout(() => searchInputRef.current?.focus(), 200);
+      } else {
+        alert(result?.message || 'فشلت إضافة المنتج');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ غير متوقع');
+    } finally {
+      setIsSubmittingQuickAdd(false);
+    }
   };
 
   return (
     <div className="max-w-7xl mx-auto py-4 md:py-8 px-2 md:px-4 animate-fadeIn">
       {showScanner && <BarcodeScanner onScan={handleScanResult} onClose={() => setShowScanner(false)} />}
+      
+      {unregisteredBarcode && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => !isSubmittingQuickAdd && setUnregisteredBarcode(null)}></div>
+          <div className="relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl p-8 animate-slideUp max-h-[90vh] overflow-y-auto no-scrollbar">
+            <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">🔍</div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2 text-center">الباركود غير مسجل!</h3>
+            <p className="text-slate-500 font-bold text-xs mb-6 text-center font-Cairo">
+              الباركود <code className="bg-slate-100 px-2 py-0.5 rounded text-indigo-600 font-mono text-sm">{unregisteredBarcode}</code> غير موجود بالسيستم. هل تود إضافته سريعاً؟
+            </p>
+            <form onSubmit={handleQuickAddSubmit} className="space-y-4 text-right">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 mr-2">الباركود (للقراءة فقط)</label>
+                  <input readOnly value={unregisteredBarcode} className="w-full px-5 py-3 bg-slate-100 rounded-xl outline-none font-mono text-sm text-slate-500 text-center" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 mr-2">اسم المنتج</label>
+                  <input required value={quickAddForm.name} onChange={e => setQuickAddForm({...quickAddForm, name: e.target.value})} placeholder="مثال: جهينة حليب 1 لتر" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-bold text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 mr-2">القسم</label>
+                  <select required value={quickAddForm.categoryId} onChange={e => setQuickAddForm({...quickAddForm, categoryId: e.target.value})} className="w-full px-5 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-bold text-sm">
+                    <option value="">-- اختر القسم --</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 mr-2">وحدة البيع</label>
+                  <select value={quickAddForm.unit} onChange={e => setQuickAddForm({...quickAddForm, unit: e.target.value})} className="w-full px-5 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-bold text-sm">
+                    <option value="piece">قطعة</option>
+                    <option value="carton">كرتونة</option>
+                    <option value="box">علبة</option>
+                    <option value="bottle">زجاجة</option>
+                    <option value="kg">كجم (كيلو جرام)</option>
+                    <option value="gram">جرام</option>
+                    <option value="liter">لتر</option>
+                    <option value="meter">متر</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 mr-2">سعر الشراء (التكلفة)</label>
+                  <input type="number" step="any" required value={quickAddForm.wholesalePrice} onChange={e => setQuickAddForm({...quickAddForm, wholesalePrice: e.target.value})} placeholder="0.00" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-bold text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 mr-2">سعر البيع</label>
+                  <input type="number" step="any" required value={quickAddForm.price} onChange={e => setQuickAddForm({...quickAddForm, price: e.target.value})} placeholder="0.00" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-bold text-sm" />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[10px] font-black text-slate-400 mr-2">الكمية الابتدائية بالمخزن</label>
+                  <input type="number" step="any" required value={quickAddForm.stockQuantity} onChange={e => setQuickAddForm({...quickAddForm, stockQuantity: e.target.value})} placeholder="1" className="w-full px-5 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl outline-none font-bold text-sm text-center" />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-6">
+                <button disabled={isSubmittingQuickAdd} type="submit" className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50 font-Cairo">
+                  {isSubmittingQuickAdd ? 'جاري الحفظ...' : 'حفظ المنتج وإضافته للسلة 💾'}
+                </button>
+                <button disabled={isSubmittingQuickAdd} type="button" onClick={() => setUnregisteredBarcode(null)} className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95 font-Cairo">
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {insufficientStockProduct && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setInsufficientStockProduct(null)}></div>
+          <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
+            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">📦</div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2 font-Cairo">عجز المخزون!</h3>
+            <p className="text-slate-500 font-bold text-sm mb-6 font-Cairo">
+              المنتج: <span className="text-slate-800 font-black">{insufficientStockProduct.product.name}</span><br />
+              الكمية المطلوبة: <span className="text-indigo-600 font-black">{insufficientStockProduct.requestedQty}</span> | المتاح حالياً: <span className="text-rose-500 font-black">{(() => {
+                const availableInStock = order 
+                   ? insufficientStockProduct.product.stockQuantity + (order.items.find(i => i.id === insufficientStockProduct.product.id)?.quantity || 0)
+                   : insufficientStockProduct.product.stockQuantity;
+                return availableInStock;
+              })()}</span>
+            </p>
+
+            {/* عرض السياسات المتاحة */}
+            {(() => {
+              const availableInStock = order 
+                 ? insufficientStockProduct.product.stockQuantity + (order.items.find(i => i.id === insufficientStockProduct.product.id)?.quantity || 0)
+                 : insufficientStockProduct.product.stockQuantity;
+
+              const isUserAdmin = currentUser?.role === 'admin';
+              const hasSellWithoutStockPerm = currentUser?.permissions?.includes('sell_without_stock');
+              const hasOverridePerm = currentUser?.permissions?.includes('override_stock_policy');
+              
+              const policy = storeSettings.out_of_stock_policy;
+              const negativeLimit = parseFloat(storeSettings.negative_stock_limit) || 0;
+              const newNegativeStock = availableInStock - insufficientStockProduct.requestedQty;
+
+              let canBypass = false;
+              let message = '';
+
+              if (policy === 'prevent') {
+                message = 'سياسة المتجر الحالية تمنع البيع بدون مخزون نهائياً.';
+              } else if (policy === 'admin_only') {
+                if (isUserAdmin || hasSellWithoutStockPerm || hasOverridePerm) {
+                  canBypass = true;
+                  message = 'سياسة المتجر تمنع البيع للموظفين، ولكن بصفتك مسؤولاً/مديراً يمكنك تجاوز هذا المنع.';
+                } else {
+                  message = 'سياسة المتجر تتطلب صلاحيات مدير/مسؤول لتجاوز العجز.';
+                }
+              } else if (policy === 'allow_any') {
+                canBypass = true;
+                message = 'سياسة المتجر تسمح للجميع بالبيع في أي حال.';
+              } else if (policy === 'allow_negative') {
+                if (Math.abs(newNegativeStock) <= negativeLimit) {
+                  canBypass = true;
+                  message = `مسموح بالبيع بالسالب حتى حد (${negativeLimit}). العجز الحالي سيصل إلى (${Math.abs(newNegativeStock).toFixed(3)}).`;
+                } else {
+                  if (isUserAdmin || hasOverridePerm) {
+                    canBypass = true;
+                    message = `العجز (${Math.abs(newNegativeStock).toFixed(3)}) يتجاوز حد السالب المسموح به (${negativeLimit}). ولكن بصفتك مسؤولاً يمكنك تجاوز المنع.`;
+                  } else {
+                    message = `العجز (${Math.abs(newNegativeStock).toFixed(3)}) يتجاوز حد السالب المسموح به للبيع (${negativeLimit}).`;
+                  }
+                }
+              }
+
+              return (
+                <div className="space-y-6">
+                  <div className="bg-slate-50 p-4 rounded-2xl text-xs font-bold text-slate-600 text-right font-Cairo">
+                    ℹ️ {message}
+                  </div>
+                  <div className="flex gap-3">
+                    {canBypass ? (
+                      <button 
+                        onClick={() => {
+                          const isExisting = invoiceItems.some(x => x.id === insufficientStockProduct.product.id);
+                          if (isExisting) {
+                            setInvoiceItems(prev => prev.map(x => x.id === insufficientStockProduct.product.id ? { ...x, quantity: insufficientStockProduct.requestedQty } : x));
+                          } else {
+                            setInvoiceItems(prev => [...prev, { ...insufficientStockProduct.product, quantity: insufficientStockProduct.requestedQty, discountType: 'fixed', discountValue: 0 }]);
+                          }
+                          setInsufficientStockProduct(null);
+                          setTimeout(() => searchInputRef.current?.focus(), 200);
+                        }} 
+                        className="flex-grow bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg shadow-emerald-100 font-Cairo"
+                      >
+                        إتمام وإضافة للسلة 🛒
+                      </button>
+                    ) : null}
+                    <button 
+                      onClick={() => setInsufficientStockProduct(null)} 
+                      className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95 font-Cairo"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
       
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
@@ -535,6 +822,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                    onKeyDown={e => {
                      if (e.key === 'Enter') {
                        e.preventDefault();
+                       handleBarcodeSearchOrTriggerNotFound();
                      }
                    }}
                    className="w-full px-4 md:px-8 py-3.5 md:py-5 pr-12 md:pr-16 bg-slate-50 rounded-xl md:rounded-3xl outline-none focus:ring-4 focus:ring-emerald-500/10 font-black text-sm md:text-lg border-2 border-transparent focus:border-emerald-500 transition-all shadow-inner disabled:opacity-50"
@@ -567,7 +855,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                               <p className="font-black text-slate-800 text-[11px] md:text-base">{p.name}</p>
                               <p className="text-[8px] md:text-[10px] font-black text-emerald-600">
                                 {p.price} ج.م
-                                <span className="text-slate-400 font-bold mr-2">| المتاح: {p.stockQuantity} {p.unit === 'piece' ? 'قطعة' : p.unit === 'kg' ? 'كجم' : 'جرام'}</span>
+                                <span className="text-slate-400 font-bold mr-2">| المتاح: {p.stockQuantity} {p.unit === 'piece' ? 'قطعة' : p.unit === 'kg' ? 'كجم' : p.unit === 'gram' ? 'جرام' : p.unit === 'carton' ? 'كرتونة' : p.unit === 'box' ? 'علبة' : p.unit === 'bottle' ? 'زجاجة' : p.unit === 'liter' ? 'لتر' : p.unit === 'meter' ? 'متر' : 'قطعة'}</span>
                               </p>
                            </div>
                         </div>

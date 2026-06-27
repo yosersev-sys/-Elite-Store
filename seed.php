@@ -244,6 +244,21 @@ try {
         } catch (PDOException $e) {}
     }
 
+    // هجرة الصلاحيات وحد إعادة الطلب
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM users LIKE 'permissions'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN permissions TEXT NULL");
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM products LIKE 'reorderLevel'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE products ADD COLUMN reorderLevel DECIMAL(10,2) DEFAULT 5.00");
+        }
+    } catch (PDOException $e) {}
+
     // 1.5 إصلاح تعارض ترميز الحقول (Collation Mismatch) لجميع الجداول لضمان التوافق التام
     $tablesToConvert = ['categories', 'products', 'suppliers', 'users', 'settings', 'orders', 'shifts', 'drawer_transactions', 'expenses', 'audit_logs', 'customer_ledger'];
     foreach ($tablesToConvert as $tableToConvert) {
@@ -272,6 +287,16 @@ try {
         $adminPass = password_hash('admin123', PASSWORD_DEFAULT);
         $userStmt = $pdo->prepare("INSERT INTO users (id, name, phone, password, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)");
         $userStmt->execute(['admin_root', 'مدير النظام', $adminPhone, $adminPass, 'admin', time() * 1000]);
+    }
+
+    // 4. تهيئة إعدادات سياسة المخزون الافتراضية
+    $settingsDefaults = [
+        ['out_of_stock_policy', 'prevent'],
+        ['negative_stock_limit', '0']
+    ];
+    $settStmt = $pdo->prepare("INSERT IGNORE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+    foreach ($settingsDefaults as $sett) {
+        $settStmt->execute([$sett[0], $sett[1]]);
     }
 
     echo json_encode(['status' => 'success', 'message' => 'تمت تهيئة قاعدة البيانات بنجاح.'], JSON_UNESCAPED_UNICODE);
