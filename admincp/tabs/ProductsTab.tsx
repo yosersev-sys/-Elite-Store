@@ -134,7 +134,20 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
                   <td className="px-8 py-5">
                     {(() => {
                       const isLow = Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5);
-                      const unitText = p.unit || 'قطعة';
+                      const getUnitArabic = (u: string) => {
+                        switch (u) {
+                          case 'piece': return 'قطعة';
+                          case 'carton': return 'كرتونة';
+                          case 'box': return 'علبة';
+                          case 'bottle': return 'زجاجة';
+                          case 'kg': return 'كجم';
+                          case 'gram': return 'جرام';
+                          case 'liter': return 'لتر';
+                          case 'meter': return 'متر';
+                          default: return u || 'قطعة';
+                        }
+                      };
+                      const unitText = getUnitArabic(p.unit || 'piece');
                       const equivalents = p.units
                         ? p.units
                             .filter(u => u.isActive === 1 && (u.conversionFactor || 1) > 1)
