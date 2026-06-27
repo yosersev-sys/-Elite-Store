@@ -86,6 +86,27 @@ try {
 } catch (Exception $e) {
     // تجاهل
 }
+// التحقق وإضافة أعمدة الخصومات والتوصيل لجدول الطلبات ديناميكياً
+$discountCols = [
+    'discount' => "DECIMAL(10,2) DEFAULT 0.00",
+    'discountType' => "VARCHAR(20) DEFAULT 'fixed'",
+    'discountValue' => "DECIMAL(10,2) DEFAULT 0.00",
+    'deliveryFee' => "DECIMAL(10,2) DEFAULT 0.00",
+    'totalItemDiscounts' => "DECIMAL(10,2) DEFAULT 0.00",
+    'subtotalBeforeDiscount' => "DECIMAL(10,2) DEFAULT 0.00",
+    'finalTotal' => "DECIMAL(10,2) DEFAULT 0.00",
+    'discountsMetadata' => "LONGTEXT NULL"
+];
+foreach ($discountCols as $col => $definition) {
+    try {
+        $checkCol = $pdo->query("SHOW COLUMNS FROM orders LIKE '$col'")->fetch();
+        if (!$checkCol) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN `$col` $definition");
+        }
+    } catch (Exception $e) {
+        // تجاهل
+    }
+}
 
 // التحقق وإضافة عمود dueDate لجدول كشف حساب العميل ديناميكياً
 try {
