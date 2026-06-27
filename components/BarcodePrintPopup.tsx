@@ -22,7 +22,7 @@ const CODE39_MAP: Record<string, string> = {
   '$': '010101000', '/': '010100010', '+': '010001010', '%': '000101010'
 };
 
-// مكون توليد خطوط الباركود (Code 39 Barcode Generator)
+// مكون توليد خطوط الباركود (Code 39 Barcode Generator) باستخدام الحدود Borders لضمان ظهورها في الطباعة
 const BarcodeRenderer: React.FC<{ value: string }> = ({ value }) => {
   const normalized = value.toUpperCase().replace(/[^A-Z0-9\-\.\ \$\/\+\%]/g, '');
   const cleanValue = '*' + (normalized || '0000') + '*';
@@ -55,8 +55,9 @@ const BarcodeRenderer: React.FC<{ value: string }> = ({ value }) => {
           <div 
             key={idx} 
             style={{ 
-              width, 
-              backgroundColor: bar.isBar ? '#000' : 'transparent',
+              width: '0px', 
+              borderLeft: `${width} solid ${bar.isBar ? '#000' : 'transparent'}`,
+              height: '100%',
               flexShrink: 0
             }} 
           />
@@ -149,6 +150,11 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
           }
           #root {
             display: none !important;
+          }
+          html, body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            background: white !important;
           }
           .barcode-print-portal {
             display: flex !important;
