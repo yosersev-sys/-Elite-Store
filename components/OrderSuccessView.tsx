@@ -73,13 +73,13 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
       <style>{`
         @media print {
           @page {
-            size: 50mm auto;
+            size: auto;
             margin: 0;
           }
           html, body {
             margin: 0 !important;
             padding: 0 !important;
-            width: 50mm !important;
+            width: 100% !important;
             height: auto !important;
             background: #fff !important;
             -webkit-print-color-adjust: exact !important;
@@ -93,33 +93,31 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
           }
           .thermal-invoice {
             display: block !important;
-            width: 50mm !important;
-            max-width: 50mm !important;
-            padding: 2mm !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 4mm !important;
             margin: 0 !important;
             border: none !important;
             box-shadow: none !important;
-            position: absolute !important;
-            top: 0 !important;
-            right: 0 !important;
+            position: relative !important;
           }
           .thermal-invoice * {
-            font-size: 8pt !important;
-            line-height: 1.2 !important;
+            font-size: 10pt !important;
+            line-height: 1.3 !important;
             color: #000 !important;
           }
           .thermal-invoice .store-link {
-            font-size: 11pt !important;
+            font-size: 13pt !important;
             font-weight: 900 !important;
-            margin-top: 1mm !important;
+            margin-top: 2mm !important;
           }
           .thermal-invoice h1 {
-            font-size: 12pt !important;
-            margin-bottom: 2mm !important;
+            font-size: 14pt !important;
+            margin-bottom: 3mm !important;
           }
           .item-row {
-            border-bottom: 1px dashed #ccc !important;
-            padding: 1mm 0 !important;
+            border-bottom: 1px dashed #000 !important;
+            padding: 1.5mm 0 !important;
           }
         }
       `}</style>
