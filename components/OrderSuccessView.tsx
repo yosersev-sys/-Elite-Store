@@ -13,10 +13,13 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
-  // معالجة آمنة للقيم الرقمية لمنع الـ Crash
+  // معالجة آمنة للقيم الرقمية لمنع الـ Crash ودعم الخصومات
   const safeTotal = Number(order.total || 0);
-  const safeSubtotal = Number(order.subtotal || 0);
-  const deliveryFee = Math.max(0, safeTotal - safeSubtotal);
+  const safeSubtotal = Number(order.subtotalBeforeDiscount !== undefined ? order.subtotalBeforeDiscount : (order.subtotal || 0));
+  const safeTotalItemDiscounts = Number(order.totalItemDiscounts || 0);
+  const safeInvoiceDiscount = Number(order.discount || 0);
+  const safeDeliveryFee = Number(order.deliveryFee !== undefined ? order.deliveryFee : Math.max(0, safeTotal - safeSubtotal));
+  const customerSavings = safeTotalItemDiscounts + safeInvoiceDiscount;
 
   const handlePrint = () => {
     window.print();
@@ -179,17 +182,27 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
             <span>الإجمالي</span>
           </div>
           <div className="space-y-2">
-            {(order.items || []).map((item, idx) => (
-              <div key={idx} className="item-row text-[11px]">
-                <div className="flex justify-between font-bold text-slate-800">
-                  <span className="truncate pr-1">{item.name}</span>
-                  <span>{(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}</span>
+            {(order.items || []).map((item, idx) => {
+              const itemDisc = item.discountValue ? (item.discountType === 'percent' ? (item.price * item.discountValue / 100) : item.discountValue) : 0;
+              const hasDisc = itemDisc > 0;
+              const priceAfterDisc = item.price - itemDisc;
+              return (
+                <div key={idx} className="item-row text-[11px]">
+                  <div className="flex justify-between font-bold text-slate-800">
+                    <span className="truncate pr-1">{item.name}</span>
+                    <span>{(priceAfterDisc * Number(item.quantity || 0)).toFixed(2)}</span>
+                  </div>
+                  <div className="text-[9px] text-gray-400">
+                    {item.quantity} {item.unit === 'kg' ? 'كجم' : item.unit === 'gram' ? 'جم' : 'ق'} × {priceAfterDisc.toFixed(2)}
+                    {hasDisc && (
+                      <span className="text-rose-500 font-Cairo font-bold mr-1 line-through">
+                        ({Number(item.price).toFixed(2)})
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-[9px] text-gray-400">
-                  {item.quantity} {item.unit === 'kg' ? 'كجم' : item.unit === 'gram' ? 'جم' : 'ق'} × {Number(item.price || 0).toFixed(2)}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -200,18 +213,37 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
             <span className="font-bold">{safeSubtotal.toFixed(2)}</span>
           </div>
           
-          {/* بند التوصيل المطلب */}
-          {deliveryFee > 0 && (
-            <div className="flex justify-between text-[11px] text-emerald-700">
-              <span className="font-bold">رسوم التوصيل 🚚:</span>
-              <span className="font-bold">+{deliveryFee.toFixed(2)}</span>
+          {safeTotalItemDiscounts > 0 && (
+            <div className="flex justify-between text-[11px] text-rose-600">
+              <span>خصم المنتجات:</span>
+              <span className="font-bold">-{safeTotalItemDiscounts.toFixed(2)}</span>
             </div>
           )}
 
-          <div className="flex justify-between text-[14px] font-black pt-1 border-t border-gray-200 mt-1">
-            <span>الإجمالي:</span>
+          {safeInvoiceDiscount > 0 && (
+            <div className="flex justify-between text-[11px] text-rose-600">
+              <span>خصم الفاتورة:</span>
+              <span className="font-bold">-{safeInvoiceDiscount.toFixed(2)}</span>
+            </div>
+          )}
+
+          {safeDeliveryFee > 0 && (
+            <div className="flex justify-between text-[11px] text-slate-700">
+              <span>رسوم التوصيل 🚚:</span>
+              <span className="font-bold">+{safeDeliveryFee.toFixed(2)}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between text-[13px] font-black pt-1 border-t border-gray-200 mt-1">
+            <span>الإجمالي الصافي:</span>
             <span className="text-slate-900">{safeTotal.toFixed(2)} ج.م</span>
           </div>
+
+          {customerSavings > 0 && (
+            <div className="bg-emerald-50 text-emerald-800 text-center p-2 rounded-xl text-[10px] font-black mt-2 border border-emerald-100 animate-pulse no-print">
+              💰 إجمالي التوفير: {customerSavings.toFixed(2)} ج.م
+            </div>
+          )}
           
           <div className="text-center pt-3 text-[9px] font-bold text-gray-400 italic">
             طريقة الدفع: {order.paymentMethod}

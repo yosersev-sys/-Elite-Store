@@ -92,6 +92,8 @@ export interface CartItem extends Product {
   selectedSize?: string;
   selectedColor?: string;
   actualWholesalePrice?: number; 
+  discountType?: 'fixed' | 'percent';
+  discountValue?: number;
 }
 
 export interface Order {
@@ -112,6 +114,14 @@ export interface Order {
   confirmedBy?: string;
   confirmedShiftId?: number;
   paymentStatus?: 'unpaid' | 'partially_paid' | 'paid';
+  discount?: number;
+  discountType?: 'fixed' | 'percent';
+  discountValue?: number;
+  deliveryFee?: number;
+  totalItemDiscounts?: number;
+  subtotalBeforeDiscount?: number;
+  finalTotal?: number;
+  discountsMetadata?: string;
 }
 
 export interface Shift {

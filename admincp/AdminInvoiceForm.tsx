@@ -39,6 +39,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
   const [showPhoneSuggestions, setShowPhoneSuggestions] = useState(false);
 
+  // New discount states
+  const [invoiceDiscountValue, setInvoiceDiscountValue] = useState<number>(0);
+  const [invoiceDiscountType, setInvoiceDiscountType] = useState<'fixed' | 'percent'>('fixed');
+  const [editReason, setEditReason] = useState<string>('');
+
   const normalizePhone = (phone: string) => {
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length > 11 && cleaned.startsWith('20')) {
@@ -112,6 +117,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         paymentMethod: order.paymentMethod || 'نقدي (تم الدفع)',
         status: order.status || 'completed'
       });
+      setInvoiceDiscountValue(order.discountValue || 0);
+      setInvoiceDiscountType(order.discountType || 'fixed');
     }
   }, [order]);
 
@@ -162,7 +169,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           item.id === product.id ? { ...item, quantity: Number((item.quantity + step).toFixed(3)) } : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: 1, discountType: 'fixed', discountValue: 0 }];
     });
   };
 
@@ -222,18 +229,100 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     setInvoiceItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const subtotal = useMemo(() => 
+  const getItemDiscountAmount = (item: CartItem) => {
+    const val = item.discountValue || 0;
+    if (item.discountType === 'percent') {
+      return Number(((item.price * val) / 100).toFixed(2));
+    }
+    return val;
+  };
+
+  const setItemDiscountValue = (id: string, value: string) => {
+    const val = parseFloat(value) || 0;
+    if (val < 0) {
+      alert('لا يمكن إدخال قيم سالبة للخصم');
+      return;
+    }
+    setInvoiceItems(prev => prev.map(item => {
+      if (item.id === id) {
+        const discAmt = item.discountType === 'percent' ? (item.price * val / 100) : val;
+        if (discAmt > item.price) {
+          alert('لا يمكن أن يتجاوز خصم الصنف سعر الصنف نفسه');
+          return item;
+        }
+        return { ...item, discountValue: val };
+      }
+      return item;
+    }));
+  };
+
+  const toggleItemDiscountType = (id: string) => {
+    setInvoiceItems(prev => prev.map(item => {
+      if (item.id === id) {
+        const nextType = item.discountType === 'percent' ? 'fixed' : 'percent';
+        const val = item.discountValue || 0;
+        const discAmt = nextType === 'percent' ? (item.price * val / 100) : val;
+        if (discAmt > item.price) {
+          alert('الخصم بالنوع الجديد يتجاوز سعر الصنف، سيتم تصفير الخصم');
+          return { ...item, discountType: nextType, discountValue: 0 };
+        }
+        return { ...item, discountType: nextType };
+      }
+      return item;
+    }));
+  };
+
+  const subtotalBeforeDiscount = useMemo(() => 
     invoiceItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   , [invoiceItems]);
 
+  const totalItemDiscounts = useMemo(() => 
+    invoiceItems.reduce((sum, item) => sum + (getItemDiscountAmount(item) * item.quantity), 0)
+  , [invoiceItems]);
+
+  const subtotalAfterItemDiscounts = subtotalBeforeDiscount - totalItemDiscounts;
+
+  const invoiceDiscount = useMemo(() => {
+    if (invoiceDiscountType === 'percent') {
+      return Number(((subtotalAfterItemDiscounts * invoiceDiscountValue) / 100).toFixed(2));
+    }
+    return invoiceDiscountValue;
+  }, [subtotalAfterItemDiscounts, invoiceDiscountValue, invoiceDiscountType]);
+
+  const subtotal = subtotalBeforeDiscount; // backward compatibility for state reference
   const deliveryFee = isDeliveryEnabled ? globalDeliveryFee : 0;
-  const total = subtotal + deliveryFee;
+  const total = Math.max(0, Number((subtotalAfterItemDiscounts - invoiceDiscount + deliveryFee).toFixed(2)));
 
   const handleFinalSubmit = async () => {
     if (isSaving) return;
     if (invoiceItems.length === 0) return alert('يرجى إضافة منتجات للفاتورة');
     if (!customerInfo.phone) return alert('يرجى إدخال رقم الهاتف لمتابعة الطلب');
     if (isDeliveryEnabled && !customerInfo.address.trim()) return alert('يرجى إدخال عنوان التوصيل');
+    if (order && order.status === 'completed' && !editReason.trim()) {
+      return alert('يرجى إدخال سبب تعديل الخصومات/الفاتورة للمتابعة المحاسبية');
+    }
+
+    // Frontend validations
+    try {
+      invoiceItems.forEach(item => {
+        const discAmt = getItemDiscountAmount(item);
+        if ((item.discountValue || 0) < 0 || item.price < 0 || item.quantity < 0) {
+          throw new Error('لا يمكن استخدام قيم سالبة في الحسابات');
+        }
+        if (discAmt > item.price) {
+          throw new Error(`خصم الصنف ${item.name} يتجاوز سعره الأصلي`);
+        }
+      });
+      if (invoiceDiscountValue < 0) {
+        throw new Error('خصم الفاتورة لا يمكن أن يكون سالباً');
+      }
+      if (invoiceDiscount > subtotalAfterItemDiscounts) {
+        throw new Error('خصم الفاتورة الإجمالي يتجاوز صافي الفاتورة قبل خصمها');
+      }
+    } catch (err: any) {
+      alert(err.message);
+      return;
+    }
     
     setIsSaving(true);
     try {
@@ -267,12 +356,21 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         city: customerInfo.city,
         address: isDeliveryEnabled ? customerInfo.address.trim() : 'استلام فرع (كاشير)',
         items: invoiceItems,
-        subtotal,
-        total,
+        subtotal: subtotalBeforeDiscount,
+        total: total,
         paymentMethod: customerInfo.paymentMethod,
         status: customerInfo.status as any,
-        createdAt: order ? order.createdAt : Date.now()
-      };
+        createdAt: order ? order.createdAt : Date.now(),
+        discount: invoiceDiscount,
+        discountType: invoiceDiscountType,
+        discountValue: invoiceDiscountValue,
+        deliveryFee: deliveryFee,
+        totalItemDiscounts: totalItemDiscounts,
+        subtotalBeforeDiscount: subtotalBeforeDiscount,
+        finalTotal: total,
+        discountsMetadata: order ? order.discountsMetadata : undefined,
+        editReason: (order && order.status === 'completed') ? editReason : undefined
+      } as any;
 
       await onSubmit(newOrder);
     } catch (err) {
@@ -321,26 +419,65 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                   </div>
                 )}
 
-                <div className="bg-slate-50 p-4 md:p-6 rounded-2xl md:rounded-3xl space-y-2 md:space-y-3">
-                   <div className="flex justify-between font-bold text-xs md:text-sm">
-                      <span className="text-slate-400">العميل:</span>
-                      <span className="text-slate-800 truncate max-w-[150px]">{customerInfo.name}</span>
+                 <div className="bg-slate-50 p-4 md:p-6 rounded-2xl md:rounded-3xl space-y-2 md:space-y-3">
+                    <div className="flex justify-between font-bold text-xs md:text-sm">
+                       <span className="text-slate-400">العميل:</span>
+                       <span className="text-slate-800 truncate max-w-[150px]">{customerInfo.name}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-xs md:text-sm">
+                       <span className="text-slate-400">الدفع:</span>
+                       <span className={customerInfo.paymentMethod.includes('آجل') ? 'text-orange-600' : 'text-emerald-600'}>{customerInfo.paymentMethod}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-xs md:text-sm">
+                       <span className="text-slate-400">الحالة:</span>
+                       <span className={customerInfo.status === 'pending' ? 'text-amber-500 font-black' : customerInfo.status === 'cancelled' ? 'text-rose-500 font-black' : 'text-emerald-600 font-black'}>
+                         {customerInfo.status === 'pending' ? '⏳ معلق بانتظار التأكيد' : customerInfo.status === 'cancelled' ? '✕ ملغاة' : '✓ مكتمل'}
+                       </span>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-slate-200 text-xs font-bold text-slate-500 space-y-1.5 text-right">
+                       <div className="flex justify-between">
+                          <span>المجموع قبل الخصم:</span>
+                          <span className="text-slate-800">{subtotalBeforeDiscount.toFixed(2)} ج.م</span>
+                       </div>
+                       {totalItemDiscounts > 0 && (
+                          <div className="flex justify-between text-rose-600">
+                             <span>خصومات المنتجات:</span>
+                             <span>-{totalItemDiscounts.toFixed(2)} ج.م</span>
+                          </div>
+                       )}
+                       {invoiceDiscount > 0 && (
+                          <div className="flex justify-between text-rose-600">
+                             <span>خصم الفاتورة:</span>
+                             <span>-{invoiceDiscount.toFixed(2)} ج.م</span>
+                          </div>
+                       )}
+                       {isDeliveryEnabled && (
+                          <div className="flex justify-between text-emerald-600">
+                             <span>رسوم التوصيل:</span>
+                             <span>+{globalDeliveryFee.toFixed(2)} ج.م</span>
+                          </div>
+                       )}
+                       <div className="flex justify-between text-xl md:text-2xl font-black pt-2 border-t border-dashed text-slate-800">
+                          <span>الإجمالي الصافي:</span>
+                          <span className="text-emerald-600">{total.toFixed(2)} <small className="text-[10px]">ج.م</small></span>
+                       </div>
+                    </div>
+                 </div>
+
+                 {order && order.status === 'completed' && (
+                   <div className="space-y-1.5 text-right bg-rose-50/50 p-4 rounded-2xl border border-rose-100">
+                      <label className="text-[10px] font-black text-rose-800 uppercase mr-1 block">سبب تعديل الخصومات / الفاتورة (مطلوب للتدقيق)</label>
+                      <input 
+                        required
+                        type="text"
+                        value={editReason}
+                        onChange={e => setEditReason(e.target.value)}
+                        placeholder="مثال: تصحيح أسعار، خصم إضافي متفق عليه..."
+                        className="w-full px-4 py-2.5 bg-white border border-rose-200 rounded-xl outline-none text-xs font-bold focus:border-rose-500 transition-colors"
+                      />
                    </div>
-                   <div className="flex justify-between font-bold text-xs md:text-sm">
-                      <span className="text-slate-400">الدفع:</span>
-                      <span className={customerInfo.paymentMethod.includes('آجل') ? 'text-orange-600' : 'text-emerald-600'}>{customerInfo.paymentMethod}</span>
-                   </div>
-                   <div className="flex justify-between font-bold text-xs md:text-sm">
-                      <span className="text-slate-400">الحالة:</span>
-                      <span className={customerInfo.status === 'pending' ? 'text-amber-500 font-black' : customerInfo.status === 'cancelled' ? 'text-rose-500 font-black' : 'text-emerald-600 font-black'}>
-                        {customerInfo.status === 'pending' ? '⏳ معلق بانتظار التأكيد' : customerInfo.status === 'cancelled' ? '✕ ملغاة' : '✓ مكتمل'}
-                      </span>
-                   </div>
-                   <div className="flex justify-between text-xl md:text-2xl font-black pt-4 mt-2 border-t border-slate-200">
-                      <span className="text-slate-400">الإجمالي:</span>
-                      <span className="text-emerald-600">{total.toFixed(2)} <small className="text-[10px]">ج.م</small></span>
-                   </div>
-                </div>
+                 )}
 
                 <div className="flex flex-col gap-3 pt-2">
                    <button 
@@ -456,49 +593,75 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                         <th className="px-4 md:px-8 py-3 md:py-5">المنتج</th>
                         <th className="px-4 md:px-8 py-3 md:py-5">الكمية / الوزن</th>
                         <th className="px-4 md:px-8 py-3 md:py-5">السعر</th>
+                        <th className="px-4 md:px-8 py-3 md:py-5">الخصم</th>
                         <th className="px-4 md:px-8 py-3 md:py-5 text-left">المجموع</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {invoiceItems.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-4 py-12 text-center text-slate-300 font-bold text-xs">سلة الفاتورة فارغة..</td>
+                          <td colSpan={5} className="px-4 py-12 text-center text-slate-300 font-bold text-xs">سلة الفاتورة فارغة..</td>
                         </tr>
                       ) : (
-                        invoiceItems.map(item => (
-                          <tr key={item.id} className="hover:bg-slate-50/50 transition group">
-                            <td className="px-4 md:px-8 py-3">
-                              <div className="flex flex-col">
-                                <span className="font-black text-slate-800 text-[11px] md:text-sm leading-tight">{item.name}</span>
-                                <span className="text-[9px] text-slate-400 font-black text-right mt-0.5">المخزون المتبقي: {item.stockQuantity} {item.unit === 'piece' ? 'قطعة' : item.unit === 'kg' ? 'كجم' : 'جرام'}</span>
-                                {!isSaving && (
-                                  <button onClick={() => removeItem(item.id)} className="text-[8px] text-rose-400 font-bold text-right mt-0.5 hover:text-rose-600">حذف ✕</button>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 md:px-8 py-3">
-                              <div className="flex items-center gap-1.5 md:gap-2">
-                                <div className="flex items-center bg-slate-50 rounded-lg px-1 py-0.5 border border-slate-100">
-                                  <button disabled={isSaving} onClick={() => updateQuantity(item.id, -(item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">-</button>
+                        invoiceItems.map(item => {
+                          const itemDisc = getItemDiscountAmount(item);
+                          const itemRowTotal = (item.price - itemDisc) * item.quantity;
+                          return (
+                            <tr key={item.id} className="hover:bg-slate-50/50 transition group">
+                              <td className="px-4 md:px-8 py-3">
+                                <div className="flex flex-col">
+                                  <span className="font-black text-slate-800 text-[11px] md:text-sm leading-tight">{item.name}</span>
+                                  <span className="text-[9px] text-slate-400 font-black text-right mt-0.5">المخزون المتبقي: {item.stockQuantity} {item.unit === 'piece' ? 'قطعة' : item.unit === 'kg' ? 'كجم' : 'جرام'}</span>
+                                  {!isSaving && (
+                                    <button onClick={() => removeItem(item.id)} className="text-[8px] text-rose-400 font-bold text-right mt-0.5 hover:text-rose-600">حذف ✕</button>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 md:px-8 py-3">
+                                <div className="flex items-center gap-1.5 md:gap-2">
+                                  <div className="flex items-center bg-slate-50 rounded-lg px-1 py-0.5 border border-slate-100">
+                                    <button disabled={isSaving} onClick={() => updateQuantity(item.id, -(item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">-</button>
+                                    <input 
+                                      disabled={isSaving}
+                                      type="number"
+                                      step={item.unit === 'kg' ? "0.001" : "1"}
+                                      value={item.quantity}
+                                      onChange={(e) => setDirectQuantity(item.id, e.target.value)}
+                                      className="bg-transparent font-black text-[11px] md:text-xs w-14 text-center outline-none disabled:opacity-50"
+                                    />
+                                    <button disabled={isSaving} onClick={() => updateQuantity(item.id, (item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">+</button>
+                                  </div>
+                                  <span className="text-[8px] font-bold text-slate-400">{item.unit === 'kg' ? 'كجم' : 'ق'}</span>
+                                </div>
+                              </td>
+                              <td className="px-4 md:px-8 py-3 font-bold text-slate-500 text-[11px] md:text-sm">{item.price}</td>
+                              <td className="px-4 md:px-8 py-3">
+                                <div className="flex items-center gap-1">
                                   <input 
                                     disabled={isSaving}
                                     type="number"
-                                    step={item.unit === 'kg' ? "0.001" : "1"}
-                                    value={item.quantity}
-                                    onChange={(e) => setDirectQuantity(item.id, e.target.value)}
-                                    className="bg-transparent font-black text-[11px] md:text-xs w-14 text-center outline-none disabled:opacity-50"
+                                    min="0"
+                                    value={item.discountValue || ''}
+                                    onChange={(e) => setItemDiscountValue(item.id, e.target.value)}
+                                    className="w-16 px-1.5 py-1 text-center bg-slate-50 border rounded-lg text-[10px] font-bold outline-none focus:border-emerald-500"
+                                    placeholder="0"
                                   />
-                                  <button disabled={isSaving} onClick={() => updateQuantity(item.id, (item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">+</button>
+                                  <button
+                                    type="button"
+                                    disabled={isSaving}
+                                    onClick={() => toggleItemDiscountType(item.id)}
+                                    className="px-1.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[9px] font-black text-slate-600 border"
+                                  >
+                                    {item.discountType === 'percent' ? '%' : 'ج.م'}
+                                  </button>
                                 </div>
-                                <span className="text-[8px] font-bold text-slate-400">{item.unit === 'kg' ? 'كجم' : 'ق'}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 md:px-8 py-3 font-bold text-slate-500 text-[11px] md:text-sm">{item.price}</td>
-                            <td className="px-4 md:px-8 py-3 text-left">
-                               <span className="font-black text-emerald-600 text-[11px] md:text-sm">{(item.price * item.quantity).toFixed(2)} ج.م</span>
-                            </td>
-                          </tr>
-                        ))
+                              </td>
+                              <td className="px-4 md:px-8 py-3 text-left">
+                                 <span className="font-black text-emerald-600 text-[11px] md:text-sm">{itemRowTotal.toFixed(2)} ج.م</span>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -617,6 +780,37 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     </div>
                  )}
 
+                  {/* خصم الفاتورة */}
+                  <div className="space-y-1.5 border-t border-slate-50 pt-4">
+                     <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest block">خصم إضافي للفاتورة</label>
+                     <div className="flex items-center gap-2">
+                        <input 
+                          disabled={isSaving}
+                          type="number"
+                          min="0"
+                          value={invoiceDiscountValue || ''}
+                          onChange={e => {
+                            const val = parseFloat(e.target.value) || 0;
+                            if (val < 0) {
+                              alert('لا يمكن إدخال قيم سالبة للخصم');
+                              return;
+                            }
+                            setInvoiceDiscountValue(val);
+                          }}
+                          placeholder="0.00"
+                          className="flex-grow px-4 py-3 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl outline-none font-bold text-sm shadow-inner transition-all disabled:opacity-50"
+                        />
+                        <button 
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => setInvoiceDiscountType(p => p === 'percent' ? 'fixed' : 'percent')}
+                          className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-black text-slate-600 border"
+                        >
+                          {invoiceDiscountType === 'percent' ? '%' : 'ج.م'}
+                        </button>
+                     </div>
+                  </div>
+
                  <div className="space-y-2">
                     <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">طريقة الدفع</label>
                     <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border">
@@ -669,14 +863,33 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     </div>
                   )}
 
-                 <div className="space-y-3 pt-4 border-t border-slate-50">
-                    <div className="flex justify-between items-baseline text-lg md:text-3xl font-black text-slate-900 pt-1">
-                       <span className="text-slate-400 text-sm md:text-base">الإجمالي:</span>
-                       <span className="text-emerald-600">{total.toFixed(2)} ج.م</span>
+                 <div className="space-y-2.5 pt-4 border-t border-slate-100 text-[10px] md:text-xs font-bold text-slate-500 text-right">
+                    <div className="flex justify-between">
+                       <span>المجموع قبل الخصم:</span>
+                       <span className="text-slate-800 font-Cairo">{subtotalBeforeDiscount.toFixed(2)} ج.م</span>
                     </div>
-                    {isDeliveryEnabled && (
-                      <p className="text-[9px] text-slate-400 font-bold text-center">شامل رسوم التوصيل ({globalDeliveryFee.toFixed(2)} ج.م)</p>
+                    {totalItemDiscounts > 0 && (
+                      <div className="flex justify-between text-rose-600">
+                         <span>خصومات المنتجات:</span>
+                         <span className="font-Cairo font-black">-{totalItemDiscounts.toFixed(2)} ج.م</span>
+                      </div>
                     )}
+                    {invoiceDiscount > 0 && (
+                      <div className="flex justify-between text-rose-600">
+                         <span>خصم الفاتورة:</span>
+                         <span className="font-Cairo font-black">-{invoiceDiscount.toFixed(2)} ج.م</span>
+                      </div>
+                    )}
+                    {isDeliveryEnabled && (
+                      <div className="flex justify-between text-emerald-600">
+                         <span>رسوم التوصيل:</span>
+                         <span className="font-Cairo">+{globalDeliveryFee.toFixed(2)} ج.م</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-baseline text-lg md:text-3xl font-black text-slate-900 pt-2 border-t border-dashed">
+                       <span className="text-slate-400 text-sm md:text-base">الإجمالي النهائي:</span>
+                       <span className="text-emerald-600 font-Cairo">{total.toFixed(2)} ج.م</span>
+                    </div>
                  </div>
 
                  <button 

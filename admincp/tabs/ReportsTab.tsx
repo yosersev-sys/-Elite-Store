@@ -31,6 +31,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders, adminSummary }) => {
     let totalRevenue = 0;
     let totalCost = 0;
     let totalItemsSold = 0;
+    let totalItemDiscounts = 0;
+    let totalInvoiceDiscounts = 0;
 
     const detailedOrders = periodOrders.map(order => {
       let orderCost = 0;
@@ -44,6 +46,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders, adminSummary }) => {
       const orderProfit = Number(order.total || 0) - orderCost;
       totalRevenue += Number(order.total || 0);
       totalCost += orderCost;
+      totalItemDiscounts += Number(order.totalItemDiscounts || 0);
+      totalInvoiceDiscounts += Number(order.discount || 0);
 
       return {
         ...order,
@@ -63,6 +67,10 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders, adminSummary }) => {
     const netProfit = grossProfit - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     const avgOrderValue = periodOrders.length > 0 ? totalRevenue / periodOrders.length : 0;
+
+    const combinedDiscounts = totalItemDiscounts + totalInvoiceDiscounts;
+    const salesBeforeDiscounts = totalRevenue + combinedDiscounts;
+    const discountRatio = salesBeforeDiscounts > 0 ? (combinedDiscounts / salesBeforeDiscounts) * 100 : 0;
 
     // تصنيف المصروفات
     const categoryBreakdown: Record<string, number> = {};
@@ -87,7 +95,11 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders, adminSummary }) => {
       totalItemsSold,
       topProfitableOrders,
       periodExpenses,
-      categoryBreakdown
+      categoryBreakdown,
+      totalItemDiscounts,
+      totalInvoiceDiscounts,
+      combinedDiscounts,
+      discountRatio
     };
   }, [orders, expenses, reportStart, reportEnd]);
 
@@ -124,6 +136,35 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ orders, adminSummary }) => {
         <KPICard title="صافي الربح (Net Profit)" value={financialData.netProfit} icon="📈" color="emerald" isSpecial />
         <KPICard title="ديون العملاء القائمة" value={adminSummary?.total_customer_debt || 0} icon="⌛" color="amber" />
         <KPICard title="التحصيل المالي والدرج" value={adminSummary?.collected_cash || 0} icon="💵" color="emerald" />
+      </div>
+
+      {/* تقرير الخصومات والتخفيضات */}
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-xl border border-slate-100 space-y-6">
+        <div className="flex items-center gap-4">
+           <div className="w-12 h-12 bg-rose-50 text-rose-550 rounded-2xl flex items-center justify-center text-xl shadow-inner">🏷️</div>
+           <div>
+             <h4 className="font-black text-lg text-slate-800">تحليل الخصومات الممنوحة</h4>
+             <p className="text-slate-400 text-xs font-bold font-Cairo">أثر الخصومات وتوزيعها على الفترات المالية المحددة</p>
+           </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+           <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">خصومات الأصناف</p>
+              <p className="text-xl font-black text-slate-800 font-Cairo">{financialData.totalItemDiscounts.toLocaleString()} <small className="text-[10px] font-bold">ج.م</small></p>
+           </div>
+           <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">خصومات الفواتير</p>
+              <p className="text-xl font-black text-slate-800 font-Cairo">{financialData.totalInvoiceDiscounts.toLocaleString()} <small className="text-[10px] font-bold">ج.م</small></p>
+           </div>
+           <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">إجمالي الخصومات</p>
+              <p className="text-xl font-black text-rose-600 font-Cairo">{financialData.combinedDiscounts.toLocaleString()} <small className="text-[10px] font-bold">ج.م</small></p>
+           </div>
+           <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">نسبة الخصم للمبيعات</p>
+              <p className="text-xl font-black text-slate-800 font-Cairo">{financialData.discountRatio.toFixed(1)}%</p>
+           </div>
+        </div>
       </div>
 
       {/* التحليل البصري والمخطط */}

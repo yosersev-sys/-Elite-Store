@@ -79,7 +79,15 @@ try {
         status VARCHAR(20) DEFAULT 'completed', 
         userId VARCHAR(50), 
         createdAt BIGINT,
-        shiftId INT NULL
+        shiftId INT NULL,
+        discount DECIMAL(10,2) DEFAULT 0.00,
+        discountType VARCHAR(20) DEFAULT 'fixed',
+        discountValue DECIMAL(10,2) DEFAULT 0.00,
+        deliveryFee DECIMAL(10,2) DEFAULT 0.00,
+        totalItemDiscounts DECIMAL(10,2) DEFAULT 0.00,
+        subtotalBeforeDiscount DECIMAL(10,2) DEFAULT 0.00,
+        finalTotal DECIMAL(10,2) DEFAULT 0.00,
+        discountsMetadata LONGTEXT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS shifts (
@@ -214,6 +222,27 @@ try {
             $pdo->exec("ALTER TABLE orders ADD COLUMN returnReason TEXT NULL");
         }
     } catch (PDOException $e) {}
+
+    // هجرة حقول الخصومات والرسوم الإضافية
+    $newColumns = [
+        'discount' => "DECIMAL(10,2) DEFAULT 0.00",
+        'discountType' => "VARCHAR(20) DEFAULT 'fixed'",
+        'discountValue' => "DECIMAL(10,2) DEFAULT 0.00",
+        'deliveryFee' => "DECIMAL(10,2) DEFAULT 0.00",
+        'totalItemDiscounts' => "DECIMAL(10,2) DEFAULT 0.00",
+        'subtotalBeforeDiscount' => "DECIMAL(10,2) DEFAULT 0.00",
+        'finalTotal' => "DECIMAL(10,2) DEFAULT 0.00",
+        'discountsMetadata' => "LONGTEXT NULL"
+    ];
+
+    foreach ($newColumns as $col => $definition) {
+        try {
+            $q = $pdo->query("SHOW COLUMNS FROM orders LIKE '$col'");
+            if (!$q->fetch()) {
+                $pdo->exec("ALTER TABLE orders ADD COLUMN `$col` $definition");
+            }
+        } catch (PDOException $e) {}
+    }
 
     // 1.5 إصلاح تعارض ترميز الحقول (Collation Mismatch) لجميع الجداول لضمان التوافق التام
     $tablesToConvert = ['categories', 'products', 'suppliers', 'users', 'settings', 'orders', 'shifts', 'drawer_transactions', 'expenses', 'audit_logs', 'customer_ledger'];

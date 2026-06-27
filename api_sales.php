@@ -213,6 +213,56 @@ switch ($action) {
                 }
             }
 
+            // التحقق من صحة وقيم الخصومات لمنع التلاعب بالقيمة
+            $subtotalBeforeDiscount = 0.00;
+            $totalItemDiscounts = 0.00;
+            
+            if (empty($input['items'])) {
+                sendErr('خطأ: لا يمكن حفظ فاتورة فارغة.');
+            }
+            
+            foreach ($input['items'] as $item) {
+                $qty = (float)$item['quantity'];
+                $price = (float)$item['price'];
+                $discVal = (float)($item['discountValue'] ?? 0);
+                $discType = $item['discountType'] ?? 'fixed';
+                
+                if ($discVal < 0 || $qty < 0 || $price < 0) {
+                    sendErr('خطأ: لا يمكن استخدام قيم سالبة في الكميات أو الأسعار أو الخصومات.');
+                }
+                
+                $itemDisc = $discType === 'percent' ? ($price * $discVal / 100) : $discVal;
+                if ($itemDisc > $price) {
+                    sendErr("خطأ: خصم الصنف ({$item['name']}) يتجاوز سعر بيعه.");
+                }
+                
+                $subtotalBeforeDiscount += $price * $qty;
+                $totalItemDiscounts += $itemDisc * $qty;
+            }
+            
+            $subtotalAfterItems = $subtotalBeforeDiscount - $totalItemDiscounts;
+            
+            $invDiscVal = (float)($input['discountValue'] ?? 0);
+            $invDiscType = $input['discountType'] ?? 'fixed';
+            if ($invDiscVal < 0) {
+                sendErr('خطأ: لا يمكن استخدام قيم سالبة لخصم الفاتورة.');
+            }
+            
+            $invoiceDiscount = $invDiscType === 'percent' ? ($subtotalAfterItems * $invDiscVal / 100) : $invDiscVal;
+            if ($invoiceDiscount > $subtotalAfterItems) {
+                sendErr('خطأ: قيمة خصم الفاتورة الإجمالي تتجاوز إجمالي المنتجات بعد خصوماتها.');
+            }
+            
+            $deliveryFee = (float)($input['deliveryFee'] ?? 0);
+            if ($deliveryFee < 0) {
+                sendErr('خطأ: لا يمكن استخدام رسوم توصيل سالبة.');
+            }
+            
+            $finalTotal = $subtotalAfterItems - $invoiceDiscount + $deliveryFee;
+            if ($finalTotal < 0) {
+                sendErr('خطأ: المجموع النهائي للفاتورة لا يمكن أن يكون سالباً.');
+            }
+
             $paymentStatus = 'unpaid';
             if ($input['status'] === 'completed') {
                 if (mb_strpos($input['paymentMethod'], 'آجل') !== false) {
@@ -222,16 +272,24 @@ switch ($action) {
                 }
             }
 
-            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt, shiftId, confirmedAt, confirmedById, confirmedShiftId, paymentStatus) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt, shiftId, confirmedAt, confirmedById, confirmedShiftId, paymentStatus, discount, discountType, discountValue, deliveryFee, totalItemDiscounts, subtotalBeforeDiscount, finalTotal, discountsMetadata) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
                 $input['id'], $input['customerName'], $phone, $input['city'] ?? 'سوق العصر', $input['address'],
-                $input['subtotal'], $input['total'], json_encode($input['items']),
+                $subtotalBeforeDiscount, $finalTotal, json_encode($input['items']),
                 $input['paymentMethod'], $input['status'], $userId, time() * 1000,
                 $shiftId,
                 $input['status'] === 'completed' ? time() * 1000 : null,
                 $input['status'] === 'completed' ? ($_SESSION['user']['id'] ?? 'admin') : null,
                 $input['status'] === 'completed' ? $shiftId : null,
-                $paymentStatus
+                $paymentStatus,
+                $invoiceDiscount,
+                $invDiscType,
+                $invDiscVal,
+                $deliveryFee,
+                $totalItemDiscounts,
+                $subtotalBeforeDiscount,
+                $finalTotal,
+                $input['discountsMetadata'] ?? null
             ]);
             foreach ($input['items'] as $item) {
                 $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")->execute([$item['quantity'], $item['quantity'], $item['id']]);
@@ -395,6 +453,76 @@ switch ($action) {
                 ]);
             }
 
+            // التحقق من صحة وقيم الخصومات لمنع التلاعب بالقيمة
+            $subtotalBeforeDiscount = 0.00;
+            $totalItemDiscounts = 0.00;
+            
+            if (empty($input['items'])) {
+                sendErr('خطأ: لا يمكن حفظ فاتورة فارغة.');
+            }
+            
+            foreach ($input['items'] as $item) {
+                $qty = (float)$item['quantity'];
+                $price = (float)$item['price'];
+                $discVal = (float)($item['discountValue'] ?? 0);
+                $discType = $item['discountType'] ?? 'fixed';
+                
+                if ($discVal < 0 || $qty < 0 || $price < 0) {
+                    sendErr('خطأ: لا يمكن استخدام قيم سالبة في الكميات أو الأسعار أو الخصومات.');
+                }
+                
+                $itemDisc = $discType === 'percent' ? ($price * $discVal / 100) : $discVal;
+                if ($itemDisc > $price) {
+                    sendErr("خطأ: خصم الصنف ({$item['name']}) يتجاوز سعر بيعه.");
+                }
+                
+                $subtotalBeforeDiscount += $price * $qty;
+                $totalItemDiscounts += $itemDisc * $qty;
+            }
+            
+            $subtotalAfterItems = $subtotalBeforeDiscount - $totalItemDiscounts;
+            
+            $invDiscVal = (float)($input['discountValue'] ?? 0);
+            $invDiscType = $input['discountType'] ?? 'fixed';
+            if ($invDiscVal < 0) {
+                sendErr('خطأ: لا يمكن استخدام قيم سالبة لخصم الفاتورة.');
+            }
+            
+            $invoiceDiscount = $invDiscType === 'percent' ? ($subtotalAfterItems * $invDiscVal / 100) : $invDiscVal;
+            if ($invoiceDiscount > $subtotalAfterItems) {
+                sendErr('خطأ: قيمة خصم الفاتورة الإجمالي تتجاوز إجمالي المنتجات بعد خصوماتها.');
+            }
+            
+            $deliveryFee = (float)($input['deliveryFee'] ?? 0);
+            if ($deliveryFee < 0) {
+                sendErr('خطأ: لا يمكن استخدام رسوم توصيل سالبة.');
+            }
+            
+            $finalTotal = $subtotalAfterItems - $invoiceDiscount + $deliveryFee;
+            if ($finalTotal < 0) {
+                sendErr('خطأ: المجموع النهائي للفاتورة لا يمكن أن يكون سالباً.');
+            }
+
+            // لو كان الطلب مكتمل والخصومات تغيرت، نسجل ذلك في سجل المراجعة والتدقيق
+            if ($oldOrder['status'] === 'completed') {
+                $oldDisc = (float)($oldOrder['discount'] ?? 0);
+                $newDisc = (float)$invoiceDiscount;
+                $oldItemDisc = (float)($oldOrder['totalItemDiscounts'] ?? 0);
+                $newItemDisc = (float)$totalItemDiscounts;
+                
+                if (abs($oldDisc - $newDisc) > 0.001 || abs($oldItemDisc - $newItemDisc) > 0.001) {
+                    $reason = trim($input['editReason'] ?? 'تم تعديل الخصومات');
+                    $details = "تعديل الخصومات في فاتورة مكتملة #{$id}. خصم الفاتورة القديم: {$oldDisc} ج.م، الجديد: {$newDisc} ج.م. خصم الأصناف القديم: {$oldItemDisc} ج.م، الجديد: {$newItemDisc} ج.م. السبب: {$reason}";
+                    $stmtLog = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'UPDATE_DISCOUNTS', ?, ?)");
+                    $stmtLog->execute([
+                        $_SESSION['user']['id'] ?? 'admin',
+                        $activeShift['id'],
+                        $details,
+                        time() * 1000
+                    ]);
+                }
+            }
+
             // تحديث الطلب
             $shiftId = $oldOrder['shiftId'] ?: $activeShift['id'];
             
@@ -407,11 +535,20 @@ switch ($action) {
                 }
             }
 
-            $stmtUpdate = $pdo->prepare("UPDATE orders SET customerName = ?, phone = ?, city = ?, address = ?, subtotal = ?, total = ?, items = ?, paymentMethod = ?, status = ?, shiftId = ?, confirmedAt = ?, confirmedById = ?, confirmedShiftId = ?, userId = ?, paymentStatus = ? WHERE id = ?");
+            $stmtUpdate = $pdo->prepare("UPDATE orders SET customerName = ?, phone = ?, city = ?, address = ?, subtotal = ?, total = ?, items = ?, paymentMethod = ?, status = ?, shiftId = ?, confirmedAt = ?, confirmedById = ?, confirmedShiftId = ?, userId = ?, paymentStatus = ?, discount = ?, discountType = ?, discountValue = ?, deliveryFee = ?, totalItemDiscounts = ?, subtotalBeforeDiscount = ?, finalTotal = ?, discountsMetadata = ? WHERE id = ?");
             $stmtUpdate->execute([
                 $input['customerName'], $phone, $input['city'] ?? 'سوق العصر', $input['address'],
-                $input['subtotal'], $input['total'], json_encode($input['items']),
-                $input['paymentMethod'], $newStatus, $shiftId, $confirmedAt, $confirmedById, $confirmedShiftId, $userId, $paymentStatus, $id
+                $subtotalBeforeDiscount, $finalTotal, json_encode($input['items']),
+                $input['paymentMethod'], $newStatus, $shiftId, $confirmedAt, $confirmedById, $confirmedShiftId, $userId, $paymentStatus,
+                $invoiceDiscount,
+                $invDiscType,
+                $invDiscVal,
+                $deliveryFee,
+                $totalItemDiscounts,
+                $subtotalBeforeDiscount,
+                $finalTotal,
+                $input['discountsMetadata'] ?? null,
+                $id
             ]);
 
             // خصم الكميات الجديدة من المخزن
