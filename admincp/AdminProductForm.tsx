@@ -678,8 +678,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
             ) : (
               formData.units.map((unit, index) => {
                 return (
-                  <div key={index} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end text-right">
-                    <div className="space-y-1">
+                  <div key={index} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-4 items-end text-right">
+                    <div className="space-y-1 lg:col-span-2">
                       <label className="text-[10px] font-black text-slate-400 mr-2">اسم الوحدة</label>
                       <input 
                         required
@@ -693,7 +693,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs"
                       />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 lg:col-span-3">
                       <label className="text-[10px] font-black text-slate-400 mr-2">الباركود</label>
                       <input 
                         required
@@ -707,7 +707,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs"
                       />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 lg:col-span-2">
                       <label className="text-[10px] font-black text-slate-400 mr-2">سعر البيع</label>
                       <input 
                         required
@@ -723,7 +723,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs text-emerald-600 text-center"
                       />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 lg:col-span-2">
                       <label className="text-[10px] font-black text-slate-400 mr-2">سعر الشراء</label>
                       <input 
                         required
@@ -739,8 +739,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs text-center"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 mr-2">معامل التحويل (يحتوي كم؟)</label>
+                    <div className="space-y-1 lg:col-span-1">
+                      <label className="text-[10px] font-black text-slate-400 mr-2 truncate block" title="معامل التحويل (يحتوي كم؟)">المعامل</label>
                       <input 
                         required
                         type="number"
@@ -756,16 +756,17 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs text-center"
                       />
                     </div>
-                    <div className="flex gap-2 justify-end sm:col-span-2 md:col-span-4 lg:col-span-1">
+                    <div className="flex gap-1.5 justify-end sm:col-span-2 md:col-span-4 lg:col-span-2 items-center">
                       <button 
                         type="button"
                         onClick={() => setFormData(prev => {
                           const updated = prev.units.map((u, i) => ({ ...u, isDefault: i === index ? 1 : 0 }));
                           return { ...prev, units: updated };
                         })}
-                        className={`px-3 py-2.5 rounded-xl font-bold text-[10px] transition-all flex-grow font-Cairo ${unit.isDefault ? 'bg-indigo-600 text-white' : 'bg-white border text-slate-500'}`}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition-all shrink-0 active:scale-95 border cursor-pointer ${unit.isDefault ? 'bg-amber-50 border-amber-200 text-amber-500 shadow-sm' : 'bg-white border-slate-200 text-slate-350 hover:text-amber-500'}`}
+                        title={unit.isDefault ? 'هذه هي العبوة الافتراضية ⭐' : 'تعيين كعبوة افتراضية'}
                       >
-                        {unit.isDefault ? 'الافتراضية ⭐' : 'افتراضي؟'}
+                        ⭐
                       </button>
                       <button 
                         type="button"
@@ -774,7 +775,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                           updated[index].isActive = updated[index].isActive === 1 ? 0 : 1;
                           return { ...prev, units: updated };
                         })}
-                        className={`px-3 py-2.5 rounded-xl font-bold text-[10px] transition-all flex-grow font-Cairo ${unit.isActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}
+                        className={`px-2.5 h-9 rounded-xl flex items-center justify-center text-[10px] font-black transition-all shrink-0 active:scale-95 border cursor-pointer ${unit.isActive ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-rose-50 border-rose-200 text-rose-500'}`}
+                        title={unit.isActive ? 'نشط - اضغط للتعطيل' : 'معطل - اضغط للتفعيل'}
                       >
                         {unit.isActive ? 'نشط' : 'معطل'}
                       </button>
@@ -796,7 +798,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                           };
                           setProductForSticker(tempProd);
                         }}
-                        className="bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 active:scale-95 transition-all cursor-pointer"
+                        className="bg-indigo-50 text-indigo-600 hover:bg-indigo-650 hover:text-white w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 active:scale-95 transition-all cursor-pointer border border-indigo-100"
                         title="طباعة الباركود للوحدة"
                       >
                         🏷️
@@ -817,7 +819,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                             setFormData(prev => ({ ...prev, units: prev.units.filter((_, i) => i !== index) }));
                           }
                         }}
-                        className="bg-rose-500 text-white w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 active:scale-95 transition-all"
+                        className="bg-rose-500 text-white w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 active:scale-95 transition-all border border-rose-600 cursor-pointer"
+                        title="حذف الوحدة"
                       >
                         ✕
                       </button>
