@@ -10,9 +10,10 @@ interface ProductsTabProps {
   onOpenEditForm: (product: Product) => void;
   onDeleteProduct: (id: string) => void;
   initialFilter?: string;
+  onPrintBarcode?: (product: Product) => void;
 }
 
-const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSearch, setAdminSearch, onOpenEditForm, onDeleteProduct, initialFilter }) => {
+const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSearch, setAdminSearch, onOpenEditForm, onDeleteProduct, initialFilter, onPrintBarcode }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [currentFilter, setCurrentFilter] = useState(initialFilter || 'all');
   const itemsPerPage = 10;
@@ -175,6 +176,13 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex justify-center gap-2">
+                      <button 
+                        onClick={() => onPrintBarcode?.(p)} 
+                        className="p-2.5 text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                        title="طباعة الباركود"
+                      >
+                        🏷️
+                      </button>
                       <button 
                         onClick={() => onOpenEditForm(p)} 
                         className="p-2.5 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"

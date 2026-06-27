@@ -562,6 +562,7 @@ const App: React.FC = () => {
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
               isOnline={isOnline} offlineQueueCount={offlineQueueCount} loadProgress={loadProgress}
+              onPrintBarcode={(p) => setProductForBarcode(p)}
               onSyncOffline={async () => {
                 showNotification('جاري المزامنة...', 'success');
                 const syncResult = await ApiService.syncOfflineData();
