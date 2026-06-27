@@ -411,6 +411,8 @@ export const ApiService = {
 
   async logout(): Promise<void> {
     localStorage.removeItem(USER_CACHE_KEY);
+    await idbSet('active_shift', null);
+    await idbSet('admin_summary', null);
     await safeFetch('logout');
   },
 
@@ -434,15 +436,17 @@ export const ApiService = {
     users: User[];
     suppliers: Supplier[];
     orders: Order[];
+    activeShift: Shift | null;
   }> {
-    const [products, categories, settings, adminSummary, users, suppliers, orders] = await Promise.all([
+    const [products, categories, settings, adminSummary, users, suppliers, orders, activeShift] = await Promise.all([
       idbGet<Product[]>('products'),
       idbGet<Category[]>('categories'),
       idbGet<Record<string, string>>('settings'),
       idbGet<any>('admin_summary'),
       idbGet<User[]>('users'),
       idbGet<Supplier[]>('suppliers'),
-      idbGet<Order[]>('orders')
+      idbGet<Order[]>('orders'),
+      idbGet<Shift | null>('active_shift')
     ]);
     return {
       products: products || [],
@@ -451,15 +455,22 @@ export const ApiService = {
       adminSummary: adminSummary || null,
       users: users || [],
       suppliers: suppliers || [],
-      orders: orders || []
+      orders: orders || [],
+      activeShift: activeShift || null
     };
   },
 
   async getActiveShift(): Promise<Shift | null> {
     const result = await safeFetch('get_active_shift');
+    if (result === null) {
+      // Network/Server error, switch to local fallback!
+      return await idbGet<Shift>('active_shift');
+    }
     if (result && (result.status === 'error' || !result.id)) {
+      await idbSet('active_shift', null);
       return null;
     }
+    await idbSet('active_shift', result);
     return result;
   },
 
@@ -469,6 +480,15 @@ export const ApiService = {
       body: JSON.stringify({ startingCash })
     });
     if (result?.status === 'success') {
+      const active: Shift = {
+        id: result.shiftId || Date.now(),
+        status: 'open',
+        startingCash: startingCash,
+        currentCashBalance: startingCash,
+        startTime: Date.now(),
+        openedByName: 'أدمن'
+      };
+      await idbSet('active_shift', active);
       return { success: true };
     }
     return { success: false, message: result?.message || 'فشل فتح الوردية.' };
@@ -491,6 +511,7 @@ export const ApiService = {
       body: JSON.stringify({ actualCash, discrepancyReason, notes })
     });
     if (result?.status === 'success') {
+      await idbSet('active_shift', null);
       return { success: true };
     }
     return { success: false, message: result?.message || 'فشل إغلاق الوردية.' };

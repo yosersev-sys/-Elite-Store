@@ -156,6 +156,11 @@ const App: React.FC = () => {
     // 1. جلب البيانات المخزنة محلياً لعرضها فوراً وتسريع فتح التطبيق
     const local = await ApiService.getLocalState();
     let hasCache = false;
+
+    if ((local as any).activeShift) {
+      setActiveShift((local as any).activeShift);
+    }
+
     if (local.products && local.products.length > 0) {
       setProducts(local.products);
       if (local.categories && local.categories.length > 0) setCategories(local.categories);
@@ -168,6 +173,10 @@ const App: React.FC = () => {
         if (local.orders && local.orders.length > 0) setOrders(local.orders);
       }
       hasCache = true;
+    }
+
+    if (hasCache) {
+      setIsLoading(false);
     }
 
     // 2. تفعيل المزامنة الصامتة في الخلفية إذا كانت البيانات مخزنة مسبقاً لمنع ظهور شريط التحميل
@@ -187,16 +196,16 @@ const App: React.FC = () => {
 
     try {
       // 3. جلب البيانات الأساسية للمتجر من السيرفر بالتوازي مع تتبع التقدم
-      const p1 = ApiService.getAdminPhone().then(r => { step(); return r; });
-      const p2 = ApiService.getProducts().then(r => { step(); return r; });
-      const p3 = ApiService.getCategories().then(r => { step(); return r; });
-      const p4 = ApiService.getStoreSettings().then(r => { step(); return r; });
+      const p1 = ApiService.getAdminPhone().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+      const p2 = ApiService.getProducts().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+      const p3 = ApiService.getCategories().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+      const p4 = ApiService.getStoreSettings().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
 
       const [ph, pr, ct, st] = await Promise.all([p1, p2, p3, p4]);
       if (ph) setAdminPhone(ph.phone);
       if (st?.delivery_fee) setDeliveryFee(parseFloat(st.delivery_fee));
-      setProducts(pr || []);
-      setCategories(ct || []);
+      if (pr) setProducts(pr);
+      if (ct) setCategories(ct);
 
       if (user?.role === 'admin') {
         try {
@@ -209,32 +218,34 @@ const App: React.FC = () => {
 
       // 4. جلب بيانات الإدارة من السيرفر بالتوازي مع تتبع التقدم
       if (isTrulyInAdminMode && user?.role === 'admin') {
-        const p5 = ApiService.getAdminSummary().then(r => { step(); return r; });
-        const p6 = ApiService.getUsers().then(r => { step(); return r; });
-        const p7 = ApiService.getSuppliers().then(r => { step(); return r; });
-        const p8 = ApiService.getOrders().then(r => { step(); return r; });
+        const p5 = ApiService.getAdminSummary().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+        const p6 = ApiService.getUsers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+        const p7 = ApiService.getSuppliers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+        const p8 = ApiService.getOrders().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
 
         const [sum, usrs, sups, ords] = await Promise.all([p5, p6, p7, p8]);
-        setAdminSummary(sum);
-        setUsers(usrs || []);
-        setSuppliers(sups || []);
-        setOrders(ords || []);
-        
-        if (ords?.length > 0 && prevOrderIds.current.size > 0) {
-          const newOnes = ords.filter((o: Order) => !prevOrderIds.current.has(o.id));
-          if (newOnes.length > 0) {
-            setNewOrdersForPopup(prev => [...prev, ...newOnes]);
-            if (soundEnabled) {
-              playChimeSound();
+        if (sum) setAdminSummary(sum);
+        if (usrs) setUsers(usrs);
+        if (sups) setSuppliers(sups);
+        if (ords) {
+          setOrders(ords);
+          
+          if (ords.length > 0 && prevOrderIds.current.size > 0) {
+            const newOnes = ords.filter((o: Order) => !prevOrderIds.current.has(o.id));
+            if (newOnes.length > 0) {
+              setNewOrdersForPopup(prev => [...prev, ...newOnes]);
+              if (soundEnabled) {
+                playChimeSound();
+              }
             }
           }
+          prevOrderIds.current = new Set(ords.map((o: Order) => o.id));
         }
-        prevOrderIds.current = new Set(ords.map((o: Order) => o.id));
       } 
       // 5. جلب طلبات العميل
       else if (view === 'my-orders' && user && user.role !== 'admin') {
-        const myOrds = await ApiService.getOrders().then(r => { step(); return r; });
-        setOrders(myOrds || []);
+        const myOrds = await ApiService.getOrders().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+        if (myOrds) setOrders(myOrds);
       }
     } catch (error) {
       console.error("Error loading data:", error);
