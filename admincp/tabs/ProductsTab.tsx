@@ -134,11 +134,26 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
                   <td className="px-8 py-5">
                     {(() => {
                       const isLow = Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5);
-                      const unitText = p.unit === 'kg' ? 'كجم' : p.unit === 'gram' ? 'جرام' : p.unit === 'carton' ? 'كرتونة' : p.unit === 'box' ? 'علبة' : p.unit === 'bottle' ? 'زجاجة' : p.unit === 'liter' ? 'لتر' : p.unit === 'meter' ? 'متر' : 'قطعة';
+                      const unitText = p.unit || 'قطعة';
+                      const equivalents = p.units
+                        ? p.units
+                            .filter(u => u.isActive === 1 && (u.conversionFactor || 1) > 1)
+                            .map(u => {
+                              const qty = Math.floor(Number(p.stockQuantity || 0) / u.conversionFactor);
+                              return `${qty} ${u.unitName}`;
+                            })
+                        : [];
                       return (
-                        <span className={`font-black px-3 py-1 rounded-full text-xs ${isLow ? 'bg-rose-50 text-rose-500 animate-pulse' : 'bg-emerald-50 text-emerald-600'}`}>
-                          {p.stockQuantity} {unitText}
-                        </span>
+                        <div className="flex flex-col gap-1 text-right">
+                          <span className={`font-black px-3 py-1 rounded-full text-xs w-max ${isLow ? 'bg-rose-50 text-rose-500 animate-pulse' : 'bg-emerald-50 text-emerald-600'}`}>
+                            {p.stockQuantity} {unitText}
+                          </span>
+                          {equivalents.length > 0 && (
+                            <span className="text-[9px] text-slate-400 font-bold leading-normal">
+                              يعادل: {equivalents.join(' | ')}
+                            </span>
+                          )}
+                        </div>
                       );
                     })()}
                   </td>

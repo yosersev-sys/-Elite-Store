@@ -196,77 +196,155 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     setSearchQuery('');
   };
 
-  const addItemToInvoice = (product: Product, bypassStockCheck = false) => {
-    const existing = invoiceItems.find(item => item.id === product.id);
+  const findUnitByBarcode = (q: string) => {
+    for (const p of products) {
+      if (p.barcode && String(p.barcode) === q) {
+        return { product: p, unit: null };
+      }
+      if (p.units) {
+        for (const u of p.units) {
+          if (u.barcode && String(u.barcode) === q) {
+            return { product: p, unit: u };
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const addItemToInvoice = (product: Product, selectedUnit: any = null, bypassStockCheck = false) => {
+    const unitName = selectedUnit ? selectedUnit.unitName : (product.unit || 'قطعة');
+    const conversionFactor = selectedUnit ? selectedUnit.conversionFactor : 1.00;
+    const salePrice = selectedUnit ? selectedUnit.salePrice : product.price;
+    const purchasePrice = selectedUnit ? selectedUnit.purchasePrice : product.wholesalePrice;
+    const unitId = selectedUnit ? selectedUnit.id : `unit_${product.id}_base`;
+
+    const existing = invoiceItems.find(item => item.id === product.id && item.selectedUnitId === unitId);
     const step = product.unit === 'kg' ? 0.1 : 1;
     const requestedQty = existing ? Number((existing.quantity + step).toFixed(3)) : 1;
     
+    const totalRequiredBase = invoiceItems.reduce((acc, item) => {
+      if (item.id === product.id) {
+        const factor = item.conversionFactor || 1.00;
+        if (item.selectedUnitId === unitId) {
+          return acc + (requestedQty * factor);
+        }
+        return acc + (item.quantity * factor);
+      }
+      return acc;
+    }, existing ? 0 : (requestedQty * conversionFactor));
+
     const availableInStock = order 
-       ? product.stockQuantity + (order.items.find(i => i.id === product.id)?.quantity || 0)
+       ? product.stockQuantity + (order.items.reduce((acc, i) => i.id === product.id ? acc + (i.quantity * (i.conversionFactor || 1.00)) : acc, 0))
        : product.stockQuantity;
 
-    if (!bypassStockCheck && requestedQty > availableInStock) {
-      setInsufficientStockProduct({ product, requestedQty });
+    if (!bypassStockCheck && totalRequiredBase > availableInStock) {
+      setInsufficientStockProduct({ product, requestedQty: Number((totalRequiredBase / conversionFactor).toFixed(3)) });
       return;
     }
     
     setInvoiceItems(prev => {
-      const ex = prev.find(item => item.id === product.id);
+      const ex = prev.find(item => item.id === product.id && item.selectedUnitId === unitId);
       if (ex) {
         return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: requestedQty } : item
+          (item.id === product.id && item.selectedUnitId === unitId) ? { ...item, quantity: requestedQty } : item
         );
       }
-      return [...prev, { ...product, quantity: 1, discountType: 'fixed', discountValue: 0 }];
+      
+      const newCartItem: CartItem = {
+        ...product,
+        price: salePrice,
+        wholesalePrice: purchasePrice,
+        unit: unitName,
+        quantity: 1,
+        discountType: 'fixed',
+        discountValue: 0,
+        selectedUnitId: unitId,
+        selectedUnitName: unitName,
+        conversionFactor: conversionFactor,
+        salePrice: salePrice,
+        purchasePrice: purchasePrice
+      };
+      return [...prev, newCartItem];
     });
   };
 
-  const updateQuantity = (id: string, delta: number, bypassStockCheck = false) => {
-    const item = invoiceItems.find(x => x.id === id);
+  const updateQuantity = (id: string, selectedUnitId: string, delta: number, bypassStockCheck = false) => {
+    const item = invoiceItems.find(x => x.id === id && x.selectedUnitId === selectedUnitId);
     if (!item) return;
     
     const product = products.find(p => p.id === id);
+    if (!product) return;
+
+    const conversionFactor = item.conversionFactor || 1.00;
     const newQty = Math.max(0.001, Number((item.quantity + delta).toFixed(3)));
     
-    const availableInStock = (order && product)
-       ? product.stockQuantity + (order.items.find(i => i.id === id)?.quantity || 0)
-       : (product?.stockQuantity || 0);
+    const totalRequiredBase = invoiceItems.reduce((acc, x) => {
+      if (x.id === id) {
+        const factor = x.conversionFactor || 1.00;
+        if (x.selectedUnitId === selectedUnitId) {
+          return acc + (newQty * factor);
+        }
+        return acc + (x.quantity * factor);
+      }
+      return acc;
+    }, 0);
 
-    if (product && !bypassStockCheck && newQty > availableInStock) {
-      setInsufficientStockProduct({ product, requestedQty: newQty });
+    const availableInStock = order
+       ? product.stockQuantity + (order.items.reduce((acc, i) => i.id === id ? acc + (i.quantity * (i.conversionFactor || 1.00)) : acc, 0))
+       : product.stockQuantity;
+
+    if (!bypassStockCheck && totalRequiredBase > availableInStock) {
+      setInsufficientStockProduct({ product, requestedQty: Number((totalRequiredBase / conversionFactor).toFixed(3)) });
       return;
     }
 
-    setInvoiceItems(prev => prev.map(x => x.id === id ? { ...x, quantity: newQty } : x));
+    setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, quantity: newQty } : x));
   };
 
-  const setDirectQuantity = (id: string, value: string, bypassStockCheck = false) => {
+  const setDirectQuantity = (id: string, selectedUnitId: string, value: string, bypassStockCheck = false) => {
     const val = parseFloat(value);
     if (isNaN(val)) return;
     
-    const item = invoiceItems.find(x => x.id === id);
+    const item = invoiceItems.find(x => x.id === id && x.selectedUnitId === selectedUnitId);
     if (!item) return;
-
+    
     const product = products.find(p => p.id === id);
-    const availableInStock = (order && product)
-       ? product.stockQuantity + (order.items.find(i => i.id === id)?.quantity || 0)
-       : (product?.stockQuantity || 0);
+    if (!product) return;
 
-    if (product && !bypassStockCheck && val > availableInStock) {
-      setInsufficientStockProduct({ product, requestedQty: Number(val.toFixed(3)) });
+    const conversionFactor = item.conversionFactor || 1.00;
+    const newQty = Number(val.toFixed(3));
+    
+    const totalRequiredBase = invoiceItems.reduce((acc, x) => {
+      if (x.id === id) {
+        const factor = x.conversionFactor || 1.00;
+        if (x.selectedUnitId === selectedUnitId) {
+          return acc + (newQty * factor);
+        }
+        return acc + (x.quantity * factor);
+      }
+      return acc;
+    }, 0);
+
+    const availableInStock = order
+       ? product.stockQuantity + (order.items.reduce((acc, i) => i.id === id ? acc + (i.quantity * (i.conversionFactor || 1.00)) : acc, 0))
+       : product.stockQuantity;
+
+    if (!bypassStockCheck && totalRequiredBase > availableInStock) {
+      setInsufficientStockProduct({ product, requestedQty: Number((totalRequiredBase / conversionFactor).toFixed(3)) });
       return;
     }
 
-    setInvoiceItems(prev => prev.map(x => x.id === id ? { ...x, quantity: Number(val.toFixed(3)) } : x));
+    setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, quantity: newQty } : x));
   };
 
   useEffect(() => {
     const q = searchQuery.trim();
     if (!q) return;
 
-    const exactMatch = products.find(p => p.barcode && String(p.barcode) === q);
-    if (exactMatch) {
-      addItemToInvoice(exactMatch);
+    const match = findUnitByBarcode(q);
+    if (match) {
+      addItemToInvoice(match.product, match.unit);
       setSearchQuery('');
     }
   }, [searchQuery, products]);
@@ -275,17 +353,17 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     const q = searchQuery.trim();
     if (!q) return;
 
-    const exactMatch = products.find(p => p.barcode && String(p.barcode) === q);
-    if (exactMatch) {
-      addItemToInvoice(exactMatch);
+    const match = findUnitByBarcode(q);
+    if (match) {
+      addItemToInvoice(match.product, match.unit);
       setSearchQuery('');
     } else {
       triggerQuickAdd(q);
     }
   };
 
-  const removeItem = (id: string) => {
-    setInvoiceItems(prev => prev.filter(item => item.id !== id));
+  const removeItem = (id: string, selectedUnitId: string) => {
+    setInvoiceItems(prev => prev.filter(item => !(item.id === id && item.selectedUnitId === selectedUnitId)));
   };
 
   const getItemDiscountAmount = (item: CartItem) => {
@@ -296,14 +374,14 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     return val;
   };
 
-  const setItemDiscountValue = (id: string, value: string) => {
+  const setItemDiscountValue = (id: string, selectedUnitId: string, value: string) => {
     const val = parseFloat(value) || 0;
     if (val < 0) {
       alert('لا يمكن إدخال قيم سالبة للخصم');
       return;
     }
     setInvoiceItems(prev => prev.map(item => {
-      if (item.id === id) {
+      if (item.id === id && item.selectedUnitId === selectedUnitId) {
         const discAmt = item.discountType === 'percent' ? (item.price * val / 100) : val;
         if (discAmt > item.price) {
           alert('لا يمكن أن يتجاوز خصم الصنف سعر الصنف نفسه');
@@ -315,9 +393,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     }));
   };
 
-  const toggleItemDiscountType = (id: string) => {
+  const toggleItemDiscountType = (id: string, selectedUnitId: string) => {
     setInvoiceItems(prev => prev.map(item => {
-      if (item.id === id) {
+      if (item.id === id && item.selectedUnitId === selectedUnitId) {
         const nextType = item.discountType === 'percent' ? 'fixed' : 'percent';
         const val = item.discountValue || 0;
         const discAmt = nextType === 'percent' ? (item.price * val / 100) : val;
@@ -894,35 +972,49 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                         invoiceItems.map(item => {
                           const itemDisc = getItemDiscountAmount(item);
                           const itemRowTotal = (item.price - itemDisc) * item.quantity;
-                          const originalQty = order ? (order.items.find(i => i.id === item.id)?.quantity || 0) : 0;
-                          const availableInStock = item.stockQuantity + originalQty;
-                          const remainingStock = Math.max(0, Number((availableInStock - item.quantity).toFixed(3)));
+                          const product = products.find(p => p.id === item.id);
+                          
+                          const originalQtyBase = order ? (order.items.reduce((acc, i) => i.id === item.id ? acc + (i.quantity * (i.conversionFactor || 1.00)) : acc, 0)) : 0;
+                          const availableInStockBase = (product ? product.stockQuantity : item.stockQuantity) + originalQtyBase;
+                          
+                          const otherCartQtyBase = invoiceItems.reduce((acc, x) => {
+                            if (x.id === item.id && x.selectedUnitId !== item.selectedUnitId) {
+                              return acc + (x.quantity * (x.conversionFactor || 1.00));
+                            }
+                            return acc;
+                          }, 0);
+
+                          const remainingStockBase = Math.max(0, availableInStockBase - otherCartQtyBase - (item.quantity * (item.conversionFactor || 1.00)));
+                          const remainingStock = Math.floor(remainingStockBase / (item.conversionFactor || 1.00));
+
                           return (
-                            <tr key={item.id} className="hover:bg-slate-50/50 transition group">
+                            <tr key={`${item.id}_${item.selectedUnitId || 'base'}`} className="hover:bg-slate-50/50 transition group">
                               <td className="px-4 md:px-8 py-3">
                                 <div className="flex flex-col">
-                                  <span className="font-black text-slate-800 text-[11px] md:text-sm leading-tight">{item.name}</span>
-                                  <span className="text-[9px] text-slate-400 font-black text-right mt-0.5">المخزون المتبقي: {remainingStock} {item.unit === 'piece' ? 'قطعة' : item.unit === 'kg' ? 'كجم' : 'جرام'}</span>
+                                  <span className="font-black text-slate-800 text-[11px] md:text-sm leading-tight">
+                                    {item.name} {item.selectedUnitName ? `(${item.selectedUnitName})` : ''}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 font-black text-right mt-0.5">المخزون المتبقي للعبوة: {remainingStock} {item.unit || 'قطعة'}</span>
                                   {!isSaving && (
-                                    <button onClick={() => removeItem(item.id)} className="text-[8px] text-rose-400 font-bold text-right mt-0.5 hover:text-rose-600">حذف ✕</button>
+                                    <button onClick={() => removeItem(item.id, item.selectedUnitId || `unit_${item.id}_base`)} className="text-[8px] text-rose-400 font-bold text-right mt-0.5 hover:text-rose-600 font-Cairo">حذف ✕</button>
                                   )}
                                 </div>
                               </td>
                               <td className="px-4 md:px-8 py-3">
                                 <div className="flex items-center gap-1.5 md:gap-2">
                                   <div className="flex items-center bg-slate-50 rounded-lg px-1 py-0.5 border border-slate-100">
-                                    <button disabled={isSaving} onClick={() => updateQuantity(item.id, -(item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">-</button>
+                                    <button disabled={isSaving} onClick={() => updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, -(item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">-</button>
                                     <input 
                                       disabled={isSaving}
                                       type="number"
                                       step={item.unit === 'kg' ? "0.001" : "1"}
                                       value={item.quantity}
-                                      onChange={(e) => setDirectQuantity(item.id, e.target.value)}
+                                      onChange={(e) => setDirectQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value)}
                                       className="bg-transparent font-black text-[11px] md:text-xs w-14 text-center outline-none disabled:opacity-50"
                                     />
-                                    <button disabled={isSaving} onClick={() => updateQuantity(item.id, (item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">+</button>
+                                    <button disabled={isSaving} onClick={() => updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, (item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">+</button>
                                   </div>
-                                  <span className="text-[8px] font-bold text-slate-400">{item.unit === 'kg' ? 'كجم' : 'ق'}</span>
+                                  <span className="text-[8px] font-bold text-slate-400">{item.unit || 'قطعة'}</span>
                                 </div>
                               </td>
                               <td className="px-4 md:px-8 py-3 font-bold text-slate-500 text-[11px] md:text-sm">{item.price}</td>
@@ -933,15 +1025,15 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                     type="number"
                                     min="0"
                                     value={item.discountValue || ''}
-                                    onChange={(e) => setItemDiscountValue(item.id, e.target.value)}
+                                    onChange={(e) => setItemDiscountValue(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value)}
                                     className="w-16 px-1.5 py-1 text-center bg-slate-50 border rounded-lg text-[10px] font-bold outline-none focus:border-emerald-500"
                                     placeholder="0"
                                   />
                                   <button
                                     type="button"
                                     disabled={isSaving}
-                                    onClick={() => toggleItemDiscountType(item.id)}
-                                    className="px-1.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[9px] font-black text-slate-600 border"
+                                    onClick={() => toggleItemDiscountType(item.id, item.selectedUnitId || `unit_${item.id}_base`)}
+                                    className="px-1.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[9px] font-black text-slate-600 border font-Cairo"
                                   >
                                     {item.discountType === 'percent' ? '%' : 'ج.م'}
                                   </button>
@@ -952,8 +1044,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                               </td>
                             </tr>
                           );
-                        })
-                      )}
+                        }))}
                     </tbody>
                   </table>
                </div>

@@ -62,7 +62,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
     colors: '',
     images: [] as string[],
     batches: [] as StockBatch[],
-    reorderLevel: '5'
+    reorderLevel: '5',
+    units: [] as ProductUnit[]
   });
 
   const [seoData, setSeoData] = useState<SeoSettings>({
@@ -90,11 +91,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.7)); 
-        } else { resolve(base64Str); }
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
+      img.onerror = () => resolve(base64Str);
     });
   };
 
@@ -115,7 +115,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
           colors: product.colors?.join(', ') || '',
           images: product.images || [],
           batches: product.batches || [],
-          reorderLevel: product.reorderLevel?.toString() || '5'
+          reorderLevel: product.reorderLevel?.toString() || '5',
+          units: product.units || []
         });
         
         if (product.seoSettings) {
@@ -311,7 +312,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
         createdAt: product ? product.createdAt : Date.now(),
         salesCount: product ? product.salesCount : 0,
         seoSettings: seoData,
-        reorderLevel: parseFloat(formData.reorderLevel) || 5
+        reorderLevel: parseFloat(formData.reorderLevel) || 5,
+        units: formData.units
       };
       await onSubmit(productData);
     } catch (err) {
@@ -611,6 +613,171 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                    </p>
                 </div>
              </div>
+          </div>
+        </section>
+
+        {/* القسم الجديد: إدارة الوحدات والعبوات المتعددة */}
+        <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border-t-8 border-indigo-500 space-y-8 relative overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-100 pb-8">
+            <div>
+              <h3 className="text-2xl font-black text-indigo-600 flex items-center gap-3">إدارة الوحدات والعبوات المتعددة (POS Units) 📦</h3>
+              <p className="text-slate-400 font-bold text-sm mt-2">تفرع وحدات بيع وتعبئة غير محدودة من المخزن الأساسي بأسعار بيع/شراء وباركودات مختلفة.</p>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => {
+                const newUnit: ProductUnit = {
+                  id: '',
+                  productId: product ? product.id : '',
+                  unitName: 'كرتونة',
+                  barcode: 'bar_' + Date.now().toString().slice(-6),
+                  purchasePrice: 0,
+                  salePrice: 0,
+                  conversionFactor: 12,
+                  isDefault: 0,
+                  isActive: 1
+                };
+                setFormData(prev => ({ ...prev, units: [...prev.units, newUnit] }));
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl shadow-lg font-black text-xs shrink-0 active:scale-95 transition-all font-Cairo"
+            >
+              إضافة عبوة/وحدة جديدة +
+            </button>
+          </div>
+
+          <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2 no-scrollbar">
+            {formData.units.length === 0 ? (
+              <div className="bg-slate-50 p-10 rounded-[2rem] text-center text-slate-400 font-bold text-xs font-Cairo">
+                ℹ️ لا توجد وحدات فرعية مضافة بعد. سيقوم النظام باعتماد الوحدة الأساسية (قطعة) بشكل تلقائي.
+              </div>
+            ) : (
+              formData.units.map((unit, index) => {
+                return (
+                  <div key={index} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end text-right">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 mr-2">اسم الوحدة</label>
+                      <input 
+                        required
+                        value={unit.unitName}
+                        onChange={e => setFormData(prev => {
+                          const updated = [...prev.units];
+                          updated[index].unitName = e.target.value;
+                          return { ...prev, units: updated };
+                        })}
+                        placeholder="مثال: كرتونة، علبة"
+                        className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 mr-2">الباركود</label>
+                      <input 
+                        required
+                        value={unit.barcode}
+                        onChange={e => setFormData(prev => {
+                          const updated = [...prev.units];
+                          updated[index].barcode = e.target.value;
+                          return { ...prev, units: updated };
+                        })}
+                        placeholder="باركود فريد للعبوة"
+                        className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 mr-2">سعر البيع</label>
+                      <input 
+                        required
+                        type="number"
+                        step="any"
+                        value={unit.salePrice || ''}
+                        onChange={e => setFormData(prev => {
+                          const updated = [...prev.units];
+                          updated[index].salePrice = parseFloat(e.target.value) || 0;
+                          return { ...prev, units: updated };
+                        })}
+                        placeholder="0.00"
+                        className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs text-emerald-600 text-center"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 mr-2">سعر الشراء</label>
+                      <input 
+                        required
+                        type="number"
+                        step="any"
+                        value={unit.purchasePrice || ''}
+                        onChange={e => setFormData(prev => {
+                          const updated = [...prev.units];
+                          updated[index].purchasePrice = parseFloat(e.target.value) || 0;
+                          return { ...prev, units: updated };
+                        })}
+                        placeholder="0.00"
+                        className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs text-center"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 mr-2">معامل التحويل (يحتوي كم؟)</label>
+                      <input 
+                        required
+                        type="number"
+                        min="1"
+                        disabled={unit.id !== '' && product !== null}
+                        value={unit.conversionFactor || ''}
+                        onChange={e => setFormData(prev => {
+                          const updated = [...prev.units];
+                          updated[index].conversionFactor = parseFloat(e.target.value) || 1;
+                          return { ...prev, units: updated };
+                        })}
+                        placeholder="1"
+                        className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs text-center"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end sm:col-span-2 md:col-span-4 lg:col-span-1">
+                      <button 
+                        type="button"
+                        onClick={() => setFormData(prev => {
+                          const updated = prev.units.map((u, i) => ({ ...u, isDefault: i === index ? 1 : 0 }));
+                          return { ...prev, units: updated };
+                        })}
+                        className={`px-3 py-2.5 rounded-xl font-bold text-[10px] transition-all flex-grow font-Cairo ${unit.isDefault ? 'bg-indigo-600 text-white' : 'bg-white border text-slate-500'}`}
+                      >
+                        {unit.isDefault ? 'الافتراضية ⭐' : 'افتراضي؟'}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setFormData(prev => {
+                          const updated = [...prev.units];
+                          updated[index].isActive = updated[index].isActive === 1 ? 0 : 1;
+                          return { ...prev, units: updated };
+                        })}
+                        className={`px-3 py-2.5 rounded-xl font-bold text-[10px] transition-all flex-grow font-Cairo ${unit.isActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}
+                      >
+                        {unit.isActive ? 'نشط' : 'معطل'}
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          if (unit.id !== '' && product !== null) {
+                            if (!window.confirm("هذه وحدة محفوظة مسبقاً، قد يؤدي حذفها المباشر لخلل بالتقارير. هل ترغب في تعطيلها بدلاً من الحذف؟")) {
+                              return;
+                            }
+                            setFormData(prev => {
+                              const updated = [...prev.units];
+                              updated[index].isActive = 0;
+                              return { ...prev, units: updated };
+                            });
+                          } else {
+                            setFormData(prev => ({ ...prev, units: prev.units.filter((_, i) => i !== index) }));
+                          }
+                        }}
+                        className="bg-rose-500 text-white w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 active:scale-95 transition-all"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </section>
 

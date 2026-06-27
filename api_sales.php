@@ -322,24 +322,36 @@ switch ($action) {
                 }
             }
 
+            // تجميع وتلخيص الكميات المطلوبة بالوحدة الأساسية لكل منتج
+            $requestedBaseQuantities = [];
             foreach ($input['items'] as $item) {
-                // قفل السطر الخاص بالمنتج (FOR UPDATE) لضمان اتساق مستويات المخزون ومنع التعارض
+                $pId = $item['id'];
+                $unitFactor = isset($item['conversionFactor']) ? (float)$item['conversionFactor'] : 1.00;
+                $qtyInBase = (float)$item['quantity'] * $unitFactor;
+                
+                if (!isset($requestedBaseQuantities[$pId])) {
+                    $requestedBaseQuantities[$pId] = 0.00;
+                }
+                $requestedBaseQuantities[$pId] += $qtyInBase;
+            }
+
+            foreach ($requestedBaseQuantities as $pId => $totalBaseQtyRequested) {
+                // قفل السطر الخاص بالمنتج الأساسي (FOR UPDATE) لضمان اتساق مستويات المخزون ومنع التعارض
                 $stmtStock = $pdo->prepare("SELECT stockQuantity, name, barcode FROM products WHERE id = ? FOR UPDATE");
-                $stmtStock->execute([$item['id']]);
+                $stmtStock->execute([$pId]);
                 $prod = $stmtStock->fetch();
                 if ($prod) {
-                    $qty = (float)$item['quantity'];
                     $currentStock = (float)$prod['stockQuantity'];
-                    $newStock = $currentStock - $qty;
+                    $newStock = $currentStock - $totalBaseQtyRequested;
                     if ($newStock < 0) {
                         // المخزون غير كافٍ، نتحقق من السياسة
                         if ($policy === 'prevent') {
-                            sendErr("عذراً، المخزون غير كافٍ للمنتج ({$prod['name']}). المتاح: {$currentStock}.");
+                            sendErr("عذراً، المخزون غير كافٍ للمنتج ({$prod['name']}). المتاح بالوحدة الأساسية: {$currentStock}.");
                         } else if ($policy === 'admin_only' && !$isAdminUser && !$hasOverridePerm) {
-                            sendErr("عذراً، البيع بدون مخزون مسموح للمدير فقط. المنتج ({$prod['name']}) المتاح منه: {$currentStock}.");
+                            sendErr("عذراً، البيع بدون مخزون مسموح للمدير فقط. المنتج ({$prod['name']}) المتاح منه بالوحدة الأساسية: {$currentStock}.");
                         } else if ($policy === 'allow_negative') {
                             if ($newStock < -$negativeLimit) {
-                                sendErr("عذراً، تجاوز الحد الأقصى للمخزون السالب للمنتج ({$prod['name']}). الحد المسموح: -{$negativeLimit}، بينما المطلوب سيصل إلى {$newStock}.");
+                                sendErr("عذراً، تجاوز الحد الأقصى للمخزون السالب للمنتج ({$prod['name']}). الحد المسموح: -{$negativeLimit} قطعة، بينما المطلوب سيصل إلى {$newStock} قطعة.");
                             }
                         }
                         
@@ -351,10 +363,10 @@ switch ($action) {
                             json_encode([
                                 'userName' => $curName,
                                 'userRole' => $curRole ?: 'admin',
-                                'productId' => $item['id'],
+                                'productId' => $pId,
                                 'productName' => $prod['name'],
                                 'barcode' => $prod['barcode'],
-                                'requestedQty' => $qty,
+                                'requestedQty' => $totalBaseQtyRequested,
                                 'availableStock' => $currentStock,
                                 'remainingStockAfter' => $newStock,
                                 'policyUsed' => $policy,
@@ -367,8 +379,8 @@ switch ($action) {
                 }
             }
 
-            foreach ($input['items'] as $item) {
-                $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")->execute([$item['quantity'], $item['quantity'], $item['id']]);
+            foreach ($requestedBaseQuantities as $pId => $totalBaseQtyRequested) {
+                $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")->execute([$totalBaseQtyRequested, $totalBaseQtyRequested, $pId]);
             }
 
             // إذا كانت الفاتورة مكتملة وآجل، يتم ربطها بالعميل مع إنشاء حركة مديونية في كشف الحساب
@@ -487,11 +499,13 @@ switch ($action) {
                 recalculateCustomerLedger($pdo, $oldOrder['userId']);
             }
 
-            // إرجاع كميات المنتجات القديمة للمخزن أولاً
+            // إرجاع كميات المنتجات القديمة للمخزن أولاً بالاعتماد على معاملات التحويل التاريخية المحفوظة
             $oldItems = json_decode($oldOrder['items'], true) ?: [];
             foreach ($oldItems as $item) {
+                $oldFactor = isset($item['conversionFactor']) ? (float)$item['conversionFactor'] : 1.00;
+                $oldQtyInBase = (float)$item['quantity'] * $oldFactor;
                 $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ?, salesCount = salesCount - ? WHERE id = ?")
-                    ->execute([$item['quantity'], $item['quantity'], $item['id']]);
+                    ->execute([$oldQtyInBase, $oldQtyInBase, $item['id']]);
             }
 
             // خصم نقدية الدرج القديمة إذا كانت نقدية وكان الطلب مكتملاً
@@ -658,24 +672,36 @@ switch ($action) {
                 }
             }
 
+            // تجميع وتلخيص الكميات المطلوبة بالوحدة الأساسية لكل منتج للفاتورة المعدلة
+            $requestedBaseQuantities = [];
             foreach ($input['items'] as $item) {
-                // قفل السطر الخاص بالمنتج (FOR UPDATE) لضمان اتساق مستويات المخزون ومنع التعارض
+                $pId = $item['id'];
+                $unitFactor = isset($item['conversionFactor']) ? (float)$item['conversionFactor'] : 1.00;
+                $qtyInBase = (float)$item['quantity'] * $unitFactor;
+                
+                if (!isset($requestedBaseQuantities[$pId])) {
+                    $requestedBaseQuantities[$pId] = 0.00;
+                }
+                $requestedBaseQuantities[$pId] += $qtyInBase;
+            }
+
+            foreach ($requestedBaseQuantities as $pId => $totalBaseQtyRequested) {
+                // قفل السطر الخاص بالمنتج الأساسي (FOR UPDATE) لضمان اتساق مستويات المخزون ومنع التعارض
                 $stmtStock = $pdo->prepare("SELECT stockQuantity, name, barcode FROM products WHERE id = ? FOR UPDATE");
-                $stmtStock->execute([$item['id']]);
+                $stmtStock->execute([$pId]);
                 $prod = $stmtStock->fetch();
                 if ($prod) {
-                    $qty = (float)$item['quantity'];
                     $currentStock = (float)$prod['stockQuantity'];
-                    $newStock = $currentStock - $qty;
+                    $newStock = $currentStock - $totalBaseQtyRequested;
                     if ($newStock < 0) {
                         // المخزون غير كافٍ، نتحقق من السياسة
                         if ($policy === 'prevent') {
-                            sendErr("عذراً، المخزون غير كافٍ للمنتج ({$prod['name']}). المتاح: {$currentStock}.");
+                            sendErr("عذراً، المخزون غير كافٍ للمنتج ({$prod['name']}). المتاح بالوحدة الأساسية: {$currentStock}.");
                         } else if ($policy === 'admin_only' && !$isAdminUser && !$hasOverridePerm) {
-                            sendErr("عذراً، البيع بدون مخزون مسموح للمدير فقط. المنتج ({$prod['name']}) المتاح منه: {$currentStock}.");
+                            sendErr("عذراً، البيع بدون مخزون مسموح للمدير فقط. المنتج ({$prod['name']}) المتاح منه بالوحدة الأساسية: {$currentStock}.");
                         } else if ($policy === 'allow_negative') {
                             if ($newStock < -$negativeLimit) {
-                                sendErr("عذراً، تجاوز الحد الأقصى للمخزون السالب للمنتج ({$prod['name']}). الحد المسموح: -{$negativeLimit}، بينما المطلوب سيصل إلى {$newStock}.");
+                                sendErr("عذراً، تجاوز الحد الأقصى للمخزون السالب للمنتج ({$prod['name']}). الحد المسموح: -{$negativeLimit} قطعة، بينما المطلوب سيصل إلى {$newStock} قطعة.");
                             }
                         }
                         
@@ -687,10 +713,10 @@ switch ($action) {
                             json_encode([
                                 'userName' => $curName,
                                 'userRole' => $curRole ?: 'admin',
-                                'productId' => $item['id'],
+                                'productId' => $pId,
                                 'productName' => $prod['name'],
                                 'barcode' => $prod['barcode'],
-                                'requestedQty' => $qty,
+                                'requestedQty' => $totalBaseQtyRequested,
                                 'availableStock' => $currentStock,
                                 'remainingStockAfter' => $newStock,
                                 'policyUsed' => $policy,
@@ -703,10 +729,10 @@ switch ($action) {
                 }
             }
 
-            // خصم الكميات الجديدة من المخزن
-            foreach ($input['items'] as $item) {
+            // خصم الكميات الجديدة بالوحدة الأساسية من المخزن
+            foreach ($requestedBaseQuantities as $pId => $totalBaseQtyRequested) {
                 $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity - ?, salesCount = salesCount + ? WHERE id = ?")
-                    ->execute([$item['quantity'], $item['quantity'], $item['id']]);
+                    ->execute([$totalBaseQtyRequested, $totalBaseQtyRequested, $pId]);
             }
 
             // إذا أصبحت الفاتورة مكتملة وآجل، ننشئ حركة المديونية الجديدة ونعيد احتساب الرصيد

@@ -4,14 +4,61 @@
  */
 if (!defined('DB_HOST')) exit;
 
+function isUnitUsedInDB($pdo, $unitId) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE items LIKE ?");
+    $stmt->execute(['%"selectedUnitId":"' . $unitId . '"%']);
+    if ((int)$stmt->fetchColumn() > 0) return true;
+
+    $stmtLog = $pdo->prepare("SELECT COUNT(*) FROM audit_logs WHERE details LIKE ?");
+    $stmtLog->execute(['%"selectedUnitId":"' . $unitId . '"%']);
+    if ((int)$stmtLog->fetchColumn() > 0) return true;
+
+    return false;
+}
+
 switch ($action) {
     case 'get_products':
         $prods = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC")->fetchAll();
+        $unitsStmt = $pdo->prepare("SELECT * FROM product_units WHERE productId = ? AND isActive = 1");
+        
         foreach ($prods as &$p) {
             $p['images'] = json_decode($p['images'] ?? '[]', true) ?: [];
             $p['batches'] = json_decode($p['batches'] ?? '[]', true) ?: [];
             $p['price'] = (float)$p['price'];
             $p['stockQuantity'] = (float)$p['stockQuantity'];
+            
+            $unitsStmt->execute([$p['id']]);
+            $units = $unitsStmt->fetchAll();
+            $p['units'] = [];
+            
+            $defaultUnit = null;
+            foreach ($units as $u) {
+                $unitObj = [
+                    'id' => $u['id'],
+                    'productId' => $u['productId'],
+                    'unitName' => $u['unitName'],
+                    'barcode' => $u['barcode'],
+                    'purchasePrice' => (float)$u['purchasePrice'],
+                    'salePrice' => (float)$u['salePrice'],
+                    'conversionFactor' => (float)$u['conversionFactor'],
+                    'isDefault' => (int)$u['isDefault'],
+                    'isActive' => (int)$u['isActive']
+                ];
+                $p['units'][] = $unitObj;
+                
+                if ($unitObj['isDefault'] == 1 || $unitObj['conversionFactor'] == 1) {
+                    if (!$defaultUnit || $unitObj['isDefault'] == 1) {
+                        $defaultUnit = $unitObj;
+                    }
+                }
+            }
+            
+            if ($defaultUnit) {
+                $p['price'] = $defaultUnit['salePrice'];
+                $p['wholesalePrice'] = $defaultUnit['purchasePrice'];
+                $p['unit'] = $defaultUnit['unitName'];
+                $p['barcode'] = $defaultUnit['barcode'];
+            }
         }
         sendRes($prods);
         break;
@@ -53,19 +100,24 @@ switch ($action) {
 
         $barcode = !empty($input['barcode']) ? trim($input['barcode']) : null;
         if ($barcode) {
-            $checkBarcode = $pdo->prepare("SELECT * FROM products WHERE barcode = ?");
+            $checkBarcode = $pdo->prepare("SELECT productId FROM product_units WHERE barcode = ? AND isActive = 1");
             $checkBarcode->execute([$barcode]);
-            $existingProduct = $checkBarcode->fetch();
-            if ($existingProduct) {
-                $existingProduct['images'] = json_decode($existingProduct['images'] ?? '[]', true) ?: [];
-                $existingProduct['batches'] = json_decode($existingProduct['batches'] ?? '[]', true) ?: [];
-                $existingProduct['price'] = (float)$existingProduct['price'];
-                $existingProduct['stockQuantity'] = (float)$existingProduct['stockQuantity'];
-                sendRes([
-                    'status' => 'barcode_exists',
-                    'message' => 'هذا الباركود مسجل بالفعل لمنتج آخر.',
-                    'product' => $existingProduct
-                ]);
+            $existingUnit = $checkBarcode->fetch();
+            if ($existingUnit) {
+                $stmtProd = $pdo->prepare("SELECT * FROM products WHERE id = ?");
+                $stmtProd->execute([$existingUnit['productId']]);
+                $existingProduct = $stmtProd->fetch();
+                if ($existingProduct) {
+                    $existingProduct['images'] = json_decode($existingProduct['images'] ?? '[]', true) ?: [];
+                    $existingProduct['batches'] = json_decode($existingProduct['batches'] ?? '[]', true) ?: [];
+                    $existingProduct['price'] = (float)$existingProduct['price'];
+                    $existingProduct['stockQuantity'] = (float)$existingProduct['stockQuantity'];
+                    sendRes([
+                        'status' => 'barcode_exists',
+                        'message' => 'هذا الباركود مسجل بالفعل لوحدة منتج آخر.',
+                        'product' => $existingProduct
+                    ]);
+                }
             }
         }
 
@@ -76,10 +128,38 @@ switch ($action) {
         try {
             $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, wholesalePrice, categoryId, supplierId, images, stockQuantity, unit, barcode, batches, reorderLevel, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
-                $productId, $input['name'], $input['description'] ?? '', $input['price'], $input['wholesalePrice'] ?? 0,
+                $productId, $input['name'], $input['description'] ?? '', $input['price'] ?? 0.00, $input['wholesalePrice'] ?? 0.00,
                 $input['categoryId'], $input['supplierId'] ?? null, json_encode($input['images'] ?? []),
                 $input['stockQuantity'] ?? 0, $input['unit'] ?? 'piece', $barcode, '[]', $reorderLevel, time()*1000
             ]);
+            
+            if (!empty($input['units']) && is_array($input['units'])) {
+                $insertUnit = $pdo->prepare("INSERT INTO product_units (id, productId, unitName, barcode, purchasePrice, salePrice, conversionFactor, isDefault, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                foreach ($input['units'] as $u) {
+                    $uId = !empty($u['id']) ? $u['id'] : ('unit_' . time() . '_' . rand(100, 999));
+                    $insertUnit->execute([
+                        $uId,
+                        $productId,
+                        $u['unitName'],
+                        trim($u['barcode']),
+                        $u['purchasePrice'] ?: 0.00,
+                        $u['salePrice'] ?: 0.00,
+                        $u['conversionFactor'] ?: 1.00,
+                        $u['isDefault'] ? 1 : 0
+                    ]);
+                }
+            } else {
+                $unitName = !empty($input['unit']) ? $input['unit'] : 'قطعة';
+                $insertUnit = $pdo->prepare("INSERT INTO product_units (id, productId, unitName, barcode, purchasePrice, salePrice, conversionFactor, isDefault, isActive) VALUES (?, ?, ?, ?, ?, ?, 1.00, 1, 1)");
+                $insertUnit->execute([
+                    'unit_' . $productId . '_base',
+                    $productId,
+                    $unitName,
+                    $barcode,
+                    $input['wholesalePrice'] ?: 0.00,
+                    $input['price'] ?: 0.00
+                ]);
+            }
             
             $activeShift = $pdo->query("SELECT id FROM shifts WHERE status = 'open' LIMIT 1")->fetch();
             $shiftId = $activeShift ? $activeShift['id'] : null;
@@ -93,7 +173,7 @@ switch ($action) {
                     'name' => $input['name'],
                     'barcode' => $barcode,
                     'stockQuantity' => $input['stockQuantity'] ?? 0,
-                    'price' => $input['price']
+                    'price' => $input['price'] ?? 0.00
                 ], JSON_UNESCAPED_UNICODE),
                 time() * 1000
             ]);
@@ -108,21 +188,125 @@ switch ($action) {
 
     case 'update_product':
         if (!isAdmin()) sendErr('غير مصرح');
+        $productId = $input['id'];
         $reorderLevel = isset($input['reorderLevel']) ? (float)$input['reorderLevel'] : 5.00;
-        $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, wholesalePrice=?, categoryId=?, supplierId=?, images=?, stockQuantity=?, unit=?, barcode=?, batches=?, reorderLevel=? WHERE id=?");
-        $stmt->execute([
-            $input['name'], $input['description'], $input['price'], $input['wholesalePrice'],
-            $input['categoryId'], $input['supplierId'], json_encode($input['images']),
-            $input['stockQuantity'], $input['unit'], $input['barcode'], json_encode($input['batches'] ?? []), $reorderLevel, $input['id']
-        ]);
-        sendRes(['status' => 'success']);
+        
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, wholesalePrice=?, categoryId=?, supplierId=?, images=?, stockQuantity=?, unit=?, barcode=?, batches=?, reorderLevel=? WHERE id=?");
+            $stmt->execute([
+                $input['name'], $input['description'], $input['price'] ?? 0.00, $input['wholesalePrice'] ?? 0.00,
+                $input['categoryId'], $input['supplierId'], json_encode($input['images']),
+                $input['stockQuantity'], $input['unit'], $input['barcode'], json_encode($input['batches'] ?? []), $reorderLevel, $productId
+            ]);
+            
+            $stmtExisting = $pdo->prepare("SELECT * FROM product_units WHERE productId = ?");
+            $stmtExisting->execute([$productId]);
+            $existingUnits = $stmtExisting->fetchAll();
+            $existingUnitsMap = [];
+            foreach ($existingUnits as $eu) {
+                $existingUnitsMap[$eu['id']] = $eu;
+            }
+            
+            $incomingUnitIds = [];
+            
+            if (!empty($input['units']) && is_array($input['units'])) {
+                $insertUnit = $pdo->prepare("INSERT INTO product_units (id, productId, unitName, barcode, purchasePrice, salePrice, conversionFactor, isDefault, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $updateUnitWithFactor = $pdo->prepare("UPDATE product_units SET unitName=?, barcode=?, purchasePrice=?, salePrice=?, conversionFactor=?, isDefault=?, isActive=? WHERE id=?");
+                $updateUnitWithoutFactor = $pdo->prepare("UPDATE product_units SET unitName=?, barcode=?, purchasePrice=?, salePrice=?, isDefault=?, isActive=? WHERE id=?");
+                
+                foreach ($input['units'] as $u) {
+                    $uId = $u['id'] ?? '';
+                    if (!empty($uId) && isset($existingUnitsMap[$uId])) {
+                        $incomingUnitIds[] = $uId;
+                        $oldUnit = $existingUnitsMap[$uId];
+                        
+                        $factorChanged = (abs((float)$oldUnit['conversionFactor'] - (float)$u['conversionFactor']) > 0.0001);
+                        if ($factorChanged && isUnitUsedInDB($pdo, $uId)) {
+                            throw new Exception("عذراً، يمنع تعديل معامل التحويل لوحدة مستخدمة سابقاً في حركات مبيعات/مخزون ({$oldUnit['unitName']}). يرجى إنشاء وحدة جديدة بدلاً منها.");
+                        }
+                        
+                        if ($factorChanged) {
+                            $updateUnitWithFactor->execute([
+                                $u['unitName'],
+                                trim($u['barcode']),
+                                $u['purchasePrice'] ?: 0.00,
+                                $u['salePrice'] ?: 0.00,
+                                $u['conversionFactor'] ?: 1.00,
+                                $u['isDefault'] ? 1 : 0,
+                                $u['isActive'] ? 1 : 0,
+                                $uId
+                            ]);
+                        } else {
+                            $updateUnitWithoutFactor->execute([
+                                $u['unitName'],
+                                trim($u['barcode']),
+                                $u['purchasePrice'] ?: 0.00,
+                                $u['salePrice'] ?: 0.00,
+                                $u['isDefault'] ? 1 : 0,
+                                $u['isActive'] ? 1 : 0,
+                                $uId
+                            ]);
+                        }
+                    } else {
+                        $newUId = 'unit_' . time() . '_' . rand(100, 999);
+                        $incomingUnitIds[] = $newUId;
+                        $insertUnit->execute([
+                            $newUId,
+                            $productId,
+                            $u['unitName'],
+                            trim($u['barcode']),
+                            $u['purchasePrice'] ?: 0.00,
+                            $u['salePrice'] ?: 0.00,
+                            $u['conversionFactor'] ?: 1.00,
+                            $u['isDefault'] ? 1 : 0,
+                            $u['isActive'] ? 1 : 0
+                        ]);
+                    }
+                }
+            }
+            
+            foreach ($existingUnits as $eu) {
+                if (!in_array($eu['id'], $incomingUnitIds)) {
+                    if (isUnitUsedInDB($pdo, $eu['id'])) {
+                        $pdo->prepare("UPDATE product_units SET isActive = 0 WHERE id = ?")->execute([$eu['id']]);
+                    } else {
+                        $pdo->prepare("DELETE FROM product_units WHERE id = ?")->execute([$eu['id']]);
+                    }
+                }
+            }
+            
+            $pdo->commit();
+            sendRes(['status' => 'success']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            sendErr($e->getMessage());
+        }
         break;
 
     case 'delete_product':
         if (!isAdmin()) sendErr('غير مصرح');
-        $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        sendRes(['status' => 'success']);
+        $productId = $_GET['id'] ?? '';
+        
+        $units = $pdo->prepare("SELECT id FROM product_units WHERE productId = ?");
+        $units->execute([$productId]);
+        foreach ($units->fetchAll() as $u) {
+            if (isUnitUsedInDB($pdo, $u['id'])) {
+                sendErr('عذراً، لا يمكن حذف هذا المنتج لوجود مبيعات مرتبطة بأحد وحداته.');
+            }
+        }
+        
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare("DELETE FROM product_units WHERE productId = ?")->execute([$productId]);
+            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
+            $stmt->execute([$productId]);
+            $pdo->commit();
+            sendRes(['status' => 'success']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            sendErr('فشل حذف المنتج: ' . $e->getMessage());
+        }
         break;
 
     case 'get_categories':

@@ -68,6 +68,18 @@ export interface StockBatch {
   supplierId?: string; // ربط الشحنة بالمورد
 }
 
+export interface ProductUnit {
+  id: string;
+  productId: string;
+  unitName: string;
+  barcode: string;
+  purchasePrice: number;
+  salePrice: number;
+  conversionFactor: number;
+  isDefault: number;
+  isActive: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -80,13 +92,14 @@ export interface Product {
   sizes?: string[]; 
   colors?: string[]; 
   stockQuantity: number;
-  unit: 'piece' | 'kg' | 'gram';
+  unit: string;
   barcode?: string;
   createdAt: number;
   salesCount?: number;
   seoSettings?: SeoSettings;
   batches?: StockBatch[]; 
   reorderLevel?: number;
+  units?: ProductUnit[];
 }
 
 export interface CartItem extends Product {
@@ -96,6 +109,11 @@ export interface CartItem extends Product {
   actualWholesalePrice?: number; 
   discountType?: 'fixed' | 'percent';
   discountValue?: number;
+  selectedUnitId?: string;
+  selectedUnitName?: string;
+  conversionFactor?: number;
+  salePrice?: number;
+  purchasePrice?: number;
 }
 
 export interface Order {
