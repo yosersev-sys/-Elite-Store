@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Product, Category, SeoSettings, StockBatch, Supplier, ProductUnit } from '../types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
+import BarcodePrintPopup from '../components/BarcodePrintPopup';
 
 interface AdminProductFormProps {
   product: Product | null;
@@ -24,6 +25,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [productForSticker, setProductForSticker] = useState<Product | null>(null);
   
   const [localCategories, setLocalCategories] = useState<Category[]>(categories);
   const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(suppliers);
@@ -503,6 +505,29 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                    }}
                    className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold shadow-inner" 
                  />
+                 <button 
+                   type="button" 
+                   onClick={() => {
+                     const tempProd: Product = {
+                       id: product?.id || 'temp_id',
+                       name: formData.name,
+                       description: formData.description || '',
+                       price: parseFloat(formData.price) || 0,
+                       wholesalePrice: parseFloat(formData.wholesalePrice) || 0,
+                       categoryId: formData.categoryId,
+                       images: formData.images.length > 0 ? formData.images : ['/assets/images/placeholder.png'],
+                       stockQuantity: formData.stockQuantity ? parseFloat(formData.stockQuantity) : 0,
+                       unit: formData.unit,
+                       barcode: formData.barcode,
+                       createdAt: Date.now()
+                     };
+                     setProductForSticker(tempProd);
+                   }}
+                   className="bg-indigo-600 hover:bg-indigo-750 text-white px-5 rounded-2xl shadow-lg cursor-pointer"
+                   title="طباعة الباركود للوحدة الأساسية"
+                 >
+                   🏷️
+                 </button>
                  <button type="button" onClick={handleGenerateBarcode} className="bg-indigo-600 text-white px-5 rounded-2xl shadow-lg">✨</button>
                  <button type="button" onClick={() => setShowScanner(true)} className="bg-slate-900 text-white px-5 rounded-2xl shadow-lg">📷</button>
               </div>
@@ -754,6 +779,29 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         {unit.isActive ? 'نشط' : 'معطل'}
                       </button>
                       <button 
+                        type="button"
+                        onClick={() => {
+                          const tempProd: Product = {
+                            id: product?.id || 'temp_id',
+                            name: `${formData.name} (${unit.unitName})`,
+                            description: formData.description || '',
+                            price: unit.salePrice,
+                            wholesalePrice: unit.purchasePrice,
+                            categoryId: formData.categoryId,
+                            images: formData.images.length > 0 ? formData.images : ['/assets/images/placeholder.png'],
+                            stockQuantity: formData.stockQuantity ? parseFloat(formData.stockQuantity) : 0,
+                            unit: unit.unitName,
+                            barcode: unit.barcode,
+                            createdAt: Date.now()
+                          };
+                          setProductForSticker(tempProd);
+                        }}
+                        className="bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 active:scale-95 transition-all cursor-pointer"
+                        title="طباعة الباركود للوحدة"
+                      >
+                        🏷️
+                      </button>
+                      <button 
                         type="button" 
                         onClick={() => {
                           if (unit.id !== '' && product !== null) {
@@ -915,6 +963,12 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
             </form>
           </div>
         </div>
+      )}
+      {productForSticker && (
+        <BarcodePrintPopup 
+          product={productForSticker} 
+          onClose={() => setProductForSticker(null)} 
+        />
       )}
     </div>
   );
