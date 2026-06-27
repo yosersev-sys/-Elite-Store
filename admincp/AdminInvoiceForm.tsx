@@ -1510,43 +1510,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                      </div>
                   </div>
 
-                 <div className="space-y-2">
-                    <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">طريقة الدفع</label>
-                     <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1.5 rounded-xl border">
-                        <button 
-                          disabled={isSaving}
-                          type="button"
-                          onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'نقدي (تم الدفع)'})}
-                          className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.paymentMethod === 'نقدي (تم الدفع)' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'} disabled:opacity-30`}
-                        >
-                          <span>💰</span> نقدي
-                        </button>
-                        <button 
-                          disabled={isSaving}
-                          type="button"
-                          onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'فودافون كاش'})}
-                          className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.paymentMethod === 'فودافون كاش' ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'} disabled:opacity-30`}
-                        >
-                          <span>📱</span> فودافون كاش
-                        </button>
-                        <button 
-                          disabled={isSaving}
-                          type="button"
-                          onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'انستا باي'})}
-                          className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.paymentMethod === 'انستا باي' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'} disabled:opacity-30`}
-                        >
-                          <span>💸</span> انستا باي
-                        </button>
-                        <button 
-                          disabled={isSaving}
-                          type="button"
-                          onClick={() => setCustomerInfo({...customerInfo, paymentMethod: 'آجل (مديونية)'})}
-                          className={`py-2.5 md:py-3.5 rounded-lg font-black text-[9px] md:text-[10px] transition-all flex items-center justify-center gap-1.5 ${customerInfo.paymentMethod === 'آجل (مديونية)' ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'} disabled:opacity-30`}
-                        >
-                          <span>⏳</span> آجل
-                        </button>
-                     </div>
-                  </div>
                   {order && (
                     <div className="space-y-2 animate-fadeIn">
                        <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">حالة الطلب</label>
