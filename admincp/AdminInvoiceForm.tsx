@@ -47,6 +47,18 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [invoiceDiscountType, setInvoiceDiscountType] = useState<'fixed' | 'percent'>('fixed');
   const [editReason, setEditReason] = useState<string>('');
 
+  const [invoiceTimeline, setInvoiceTimeline] = useState<{ id: string; time: number; text: string; type: 'info' | 'warn' | 'success' | 'danger' }[]>([
+    { id: 'init', time: Date.now(), text: 'بدء إنشاء فاتورة جديدة', type: 'info' }
+  ]);
+
+  const addTimelineEvent = (text: string, type: 'info' | 'warn' | 'success' | 'danger' = 'info') => {
+    setInvoiceTimeline(prev => {
+      const list = [...prev, { id: Math.random().toString(), time: Date.now(), text, type }];
+      if (list.length > 25) return list.slice(list.length - 25);
+      return list;
+    });
+  };
+
   // Payment methods and split payments states
   const [dbPaymentMethods, setDbPaymentMethods] = useState<any[]>([]);
   const [isSplitPayment, setIsSplitPayment] = useState<boolean>(false);
@@ -310,6 +322,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     setInvoiceItems(prev => {
       const ex = prev.find(item => item.id === product.id && item.selectedUnitId === unitId);
       if (ex) {
+        addTimelineEvent(`تعديل كمية ${product.name} إلى ${requestedQty} ${unitName}`, 'info');
         return prev.map(item => 
           (item.id === product.id && item.selectedUnitId === unitId) ? { ...item, quantity: requestedQty } : item
         );
@@ -329,6 +342,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         salePrice: salePrice,
         purchasePrice: purchasePrice
       };
+      addTimelineEvent(`إضافة صنف: ${product.name} (${unitName}) ➕`, 'success');
       return [...prev, newCartItem];
     });
   };
@@ -363,6 +377,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       return;
     }
 
+    addTimelineEvent(`تعديل كمية ${item.name} إلى ${newQty} ${item.unit} ✏️`, 'info');
     setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, quantity: newQty } : x));
   };
 
@@ -399,6 +414,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       return;
     }
 
+    addTimelineEvent(`تعديل كمية ${item.name} إلى ${newQty} ${item.unit} ✏️`, 'info');
     setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, quantity: newQty } : x));
   };
 
@@ -427,6 +443,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   };
 
   const removeItem = (id: string, selectedUnitId: string) => {
+    const item = invoiceItems.find(x => x.id === id && x.selectedUnitId === selectedUnitId);
+    if (item) {
+      addTimelineEvent(`حذف صنف: ${item.name} 🗑️`, 'danger');
+    }
     setInvoiceItems(prev => prev.filter(item => !(item.id === id && item.selectedUnitId === selectedUnitId)));
   };
 
@@ -444,6 +464,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       alert('لا يمكن إدخال قيم سالبة للخصم');
       return;
     }
+    const item = invoiceItems.find(x => x.id === id && x.selectedUnitId === selectedUnitId);
+    if (item) {
+      addTimelineEvent(`تعديل خصم ${item.name} إلى ${val} ${item.discountType === 'percent' ? '%' : 'ج.م'} 🏷️`, 'warn');
+    }
     setInvoiceItems(prev => prev.map(item => {
       if (item.id === id && item.selectedUnitId === selectedUnitId) {
         const discAmt = item.discountType === 'percent' ? (item.price * val / 100) : val;
@@ -458,6 +482,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   };
 
   const toggleItemDiscountType = (id: string, selectedUnitId: string) => {
+    const item = invoiceItems.find(x => x.id === id && x.selectedUnitId === selectedUnitId);
+    if (item) {
+      const nextType = item.discountType === 'percent' ? 'fixed' : 'percent';
+      addTimelineEvent(`تغيير نوع خصم ${item.name} إلى: ${nextType === 'percent' ? 'نسبة' : 'قيمة ثابتة'} 🏷️`, 'warn');
+    }
     setInvoiceItems(prev => prev.map(item => {
       if (item.id === id && item.selectedUnitId === selectedUnitId) {
         const nextType = item.discountType === 'percent' ? 'fixed' : 'percent';
@@ -526,6 +555,188 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       return s;
     }
   }, [isSplitPayment, isFullDebt, selectedSingleMethod, paymentAmounts, dbPaymentMethods, outstanding]);
+
+  // مساعد المبيعات الذكي - احتساب التحليلات محلياً لحماية الأداء وسرعة الكاشير
+  const assistantData = useMemo(() => {
+    // 1. تحليل العميل (Customer Analysis)
+    const selectedUser = users.find(u => normalizePhone(u.phone) === normalizePhone(customerInfo.phone));
+    let customerType: 'new' | 'regular' | 'vip' | 'debtor' = 'new';
+    let customerTotalPurchases = 0;
+    let customerOrdersCount = 0;
+    let customerLastOrder: number | null = null;
+    let customerAOV = 0;
+    let customerDebt = 0;
+
+    if (selectedUser) {
+      customerDebt = selectedUser.balance || 0;
+      const userOrders = orders.filter(o => normalizePhone(o.phone) === normalizePhone(selectedUser.phone) && o.status === 'completed');
+      customerOrdersCount = userOrders.length;
+      customerTotalPurchases = userOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+      customerLastOrder = customerOrdersCount > 0 ? Math.max(...userOrders.map(o => o.createdAt)) : null;
+      customerAOV = customerOrdersCount > 0 ? (customerTotalPurchases / customerOrdersCount) : 0;
+
+      if (customerDebt > 0) {
+        customerType = 'debtor';
+      } else if (customerTotalPurchases > 5000 || customerOrdersCount > 15) {
+        customerType = 'vip';
+      } else if (customerOrdersCount > 3) {
+        customerType = 'regular';
+      }
+    }
+
+    // 2. مساعد الربحية (Profitability Assistant)
+    let totalCost = 0;
+    invoiceItems.forEach(item => {
+      totalCost += (item.wholesalePrice || 0) * item.quantity;
+    });
+    const expectedProfit = Math.max(0, total - totalCost);
+    const profitMargin = total > 0 ? ((expectedProfit / total) * 100) : 0;
+
+    // 3. التنبيهات والتحذيرات الذكية (Smart Alerts)
+    const alerts: { text: string; type: 'info' | 'warn' | 'danger' }[] = [];
+
+    // تنبيه مديونية بلا عميل
+    if (outstanding > 0 && (!selectedUser || customerInfo.name === 'عميل نقدي')) {
+      alerts.push({ text: 'يوجد متبقي بالآجل ولكن العميل المختار هو عميل نقدي افتراضي. يرجى اختيار عميل مسجل لتسجيل الدين.', type: 'danger' });
+    }
+
+    // تنبيه عدم تطابق المدفوعات مع إجمالي الفاتورة
+    if ((isSplitPayment || isFullDebt) && sumOfPayments > total) {
+      alerts.push({ text: 'إجمالي مبالغ الدفع المشترك يتجاوز القيمة الإجمالية الصافية للفاتورة.', type: 'danger' });
+    }
+
+    // تنبيه مديونية سابقة للعميل
+    if (selectedUser && customerDebt > 0) {
+      alerts.push({ text: `العميل لديه مديونية سابقة مستحقة بقيمة ${customerDebt.toFixed(2)} ج.م.`, type: 'warn' });
+    }
+
+    // تنبيه البيع بأقل من التكلفة وتجاوز الخصم ونواقص المخزون
+    let hasBelowCost = false;
+    let hasHighDiscount = false;
+    let hasOutOfStock = false;
+    let hasBelowReorder = false;
+
+    invoiceItems.forEach(item => {
+      const cost = item.wholesalePrice || 0;
+      if (item.price < cost) {
+        hasBelowCost = true;
+      }
+      
+      const discAmt = getItemDiscountAmount(item);
+      if (discAmt > item.price * 0.15) {
+        hasHighDiscount = true;
+      }
+
+      const prod = products.find(p => p.id === item.id);
+      if (prod) {
+        const factor = item.conversionFactor || 1;
+        const requestedBase = item.quantity * factor;
+        if (requestedBase > prod.stockQuantity) {
+          hasOutOfStock = true;
+        }
+        
+        const remainingStock = prod.stockQuantity - requestedBase;
+        if (remainingStock <= (prod.reorderLevel || 5)) {
+          hasBelowReorder = true;
+        }
+      }
+    });
+
+    if (invoiceDiscount > subtotalBeforeDiscount * 0.15) {
+      alerts.push({ text: 'خصم الفاتورة الإجمالي يتجاوز الحد المسموح به (15%) للعمليات العادية.', type: 'warn' });
+    }
+
+    if (hasBelowCost) {
+      alerts.push({ text: 'يوجد منتجات مضافة بسعر بيع أقل من سعر تكلفة الشراء!', type: 'danger' });
+    }
+    if (hasHighDiscount) {
+      alerts.push({ text: 'تم تطبيق خصم مرتفع (أكثر من 15%) على أحد الأصناف بالسلة.', type: 'warn' });
+    }
+    if (hasOutOfStock) {
+      alerts.push({ text: 'الكمية المطلوبة لبعض المنتجات تتجاوز الرصيد المتوفر بالمستودع.', type: 'warn' });
+    }
+    if (hasBelowReorder) {
+      alerts.push({ text: 'بعض المنتجات سينخفض مخزونها ليكون أقل من حد إعادة الطلب بعد حفظ الفاتورة.', type: 'info' });
+    }
+
+    // 4. الاقتراحات الذكية (Smart Suggestions)
+    const suggestions: string[] = [];
+
+    // اقتراح تسجيل عميل للفاتورة الكبيرة
+    if (total > 500 && (!selectedUser || customerInfo.name === 'عميل نقدي')) {
+      suggestions.push('قيمة الفاتورة مرتفعة. يُقترح تسجيل رقم هاتف العميل لربط نقاط الولاء وحفظ حقه.');
+    }
+
+    // اقتراح ترقية العبوة (الأوفر للعميل)
+    invoiceItems.forEach(item => {
+      const prod = products.find(p => p.id === item.id);
+      if (prod && prod.units) {
+        prod.units.forEach(u => {
+          if (u.isActive === 1 && u.conversionFactor > 1) {
+            if (item.quantity >= u.conversionFactor * 0.8 && item.selectedUnitId === `unit_${item.id}_base`) {
+              suggestions.push(`العميل يشتري كمية كبيرة من [${item.name}]، يُقترح ترقيتها للعبوة الأوفر [${u.unitName}] (تحتوي على ${u.conversionFactor} قطع بسعر ${u.salePrice} ج.م)`);
+            }
+          }
+        });
+      }
+    });
+
+    // اقتراح منتجات مكملة (Cross-Sell)
+    const activeCategories = new Set(invoiceItems.map(item => item.categoryId));
+    const currentItemIds = new Set(invoiceItems.map(item => item.id));
+    const crossSells: string[] = [];
+    
+    products.forEach(p => {
+      if (activeCategories.has(p.categoryId) && !currentItemIds.has(p.id) && p.stockQuantity > 0 && crossSells.length < 2) {
+        crossSells.push(p.name);
+      }
+    });
+
+    crossSells.forEach(name => {
+      suggestions.push(`هل ترغب في اقتراح [${name}] للعميل؟ صنف شائع ومرتبط بالسلة.`);
+    });
+
+    // اقتراح الدفع بالآجل
+    if (outstanding > 0 && !isFullDebt && !isSplitPayment) {
+      suggestions.push('يوجد مبلغ متبقي غير مسدد. يُقترح تفعيل خيار الدفع المشترك أو تحويلها كفاتورة آجل بالكامل.');
+    }
+
+    // 5. مؤشر صحة الفاتورة (Invoice Health)
+    let healthStatus: 'excellent' | 'review' | 'danger' = 'excellent';
+    let healthLabel = 'ممتازة';
+    let healthColor = 'text-emerald-600 bg-emerald-50 border-emerald-100';
+
+    const hasDangerAlert = alerts.some(a => a.type === 'danger');
+    const hasWarnAlert = alerts.some(a => a.type === 'warn');
+
+    if (hasDangerAlert) {
+      healthStatus = 'danger';
+      healthLabel = 'توجد مشكلة حرجة';
+      healthColor = 'text-rose-600 bg-rose-50 border-rose-100';
+    } else if (hasWarnAlert || invoiceDiscountValue > 0 || outstanding > 0) {
+      healthStatus = 'review';
+      healthLabel = 'تحتاج مراجعة';
+      healthColor = 'text-amber-600 bg-amber-50 border-amber-100';
+    }
+
+    return {
+      selectedUser,
+      customerType,
+      customerTotalPurchases,
+      customerOrdersCount,
+      customerLastOrder,
+      customerAOV,
+      customerDebt,
+      totalCost,
+      expectedProfit,
+      profitMargin,
+      alerts,
+      suggestions,
+      healthStatus,
+      healthLabel,
+      healthColor
+    };
+  }, [invoiceItems, customerInfo, total, orders, users, products, outstanding, isSplitPayment, isFullDebt, sumOfPayments, invoiceDiscountValue]);
 
   const handleFinalSubmit = async () => {
     if (isSaving) return;
@@ -1148,16 +1359,25 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                               <td className="px-4 md:px-8 py-3">
                                 <div className="flex items-center gap-1.5 md:gap-2">
                                   <div className="flex items-center bg-slate-50 rounded-lg px-1 py-0.5 border border-slate-100">
-                                    <button disabled={isSaving} onClick={() => updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, -(item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">-</button>
+                                    <button disabled={isSaving} onClick={() => {
+                                      updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, -(item.unit === 'kg' ? 0.1 : 1));
+                                      addTimelineEvent(`تقليل كمية: ${item.name}`, 'info');
+                                    }} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">-</button>
                                     <input 
                                       disabled={isSaving}
                                       type="number"
                                       step={item.unit === 'kg' ? "0.001" : "1"}
                                       value={item.quantity}
-                                      onChange={(e) => setDirectQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value)}
+                                      onChange={(e) => {
+                                        setDirectQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value);
+                                        addTimelineEvent(`تعديل كمية ${item.name} إلى ${e.target.value}`, 'info');
+                                      }}
                                       className="bg-transparent font-black text-[11px] md:text-xs w-14 text-center outline-none disabled:opacity-50"
                                     />
-                                    <button disabled={isSaving} onClick={() => updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, (item.unit === 'kg' ? 0.1 : 1))} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">+</button>
+                                    <button disabled={isSaving} onClick={() => {
+                                      updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, (item.unit === 'kg' ? 0.1 : 1));
+                                      addTimelineEvent(`زيادة كمية: ${item.name}`, 'info');
+                                    }} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">+</button>
                                   </div>
                                   <span className="text-[8px] font-bold text-slate-400">{item.unit || 'قطعة'}</span>
                                 </div>
@@ -1170,14 +1390,20 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                     type="number"
                                     min="0"
                                     value={item.discountValue || ''}
-                                    onChange={(e) => setItemDiscountValue(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value)}
+                                    onChange={(e) => {
+                                      setItemDiscountValue(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value);
+                                      addTimelineEvent(`تعديل خصم ${item.name} إلى ${e.target.value}`, 'info');
+                                    }}
                                     className="w-16 px-1.5 py-1 text-center bg-slate-50 border rounded-lg text-[10px] font-bold outline-none focus:border-emerald-500"
                                     placeholder="0"
                                   />
                                   <button
                                     type="button"
                                     disabled={isSaving}
-                                    onClick={() => toggleItemDiscountType(item.id, item.selectedUnitId || `unit_${item.id}_base`)}
+                                    onClick={() => {
+                                      toggleItemDiscountType(item.id, item.selectedUnitId || `unit_${item.id}_base`);
+                                      addTimelineEvent(`تبديل نوع خصم ${item.name}`, 'info');
+                                    }}
                                     className="px-1.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[9px] font-black text-slate-600 border font-Cairo"
                                   >
                                     {item.discountType === 'percent' ? '%' : 'ج.م'}
@@ -1213,71 +1439,71 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     />
                  </div>
 
-                                   <div className="space-y-1.5 relative">
-                     <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">رقم الموبايل</label>
-                     <input 
-                       disabled={isSaving}
-                       type="tel"
-                       value={customerInfo.phone}
-                       onChange={e => {
-                         setCustomerInfo({...customerInfo, phone: e.target.value});
-                         setShowPhoneSuggestions(true);
-                       }}
-                       onFocus={() => setShowPhoneSuggestions(true)}
-                       onBlur={() => {
-                         setTimeout(() => setShowPhoneSuggestions(false), 200);
-                       }}
-                       placeholder="01xxxxxxxxx"
-                       className="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-bold text-center text-sm shadow-inner transition-all disabled:opacity-50"
-                       dir="ltr"
-                     />
-                     
-                     {showPhoneSuggestions && matchedUsers.length > 0 && (
-                       <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-slideUp max-h-60 overflow-y-auto no-scrollbar text-right">
-                         {matchedUsers.map(u => {
-                           const stats = getUserStats(u.phone);
-                           return (
-                             <button
-                               key={u.id}
-                               type="button"
-                               onClick={() => {
-                                 setCustomerInfo({
-                                   ...customerInfo,
-                                   name: u.name,
-                                   phone: u.phone
-                                 });
-                                 setShowPhoneSuggestions(false);
-                               }}
-                               className="w-full px-4 py-3 flex items-center justify-between hover:bg-emerald-50 transition-colors border-b last:border-none text-right font-bold"
-                             >
-                               <div className="text-right">
-                                 <p className="text-xs text-slate-800 font-black">{u.name}</p>
-                                 <p className="text-[10px] text-slate-400 mt-0.5" dir="ltr">{u.phone}</p>
-                               </div>
-                               <div className="text-left font-bold">
-                                 <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-black font-Cairo">
-                                   {stats.count} طلبات
-                                 </span>
-                                 {stats.lastOrder && (
-                                   <span className="text-[8px] text-slate-400 block mt-1">
-                                     آخر تعامل: {formatTimeAgo(stats.lastOrder)}
-                                   </span>
-                                 )}
-                               </div>
-                             </button>
-                           );
-                         })}
-                       </div>
-                     )}
-                     
-                     {duplicateWarning && (
-                       <p className="text-[9px] text-amber-600 font-bold mt-1 text-center font-Cairo">
-                         ⚠️ تنبيه: يوجد أكثر من عميل مسجل بنفس هذا الرقم في النظام.
-                       </p>
-                     )}
-                  </div>
+                 <div className="space-y-1.5 relative">
+                    <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">رقم الموبايل</label>
+                    <input 
+                      disabled={isSaving}
+                      type="tel"
+                      value={customerInfo.phone}
+                      onChange={e => {
+                        setCustomerInfo({...customerInfo, phone: e.target.value});
+                        setShowPhoneSuggestions(true);
+                      }}
+                      onFocus={() => setShowPhoneSuggestions(true)}
+                      onBlur={() => {
+                        setTimeout(() => setShowPhoneSuggestions(false), 200);
+                      }}
+                      placeholder="01xxxxxxxxx"
+                      className="w-full px-4 md:px-6 py-3 md:py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl md:rounded-2xl outline-none font-bold text-center text-sm shadow-inner transition-all disabled:opacity-50"
+                      dir="ltr"
+                    />
+                    
+                    {showPhoneSuggestions && matchedUsers.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-slideUp max-h-60 overflow-y-auto no-scrollbar text-right">
+                        {matchedUsers.map(u => {
+                          const stats = getUserStats(u.phone);
+                          return (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => {
+                                setCustomerInfo({
+                                  ...customerInfo,
+                                  name: u.name,
+                                  phone: u.phone
+                                });
+                                addTimelineEvent(`تحديد العميل: ${u.name} 👤`, 'info');
+                                setShowPhoneSuggestions(false);
+                              }}
+                              className="w-full px-4 py-3 flex items-center justify-between hover:bg-emerald-50 transition-colors border-b last:border-none text-right font-bold"
+                            >
+                              <div className="text-right">
+                                <p className="text-xs text-slate-800 font-black">{u.name}</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5" dir="ltr">{u.phone}</p>
+                              </div>
+                              <div className="text-left font-bold">
+                                <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-black font-Cairo">
+                                  {stats.count} طلبات
+                                </span>
+                                {stats.lastOrder && (
+                                  <span className="text-[8px] text-slate-400 block mt-1">
+                                    آخر تعامل: {formatTimeAgo(stats.lastOrder)}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    {duplicateWarning && (
+                      <p className="text-[9px] text-amber-600 font-bold mt-1 text-center font-Cairo">
+                        ⚠️ تنبيه: يوجد أكثر من عميل مسجل بنفس هذا الرقم في النظام.
+                      </p>
+                    )}
+                 </div>
 
-                 {/* خيار رسوم التوصيل - Toggle Switch */}
                  <div className="flex items-center justify-between bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 transition-all">
                     <div>
                       <p className="font-black text-emerald-800 text-xs">خدمة توصيل للمنزل؟</p>
@@ -1286,14 +1512,17 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     <button 
                       disabled={isSaving}
                       type="button"
-                      onClick={() => setIsDeliveryEnabled(!isDeliveryEnabled)}
+                      onClick={() => {
+                        const nextState = !isDeliveryEnabled;
+                        setIsDeliveryEnabled(nextState);
+                        addTimelineEvent(nextState ? 'تفعيل خدمة التوصيل للمنزل 🚚' : 'إلغاء خدمة التوصيل', 'info');
+                      }}
                       className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${isDeliveryEnabled ? 'bg-emerald-600' : 'bg-slate-300'} disabled:opacity-50`}
                     >
                       <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isDeliveryEnabled ? 'right-7' : 'right-1'}`}></div>
                     </button>
                  </div>
 
-                 {/* حقل العنوان - يظهر فقط عند تفعيل التوصيل */}
                  {isDeliveryEnabled && (
                     <div className="space-y-1.5 animate-slideUp">
                        <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest">عنوان التوصيل بالتفصيل</label>
@@ -1307,7 +1536,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     </div>
                  )}
 
-                  {/* قسم طريقة الدفع الاحترافي */}
                   <div className="space-y-4 pt-4 border-t border-slate-100">
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] md:text-xs font-black text-slate-700 uppercase tracking-wide">طريقة الدفع والسداد</label>
@@ -1315,11 +1543,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                         type="button"
                         disabled={isSaving}
                         onClick={() => {
-                          setIsSplitPayment(!isSplitPayment);
+                          const nextState = !isSplitPayment;
+                          setIsSplitPayment(nextState);
                           setIsFullDebt(false);
                           setPaymentAmounts({});
                           setPaymentReferences({});
                           setSingleReference('');
+                          addTimelineEvent(nextState ? 'تفعيل الدفع المشترك (المجزأ) 🔀' : 'إلغاء الدفع المشترك', 'info');
                         }}
                         className={`text-[9px] md:text-[10px] font-black px-2.5 py-1 rounded-lg border transition-all ${isSplitPayment ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
                       >
@@ -1337,8 +1567,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                           disabled={isSaving}
                           type="button"
                           onClick={() => {
-                            setIsFullDebt(!isFullDebt);
+                            const nextState = !isFullDebt;
+                            setIsFullDebt(nextState);
                             setSingleReference('');
+                            addTimelineEvent(nextState ? 'تحويل الفاتورة للآجل بالكامل ⏳' : 'إلغاء البيع بالآجل', 'warn');
                           }}
                           className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${isFullDebt ? 'bg-amber-600' : 'bg-slate-300'} disabled:opacity-50`}
                         >
@@ -1367,6 +1599,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                               onClick={() => {
                                 setSelectedSingleMethod(m.id);
                                 setSingleReference('');
+                                addTimelineEvent(`تغيير الدفع لـ: ${m.name} 💳`, 'info');
                               }}
                               className={`py-3 rounded-xl border font-black text-xs transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${themeClass}`}
                             >
@@ -1479,7 +1712,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     )}
                   </div>
 
-                  {/* خصم الفاتورة */}
                   <div className="space-y-1.5 border-t border-slate-50 pt-4">
                      <label className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase mr-1 tracking-widest block">خصم إضافي للفاتورة</label>
                      <div className="flex items-center gap-2">
@@ -1495,6 +1727,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                               return;
                             }
                             setInvoiceDiscountValue(val);
+                            addTimelineEvent(`تغيير الخصم الإضافي للفاتورة إلى ${val}`, 'warn');
                           }}
                           placeholder="0.00"
                           className="flex-grow px-4 py-3 bg-slate-50 border-2 border-transparent focus:border-emerald-500 rounded-xl outline-none font-bold text-sm shadow-inner transition-all disabled:opacity-50"
@@ -1502,7 +1735,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                         <button 
                           type="button"
                           disabled={isSaving}
-                          onClick={() => setInvoiceDiscountType(p => p === 'percent' ? 'fixed' : 'percent')}
+                          onClick={() => {
+                            const nextType = invoiceDiscountType === 'percent' ? 'fixed' : 'percent';
+                            setInvoiceDiscountType(nextType);
+                            addTimelineEvent(`تغيير نوع خصم الفاتورة إلى: ${nextType === 'percent' ? 'نسبة' : 'قيمة ثابتة'}`, 'warn');
+                          }}
                           className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-black text-slate-600 border"
                         >
                           {invoiceDiscountType === 'percent' ? '%' : 'ج.م'}
