@@ -36,12 +36,12 @@ const getUnitArabic = (u: string) => {
   }
 };
 
-// مكون توليد خطوط الباركود (Code 39 Barcode Generator) باستخدام الحدود Borders لضمان ظهورها في الطباعة
+// مكون توليد خطوط الباركود (Code 39 Barcode Generator) باستخدام SVG مع سمة crispEdges لضمان دقة متناهية ومنع التشوه والاهتزاز أثناء الطباعة
 const BarcodeRenderer: React.FC<{ value: string; labelWidth: number }> = ({ value, labelWidth }) => {
   const normalized = value.toUpperCase().replace(/[^A-Z0-9\-\.\ \$\/\+\%]/g, '');
   const cleanValue = '*' + (normalized || '0000') + '*';
   
-  const bars: { isBar: boolean; isWide: boolean }[] = [];
+  const bars: boolean[] = []; // true = bar, false = space
   
   for (let i = 0; i < cleanValue.length; i++) {
     const char = cleanValue[i];
@@ -51,34 +51,46 @@ const BarcodeRenderer: React.FC<{ value: string; labelWidth: number }> = ({ valu
     for (let j = 0; j < 9; j++) {
       const isBar = j % 2 === 0;
       const isWide = pattern[j] === '1';
-      bars.push({ isBar, isWide });
+      
+      // نسبة العرض (3:1) للمسافات والخطوط العريضة مقارنة بالضيقة
+      const widthUnits = isWide ? 3 : 1;
+      for (let u = 0; u < widthUnits; u++) {
+        bars.push(isBar);
+      }
     }
     
-    // فاصل بين الحروف
+    // فاصل ضيق بين الحروف (1 وحدة)
     if (i < cleanValue.length - 1) {
-      bars.push({ isBar: false, isWide: false });
+      bars.push(false);
     }
   }
   
-  const isSmall = labelWidth < 45;
+  const totalUnits = bars.length;
   
   return (
-    <div className="flex items-stretch h-8 select-none justify-center overflow-visible" style={{ width: '100%', transform: 'scaleX(0.95)' }}>
-      {bars.map((bar, idx) => {
-        // نستخدم مقاسات دقيقة لتناسب ملصق 50 مم أو أصغر
-        const width = bar.isWide ? (isSmall ? '1.1px' : '1.8px') : (isSmall ? '0.45px' : '0.7px');
-        return (
-          <div 
-            key={idx} 
-            style={{ 
-              width: '0px', 
-              borderLeft: `${width} solid ${bar.isBar ? '#000' : 'transparent'}`,
-              height: '100%',
-              flexShrink: 0
-            }} 
-          />
-        );
-      })}
+    <div className="w-full flex justify-center select-none" style={{ height: '36px' }}>
+      <svg 
+        viewBox={`0 0 ${totalUnits} 40`} 
+        width="100%" 
+        height="100%" 
+        preserveAspectRatio="none"
+        shapeRendering="crispEdges"
+        style={{ display: 'block', maxWidth: '95%' }}
+      >
+        {bars.map((isBar, idx) => {
+          if (!isBar) return null;
+          return (
+            <rect 
+              key={idx} 
+              x={idx} 
+              y={0} 
+              width={1} 
+              height={40} 
+              fill="#000" 
+            />
+          );
+        })}
+      </svg>
     </div>
   );
 };
