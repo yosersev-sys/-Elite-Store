@@ -466,7 +466,7 @@ export const ApiService = {
       // Network/Server error, switch to local fallback!
       return await idbGet<Shift>('active_shift');
     }
-    if (result && (result.status === 'error' || !result.id)) {
+    if (result && (result.status === 'no_active_shift' || result.status === 'error' || !result.id)) {
       await idbSet('active_shift', null);
       return null;
     }

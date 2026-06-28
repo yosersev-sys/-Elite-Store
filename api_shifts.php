@@ -20,7 +20,7 @@ switch ($action) {
             $shift['difference'] = (float)$shift['difference'];
             sendRes($shift);
         } else {
-            sendRes(null);
+            sendRes(['status' => 'no_active_shift']);
         }
         break;
 
