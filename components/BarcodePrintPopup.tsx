@@ -119,9 +119,9 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
 
   const [selectedUnitId, setSelectedUnitId] = React.useState(printableUnits[0]?.id || 'base');
   
-  // مقاسات الملصق الافتراضية بالمليمتر
-  const [labelWidth, setLabelWidth] = React.useState(38); // الافتراضي هو 38 مم لتجنب الخروج عن الحجم
-  const [labelHeight, setLabelHeight] = React.useState(25);
+  // مقاسات الملصق الافتراضية بالمليمتر (تم ضبطها افتراضياً على 50 مم × 35 مم بناءً على قياسات العميل الفعيلة)
+  const [labelWidth, setLabelWidth] = React.useState(50); 
+  const [labelHeight, setLabelHeight] = React.useState(35);
   
   // خيار تدوير الملصق 90 درجة للطباعة الرأسية/الأفقية المتوافقة مع طابعات الملصقات
   const [rotate90, setRotate90] = React.useState(false);
@@ -176,6 +176,7 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
                 }}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-xs text-slate-700 cursor-pointer"
               >
+                <option value="50x35">50mm × 35mm (مقاس الملصق الحالي لديك)</option>
                 <option value="38x25">38mm × 25mm (مقاس صغير - شائع جداً)</option>
                 <option value="50x25">50mm × 25mm (مقاس متوسط)</option>
                 <option value="50x30">50mm × 30mm (مقاس متوسط طويل)</option>
