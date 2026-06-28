@@ -1,4 +1,4 @@
-const CACHE_NAME = 'souq-alasr-v14';
+const CACHE_NAME = 'souq-alasr-v15';
 const ASSETS_TO_CACHE = [
   'index.php',
   'manifest.json',

@@ -1,26 +1,12 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import JsBarcode from 'jsbarcode';
 import { Product } from '../types';
 
 interface BarcodePrintPopupProps {
   product: Product;
   onClose: () => void;
 }
-
-// جدول رموز ترميز Code 39 لإنشاء خطوط باركود حقيقية بدون إنترنت
-const CODE39_MAP: Record<string, string> = {
-  '0': '000110100', '1': '100100001', '2': '001100001', '3': '101100000',
-  '4': '000110001', '5': '100110000', '6': '001110000', '7': '000100101',
-  '8': '100100100', '9': '001100100', 'A': '100001001', 'B': '001001001',
-  'C': '101001000', 'D': '000011001', 'E': '100011000', 'F': '001011000',
-  'G': '000001101', 'H': '100001100', 'I': '001001100', 'J': '000011100',
-  'K': '100000011', 'L': '001000011', 'M': '101000010', 'N': '000010011',
-  'O': '100010010', 'P': '001010010', 'Q': '000000111', 'R': '100000110',
-  'S': '001000110', 'T': '000010110', 'U': '110000001', 'V': '011000001',
-  'W': '111000000', 'X': '010010001', 'Y': '110010000', 'Z': '011010000',
-  '-': '010000101', '.': '110000100', ' ': '011000100', '*': '010010100',
-  '$': '010101000', '/': '010100010', '+': '010001010', '%': '000101010'
-};
 
 const getUnitArabic = (u: string) => {
   switch (u) {
@@ -36,61 +22,61 @@ const getUnitArabic = (u: string) => {
   }
 };
 
-// مكون توليد خطوط الباركود (Code 39 Barcode Generator) باستخدام SVG مع سمة crispEdges لضمان دقة متناهية ومنع التشوه والاهتزاز أثناء الطباعة
+// مكون توليد خطوط الباركود باستخدام مكتبة JsBarcode لضمان التوافق المطلق وسرعة قراءة الباركود بالقارئ الليزري
 const BarcodeRenderer: React.FC<{ value: string; labelWidth: number }> = ({ value, labelWidth }) => {
-  const normalized = value.toUpperCase().replace(/[^A-Z0-9\-\.\ \$\/\+\%]/g, '');
-  const cleanValue = '*' + (normalized || '0000') + '*';
-  
-  const bars: boolean[] = []; // true = bar, false = space
-  
-  for (let i = 0; i < cleanValue.length; i++) {
-    const char = cleanValue[i];
-    const pattern = CODE39_MAP[char];
-    if (!pattern) continue;
-    
-    for (let j = 0; j < 9; j++) {
-      const isBar = j % 2 === 0;
-      const isWide = pattern[j] === '1';
-      
-      // نسبة العرض (3:1) للمسافات والخطوط العريضة مقارنة بالضيقة
-      const widthUnits = isWide ? 3 : 1;
-      for (let u = 0; u < widthUnits; u++) {
-        bars.push(isBar);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (svgRef.current) {
+      try {
+        const isNumeric = /^\d+$/.test(value);
+        let format = "CODE128";
+        
+        // إذا كان باركوداً قياسياً دولياً مكوناً من 12 أو 13 رقماً، نرمز بتنسيق EAN13، وإلا نستخدم CODE128
+        if (isNumeric && (value.length === 12 || value.length === 13)) {
+          format = "EAN13";
+        } else if (isNumeric && value.length === 8) {
+          format = "EAN8";
+        }
+
+        JsBarcode(svgRef.current, value, {
+          format: format,
+          width: labelWidth < 45 ? 1.4 : 1.8, // سماكة دقيقة لمنع التداخل والتمزق في الملصقات الضيقة
+          height: 40,
+          displayValue: false,
+          margin: 0,
+          background: 'transparent',
+          lineColor: '#000'
+        });
+        
+        // تفعيل خيار الحواف الحادة لمنع بهتان الخطوط الحرارية
+        svgRef.current.setAttribute('shape-rendering', 'crispEdges');
+      } catch (err) {
+        console.warn("EAN13 encoding failed, falling back to CODE128:", err);
+        try {
+          JsBarcode(svgRef.current, value, {
+            format: "CODE128",
+            width: labelWidth < 45 ? 1.3 : 1.7,
+            height: 40,
+            displayValue: false,
+            margin: 0,
+            background: 'transparent',
+            lineColor: '#000'
+          });
+          svgRef.current.setAttribute('shape-rendering', 'crispEdges');
+        } catch (e) {
+          console.error("Barcode generation failed completely:", e);
+        }
       }
     }
-    
-    // فاصل ضيق بين الحروف (1 وحدة)
-    if (i < cleanValue.length - 1) {
-      bars.push(false);
-    }
-  }
-  
-  const totalUnits = bars.length;
-  
+  }, [value, labelWidth]);
+
   return (
     <div className="w-full flex justify-center select-none" style={{ height: '36px' }}>
       <svg 
-        viewBox={`0 0 ${totalUnits} 40`} 
-        width="100%" 
-        height="100%" 
-        preserveAspectRatio="none"
-        shapeRendering="crispEdges"
-        style={{ display: 'block', maxWidth: '95%' }}
-      >
-        {bars.map((isBar, idx) => {
-          if (!isBar) return null;
-          return (
-            <rect 
-              key={idx} 
-              x={idx} 
-              y={0} 
-              width={1} 
-              height={40} 
-              fill="#000" 
-            />
-          );
-        })}
-      </svg>
+        ref={svgRef} 
+        style={{ display: 'block', maxWidth: '95%', height: '100%' }}
+      />
     </div>
   );
 };
