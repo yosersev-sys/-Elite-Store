@@ -37,7 +37,7 @@ const getUnitArabic = (u: string) => {
 };
 
 // مكون توليد خطوط الباركود (Code 39 Barcode Generator) باستخدام الحدود Borders لضمان ظهورها في الطباعة
-const BarcodeRenderer: React.FC<{ value: string }> = ({ value }) => {
+const BarcodeRenderer: React.FC<{ value: string; labelWidth: number }> = ({ value, labelWidth }) => {
   const normalized = value.toUpperCase().replace(/[^A-Z0-9\-\.\ \$\/\+\%]/g, '');
   const cleanValue = '*' + (normalized || '0000') + '*';
   
@@ -60,11 +60,13 @@ const BarcodeRenderer: React.FC<{ value: string }> = ({ value }) => {
     }
   }
   
+  const isSmall = labelWidth < 45;
+  
   return (
-    <div className="flex items-stretch h-8 select-none overflow-hidden justify-center" style={{ width: '100%' }}>
+    <div className="flex items-stretch h-8 select-none justify-center overflow-visible" style={{ width: '100%', transform: 'scaleX(0.95)' }}>
       {bars.map((bar, idx) => {
-        // نستخدم مقاسات دقيقة لتناسب ملصق 50 مم
-        const width = bar.isWide ? '1.8px' : '0.7px';
+        // نستخدم مقاسات دقيقة لتناسب ملصق 50 مم أو أصغر
+        const width = bar.isWide ? (isSmall ? '1.1px' : '1.8px') : (isSmall ? '0.45px' : '0.7px');
         return (
           <div 
             key={idx} 
@@ -116,6 +118,10 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
   }, [product]);
 
   const [selectedUnitId, setSelectedUnitId] = React.useState(printableUnits[0]?.id || 'base');
+  
+  // مقاسات الملصق الافتراضية بالمليمتر
+  const [labelWidth, setLabelWidth] = React.useState(38); // الافتراضي هو 38 مم لتجنب الخروج عن الحجم
+  const [labelHeight, setLabelHeight] = React.useState(25);
 
   const handlePrint = () => {
     window.print();
@@ -138,11 +144,11 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
               🏷️
             </div>
             <h3 className="text-xl font-black text-slate-800 mb-2">طباعة ملصق الباركود</h3>
-            <p className="text-slate-400 font-bold text-xs mb-6">اختر الوحدة المراد طباعة ملصق الباركود لها:</p>
+            <p className="text-slate-400 font-bold text-xs mb-6">اختر الوحدة ومقاس الورق الملائم لطابعتك:</p>
 
             {/* أزرار التبديل بين الوحدات */}
             {printableUnits.length > 1 && (
-              <div className="flex justify-center gap-2 mb-6 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 w-full overflow-x-auto no-scrollbar">
+              <div className="flex justify-center gap-2 mb-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 w-full overflow-x-auto no-scrollbar">
                 {printableUnits.map(unit => (
                   <button
                     key={unit.id}
@@ -155,20 +161,45 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
               </div>
             )}
 
+            {/* مقاس الملصق */}
+            <div className="space-y-2 mb-6 text-right">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 block">مقاس ورق ملصق الباركود (العرض × الارتفاع)</label>
+              <select
+                value={`${labelWidth}x${labelHeight}`}
+                onChange={(e) => {
+                  const [w, h] = e.target.value.split('x').map(Number);
+                  setLabelWidth(w);
+                  setLabelHeight(h);
+                }}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold text-xs text-slate-700 cursor-pointer"
+              >
+                <option value="38x25">38mm × 25mm (مقاس صغير - شائع جداً)</option>
+                <option value="50x25">50mm × 25mm (مقاس متوسط)</option>
+                <option value="50x30">50mm × 30mm (مقاس متوسط طويل)</option>
+                <option value="40x30">40mm × 30mm (مقاس مربع)</option>
+                <option value="60x40">60mm × 40mm (مقاس كبير)</option>
+              </select>
+            </div>
+
             {/* معاينة الملصق على الشاشة */}
-            <div className="border-2 border-dashed border-slate-200 p-4 rounded-2xl mb-8 bg-slate-50">
+            <div className="border-2 border-dashed border-slate-200 p-4 rounded-2xl mb-8 bg-slate-50 flex items-center justify-center min-h-[140px]">
                <div 
-                 className="bg-white p-3 mx-auto shadow-sm flex flex-col items-center justify-between border border-black text-right"
-                 style={{ width: '50mm', height: '25mm', fontFamily: 'monospace' }}
+                 className="bg-white p-2.5 shadow-sm flex flex-col items-center justify-between border border-black text-right transition-all overflow-hidden"
+                 style={{ 
+                   width: `${labelWidth}mm`, 
+                   height: `${labelHeight}mm`, 
+                   fontFamily: 'monospace',
+                   boxSizing: 'border-box'
+                 }}
                >
-                  <p className="text-[8pt] font-black text-black truncate w-full text-center mb-1">{activeUnit.name}</p>
-                  <div className="flex flex-col items-center justify-center w-full my-auto">
-                     <BarcodeRenderer value={activeUnit.barcode} />
-                     <p className="text-[7pt] font-bold text-black mt-1 font-mono tracking-wider">{activeUnit.barcode}</p>
+                  <p className="text-[7.5pt] font-black text-black truncate w-full text-center mb-0.5">{activeUnit.name}</p>
+                  <div className="flex flex-col items-center justify-center w-full my-auto overflow-hidden">
+                     <BarcodeRenderer value={activeUnit.barcode} labelWidth={labelWidth} />
+                     <p className="text-[6.5pt] font-bold text-black mt-0.5 font-mono tracking-wider">{activeUnit.barcode}</p>
                   </div>
-                  <div className="flex justify-between w-full text-[8pt] font-black text-black mt-1">
+                  <div className="flex justify-between w-full text-[7.5pt] font-black text-black mt-0.5">
                      <span>السعر: {activeUnit.price} ج.م</span>
-                     <span className="font-sans text-[7.5pt]">soqelasr.com</span>
+                     <span className="font-sans text-[7pt]">soqelasr.com</span>
                   </div>
                </div>
             </div>
@@ -197,7 +228,7 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
           <div className="print-sticker-box">
             <p className="print-sticker-title">{activeUnit.name}</p>
             <div className="print-sticker-barcode-box">
-              <BarcodeRenderer value={activeUnit.barcode} />
+              <BarcodeRenderer value={activeUnit.barcode} labelWidth={labelWidth} />
               <p className="print-sticker-txt">{activeUnit.barcode}</p>
             </div>
             <div className="print-sticker-footer">
@@ -212,21 +243,26 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
       <style>{`
         @media print {
           @page {
-            size: 50mm 25mm;
-            margin: 0;
-          }
-          #root {
-            display: none !important;
+            size: ${labelWidth}mm ${labelHeight}mm;
+            margin: 0 !important;
           }
           html, body {
+            width: ${labelWidth}mm !important;
+            height: ${labelHeight}mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            background: white !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            background: white !important;
+          }
+          body > :not(.barcode-print-portal) {
+            display: none !important;
           }
           .barcode-print-portal {
             display: flex !important;
-            width: 50mm !important;
-            height: 25mm !important;
+            width: ${labelWidth}mm !important;
+            height: ${labelHeight}mm !important;
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
@@ -235,20 +271,22 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
             align-items: center !important;
             justify-content: center !important;
             box-sizing: border-box !important;
+            overflow: hidden !important;
           }
           .print-sticker-box {
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
             justify-content: space-between !important;
-            width: 50mm !important;
-            height: 25mm !important;
-            padding: 1.5mm 2mm !important;
+            width: ${labelWidth}mm !important;
+            height: ${labelHeight}mm !important;
+            padding: 1mm 1.5mm !important;
             box-sizing: border-box !important;
             background: white !important;
+            overflow: hidden !important;
           }
           .print-sticker-title {
-            font-size: 8.5pt !important;
+            font-size: ${labelWidth < 40 ? '7.5pt' : '8.5pt'} !important;
             font-weight: 900 !important;
             text-align: center !important;
             width: 100% !important;
@@ -265,14 +303,15 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
             justify-content: center !important;
             width: 100% !important;
             margin: auto 0 !important;
+            overflow: hidden !important;
           }
           .print-sticker-txt {
-            font-size: 7.5pt !important;
+            font-size: 6.5pt !important;
             font-weight: bold !important;
             text-align: center !important;
-            margin: 1mm 0 0 0 !important;
+            margin: 0.5mm 0 0 0 !important;
             color: #000 !important;
-            letter-spacing: 1px !important;
+            letter-spacing: 0.5px !important;
           }
           .print-sticker-footer {
             display: flex !important;
@@ -281,12 +320,12 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
             margin: 0 !important;
           }
           .print-sticker-price {
-            font-size: 8.5pt !important;
+            font-size: ${labelWidth < 40 ? '7.5pt' : '8.5pt'} !important;
             font-weight: 900 !important;
             color: #000 !important;
           }
           .print-sticker-link {
-            font-size: 7.5pt !important;
+            font-size: 6.5pt !important;
             font-weight: 900 !important;
             color: #000 !important;
             font-family: sans-serif !important;
