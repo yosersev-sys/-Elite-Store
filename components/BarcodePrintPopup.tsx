@@ -122,6 +122,9 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
   // مقاسات الملصق الافتراضية بالمليمتر
   const [labelWidth, setLabelWidth] = React.useState(38); // الافتراضي هو 38 مم لتجنب الخروج عن الحجم
   const [labelHeight, setLabelHeight] = React.useState(25);
+  
+  // خيار تدوير الملصق 90 درجة للطباعة الرأسية/الأفقية المتوافقة مع طابعات الملصقات
+  const [rotate90, setRotate90] = React.useState(false);
 
   const handlePrint = () => {
     window.print();
@@ -144,7 +147,7 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
               🏷️
             </div>
             <h3 className="text-xl font-black text-slate-800 mb-2">طباعة ملصق الباركود</h3>
-            <p className="text-slate-400 font-bold text-xs mb-6">اختر الوحدة ومقاس الورق الملائم لطابعتك:</p>
+            <p className="text-slate-400 font-bold text-xs mb-6">اختر الوحدة والخصائص المناسبة لطابعتك:</p>
 
             {/* أزرار التبديل بين الوحدات */}
             {printableUnits.length > 1 && (
@@ -162,7 +165,7 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
             )}
 
             {/* مقاس الملصق */}
-            <div className="space-y-2 mb-6 text-right">
+            <div className="space-y-2 mb-4 text-right">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 block">مقاس ورق ملصق الباركود (العرض × الارتفاع)</label>
               <select
                 value={`${labelWidth}x${labelHeight}`}
@@ -181,27 +184,45 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
               </select>
             </div>
 
+            {/* خيار تدوير الطباعة */}
+            <div className="flex items-center justify-between mb-6 bg-slate-50 p-3 rounded-2xl border border-slate-200 text-right">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">تدوير الملصق 90 درجة (للطباعة الرأسية)</span>
+              <input
+                type="checkbox"
+                checked={rotate90}
+                onChange={(e) => setRotate90(e.target.checked)}
+                className="w-4 h-4 text-slate-900 border-slate-300 rounded focus:ring-slate-500 cursor-pointer"
+              />
+            </div>
+
             {/* معاينة الملصق على الشاشة */}
             <div className="border-2 border-dashed border-slate-200 p-4 rounded-2xl mb-8 bg-slate-50 flex items-center justify-center min-h-[140px]">
-               <div 
-                 className="bg-white p-2.5 shadow-sm flex flex-col items-center justify-between border border-black text-right transition-all overflow-hidden"
-                 style={{ 
-                   width: `${labelWidth}mm`, 
-                   height: `${labelHeight}mm`, 
-                   fontFamily: 'monospace',
-                   boxSizing: 'border-box'
-                 }}
-               >
-                  <p className="text-[7.5pt] font-black text-black truncate w-full text-center mb-0.5">{activeUnit.name}</p>
-                  <div className="flex flex-col items-center justify-center w-full my-auto overflow-hidden">
-                     <BarcodeRenderer value={activeUnit.barcode} labelWidth={labelWidth} />
-                     <p className="text-[6.5pt] font-bold text-black mt-0.5 font-mono tracking-wider">{activeUnit.barcode}</p>
-                  </div>
-                  <div className="flex justify-between w-full text-[7.5pt] font-black text-black mt-0.5">
-                     <span>السعر: {activeUnit.price} ج.م</span>
-                     <span className="font-sans text-[7pt]">soqelasr.com</span>
-                  </div>
-               </div>
+              <div style={{ width: `${labelWidth}mm`, height: `${labelHeight}mm`, position: 'relative' }}>
+                 <div 
+                   className="bg-white p-2.5 shadow-sm flex flex-col items-center justify-between border border-black text-right transition-all overflow-hidden"
+                   style={{ 
+                     width: rotate90 ? `${labelHeight}mm` : `${labelWidth}mm`, 
+                     height: rotate90 ? `${labelWidth}mm` : `${labelHeight}mm`, 
+                     fontFamily: 'monospace',
+                     boxSizing: 'border-box',
+                     position: 'absolute',
+                     top: 0,
+                     left: 0,
+                     transform: rotate90 ? 'rotate(90deg) translate(0, -100%)' : 'none',
+                     transformOrigin: 'top left'
+                   }}
+                 >
+                    <p className="text-[7.5pt] font-black text-black truncate w-full text-center mb-0.5">{activeUnit.name}</p>
+                    <div className="flex flex-col items-center justify-center w-full my-auto overflow-hidden">
+                       <BarcodeRenderer value={activeUnit.barcode} labelWidth={labelWidth} />
+                       <p className="text-[6.5pt] font-bold text-black mt-0.5 font-mono tracking-wider">{activeUnit.barcode}</p>
+                    </div>
+                    <div className="flex justify-between w-full text-[7.5pt] font-black text-black mt-0.5">
+                       <span>السعر: {activeUnit.price} ج.م</span>
+                       <span className="font-sans text-[7pt]">soqelasr.com</span>
+                    </div>
+                 </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -225,7 +246,7 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
       {/* النسخة المخصصة للطباعة فقط باستخدام Portal خارج الـ root الرئيسي لتجنب طباعة باقي محتوى الصفحة */}
       {ReactDOM.createPortal(
         <div className="barcode-print-portal font-mono">
-          <div className="print-sticker-box">
+          <div className={`print-sticker-box ${rotate90 ? 'rotate-90-print' : ''}`}>
             <p className="print-sticker-title">{activeUnit.name}</p>
             <div className="print-sticker-barcode-box">
               <BarcodeRenderer value={activeUnit.barcode} labelWidth={labelWidth} />
@@ -284,6 +305,12 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
             box-sizing: border-box !important;
             background: white !important;
             overflow: hidden !important;
+          }
+          .rotate-90-print {
+            width: ${labelHeight}mm !important;
+            height: ${labelWidth}mm !important;
+            transform: rotate(90deg) translate(0, -100%) !important;
+            transform-origin: top left !important;
           }
           .print-sticker-title {
             font-size: ${labelWidth < 40 ? '7.5pt' : '8.5pt'} !important;
