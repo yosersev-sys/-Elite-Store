@@ -136,7 +136,7 @@ const BarcodePrintPopup: React.FC<BarcodePrintPopupProps> = ({ product, onClose 
   const [labelHeight, setLabelHeight] = React.useState(35);
   
   // خيار تدوير الملصق 90 درجة للطباعة الرأسية/الأفقية المتوافقة مع طابعات الملصقات
-  const [rotate90, setRotate90] = React.useState(true);
+  const [rotate90, setRotate90] = React.useState(false);
 
   const handlePrint = () => {
     window.print();
