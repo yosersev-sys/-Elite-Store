@@ -54,7 +54,7 @@ const idbSet = async (key: string, value: any): Promise<void> => {
 let useMockMode = false;
 let sessionExpiredAlerted = false;
 
-const safeFetch = async (action: string, options?: RequestInit) => {
+const safeFetch = async (action: string, options?: RequestInit, timeoutMs?: number) => {
   if (useMockMode) return null; 
 
   try {
@@ -79,14 +79,25 @@ const safeFetch = async (action: string, options?: RequestInit) => {
     
     url.searchParams.set('_t', Date.now().toString());
 
+    let signal: AbortSignal | undefined = undefined;
+    let timeoutId: any = undefined;
+    if (timeoutMs) {
+      const controller = new AbortController();
+      signal = controller.signal;
+      timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    }
+
     const response = await fetch(url.toString(), {
       ...options,
+      signal: signal,
       headers: { 
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
         ...options?.headers 
       },
     });
+
+    if (timeoutId) clearTimeout(timeoutId);
 
     let data = null;
     try {
@@ -262,7 +273,7 @@ export const ApiService = {
   },
 
   async saveOrder(order: Order): Promise<boolean> {
-    const result = await safeFetch('save_order', { method: 'POST', body: JSON.stringify(order) });
+    const result = await safeFetch('save_order', { method: 'POST', body: JSON.stringify(order) }, 1500);
     if (result?.status === 'success') return true;
 
     // Offline Handling
