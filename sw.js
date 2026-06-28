@@ -16,7 +16,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// تفعيل وتحديث الكاش
+// تفعيل وتحديث الكاش وإجبار المتصفح على تولي السيطرة فوراً
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -25,15 +25,36 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  self.clients.claim(); // تولي السيطرة الفورية على كل التبويبات المفتوحة
 });
 
-// استراتيجية جلب البيانات: البحث في الكاش أولاً ثم الإنترنت
+// استراتيجية جلب البيانات: جلب الصفحة من الإنترنت أولاً (Network First) للأبواب الملاحية، والكاش أولاً للأصول الثابتة
 self.addEventListener('fetch', (event) => {
   // تخطي طلبات الـ API لترك معالجتها للـ ApiService في فرونت إند
   if (event.request.url.includes('api.php')) {
     return;
   }
 
+  // استراتيجية الإنترنت أولاً (Network First) لطلبات التصفح (مثل index.php) لضمان التحديث التلقائي الفوري
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+          return networkResponse;
+        })
+        .catch(() => {
+          // في حال عدم وجود إنترنت (أوفلاين)، نسحب النسخة الاحتياطية من الكاش
+          return caches.match('index.php');
+        })
+    );
+    return;
+  }
+
+  // استراتيجية الكاش أولاً (Cache First) للملفات والأصول الثابتة
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -49,11 +70,6 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       });
-    }).catch(() => {
-      // إذا فشل كل شيء (أوفلاين تماماً ولم يجد الملف في الكاش)
-      if (event.request.mode === 'navigate') {
-        return caches.match('index.php');
-      }
     })
   );
 });

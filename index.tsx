@@ -24,6 +24,21 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js')
       .then(registration => {
         console.log('SW registered: ', registration);
+        
+        // التحقق التلقائي من وجود تحديثات وإعادة تحميل الصفحة للعميل فوراً
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed') {
+                if (navigator.serviceWorker.controller) {
+                  console.log('نسخة جديدة متوفرة، جاري إعادة تحميل التطبيق تلقائياً...');
+                  window.location.reload();
+                }
+              }
+            });
+          }
+        });
       })
       .catch(registrationError => {
         console.log('SW registration failed: ', registrationError);
