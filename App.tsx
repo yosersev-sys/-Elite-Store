@@ -153,30 +153,33 @@ const App: React.FC = () => {
   }, [view]);
 
   const loadData = async (silent = false, user = currentUser) => {
-    // 1. جلب البيانات المخزنة محلياً لعرضها فوراً وتسريع فتح التطبيق
-    const local = await ApiService.getLocalState();
     let hasCache = false;
 
-    if ((local as any).activeShift) {
-      setActiveShift((local as any).activeShift);
-    }
+    if (!silent) {
+      // 1. جلب البيانات المخزنة محلياً لعرضها فوراً وتسريع فتح التطبيق
+      const local = await ApiService.getLocalState();
 
-    if (local.products && local.products.length > 0) {
-      setProducts(local.products);
-      if (local.categories && local.categories.length > 0) setCategories(local.categories);
-      if (local.settings && local.settings.delivery_fee) setDeliveryFee(parseFloat(local.settings.delivery_fee));
-      
-      if (isTrulyInAdminMode && user?.role === 'admin') {
-        if (local.adminSummary) setAdminSummary(local.adminSummary);
-        if (local.users && local.users.length > 0) setUsers(local.users);
-        if (local.suppliers && local.suppliers.length > 0) setSuppliers(local.suppliers);
-        if (local.orders && local.orders.length > 0) setOrders(local.orders);
+      if ((local as any).activeShift) {
+        setActiveShift((local as any).activeShift);
       }
-      hasCache = true;
-    }
 
-    if (hasCache) {
-      setIsLoading(false);
+      if (local.products && local.products.length > 0) {
+        setProducts(local.products);
+        if (local.categories && local.categories.length > 0) setCategories(local.categories);
+        if (local.settings && local.settings.delivery_fee) setDeliveryFee(parseFloat(local.settings.delivery_fee));
+        
+        if (isTrulyInAdminMode && user?.role === 'admin') {
+          if (local.adminSummary) setAdminSummary(local.adminSummary);
+          if (local.users && local.users.length > 0) setUsers(local.users);
+          if (local.suppliers && local.suppliers.length > 0) setSuppliers(local.suppliers);
+          if (local.orders && local.orders.length > 0) setOrders(local.orders);
+        }
+        hasCache = true;
+      }
+
+      if (hasCache) {
+        setIsLoading(false);
+      }
     }
 
     // 2. تفعيل المزامنة الصامتة في الخلفية إذا كانت البيانات مخزنة مسبقاً لمنع ظهور شريط التحميل
