@@ -8,7 +8,7 @@ interface ProductsTabProps {
   adminSearch: string;
   setAdminSearch: (val: string) => void;
   onOpenEditForm: (product: Product) => void;
-  onDeleteProduct: (id: string) => void;
+  onDeleteProduct: (id: string) => Promise<void> | void;
   initialFilter?: string;
   onPrintBarcode?: (product: Product) => void;
 }
@@ -17,6 +17,19 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
   const [currentPage, setCurrentPage] = useState(1);
   const [currentFilter, setCurrentFilter] = useState(initialFilter || 'all');
   const itemsPerPage = 10;
+  const [deletingIds, setDeletingIds] = useState<string[]>([]);
+
+  const handleDeleteProduct = async (id: string) => {
+    if(!confirm('حذف المنتج نهائياً من المخزن؟')) return;
+    setDeletingIds(prev => [...prev, id]);
+    try {
+      await onDeleteProduct(id);
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setDeletingIds(prev => prev.filter(x => x !== id));
+    }
+  };
 
   // مزامنة الفلتر عند التغيير الخارجي
   useEffect(() => {
@@ -191,11 +204,14 @@ const ProductsTab: React.FC<ProductsTabProps> = ({ products, categories, adminSe
                         ✎
                       </button>
                       <button 
-                        onClick={() => { if(confirm('حذف المنتج نهائياً من المخزن؟')) onDeleteProduct(p.id) }} 
-                        className="p-2.5 text-rose-500 bg-rose-50 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                        disabled={deletingIds.includes(p.id)}
+                        onClick={() => handleDeleteProduct(p.id)} 
+                        className="p-2.5 text-rose-500 bg-rose-50 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[36px]"
                         title="حذف المنتج"
                       >
-                        🗑
+                        {deletingIds.includes(p.id) ? (
+                          <span className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                        ) : '🗑'}
                       </button>
                     </div>
                   </td>

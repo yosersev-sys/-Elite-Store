@@ -7,7 +7,7 @@ interface CategoriesTabProps {
   products: Product[];
   onAddCategory: (category: Category) => void;
   onUpdateCategory: (category: Category) => void;
-  onDeleteCategory: (id: string) => void;
+  onDeleteCategory: (id: string) => Promise<void> | void;
 }
 
 const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onAddCategory, onUpdateCategory, onDeleteCategory }) => {
@@ -17,6 +17,19 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deletingIds, setDeletingIds] = useState<string[]>([]);
+
+  const handleDeleteCategory = async (id: string) => {
+    if(!confirm('حذف القسم؟ سيتم تحويل منتجاته لقسم "عام"')) return;
+    setDeletingIds(prev => [...prev, id]);
+    try {
+      await onDeleteCategory(id);
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setDeletingIds(prev => prev.filter(x => x !== id));
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -208,10 +221,13 @@ const CategoriesTab: React.FC<CategoriesTabProps> = ({ categories, products, onA
                   تعديل ✎
                 </button>
                 <button 
-                  onClick={() => { if(confirm('حذف القسم؟ سيتم تحويل منتجاته لقسم "عام"')) onDeleteCategory(cat.id) }}
-                  className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+                  disabled={deletingIds.includes(cat.id)}
+                  onClick={() => handleDeleteCategory(cat.id)}
+                  className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center min-w-[36px]"
                 >
-                  🗑
+                  {deletingIds.includes(cat.id) ? (
+                    <span className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                  ) : '🗑'}
                 </button>
               </div>
             </div>

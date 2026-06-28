@@ -10,14 +10,39 @@ interface OrdersTabProps {
   setAdminSearch: (val: string) => void;
   onViewOrder: (order: Order) => void;
   onEditOrder: (order: Order) => void;
-  onUpdateOrderPayment: (id: string, paymentMethod: string) => void;
-  onReturnOrder: (id: string) => void;
+  onUpdateOrderPayment: (id: string, paymentMethod: string) => Promise<void> | void;
+  onReturnOrder: (id: string) => Promise<void> | void;
 }
 
 const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onEditOrder, onUpdateOrderPayment, onReturnOrder }) => {
   const [orderPage, setOrderPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'cancelled'>('all');
   const ordersPerPage = 10;
+  const [processingIds, setProcessingIds] = useState<string[]>([]);
+
+  const handleReturnOrder = async (id: string) => {
+    if (!confirm('هل تريد استرجاع هذه الفاتورة وإلغاء مبيعاتها وإعادة الكميات للمخزن؟')) return;
+    setProcessingIds(prev => [...prev, id]);
+    try {
+      await onReturnOrder(id);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setProcessingIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleUpdatePayment = async (id: string, paymentMethod: string) => {
+    if (!confirm('هل تريد تأكيد استلام النقدية وإتمام الفاتورة؟')) return;
+    setProcessingIds(prev => [...prev, id]);
+    try {
+      await onUpdateOrderPayment(id, paymentMethod);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setProcessingIds(prev => prev.filter(x => x !== id));
+    }
+  };
 
   const filteredOrders = useMemo(() => {
     let result = orders;
@@ -159,17 +184,35 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex justify-center gap-2">
-                       {o.status === 'pending' && (
-                         <button onClick={() => { if(confirm('هل تريد تأكيد استلام النقدية وإتمام الفاتورة؟')) onUpdateOrderPayment(o.id, o.paymentMethod); }} className="p-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-sm font-black" title="تأكيد واستلام النقدية">✓</button>
-                       )}
-                       <button onClick={() => WhatsAppService.sendInvoiceToCustomer(o, o.phone)} className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" title="إرسال واتساب">📱</button>
-                       <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
-                       {!isCancelled && (
-                         <button onClick={() => onEditOrder(o)} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="تعديل الأصناف والحالة">✎</button>
-                       )}
-                       {!isCancelled && (
-                         <button onClick={() => onReturnOrder(o.id)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="استرجاع الفاتورة">↩</button>
-                       )}
+                        {o.status === 'pending' && (
+                          <button 
+                            disabled={processingIds.includes(o.id)}
+                            onClick={() => handleUpdatePayment(o.id, o.paymentMethod)} 
+                            className="p-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-sm font-black disabled:opacity-50 flex items-center justify-center min-w-[36px]" 
+                            title="تأكيد واستلام النقدية"
+                          >
+                            {processingIds.includes(o.id) ? (
+                              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            ) : '✓'}
+                          </button>
+                        )}
+                        <button onClick={() => WhatsAppService.sendInvoiceToCustomer(o, o.phone)} className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" title="إرسال واتساب">📱</button>
+                        <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
+                        {!isCancelled && (
+                          <button onClick={() => onEditOrder(o)} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="تعديل الأصناف والحالة">✎</button>
+                        )}
+                        {!isCancelled && (
+                          <button 
+                            disabled={processingIds.includes(o.id)}
+                            onClick={() => handleReturnOrder(o.id)} 
+                            className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[36px]" 
+                            title="استرجاع الفاتورة"
+                          >
+                            {processingIds.includes(o.id) ? (
+                              <span className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                            ) : '↩'}
+                          </button>
+                        )}
                     </div>
                   </td>
                 </tr>

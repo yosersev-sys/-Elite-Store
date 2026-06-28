@@ -8,7 +8,7 @@ interface MembersTabProps {
   adminSearch: string;
   isLoading: boolean;
   setAdminSearch: (val: string) => void;
-  onDeleteUser: (id: string) => void;
+  onDeleteUser: (id: string) => Promise<void> | void;
   onRefreshData?: () => void;
 }
 
@@ -18,6 +18,28 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
   const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [deletingIds, setDeletingIds] = useState<string[]>([]);
+
+  const handleDeleteClick = async (user: User) => {
+    if (user.id === 'admin_root') {
+      alert('لا يمكن حذف الحساب الرئيسي 🛡️');
+      return;
+    }
+    if (user.id === currentUser?.id) {
+      alert('لا يمكنك حذف حسابك الحالي ⚠️');
+      return;
+    }
+    if (confirm(`هل أنت متأكد من حذف العضو "${user.name}" نهائياً؟`)) {
+      setDeletingIds(prev => [...prev, user.id]);
+      try {
+        await onDeleteUser(user.id);
+      } catch(err) {
+        console.error(err);
+      } finally {
+        setDeletingIds(prev => prev.filter(x => x !== user.id));
+      }
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -112,19 +134,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
     setIsAddModalOpen(true);
   };
 
-  const handleDeleteClick = (user: User) => {
-    if (user.id === 'admin_root') {
-      alert('لا يمكن حذف الحساب الرئيسي 🛡️');
-      return;
-    }
-    if (user.id === currentUser?.id) {
-      alert('لا يمكنك حذف حسابك الحالي ⚠️');
-      return;
-    }
-    if (confirm(`هل أنت متأكد من حذف العضو "${user.name}" نهائياً؟`)) {
-      onDeleteUser(user.id);
-    }
-  };
+  
 
   if (isLoading && safeUsers.length === 0) {
     return <div className="p-20 text-center animate-pulse text-slate-400 font-black">جاري جلب قائمة الأعضاء...</div>;
@@ -215,7 +225,16 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
                 <td className="px-8 py-5">
                    <div className="flex justify-center gap-2">
                      <button onClick={() => openEditModal(u)} className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm" title="تعديل">✎</button>
-                     <button onClick={() => handleDeleteClick(u)} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm" title="حذف">🗑</button>
+                      <button 
+                        disabled={deletingIds.includes(u.id)}
+                        onClick={() => handleDeleteClick(u)} 
+                        className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[36px]" 
+                        title="حذف"
+                      >
+                        {deletingIds.includes(u.id) ? (
+                          <span className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                        ) : '🗑'}
+                      </button>
                    </div>
                 </td>
               </tr>

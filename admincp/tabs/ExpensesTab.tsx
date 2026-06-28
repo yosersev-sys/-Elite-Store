@@ -20,6 +20,7 @@ const ExpensesTab: React.FC<ExpensesTabProps> = ({ onRefreshData }) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [cancellingIds, setCancellingIds] = useState<number[]>([]);
 
   // الفلاتر
   const now = new Date();
@@ -114,6 +115,7 @@ const ExpensesTab: React.FC<ExpensesTabProps> = ({ onRefreshData }) => {
       return;
     }
 
+    setCancellingIds(prev => [...prev, id]);
     try {
       const res = await ApiService.cancelExpense(id);
       if (res.success) {
@@ -125,6 +127,8 @@ const ExpensesTab: React.FC<ExpensesTabProps> = ({ onRefreshData }) => {
       }
     } catch (e) {
       alert('حدث خطأ فني أثناء إلغاء المصروف');
+    } finally {
+      setCancellingIds(prev => prev.filter(x => x !== id));
     }
   };
 
@@ -299,9 +303,13 @@ const ExpensesTab: React.FC<ExpensesTabProps> = ({ onRefreshData }) => {
                       <td className="py-4 px-2 text-center">
                         {!isCancelled ? (
                           <button
+                            disabled={cancellingIds.includes(e.id)}
                             onClick={() => handleCancelExpense(e.id)}
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-lg font-black text-[9px] active:scale-95 transition-all"
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-lg font-black text-[9px] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1 mx-auto"
                           >
+                            {cancellingIds.includes(e.id) ? (
+                              <span className="w-2.5 h-2.5 border border-rose-600 border-t-transparent rounded-full animate-spin"></span>
+                            ) : null}
                             إلغاء ✕
                           </button>
                         ) : (

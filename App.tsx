@@ -581,14 +581,44 @@ const App: React.FC = () => {
               onOpenEditForm={(p) => { setSelectedProduct(p); onNavigate('admin-form'); }}
               onOpenInvoiceForm={() => { setEditingOrder(null); onNavigate('admin-invoice'); }}
               onEditOrder={(o) => { setEditingOrder(o); onNavigate('admin-invoice'); }}
-              onDeleteProduct={async (id) => { if(await ApiService.deleteProduct(id)) loadData(true); }}
+              onDeleteProduct={async (id) => {
+                setProducts(prev => prev.filter(p => p.id !== id));
+                const ok = await ApiService.deleteProduct(id);
+                if (!ok) showNotification('فشل حذف المنتج من السيرفر', 'error');
+                loadData(true);
+              }}
               onAddCategory={async (c) => { if(await ApiService.addCategory(c)) loadData(true); }}
               onUpdateCategory={async (c) => { if(await ApiService.updateCategory(c)) loadData(true); }}
-              onDeleteCategory={async (id) => { if(await ApiService.deleteCategory(id)) loadData(true); }}
+              onDeleteCategory={async (id) => {
+                setCategories(prev => prev.filter(c => c.id !== id));
+                const ok = await ApiService.deleteCategory(id);
+                if (!ok) showNotification('فشل حذف القسم من السيرفر', 'error');
+                loadData(true);
+              }}
               onViewOrder={(o) => { setRecentCreatedOrderFlow(o); onNavigate('order-success'); }}
-              onUpdateOrderPayment={(id, m) => ApiService.updateOrderPayment(id, m).then(() => loadData(true))}
-              onReturnOrder={async (id) => { if(await ApiService.returnOrder(id)) loadData(true); }}
-              onDeleteUser={async (id) => { if(await ApiService.deleteUser(id)) loadData(true); }}
+              onUpdateOrderPayment={async (id, m) => {
+                setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'completed' as any, paymentMethod: m } : o));
+                const ok = await ApiService.updateOrderPayment(id, m);
+                if (!ok) showNotification('فشل تأكيد استلام النقدية على السيرفر', 'error');
+                else showNotification('تم تأكيد الدفع واستلام النقدية بنجاح.', 'success');
+                loadData(true);
+              }}
+              onReturnOrder={async (id) => {
+                setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' as any } : o));
+                const res = await ApiService.returnOrder(id);
+                if (res && res.status === 'error') {
+                  showNotification('فشل استرجاع الفاتورة: ' + (res.message || 'خطأ غير معروف'), 'error');
+                } else {
+                  showNotification('تم استرجاع الفاتورة وإعادة الكميات للمخزن بنجاح.', 'success');
+                }
+                loadData(true);
+              }}
+              onDeleteUser={async (id) => {
+                setUsers(prev => prev.filter(u => u.id !== id));
+                const ok = await ApiService.deleteUser(id);
+                if (!ok) showNotification('فشل حذف المستخدم من السيرفر', 'error');
+                loadData(true);
+              }}
               soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)}
               onLogout={handleLogout} onRefreshData={() => loadData(true)}
             />
