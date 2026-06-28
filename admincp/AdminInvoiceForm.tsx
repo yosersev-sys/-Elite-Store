@@ -1815,6 +1815,177 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                  </button>
               </div>
            </div>
+
+           {/* مساعد المبيعات الذكي - AI Sales Assistant Panel */}
+           <div className="bg-white p-6 md:p-8 rounded-[1.5rem] md:rounded-[3rem] shadow-xl border border-slate-100 space-y-6 text-right animate-slideUp">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b pb-4 border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🤖</span>
+                  <div>
+                    <h3 className="font-black text-slate-800 text-sm md:text-base">مساعد المبيعات الذكي</h3>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">AI Sales Assistant</p>
+                  </div>
+                </div>
+                {/* Invoice Health Indicator */}
+                <div className={`px-3 py-1 rounded-full text-[10px] font-black border transition-all ${assistantData.healthColor}`}>
+                  {assistantData.healthLabel}
+                </div>
+              </div>
+
+              {/* 1. Customer Summary */}
+              <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                <h4 className="font-black text-slate-700 text-xs flex items-center gap-1.5 border-b pb-1.5 border-slate-200/50">
+                  <span>👤</span> تحليل العميل
+                </h4>
+                {assistantData.selectedUser ? (
+                  <div className="space-y-2 text-[11px] font-bold text-slate-500">
+                    <div className="flex justify-between">
+                      <span>الاسم:</span>
+                      <span className="text-slate-800 font-black">{assistantData.selectedUser.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>تصنيف العميل:</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
+                        assistantData.customerType === 'vip' ? 'bg-amber-100 text-amber-700' :
+                        assistantData.customerType === 'regular' ? 'bg-indigo-100 text-indigo-700' :
+                        assistantData.customerType === 'debtor' ? 'bg-rose-100 text-rose-700' :
+                        'bg-slate-100 text-slate-700'
+                      }`}>
+                        {assistantData.customerType === 'vip' ? 'عميل مميز (VIP) 🌟' :
+                         assistantData.customerType === 'regular' ? 'عميل دائم 🤝' :
+                         assistantData.customerType === 'debtor' ? 'عميل متعثر (مديونية) ⚠️' :
+                         'عميل جديد 🌱'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>إجمالي المشتريات:</span>
+                      <span className="text-slate-800 font-Cairo font-black">{assistantData.customerTotalPurchases.toFixed(2)} ج.م</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>عدد الطلبات السابقة:</span>
+                      <span className="text-slate-800 font-Cairo font-black">{assistantData.customerOrdersCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>متوسط الفاتورة (AOV):</span>
+                      <span className="text-slate-800 font-Cairo font-black">{assistantData.customerAOV.toFixed(2)} ج.م</span>
+                    </div>
+                    {assistantData.customerLastOrder && (
+                      <div className="flex justify-between">
+                        <span>آخر عملية شراء:</span>
+                        <span className="text-slate-800 font-Cairo font-black">{formatTimeAgo(assistantData.customerLastOrder)}</span>
+                      </div>
+                    )}
+                    {assistantData.customerDebt > 0 && (
+                      <div className="flex justify-between text-rose-600 font-black pt-1 border-t border-dashed border-rose-200">
+                        <span>مديونية معلقة:</span>
+                        <span>{assistantData.customerDebt.toFixed(2)} ج.م</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 space-y-2">
+                    <p className="text-[10px] text-slate-400 font-bold">لم يتم تحديد عميل مسجل (البيع لعميل نقدي افتراضي)</p>
+                    <p className="text-[8.5px] text-indigo-500 font-black">💡 يُقترح ربط الفاتورة برقم هاتف لحفظ مبيعات ونقاط العميل.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Profitability (Manager Only) */}
+              {currentUser?.role === 'admin' && (
+                <div className="space-y-3 bg-indigo-50/20 p-4 rounded-2xl border border-indigo-100/50">
+                  <h4 className="font-black text-indigo-700 text-xs flex items-center gap-1.5 border-b pb-1.5 border-indigo-100">
+                    <span>📈</span> مساعد الربحية والتحليل المالي
+                  </h4>
+                  <div className="space-y-2 text-[11px] font-bold text-slate-500">
+                    <div className="flex justify-between">
+                      <span>تكلفة الأصناف الإجمالية:</span>
+                      <span className="text-slate-800 font-Cairo font-black">{assistantData.totalCost.toFixed(2)} ج.م</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-600 font-black">
+                      <span>الربح الإجمالي المتوقع:</span>
+                      <span className="font-Cairo font-black">{assistantData.expectedProfit.toFixed(2)} ج.م</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>هامش الربح (%):</span>
+                      <span className="text-indigo-600 font-Cairo font-black">{assistantData.profitMargin.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Alerts */}
+              {assistantData.alerts.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-black text-slate-700 text-xs flex items-center gap-1.5 mr-1">
+                    <span>⚠️</span> التنبيهات والتحذيرات ({assistantData.alerts.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {assistantData.alerts.map((alert, i) => (
+                      <div 
+                        key={i} 
+                        className={`p-3 rounded-xl border text-[10px] font-bold leading-relaxed flex gap-2 items-start ${
+                          alert.type === 'danger' ? 'bg-rose-50 border-rose-100 text-rose-600' :
+                          alert.type === 'warn' ? 'bg-amber-50 border-amber-100 text-amber-700' :
+                          'bg-sky-50 border-sky-100 text-sky-700'
+                        }`}
+                      >
+                        <span className="text-[12px] shrink-0">{alert.type === 'danger' ? '🚫' : alert.type === 'warn' ? '⚠️' : 'ℹ️'}</span>
+                        <span>{alert.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Suggestions */}
+              {assistantData.suggestions.length > 0 && (
+                <div className="space-y-3 bg-emerald-50/20 p-4 rounded-2xl border border-emerald-100/50">
+                  <h4 className="font-black text-emerald-700 text-xs flex items-center gap-1.5 border-b pb-1.5 border-emerald-100">
+                    <span>💡</span> مقترحات ذكية (Cross-Sell & Hints)
+                  </h4>
+                  <div className="space-y-2">
+                    {assistantData.suggestions.map((sug, i) => (
+                      <div key={i} className="text-[10px] font-bold text-slate-600 flex items-start gap-1.5 leading-relaxed">
+                        <span className="text-emerald-500 shrink-0">✨</span>
+                        <span>{sug}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 5. Live Timeline */}
+              <div className="space-y-3 border-t border-slate-100 pt-4">
+                <h4 className="font-black text-slate-400 text-[10px] flex items-center justify-between uppercase tracking-wider">
+                  <span>سجل حركات الفاتورة اللحظي (Audit Trail)</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setInvoiceTimeline([{ id: 'init', time: Date.now(), text: 'بدء إنشاء فاتورة جديدة', type: 'info' }])}
+                    className="text-[9px] font-black text-rose-500 hover:bg-rose-50 px-2 py-0.5 rounded cursor-pointer"
+                  >
+                    تصفير السجل
+                  </button>
+                </h4>
+                <div className="max-h-36 overflow-y-auto space-y-2 pr-1 no-scrollbar text-right text-[9px] font-bold">
+                  {invoiceTimeline.slice().reverse().map((evt) => (
+                    <div key={evt.id} className="flex justify-between items-center text-slate-400 gap-2">
+                      <span className={`text-[8.5px] truncate ${
+                        evt.type === 'success' ? 'text-emerald-600' :
+                        evt.type === 'danger' ? 'text-rose-500' :
+                        evt.type === 'warn' ? 'text-amber-600' :
+                        'text-slate-600'
+                      }`}>
+                        {evt.text}
+                      </span>
+                      <span className="font-mono text-[8px] opacity-70 shrink-0">
+                        {new Date(evt.time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+           </div>
         </div>
       </div>
     </div>
