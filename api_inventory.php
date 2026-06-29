@@ -357,9 +357,241 @@ switch ($action) {
         sendRes(['status' => 'success']);
         break;
 
-    case 'delete_category':
+    case 'adjust_stock':
         if (!isAdmin()) sendErr('غير مصرح');
-        $pdo->prepare("DELETE FROM categories WHERE id = ?")->execute([$_GET['id']]);
+        $productId = $input['productId'] ?? '';
+        $adjustment = (float)($input['adjustment'] ?? 0);
+        $reason = trim($input['reason'] ?? '');
+        $userId = $_SESSION['user']['id'] ?? '';
+        
+        if (empty($productId)) sendErr('معرف المنتج مطلوب');
+        
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("SELECT name, stockQuantity, unit FROM products WHERE id = ?");
+            $stmt->execute([$productId]);
+            $prod = $stmt->fetch();
+            if (!$prod) throw new Exception('المنتج غير موجود');
+            
+            $oldStock = (float)$prod['stockQuantity'];
+            $newStock = max(0, $oldStock + $adjustment);
+            
+            $stmtUpdate = $pdo->prepare("UPDATE products SET stockQuantity = ? WHERE id = ?");
+            $stmtUpdate->execute([$newStock, $productId]);
+            
+            $activeShift = $pdo->query("SELECT id FROM shifts WHERE status = 'open' LIMIT 1")->fetch();
+            $shiftId = $activeShift ? $activeShift['id'] : null;
+            
+            $stmtLog = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'STOCK_ADJUSTMENT', ?, ?)");
+            $stmtLog->execute([
+                $userId,
+                $shiftId,
+                json_encode([
+                    'productId' => $productId,
+                    'productName' => $prod['name'],
+                    'oldStock' => $oldStock,
+                    'adjustment' => $adjustment,
+                    'newStock' => $newStock,
+                    'unitName' => $prod['unit'] ?: 'قطعة',
+                    'reason' => $reason
+                ], JSON_UNESCAPED_UNICODE),
+                time() * 1000
+            ]);
+            
+            $pdo->commit();
+            sendRes(['status' => 'success', 'newStock' => $newStock]);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            sendErr('فشل تعديل المخزون: ' . $e->getMessage());
+        }
+        break;
+
+    case 'get_product_history':
+        $productId = $_GET['productId'] ?? '';
+        if (empty($productId)) sendErr('معرف المنتج مطلوب');
+        
+        $stmtOrders = $pdo->prepare("SELECT id, customerName, items, status, createdAt FROM orders WHERE items LIKE ? ORDER BY createdAt DESC");
+        $stmtOrders->execute(['%"id":"' . $productId . '"%']);
+        $orders = $stmtOrders->fetchAll();
+        
+        $history = [];
+        
+        foreach ($orders as $o) {
+            $items = json_decode($o['items'] ?? '[]', true) ?: [];
+            foreach ($items as $item) {
+                if ($item['id'] === $productId) {
+                    $qty = (float)($item['quantity'] ?? 0);
+                    $unitName = $item['selectedUnitName'] ?? $item['unit'] ?? 'قطعة';
+                    
+                    $type = 'SALE';
+                    $label = 'بيع صنف';
+                    if ($o['status'] === 'cancelled') {
+                        $type = 'RETURN';
+                        $label = 'مرتجع بيع';
+                    }
+                    
+                    $history[] = [
+                        'id' => $o['id'],
+                        'type' => $type,
+                        'label' => $label,
+                        'qty' => $qty,
+                        'unit' => $unitName,
+                        'price' => (float)($item['price'] ?? 0),
+                        'total' => $qty * (float)($item['price'] ?? 0),
+                        'party' => $o['customerName'] ?: 'عميل نقدي',
+                        'createdAt' => (int)$o['createdAt'],
+                        'notes' => 'فاتورة رقم: ' . $o['id']
+                    ];
+                }
+            }
+        }
+        
+        $stmtLogs = $pdo->prepare("
+            SELECT al.*, u.name as userName 
+            FROM audit_logs al 
+            LEFT JOIN users u ON al.userId = u.id 
+            WHERE (al.action = 'STOCK_ADJUSTMENT' AND al.details LIKE ?) 
+               OR (al.action = 'ADD_PRODUCT_QUICK' AND al.details LIKE ?) 
+            ORDER BY al.createdAt DESC
+        ");
+        $stmtLogs->execute(['%"productId":"' . $productId . '"%', '%"productId":"' . $productId . '"%']);
+        $logs = $stmtLogs->fetchAll();
+        
+        foreach ($logs as $l) {
+            $details = json_decode($l['details'] ?? '[]', true) ?: [];
+            if ($l['action'] === 'STOCK_ADJUSTMENT') {
+                $adj = (float)($details['adjustment'] ?? 0);
+                $type = $adj >= 0 ? 'RESTOCK' : 'ADJUSTMENT';
+                $label = $adj >= 0 ? 'إمداد مخزون' : 'تعديل جرد';
+                
+                $history[] = [
+                    'id' => 'LOG-' . $l['id'],
+                    'type' => $type,
+                    'label' => $label,
+                    'qty' => abs($adj),
+                    'unit' => $details['unitName'] ?? 'قطعة',
+                    'price' => 0.0,
+                    'total' => 0.0,
+                    'party' => $l['userName'] ?: 'المدير',
+                    'createdAt' => (int)$l['createdAt'],
+                    'notes' => $details['reason'] ?: 'تعديل يدوي للمخزون'
+                ];
+            } else if ($l['action'] === 'ADD_PRODUCT_QUICK') {
+                $qty = (float)($details['stockQuantity'] ?? 0);
+                $history[] = [
+                    'id' => 'LOG-' . $l['id'],
+                    'type' => 'INITIAL',
+                    'label' => 'إنشاء الصنف',
+                    'qty' => $qty,
+                    'unit' => $details['unit'] ?? 'قطعة',
+                    'price' => (float)($details['price'] ?? 0),
+                    'total' => $qty * (float)($details['price'] ?? 0),
+                    'party' => $l['userName'] ?: 'المدير',
+                    'createdAt' => (int)$l['createdAt'],
+                    'notes' => 'الرصيد الافتتاحي عند التسجيل'
+                ];
+            }
+        }
+        
+        usort($history, function($a, $b) {
+            return $b['createdAt'] <=> $a['createdAt'];
+        });
+        
+        sendRes($history);
+        break;
+
+    case 'bulk_update_prices':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $ids = $input['ids'] ?? [];
+        $priceType = $input['priceType'] ?? 'price';
+        $adjustType = $input['adjustType'] ?? 'fixed';
+        $value = (float)($input['value'] ?? 0);
+        
+        if (empty($ids) || !is_array($ids)) sendErr('يجب تحديد منتج واحد على الأقل');
+        
+        $pdo->beginTransaction();
+        try {
+            foreach ($ids as $id) {
+                $stmt = $pdo->prepare("SELECT price, wholesalePrice FROM products WHERE id = ?");
+                $stmt->execute([$id]);
+                $prod = $stmt->fetch();
+                if (!$prod) continue;
+                
+                $oldPrice = (float)$prod[$priceType];
+                $newPrice = $oldPrice;
+                if ($adjustType === 'percent') {
+                    $newPrice = $oldPrice + ($oldPrice * ($value / 100));
+                } else {
+                    $newPrice = $oldPrice + $value;
+                }
+                $newPrice = max(0.00, round($newPrice, 2));
+                
+                if ($priceType === 'price') {
+                    $pdo->prepare("UPDATE products SET price = ? WHERE id = ?")->execute([$newPrice, $id]);
+                    $pdo->prepare("UPDATE product_units SET salePrice = ? WHERE productId = ? AND isDefault = 1")->execute([$newPrice, $id]);
+                } else {
+                    $pdo->prepare("UPDATE products SET wholesalePrice = ? WHERE id = ?")->execute([$newPrice, $id]);
+                    $pdo->prepare("UPDATE product_units SET purchasePrice = ? WHERE productId = ? AND isDefault = 1")->execute([$newPrice, $id]);
+                }
+            }
+            $pdo->commit();
+            sendRes(['status' => 'success']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            sendErr('فشل التعديل الجماعي للأسعار: ' . $e->getMessage());
+        }
+        break;
+
+    case 'bulk_update_reorder_level':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $ids = $input['ids'] ?? [];
+        $reorderLevel = (float)($input['reorderLevel'] ?? 5.00);
+        
+        if (empty($ids) || !is_array($ids)) sendErr('يجب تحديد منتج واحد على الأقل');
+        
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("UPDATE products SET reorderLevel = ? WHERE id IN ($placeholders)");
+        $stmt->execute(array_merge([$reorderLevel], $ids));
+        sendRes(['status' => 'success']);
+        break;
+
+    case 'bulk_update_category':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $ids = $input['ids'] ?? [];
+        $categoryId = $input['categoryId'] ?? '';
+        
+        if (empty($ids) || !is_array($ids)) sendErr('يجب تحديد منتج واحد على الأقل');
+        if (empty($categoryId)) sendErr('القسم مطلوب');
+        
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("UPDATE products SET categoryId = ? WHERE id IN ($placeholders)");
+        $stmt->execute(array_merge([$categoryId], $ids));
+        sendRes(['status' => 'success']);
+        break;
+
+    case 'bulk_update_supplier':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $ids = $input['ids'] ?? [];
+        $supplierId = !empty($input['supplierId']) ? $input['supplierId'] : null;
+        
+        if (empty($ids) || !is_array($ids)) sendErr('يجب تحديد منتج واحد على الأقل');
+        
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("UPDATE products SET supplierId = ? WHERE id IN ($placeholders)");
+        $stmt->execute(array_merge([$supplierId], $ids));
+        sendRes(['status' => 'success']);
+        break;
+
+    case 'bulk_toggle_products':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $ids = $input['ids'] ?? [];
+        $active = (int)($input['active'] ?? 1);
+        
+        if (empty($ids) || !is_array($ids)) sendErr('يجب تحديد منتج واحد على الأقل');
+        
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("UPDATE product_units SET isActive = ? WHERE productId IN ($placeholders) AND isDefault = 1");
+        $stmt->execute(array_merge([$active], $ids));
         sendRes(['status' => 'success']);
         break;
 }

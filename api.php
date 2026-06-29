@@ -65,6 +65,13 @@ try {
         case 'update_category':
         case 'delete_category':
         case 'get_all_images':
+        case 'adjust_stock':
+        case 'get_product_history':
+        case 'bulk_update_prices':
+        case 'bulk_update_reorder_level':
+        case 'bulk_update_category':
+        case 'bulk_update_supplier':
+        case 'bulk_toggle_products':
             require_once 'api_inventory.php';
             break;
 

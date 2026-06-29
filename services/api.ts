@@ -431,6 +431,62 @@ export const ApiService = {
     const result = await safeFetch('generate_sitemap');
     return result?.status === 'success';
   },
+
+  async adjustStock(productId: string, adjustment: number, reason: string): Promise<{ success: boolean; newStock?: number; message?: string }> {
+    const result = await safeFetch('adjust_stock', {
+      method: 'POST',
+      body: JSON.stringify({ productId, adjustment, reason })
+    });
+    if (result?.status === 'success') {
+      return { success: true, newStock: result.newStock };
+    }
+    return { success: false, message: result?.message || 'فشل تعديل المخزون' };
+  },
+
+  async getProductHistory(productId: string): Promise<any[]> {
+    const result = await safeFetch(`get_product_history&productId=${productId}`);
+    return Array.isArray(result) ? result : [];
+  },
+
+  async bulkUpdatePrices(ids: string[], priceType: 'price' | 'wholesalePrice', adjustType: 'fixed' | 'percent', value: number): Promise<boolean> {
+    const result = await safeFetch('bulk_update_prices', {
+      method: 'POST',
+      body: JSON.stringify({ ids, priceType, adjustType, value })
+    });
+    return result?.status === 'success';
+  },
+
+  async bulkUpdateReorderLevel(ids: string[], reorderLevel: number): Promise<boolean> {
+    const result = await safeFetch('bulk_update_reorder_level', {
+      method: 'POST',
+      body: JSON.stringify({ ids, reorderLevel })
+    });
+    return result?.status === 'success';
+  },
+
+  async bulkUpdateCategory(ids: string[], categoryId: string): Promise<boolean> {
+    const result = await safeFetch('bulk_update_category', {
+      method: 'POST',
+      body: JSON.stringify({ ids, categoryId })
+    });
+    return result?.status === 'success';
+  },
+
+  async bulkUpdateSupplier(ids: string[], supplierId: string | null): Promise<boolean> {
+    const result = await safeFetch('bulk_update_supplier', {
+      method: 'POST',
+      body: JSON.stringify({ ids, supplierId })
+    });
+    return result?.status === 'success';
+  },
+
+  async bulkToggleProducts(ids: string[], active: number): Promise<boolean> {
+    const result = await safeFetch('bulk_toggle_products', {
+      method: 'POST',
+      body: JSON.stringify({ ids, active })
+    });
+    return result?.status === 'success';
+  },
   
   // Public access to offline IDB queue count
   async getOfflineQueueCount(): Promise<number> {
