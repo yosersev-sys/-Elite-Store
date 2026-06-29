@@ -695,17 +695,34 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                     </div>
                     <div className="space-y-1 lg:col-span-3">
                       <label className="text-[10px] font-black text-slate-400 mr-2">الباركود</label>
-                      <input 
-                        required
-                        value={unit.barcode}
-                        onChange={e => setFormData(prev => {
-                          const updated = [...prev.units];
-                          updated[index].barcode = e.target.value;
-                          return { ...prev, units: updated };
-                        })}
-                        placeholder="باركود فريد للعبوة"
-                        className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs"
-                      />
+                      <div className="flex gap-1.5">
+                        <input 
+                          required
+                          value={unit.barcode}
+                          onChange={e => setFormData(prev => {
+                            const updated = [...prev.units];
+                            updated[index].barcode = e.target.value;
+                            return { ...prev, units: updated };
+                          })}
+                          placeholder="باركود فريد للعبوة"
+                          className="flex-grow px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const randomCode = Math.floor(Math.random() * 9000000000000) + 1000000000000;
+                            setFormData(prev => {
+                              const updated = [...prev.units];
+                              updated[index].barcode = randomCode.toString();
+                              return { ...prev, units: updated };
+                            });
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 rounded-xl shadow-md active:scale-95 transition-all text-xs flex items-center justify-center"
+                          title="توليد باركود تلقائي"
+                        >
+                          ✨
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-1 lg:col-span-2">
                       <label className="text-[10px] font-black text-slate-400 mr-2">سعر البيع</label>
