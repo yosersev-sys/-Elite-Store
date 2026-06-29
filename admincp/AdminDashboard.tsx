@@ -126,6 +126,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   };
 
   const lowStockCount = safeProducts.filter(p => Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5)).length;
+  const pendingOrdersCount = safeOrders.filter(o => o.status === 'pending').length;
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[90vh] bg-white rounded-[1.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
@@ -176,7 +177,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
              <h3 className="text-2xl md:text-4xl font-black text-slate-800">{tabTitles[activeTab]}</h3>
              <p className="text-slate-400 text-xs font-bold mt-1">نظام إدارة سوق العصر المتطور</p>
            </div>
-           <div className="flex gap-2 w-full md:w-auto">
+           <div className="flex items-center gap-2.5 w-full md:w-auto">
+             <button 
+               type="button"
+               onClick={() => handleTabChange('orders', '')}
+               className={`relative p-3 rounded-xl font-black text-xs border transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                 pendingOrdersCount > 0 
+                   ? 'bg-rose-50 text-rose-600 border-rose-200 shadow-md animate-pulse hover:bg-rose-100' 
+                   : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
+               }`}
+               title={pendingOrdersCount > 0 ? `يوجد ${pendingOrdersCount} طلبات معلقة من المتجر` : 'لا توجد طلبات معلقة'}
+             >
+               <div className="relative flex items-center justify-center">
+                 <span className={`text-sm ${pendingOrdersCount > 0 ? 'animate-bounce block' : ''}`}>🔔</span>
+                 {pendingOrdersCount > 0 && (
+                   <span className="absolute -top-1.5 -right-1.5 flex h-2.5 w-2.5">
+                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                   </span>
+                 )}
+               </div>
+               {pendingOrdersCount > 0 && (
+                 <span className="font-Cairo font-bold hidden sm:inline">طلبات معلقة ({pendingOrdersCount})</span>
+               )}
+             </button>
              <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">🧾 فاتورة</button>
              <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">📦 صنف جديد</button>
            </div>
