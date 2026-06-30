@@ -240,6 +240,16 @@ const ProductRow = React.memo<{
 
 ProductRow.displayName = 'ProductRow';
 
+const formatCompact = (num: number): string => {
+  if (num === 0) return '0';
+  const absNum = Math.abs(num);
+  const sign = num < 0 ? '-' : '';
+  if (absNum >= 1_000_000_000) return sign + (absNum / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + ' مليار';
+  if (absNum >= 1_000_000) return sign + (absNum / 1_000_000).toFixed(1).replace(/\.0$/, '') + ' مليون';
+  if (absNum >= 1_000) return sign + (absNum / 1_000).toFixed(1).replace(/\.0$/, '') + ' ألف';
+  return sign + absNum.toLocaleString('ar-EG', { maximumFractionDigits: 2 });
+};
+
 const ProductsTab: React.FC<ProductsTabProps> = ({ 
   products, 
   categories, 
@@ -827,8 +837,8 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
           <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 text-xl font-bold shrink-0">📉</div>
           <div className="min-w-0">
             <span className="text-[10px] text-slate-400 font-black tracking-widest block uppercase">قيمة المخزن (تكلفة)</span>
-            <span className="text-xl md:text-2xl font-black text-rose-600 block mt-0.5">
-              {isManager ? stats.purchaseVal.toLocaleString() : '***'} <small className="text-xs text-slate-400">ج.م</small>
+            <span className="text-xl md:text-2xl font-black text-rose-600 block mt-0.5" title={isManager ? stats.purchaseVal.toLocaleString() + ' ج.م' : ''}>
+              {isManager ? formatCompact(stats.purchaseVal) : '***'} <small className="text-xs text-slate-400">ج.م</small>
             </span>
           </div>
         </div>
@@ -838,8 +848,8 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl font-bold shrink-0">📈</div>
           <div className="min-w-0">
             <span className="text-[10px] text-slate-400 font-black tracking-widest block uppercase">قيمة البيع المتوقعة</span>
-            <span className="text-xl md:text-2xl font-black text-emerald-600 block mt-0.5">
-              {isManager ? stats.saleVal.toLocaleString() : stats.totalItems * 10} <small className="text-xs text-slate-400">ج.م</small>
+            <span className="text-xl md:text-2xl font-black text-emerald-600 block mt-0.5" title={isManager ? stats.saleVal.toLocaleString() + ' ج.م' : ''}>
+              {isManager ? formatCompact(stats.saleVal) : formatCompact(stats.totalItems * 10)} <small className="text-xs text-slate-400">ج.م</small>
             </span>
           </div>
         </div>
@@ -849,8 +859,8 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
           <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 text-xl font-bold shrink-0">💰</div>
           <div className="min-w-0">
             <span className="text-[10px] text-slate-400 font-black tracking-widest block uppercase">الربح المتوقع للمدير</span>
-            <span className="text-xl md:text-2xl font-black text-slate-700 block mt-0.5">
-              {isManager ? stats.profitVal.toLocaleString() : '***'} <small className="text-xs text-slate-400">ج.م</small>
+            <span className="text-xl md:text-2xl font-black text-slate-700 block mt-0.5" title={isManager ? stats.profitVal.toLocaleString() + ' ج.م' : ''}>
+              {isManager ? formatCompact(stats.profitVal) : '***'} <small className="text-xs text-slate-400">ج.م</small>
             </span>
           </div>
         </div>
@@ -894,24 +904,54 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
         </div>
       </div>
 
-      {/* 2. Smart Alerts Panel */}
-      {isManager && (lossMakingProducts.length > 0 || stats.lowStockCount > 0) && (
-        <div className="bg-rose-50/50 border border-rose-100 rounded-3xl p-5 space-y-3">
-          <h3 className="text-xs font-black text-rose-700 flex items-center gap-2">
-            <span>🚨</span> تنبيهات لوحة القيادة الذكية (مخاطر تتطلب حلول فورية):
-          </h3>
-          <ul className="space-y-2 text-xs text-rose-600 font-bold">
+      {/* 2. Smart Alerts Panel - Redesigned */}
+      {isManager && (lossMakingProducts.length > 0 || stats.outOfStockCount > 0) && (
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center gap-3">
+            <span className="w-8 h-8 bg-amber-400/20 rounded-xl flex items-center justify-center text-sm">⚡</span>
+            <div>
+              <h3 className="text-sm font-black text-white">تنبيهات ذكية</h3>
+              <p className="text-[10px] text-slate-400 font-bold">توصيات تلقائية لتحسين الأداء</p>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-50">
             {lossMakingProducts.slice(0, 3).map(p => (
-              <li key={p.id} className="flex items-center gap-2">
-                <span>⚠️</span> المنتج <strong>{p.name}</strong> يباع بخسارة فادحة! سعر البيع ({p.price} ج.م) أقل من تكلفة الشراء ({p.wholesalePrice} ج.م). يرجى مراجعة الأسعار.
-              </li>
+              <div key={'loss-'+p.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-amber-50/40 transition-colors group">
+                <span className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-amber-100 transition-colors">⚠️</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-slate-700 leading-relaxed">
+                    <span className="text-amber-600">{p.name}</span>
+                    <span className="text-slate-400 font-bold"> — يُباع بخسارة</span>
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                    بيع: {Number(p.price).toLocaleString()} ج.م · تكلفة: {Number(p.wholesalePrice).toLocaleString()} ج.م
+                  </p>
+                </div>
+                <button 
+                  onClick={() => onOpenEditForm(p)}
+                  className="shrink-0 text-[9px] font-black text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors mt-0.5"
+                >تعديل</button>
+              </div>
             ))}
             {products.filter(p => Number(p.stockQuantity || 0) <= 0).slice(0, 3).map(p => (
-              <li key={p.id} className="flex items-center gap-2">
-                <span>❌</span> نفد مخزون المنتج <strong>{p.name}</strong> بالكامل (المخزون الحالي: 0). يرجى إمداده.
-              </li>
+              <div key={'out-'+p.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-rose-50/40 transition-colors group">
+                <span className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-rose-100 transition-colors">📦</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-slate-700 leading-relaxed">
+                    <span className="text-rose-600">{p.name}</span>
+                    <span className="text-slate-400 font-bold"> — نفد المخزون</span>
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                    المخزون الحالي: 0 · يرجى إمداده
+                  </p>
+                </div>
+                <button 
+                  onClick={() => onOpenEditForm(p)}
+                  className="shrink-0 text-[9px] font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg hover:bg-rose-100 transition-colors mt-0.5"
+                >إمداد</button>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       )}
 
