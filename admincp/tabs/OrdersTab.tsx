@@ -12,16 +12,18 @@ interface OrdersTabProps {
   onEditOrder: (order: Order) => void;
   onUpdateOrderPayment: (id: string, paymentMethod: string) => Promise<void> | void;
   onReturnOrder: (id: string) => Promise<void> | void;
+  mode?: 'invoices' | 'store-orders';
 }
 
-const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onEditOrder, onUpdateOrderPayment, onReturnOrder }) => {
+const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onEditOrder, onUpdateOrderPayment, onReturnOrder, mode }) => {
   const [orderPage, setOrderPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'cancelled'>('all');
   const ordersPerPage = 10;
   const [processingIds, setProcessingIds] = useState<string[]>([]);
 
   const handleReturnOrder = async (id: string) => {
-    if (!confirm('هل تريد استرجاع هذه الفاتورة وإلغاء مبيعاتها وإعادة الكميات للمخزن؟')) return;
+    const isInv = id.startsWith('INV-') || id.startsWith('OFF-');
+    if (!confirm(isInv ? 'هل تريد استرجاع هذه الفاتورة وإلغاء مبيعاتها وإعادة الكميات للمخزن؟' : 'هل تريد استرجاع هذا الطلب وإلغاء مبيعاته وإعادة الكميات للمخزن؟')) return;
     setProcessingIds(prev => [...prev, id]);
     try {
       await onReturnOrder(id);
@@ -33,7 +35,8 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
   };
 
   const handleUpdatePayment = async (id: string, paymentMethod: string) => {
-    if (!confirm('هل تريد تأكيد استلام النقدية وإتمام الفاتورة؟')) return;
+    const isInv = id.startsWith('INV-') || id.startsWith('OFF-');
+    if (!confirm(isInv ? 'هل تريد تأكيد استلام النقدية وإتمام الفاتورة؟' : 'هل تريد تأكيد استلام النقدية وإتمام الطلب؟')) return;
     setProcessingIds(prev => [...prev, id]);
     try {
       await onUpdateOrderPayment(id, paymentMethod);
@@ -46,6 +49,14 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
 
   const filteredOrders = useMemo(() => {
     let result = orders;
+
+    // Filter by mode (Cashier Invoices vs Store Orders)
+    if (mode === 'invoices') {
+      result = result.filter(o => o.id.startsWith('INV-') || o.id.startsWith('OFF-'));
+    } else if (mode === 'store-orders') {
+      result = result.filter(o => !o.id.startsWith('INV-') && !o.id.startsWith('OFF-'));
+    }
+
     if (statusFilter !== 'all') {
       result = result.filter(o => o.status === statusFilter);
     }
@@ -57,7 +68,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
       (o.phone && o.phone.includes(q)) ||
       (o.paymentMethod && String(o.paymentMethod).toLowerCase().includes(q))
     );
-  }, [orders, adminSearch, statusFilter]);
+  }, [orders, adminSearch, statusFilter, mode]);
 
   const handleStatusFilterChange = (filter: 'all' | 'pending' | 'completed' | 'cancelled') => {
     setStatusFilter(filter);
@@ -140,7 +151,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
         <div className="relative w-full md:w-80">
           <input 
             type="text" 
-            placeholder="رقم الطلب أو الهاتف أو 'آجل'..." 
+            placeholder={mode === 'invoices' ? "رقم الفاتورة أو الهاتف أو 'آجل'..." : "رقم الطلب أو الهاتف أو 'آجل'..."} 
             value={adminSearch} 
             onChange={e => { setAdminSearch(e.target.value); setOrderPage(1); }} 
             className="w-full bg-white border border-slate-100 rounded-2xl px-6 py-3.5 text-sm outline-none shadow-sm font-bold focus:ring-4 focus:ring-emerald-500/10 transition-all" 
@@ -152,7 +163,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
         <table className="w-full text-right text-sm">
           <thead>
             <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase border-b">
-              <th className="px-8 py-5">رقم الطلب والعميل</th>
+              <th className="px-8 py-5">{mode === 'invoices' ? 'رقم الفاتورة والعميل' : 'رقم الطلب والعميل'}</th>
               <th className="px-8 py-5">الإجمالي</th>
               <th className="px-8 py-5">حالة الدفع</th>
               <th className="px-8 py-5 text-center">الإجراء</th>
@@ -221,7 +232,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
             {!isLoading && paginatedOrders.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-bold italic">
-                  لا توجد طلبات مسجلة حالياً
+                  {mode === 'invoices' ? 'لا توجد فواتير مسجلة حالياً' : 'لا توجد طلبات متجر مسجلة حالياً'}
                 </td>
               </tr>
             )}

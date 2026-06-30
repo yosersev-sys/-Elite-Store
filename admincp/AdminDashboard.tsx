@@ -49,7 +49,7 @@ interface AdminDashboardProps {
   isSyncing?: boolean;
 }
 
-export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods';
+export type AdminTab = 'stats' | 'products' | 'categories' | 'invoices' | 'store-orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   // صمامات أمان نهائية لضمان وجود مصفوفات دائماً قبل العرض
@@ -78,7 +78,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     stats: 'احصائيات عامة',
     products: 'المخزن',
     categories: 'الأقسام',
-    orders: 'الطلبات',
+    invoices: 'الفواتير (الكاشير)',
+    'store-orders': 'طلبات المتجر (الأونلاين)',
     members: 'الأعضاء',
     suppliers: 'الموردين',
     reports: 'الأرباح',
@@ -104,7 +105,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'stats': return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
       case 'products': return <ProductsTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} initialFilter={adminFilter} onPrintBarcode={props.onPrintBarcode} />;
       case 'categories': return <CategoriesTab {...tabProps} />;
-      case 'orders': return <OrdersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
+      case 'invoices': return <OrdersTab {...tabProps} mode="invoices" adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
+      case 'store-orders': return <OrdersTab {...tabProps} mode="store-orders" adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
       case 'members': return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'suppliers': return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
       case 'reports': return <ReportsTab orders={safeOrders} adminSummary={props.adminSummary} />;
@@ -127,7 +129,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   };
 
   const lowStockCount = safeProducts.filter(p => Number(p.stockQuantity || 0) < (p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5)).length;
-  const pendingOrdersCount = safeOrders.filter(o => o.status === 'pending').length;
+  const pendingOrdersCount = safeOrders.filter(o => o.status === 'pending' && !o.id.startsWith('INV-') && !o.id.startsWith('OFF-')).length;
 
   return (
     <div className="flex flex-col lg:flex-row min-h-[90vh] bg-white rounded-[1.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-emerald-50 animate-fadeIn">
@@ -149,7 +151,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           <AdminNavButton active={activeTab === 'stats'} onClick={() => handleTabChange('stats')} icon="📊" label="الإحصائيات" />
           <AdminNavButton active={activeTab === 'products'} onClick={() => handleTabChange('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
-          <AdminNavButton active={activeTab === 'orders'} onClick={() => handleTabChange('orders', '')} icon="🛍️" label="الطلبات" />
+          <AdminNavButton active={activeTab === 'invoices'} onClick={() => handleTabChange('invoices', '')} icon="🧾" label="الفواتير" />
+          <AdminNavButton active={activeTab === 'store-orders'} onClick={() => handleTabChange('store-orders', '')} icon="🛍️" label="طلبات المتجر" badge={pendingOrdersCount > 0 ? pendingOrdersCount : undefined} />
           <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
           <AdminNavButton active={activeTab === 'ledger'} onClick={() => handleTabChange('ledger')} icon="💸" label="كشوف الحسابات" />
           <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
@@ -189,7 +192,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
            <div className="flex items-center gap-2.5 w-full md:w-auto">
              <button 
                type="button"
-               onClick={() => handleTabChange('orders', '')}
+               onClick={() => handleTabChange('store-orders', '')}
                className={`relative p-3 rounded-xl font-black text-xs border transition-all flex items-center justify-center gap-2 cursor-pointer ${
                  pendingOrdersCount > 0 
                    ? 'bg-rose-50 text-rose-600 border-rose-200 shadow-md animate-pulse hover:bg-rose-100' 

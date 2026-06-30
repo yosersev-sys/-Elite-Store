@@ -454,7 +454,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
 
            <div className="mt-6 pt-4 border-t border-slate-50 flex justify-end">
               <button 
-                onClick={() => onNavigateToTab('orders')} 
+                onClick={() => onNavigateToTab('invoices')} 
                 className="bg-slate-50 hover:bg-slate-100 text-slate-600 px-5 py-2.5 rounded-xl font-black text-xs transition-all"
               >
                  عرض فواتير اليوم ←
@@ -472,9 +472,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
               <button onClick={onOpenAddForm} className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-black text-[10px]">إضافة صنف +</button>
            </div>
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
               <QuickActionButton label="المخزن" icon="📦" onClick={() => onNavigateToTab('products')} />
-              <QuickActionButton label="الطلبات" icon="🛍️" onClick={() => onNavigateToTab('orders')} />
+              <QuickActionButton label="الفواتير" icon="🧾" onClick={() => onNavigateToTab('invoices')} />
+              <QuickActionButton label="طلبات المتجر" icon="🛍️" onClick={() => onNavigateToTab('store-orders')} />
               <QuickActionButton label="الأعضاء" icon="👥" onClick={() => onNavigateToTab('members')} />
               <QuickActionButton label="الموردين" icon="🚛" onClick={() => onNavigateToTab('suppliers')} />
            </div>
