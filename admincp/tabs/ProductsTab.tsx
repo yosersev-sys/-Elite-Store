@@ -266,6 +266,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
 }) => {
   const isManager = currentUser?.role === 'admin';
   const [currentPage, setCurrentPage] = useState(1);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const itemsPerPage = 10;
   
   // Selection states
@@ -904,54 +905,74 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
         </div>
       </div>
 
-      {/* 2. Smart Alerts Panel - Redesigned */}
+      {/* 2. Smart Alerts Panel - Redesigned & Collapsible */}
       {isManager && (lossMakingProducts.length > 0 || stats.outOfStockCount > 0) && (
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center gap-3">
-            <span className="w-8 h-8 bg-amber-400/20 rounded-xl flex items-center justify-center text-sm">⚡</span>
-            <div>
-              <h3 className="text-sm font-black text-white">تنبيهات ذكية</h3>
-              <p className="text-[10px] text-slate-400 font-bold">توصيات تلقائية لتحسين الأداء</p>
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden transition-all duration-300">
+          <div 
+            onClick={() => setAlertsOpen(!alertsOpen)}
+            className="px-6 py-4 bg-gradient-to-r from-slate-800 to-slate-700 flex items-center justify-between cursor-pointer select-none hover:from-slate-850 hover:to-slate-750 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 bg-amber-400/20 rounded-xl flex items-center justify-center text-sm">⚡</span>
+              <div>
+                <h3 className="text-sm font-black text-white">تنبيهات ذكية</h3>
+                <p className="text-[10px] text-slate-400 font-bold">توصيات تلقائية لتحسين الأداء</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {!alertsOpen && (
+                <span className="px-3 py-1 bg-amber-500 text-slate-900 rounded-lg text-[9px] font-black animate-pulse">
+                  {lossMakingProducts.length + products.filter(p => Number(p.stockQuantity || 0) <= 0).length} تنبيهات معلقة
+                </span>
+              )}
+              <span 
+                className="text-white text-xs transition-transform duration-350"
+                style={{ transform: alertsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              >
+                ▼
+              </span>
             </div>
           </div>
-          <div className="divide-y divide-slate-50">
-            {lossMakingProducts.slice(0, 3).map(p => (
-              <div key={'loss-'+p.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-amber-50/40 transition-colors group">
-                <span className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-amber-100 transition-colors">⚠️</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black text-slate-700 leading-relaxed">
-                    <span className="text-amber-600">{p.name}</span>
-                    <span className="text-slate-400 font-bold"> — يُباع بخسارة</span>
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
-                    بيع: {Number(p.price).toLocaleString()} ج.م · تكلفة: {Number(p.wholesalePrice).toLocaleString()} ج.م
-                  </p>
+          {alertsOpen && (
+            <div className="divide-y divide-slate-50 animate-fadeIn">
+              {lossMakingProducts.slice(0, 3).map(p => (
+                <div key={'loss-'+p.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-amber-50/40 transition-colors group">
+                  <span className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-amber-100 transition-colors">⚠️</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-slate-700 leading-relaxed">
+                      <span className="text-amber-600">{p.name}</span>
+                      <span className="text-slate-400 font-bold"> — يُباع بخسارة</span>
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                      بيع: {Number(p.price).toLocaleString()} ج.م · تكلفة: {Number(p.wholesalePrice).toLocaleString()} ج.م
+                    </p>
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onOpenEditForm(p); }}
+                    className="shrink-0 text-[9px] font-black text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors mt-0.5"
+                  >تعديل</button>
                 </div>
-                <button 
-                  onClick={() => onOpenEditForm(p)}
-                  className="shrink-0 text-[9px] font-black text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors mt-0.5"
-                >تعديل</button>
-              </div>
-            ))}
-            {products.filter(p => Number(p.stockQuantity || 0) <= 0).slice(0, 3).map(p => (
-              <div key={'out-'+p.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-rose-50/40 transition-colors group">
-                <span className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-rose-100 transition-colors">📦</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black text-slate-700 leading-relaxed">
-                    <span className="text-rose-600">{p.name}</span>
-                    <span className="text-slate-400 font-bold"> — نفد المخزون</span>
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
-                    المخزون الحالي: 0 · يرجى إمداده
-                  </p>
+              ))}
+              {products.filter(p => Number(p.stockQuantity || 0) <= 0).slice(0, 3).map(p => (
+                <div key={'out-'+p.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-rose-50/40 transition-colors group">
+                  <span className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-rose-100 transition-colors">📦</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-slate-700 leading-relaxed">
+                      <span className="text-rose-600">{p.name}</span>
+                      <span className="text-slate-400 font-bold"> — نفد المخزون</span>
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                      المخزون الحالي: 0 · يرجى إمداده
+                    </p>
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onOpenEditForm(p); }}
+                    className="shrink-0 text-[9px] font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg hover:bg-rose-100 transition-colors mt-0.5"
+                  >إمداد</button>
                 </div>
-                <button 
-                  onClick={() => onOpenEditForm(p)}
-                  className="shrink-0 text-[9px] font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg hover:bg-rose-100 transition-colors mt-0.5"
-                >إمداد</button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
