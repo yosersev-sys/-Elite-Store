@@ -138,39 +138,7 @@ const safeFetch = async (action: string, options?: RequestInit, timeoutMs?: numb
 export const ApiService = {
   // Sync Engine: Manges offline queue
   async syncOfflineData(): Promise<{ success: boolean; syncedCount: number; remainingCount: number; errors: any[] }> {
-    const syncQueue: Order[] = (await idbGet<Order[]>('offline_sync_queue')) || [];
-    if (syncQueue.length === 0) return { success: true, syncedCount: 0, remainingCount: 0, errors: [] };
-
-    let syncedCount = 0;
-    const remainingQueue: Order[] = [];
-    const errors: any[] = [];
-
-    for (const order of syncQueue) {
-      try {
-        const result = await safeFetch('save_order', {
-          method: 'POST',
-          body: JSON.stringify({ ...order, is_offline_sync: true }) 
-        });
-
-        if (result?.status === 'success') {
-          syncedCount++;
-        } else {
-          remainingQueue.push(order);
-          errors.push(result?.message || 'Server rejected order');
-        }
-      } catch (err) {
-        remainingQueue.push(order);
-        errors.push(err);
-      }
-    }
-
-    await idbSet('offline_sync_queue', remainingQueue);
-    return {
-      success: remainingQueue.length === 0,
-      syncedCount,
-      remainingCount: remainingQueue.length,
-      errors
-    };
+    return { success: true, syncedCount: 0, remainingCount: 0, errors: [] };
   },
 
   async getCurrentUser(): Promise<User | null> {
@@ -274,39 +242,7 @@ export const ApiService = {
 
   async saveOrder(order: Order): Promise<boolean> {
     const result = await safeFetch('save_order', { method: 'POST', body: JSON.stringify(order) }, 1500);
-    if (result?.status === 'success') return true;
-
-    // Offline Handling
-    // 1. Save to Sync Queue with real timestamp
-    const offlineOrder = { ...order, offline_timestamp: Date.now() };
-    const queue = (await idbGet<Order[]>('offline_sync_queue')) || [];
-    queue.push(offlineOrder as Order);
-    await idbSet('offline_sync_queue', queue);
-
-    // 2. Deduct Stock Locally
-    const products = (await idbGet<Product[]>('products')) || [];
-    let updated = false;
-    order.items.forEach(item => {
-      const prod = products.find(p => p.id === item.id);
-      if (prod) {
-        const currentStock = prod.stockQuantity || 0;
-        prod.stockQuantity = Math.max(0, currentStock - item.quantity);
-        updated = true;
-      }
-    });
-    if (updated) await idbSet('products', products);
-
-    // 3. Add to Local Orders view
-    const orders = (await idbGet<Order[]>('orders')) || [];
-    orders.unshift(offlineOrder as Order);
-    await idbSet('orders', orders);
-
-    // Trigger background sync if possible
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
-      navigator.serviceWorker.ready.then((reg: any) => reg.sync.register('sync-offline-orders')).catch(console.error);
-    }
-
-    return true; // Fakes success so UI can proceed
+    return result?.status === 'success';
   },
 
   async updateOrder(order: Order): Promise<boolean> {
@@ -490,8 +426,7 @@ export const ApiService = {
   
   // Public access to offline IDB queue count
   async getOfflineQueueCount(): Promise<number> {
-    const queue = await idbGet<Order[]>('offline_sync_queue');
-    return queue ? queue.length : 0;
+    return 0;
   },
 
   // Get entire cached state for instant PWA loading

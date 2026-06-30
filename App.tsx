@@ -371,39 +371,24 @@ const App: React.FC = () => {
     verifySession();
   }, []);
 
+  // مراقبة شبكة الاتصال وتحديث حالة الاتصال بالإنترنت فقط دون مزامنة خلفية أو حفظ أوفلاين
   useEffect(() => {
-    const handleOnline = async () => {
+    const handleOnline = () => {
       setIsOnline(true);
-      showNotification('عاد الاتصال بالإنترنت، جاري المزامنة...', 'success');
-      const syncResult = await ApiService.syncOfflineData();
-      if (syncResult.syncedCount > 0) {
-        showNotification(`تم مزامنة ${syncResult.syncedCount} فاتورة بنجاح.`, 'success');
-        loadData(true);
-      }
-      setOfflineQueueCount(syncResult.remainingCount);
+      showNotification('أنت متصل الآن بالإنترنت', 'success');
     };
 
     const handleOffline = () => {
       setIsOnline(false);
-      showNotification('أنت الآن غير متصل. تُحفظ الفواتير محلياً.', 'error');
-    };
-
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'TRIGGER_SYNC') {
-        if (navigator.onLine) handleOnline();
-      }
+      showNotification('تم قطع الاتصال بالإنترنت. يرجى التحقق من الشبكة.', 'error');
     };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    navigator.serviceWorker?.addEventListener('message', handleMessage);
-
-    ApiService.getOfflineQueueCount().then(setOfflineQueueCount);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      navigator.serviceWorker?.removeEventListener('message', handleMessage);
     };
   }, []);
 
