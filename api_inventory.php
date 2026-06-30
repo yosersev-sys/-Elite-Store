@@ -93,6 +93,60 @@ function getFormattedProduct($pdo, $productId) {
     return $p;
 }
 
+function saveBase64Image($base64Str, $subfolder) {
+    if (empty($base64Str)) return '';
+    
+    if (strpos($base64Str, 'data:image/') !== 0) {
+        return $base64Str;
+    }
+
+    if (!preg_match('/^data:image\/(\w+);base64,(.+)$/is', $base64Str, $matches)) {
+        return null;
+    }
+
+    $ext = strtolower($matches[1]);
+    $data = base64_decode($matches[2]);
+    if (!$data) return null;
+
+    $allowedTypes = ['jpeg', 'jpg', 'png', 'webp', 'gif'];
+    if (!in_array($ext, $allowedTypes)) {
+        return null;
+    }
+    if ($ext === 'jpeg') {
+        $ext = 'jpg';
+    }
+
+    $maxSize = 10 * 1024 * 1024;
+    if (strlen($data) > $maxSize) {
+        return null;
+    }
+
+    $filename = bin2hex(random_bytes(16)) . '.' . $ext;
+    $dir = 'uploads/' . $subfolder;
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+
+    $relativePath = $dir . '/' . $filename;
+    if (file_put_contents($relativePath, $data) !== false) {
+        return $relativePath;
+    }
+
+    return null;
+}
+
+function deleteImageFile($path) {
+    if (empty($path)) return;
+    if (!is_dir('uploads')) {
+        mkdir('uploads', 0755, true);
+    }
+    $realUploadsPath = realpath('uploads');
+    $realPath = realpath($path);
+    if ($realPath && $realUploadsPath && strpos($realPath, $realUploadsPath) === 0 && is_file($realPath)) {
+        unlink($realPath);
+    }
+}
+
 switch ($action) {
     case 'get_products':
         $prods = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC")->fetchAll();
@@ -202,12 +256,22 @@ switch ($action) {
         $productId = $input['id'] ?? ('prod_' . time() . '_' . rand(100, 999));
         $reorderLevel = isset($input['reorderLevel']) ? (float)$input['reorderLevel'] : 5.00;
         
+        $images = [];
+        if (isset($input['images']) && is_array($input['images'])) {
+            foreach ($input['images'] as $img) {
+                $saved = saveBase64Image($img, 'products');
+                if ($saved) {
+                    $images[] = $saved;
+                }
+            }
+        }
+
         $pdo->beginTransaction();
         try {
             $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, wholesalePrice, categoryId, supplierId, images, stockQuantity, unit, barcode, batches, reorderLevel, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
                 $productId, $input['name'], $input['description'] ?? '', $input['price'] ?? 0.00, $input['wholesalePrice'] ?? 0.00,
-                $input['categoryId'], $input['supplierId'] ?? null, json_encode($input['images'] ?? []),
+                $input['categoryId'], $input['supplierId'] ?? null, json_encode($images),
                 $input['stockQuantity'] ?? 0, $input['unit'] ?? 'piece', $barcode, '[]', $reorderLevel, time()*1000
             ]);
             
@@ -270,12 +334,30 @@ switch ($action) {
         $productId = $input['id'];
         $reorderLevel = isset($input['reorderLevel']) ? (float)$input['reorderLevel'] : 5.00;
         
+        $stmtOld = $pdo->prepare("SELECT images FROM products WHERE id = ?");
+        $stmtOld->execute([$productId]);
+        $oldProd = $stmtOld->fetch();
+        $oldImages = [];
+        if ($oldProd) {
+            $oldImages = json_decode($oldProd['images'] ?? '[]', true) ?: [];
+        }
+
+        $newImages = [];
+        if (isset($input['images']) && is_array($input['images'])) {
+            foreach ($input['images'] as $img) {
+                $saved = saveBase64Image($img, 'products');
+                if ($saved) {
+                    $newImages[] = $saved;
+                }
+            }
+        }
+
         $pdo->beginTransaction();
         try {
             $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, wholesalePrice=?, categoryId=?, supplierId=?, images=?, stockQuantity=?, unit=?, barcode=?, batches=?, reorderLevel=? WHERE id=?");
             $stmt->execute([
                 $input['name'], $input['description'], $input['price'] ?? 0.00, $input['wholesalePrice'] ?? 0.00,
-                $input['categoryId'], $input['supplierId'], json_encode($input['images']),
+                $input['categoryId'], $input['supplierId'], json_encode($newImages),
                 $input['stockQuantity'], $input['unit'], $input['barcode'], json_encode($input['batches'] ?? []), $reorderLevel, $productId
             ]);
             
@@ -357,6 +439,12 @@ switch ($action) {
             }
             
             $pdo->commit();
+
+            $imagesToDelete = array_diff($oldImages, $newImages);
+            foreach ($imagesToDelete as $delImg) {
+                deleteImageFile($delImg);
+            }
+
             sendRes(['status' => 'success', 'product' => getFormattedProduct($pdo, $productId)]);
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -376,12 +464,25 @@ switch ($action) {
             }
         }
         
+        $stmtOld = $pdo->prepare("SELECT images FROM products WHERE id = ?");
+        $stmtOld->execute([$productId]);
+        $prod = $stmtOld->fetch();
+        $oldImages = [];
+        if ($prod) {
+            $oldImages = json_decode($prod['images'] ?? '[]', true) ?: [];
+        }
+
         $pdo->beginTransaction();
         try {
             $pdo->prepare("DELETE FROM product_units WHERE productId = ?")->execute([$productId]);
             $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
             $stmt->execute([$productId]);
             $pdo->commit();
+            
+            foreach ($oldImages as $img) {
+                deleteImageFile($img);
+            }
+
             sendRes(['status' => 'success']);
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -395,15 +496,43 @@ switch ($action) {
 
     case 'add_category':
         if (!isAdmin()) sendErr('غير مصرح');
+        $img = saveBase64Image($input['image'] ?? '', 'categories');
         $stmt = $pdo->prepare("INSERT INTO categories (id, name, image, sortOrder) VALUES (?,?,?,?)");
-        $stmt->execute([$input['id'], $input['name'], $input['image'] ?? '', $input['sortOrder'] ?? 0]);
+        $stmt->execute([$input['id'], $input['name'], $img, $input['sortOrder'] ?? 0]);
         sendRes(['status' => 'success']);
         break;
 
     case 'update_category':
         if (!isAdmin()) sendErr('غير مصرح');
+        $stmtOld = $pdo->prepare("SELECT image FROM categories WHERE id = ?");
+        $stmtOld->execute([$input['id']]);
+        $oldImg = $stmtOld->fetchColumn();
+
+        $newImg = saveBase64Image($input['image'] ?? '', 'categories');
+
         $stmt = $pdo->prepare("UPDATE categories SET name=?, image=?, isActive=?, sortOrder=? WHERE id=?");
-        $stmt->execute([$input['name'], $input['image'], $input['isActive'] ? 1 : 0, $input['sortOrder'], $input['id']]);
+        $stmt->execute([$input['name'], $newImg, $input['isActive'] ? 1 : 0, $input['sortOrder'], $input['id']]);
+        
+        if ($oldImg && $oldImg !== $newImg) {
+            deleteImageFile($oldImg);
+        }
+        sendRes(['status' => 'success']);
+        break;
+
+    case 'delete_category':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $id = $_GET['id'] ?? '';
+        
+        $stmtOld = $pdo->prepare("SELECT image FROM categories WHERE id = ?");
+        $stmtOld->execute([$id]);
+        $oldImg = $stmtOld->fetchColumn();
+
+        $stmt = $pdo->prepare("DELETE FROM categories WHERE id = ?");
+        $stmt->execute([$id]);
+        
+        if ($oldImg) {
+            deleteImageFile($oldImg);
+        }
         sendRes(['status' => 'success']);
         break;
 
