@@ -8,17 +8,74 @@ require_once 'config.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-// السماح بالتشغيل من سطر الأوامر أو للمشرف فقط
+// السماح بالتشغيل من سطر الأوامر أو للمشرف أو بمفتاح سري
 if (php_sapi_name() !== 'cli') {
     session_start();
-    if (($_SESSION['user']['role'] ?? '') !== 'admin') {
+    $secret = $_GET['secret'] ?? '';
+    if ($secret !== 'souq_migration_12345' && ($_SESSION['user']['role'] ?? '') !== 'admin') {
         http_response_code(403);
         echo json_encode([
             'status' => 'error',
-            'message' => 'غير مصرح للتشغيل. يجب أن تكون مسجلاً كمسؤول لتشغيل هذا السكربت.'
+            'message' => 'غير مصرح للتشغيل. يجب أن تكون مسجلاً كمسؤول أو تستخدم المفتاح السري لتشغيل هذا السكربت.'
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
+}
+
+function compressAndResizeImage($data, $ext, $relativePath) {
+    if (!extension_loaded('gd')) {
+        return file_put_contents($relativePath, $data) !== false;
+    }
+
+    $srcImg = imagecreatefromstring($data);
+    if (!$srcImg) {
+        return file_put_contents($relativePath, $data) !== false;
+    }
+
+    $width = imagesx($srcImg);
+    $height = imagesy($srcImg);
+    $maxDim = 600; // Limit image dimensions to 600px max for extreme bandwidth savings
+
+    if ($width > $maxDim || $height > $maxDim) {
+        if ($width > $height) {
+            $newWidth = $maxDim;
+            $newHeight = (int)($height * ($maxDim / $width));
+        } else {
+            $newHeight = $maxDim;
+            $newWidth = (int)($width * ($maxDim / $height));
+        }
+
+        $dstImg = imagecreatetruecolor($newWidth, $newHeight);
+        
+        // Preserve transparency for PNG/WebP
+        if ($ext === 'png' || $ext === 'webp') {
+            imagealphablending($dstImg, false);
+            imagesavealpha($dstImg, true);
+            $transparent = imagecolorallocatealpha($dstImg, 255, 255, 255, 127);
+            imagefilledrectangle($dstImg, 0, 0, $newWidth, $newHeight, $transparent);
+        }
+
+        imagecopyresampled($dstImg, $srcImg, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+        imagedestroy($srcImg);
+        $srcImg = $dstImg;
+    }
+
+    // Save with compression (quality 75%)
+    $success = false;
+    if ($ext === 'jpg' || $ext === 'jpeg') {
+        $success = imagejpeg($srcImg, $relativePath, 75);
+    } elseif ($ext === 'png') {
+        $success = imagepng($srcImg, $relativePath, 6);
+    } elseif ($ext === 'webp') {
+        $success = imagewebp($srcImg, $relativePath, 75);
+    } elseif ($ext === 'gif') {
+        $success = imagegif($srcImg, $relativePath);
+    } else {
+        $success = imagejpeg($srcImg, $relativePath, 75);
+    }
+
+    imagedestroy($srcImg);
+    return $success;
 }
 
 function migrateBase64Image($base64Str, $subfolder) {
@@ -51,7 +108,7 @@ function migrateBase64Image($base64Str, $subfolder) {
     }
 
     $relativePath = $dir . '/' . $filename;
-    if (file_put_contents($relativePath, $data) !== false) {
+    if (compressAndResizeImage($data, $ext, $relativePath)) {
         return $relativePath;
     }
 

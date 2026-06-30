@@ -93,6 +93,62 @@ function getFormattedProduct($pdo, $productId) {
     return $p;
 }
 
+function compressAndResizeImage($data, $ext, $relativePath) {
+    if (!extension_loaded('gd')) {
+        return file_put_contents($relativePath, $data) !== false;
+    }
+
+    $srcImg = imagecreatefromstring($data);
+    if (!$srcImg) {
+        return file_put_contents($relativePath, $data) !== false;
+    }
+
+    $width = imagesx($srcImg);
+    $height = imagesy($srcImg);
+    $maxDim = 600; // Limit image dimensions to 600px max for extreme bandwidth savings
+
+    if ($width > $maxDim || $height > $maxDim) {
+        if ($width > $height) {
+            $newWidth = $maxDim;
+            $newHeight = (int)($height * ($maxDim / $width));
+        } else {
+            $newHeight = $maxDim;
+            $newWidth = (int)($width * ($maxDim / $height));
+        }
+
+        $dstImg = imagecreatetruecolor($newWidth, $newHeight);
+        
+        // Preserve transparency for PNG/WebP
+        if ($ext === 'png' || $ext === 'webp') {
+            imagealphablending($dstImg, false);
+            imagesavealpha($dstImg, true);
+            $transparent = imagecolorallocatealpha($dstImg, 255, 255, 255, 127);
+            imagefilledrectangle($dstImg, 0, 0, $newWidth, $newHeight, $transparent);
+        }
+
+        imagecopyresampled($dstImg, $srcImg, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+        imagedestroy($srcImg);
+        $srcImg = $dstImg;
+    }
+
+    // Save with compression (quality 75%)
+    $success = false;
+    if ($ext === 'jpg' || $ext === 'jpeg') {
+        $success = imagejpeg($srcImg, $relativePath, 75);
+    } elseif ($ext === 'png') {
+        $success = imagepng($srcImg, $relativePath, 6);
+    } elseif ($ext === 'webp') {
+        $success = imagewebp($srcImg, $relativePath, 75);
+    } elseif ($ext === 'gif') {
+        $success = imagegif($srcImg, $relativePath);
+    } else {
+        $success = imagejpeg($srcImg, $relativePath, 75);
+    }
+
+    imagedestroy($srcImg);
+    return $success;
+}
+
 function saveBase64Image($base64Str, $subfolder) {
     if (empty($base64Str)) return '';
     
@@ -128,7 +184,7 @@ function saveBase64Image($base64Str, $subfolder) {
     }
 
     $relativePath = $dir . '/' . $filename;
-    if (file_put_contents($relativePath, $data) !== false) {
+    if (compressAndResizeImage($data, $ext, $relativePath)) {
         return $relativePath;
     }
 
