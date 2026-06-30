@@ -83,6 +83,7 @@ const App: React.FC = () => {
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
   const [startingCashInput, setStartingCashInput] = useState('0');
   const [isOpeningShift, setIsOpeningShift] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const isLoggingOutRef = useRef(false);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -155,6 +156,10 @@ const App: React.FC = () => {
   const loadData = async (silent = false, user = currentUser) => {
     let hasCache = false;
 
+    if (silent) {
+      setIsSyncing(true);
+    }
+
     if (!silent) {
       // 1. جلب البيانات المخزنة محلياً لعرضها فوراً وتسريع فتح التطبيق
       const local = await ApiService.getLocalState();
@@ -207,8 +212,13 @@ const App: React.FC = () => {
       const [ph, pr, ct, st] = await Promise.all([p1, p2, p3, p4]);
       if (ph) setAdminPhone(ph.phone);
       if (st?.delivery_fee) setDeliveryFee(parseFloat(st.delivery_fee));
-      if (pr) setProducts(pr);
-      if (ct) setCategories(ct);
+      
+      if (pr) {
+        setProducts(prev => JSON.stringify(prev) === JSON.stringify(pr) ? prev : pr);
+      }
+      if (ct) {
+        setCategories(prev => JSON.stringify(prev) === JSON.stringify(ct) ? prev : ct);
+      }
 
       if (user?.role === 'admin') {
         try {
@@ -227,11 +237,17 @@ const App: React.FC = () => {
         const p8 = ApiService.getOrders().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
 
         const [sum, usrs, sups, ords] = await Promise.all([p5, p6, p7, p8]);
-        if (sum) setAdminSummary(sum);
-        if (usrs) setUsers(usrs);
-        if (sups) setSuppliers(sups);
+        if (sum) {
+          setAdminSummary(prev => JSON.stringify(prev) === JSON.stringify(sum) ? prev : sum);
+        }
+        if (usrs) {
+          setUsers(prev => JSON.stringify(prev) === JSON.stringify(usrs) ? prev : usrs);
+        }
+        if (sups) {
+          setSuppliers(prev => JSON.stringify(prev) === JSON.stringify(sups) ? prev : sups);
+        }
         if (ords) {
-          setOrders(ords);
+          setOrders(prev => JSON.stringify(prev) === JSON.stringify(ords) ? prev : ords);
           
           if (ords.length > 0 && prevOrderIds.current.size > 0) {
             const newOnes = ords.filter((o: Order) => !prevOrderIds.current.has(o.id) && !o.id.startsWith('INV-') && !o.id.startsWith('OFF-'));
@@ -248,14 +264,47 @@ const App: React.FC = () => {
       // 5. جلب طلبات العميل
       else if (view === 'my-orders' && user && user.role !== 'admin') {
         const myOrds = await ApiService.getOrders().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
-        if (myOrds) setOrders(myOrds);
+        if (myOrds) {
+          setOrders(prev => JSON.stringify(prev) === JSON.stringify(myOrds) ? prev : myOrds);
+        }
       }
+      return true;
     } catch (error) {
       console.error("Error loading data:", error);
+      return false;
     } finally {
       setIsLoading(false);
+      setIsSyncing(false);
       setLoadProgress(100);
     }
+  };
+
+  const updateProductInState = (p: Product) => {
+    setProducts(prev => {
+      const exists = prev.some(x => x.id === p.id);
+      let newProducts: Product[];
+      if (exists) {
+        const current = prev.find(x => x.id === p.id);
+        if (current && JSON.stringify(current) === JSON.stringify(p)) {
+          return prev;
+        }
+        newProducts = prev.map(x => x.id === p.id ? p : x);
+      } else {
+        newProducts = [p, ...prev];
+      }
+
+      setAdminSummary((prevSummary: any) => {
+        if (!prevSummary) return prevSummary;
+        const lowStock = newProducts.filter(x => Number(x.stockQuantity || 0) < (x.reorderLevel !== undefined ? Number(x.reorderLevel) : 5)).length;
+        const updated = {
+          ...prevSummary,
+          low_stock_count: lowStock
+        };
+        return JSON.stringify(prevSummary) === JSON.stringify(updated) ? prevSummary : updated;
+      });
+
+      return newProducts;
+    });
   };
 
   // جلب البيانات ذكياً عند تغيير المستخدم، أو التنقل بين الواجهات، أو الدخول لوضع الإدارة
@@ -502,12 +551,27 @@ const App: React.FC = () => {
           
           {view === 'admin-form' ? (
             <AdminProductForm product={selectedProduct} categories={categories} suppliers={suppliers} onSubmit={async (p) => {
-              const res = products.find(x => x.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
-              if (res.success) {
-                loadData(true);
-                setProductForBarcode(p);
-              } else {
-                showNotification(res.message || 'حدث خطأ أثناء حفظ المنتج', 'error');
+              try {
+                const res = products.some(x => x.id === p.id) ? await ApiService.updateProduct(p) : await ApiService.addProduct(p);
+                if (res.success) {
+                  const savedProduct = res.product || p;
+                  updateProductInState(savedProduct);
+                  setProductForBarcode(savedProduct);
+
+                  loadData(true).then((syncSuccess) => {
+                    if (!syncSuccess) {
+                      showNotification('تم حفظ البيانات، ولكن تعذر تحديث البيانات من الخادم، وسيتم إعادة المزامنة لاحقاً.', 'error');
+                    }
+                  }).catch((err) => {
+                    console.error("Silent background sync failed:", err);
+                    showNotification('تم حفظ البيانات، ولكن تعذر تحديث البيانات من الخادم، وسيتم إعادة المزامنة لاحقاً.', 'error');
+                  });
+                } else {
+                  showNotification(res.message || 'حدث خطأ أثناء حفظ المنتج', 'error');
+                }
+              } catch (err) {
+                console.error("Optimistic update submit error:", err);
+                showNotification('حدث خطأ تقني أثناء محاولة حفظ المنتج.', 'error');
               }
             }} onCancel={() => onNavigate('admincp')} onRefreshData={() => loadData(true)} />
           ) : view === 'admin-invoice' ? (
@@ -564,7 +628,7 @@ const App: React.FC = () => {
           ) : (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
-              isOnline={isOnline} offlineQueueCount={offlineQueueCount} loadProgress={loadProgress}
+              isOnline={isOnline} offlineQueueCount={offlineQueueCount} loadProgress={loadProgress} isSyncing={isSyncing}
               onPrintBarcode={(p) => setProductForBarcode(p)}
               onSyncOffline={async () => {
                 showNotification('جاري المزامنة...', 'success');

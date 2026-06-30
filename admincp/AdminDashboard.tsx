@@ -46,6 +46,7 @@ interface AdminDashboardProps {
   onSyncOffline?: () => void;
   loadProgress?: number;
   onPrintBarcode?: (product: Product) => void;
+  isSyncing?: boolean;
 }
 
 export type AdminTab = 'stats' | 'products' | 'categories' | 'orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods';
@@ -174,7 +175,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       <main className="flex-grow p-4 md:p-12 bg-slate-50/50 overflow-y-auto">
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
            <div>
-             <h3 className="text-2xl md:text-4xl font-black text-slate-800">{tabTitles[activeTab]}</h3>
+             <div className="flex items-center gap-3">
+               <h3 className="text-2xl md:text-4xl font-black text-slate-800">{tabTitles[activeTab]}</h3>
+               {props.isSyncing && (
+                 <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black rounded-full animate-pulse">
+                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+                   جاري المزامنة...
+                 </span>
+               )}
+             </div>
              <p className="text-slate-400 text-xs font-bold mt-1">نظام إدارة سوق العصر المتطور</p>
            </div>
            <div className="flex items-center gap-2.5 w-full md:w-auto">

@@ -343,7 +343,7 @@ export const ApiService = {
   async addProduct(product: Product): Promise<{ success: boolean; status?: string; product?: Product; message?: string }> {
     const result = await safeFetch('add_product', { method: 'POST', body: JSON.stringify(product) });
     if (result?.status === 'success') {
-      return { success: true, status: 'success' };
+      return { success: true, status: 'success', product: result.product };
     }
     if (result?.status === 'barcode_exists') {
       return { success: false, status: 'barcode_exists', product: result.product, message: result.message };
@@ -351,10 +351,10 @@ export const ApiService = {
     return { success: false, status: 'error', message: result?.message || 'فشلت إضافة المنتج. قد يكون هناك مشكلة في صلاحيات الأدمن، حجم الصور، أو انتهاء الجلسة.' };
   },
 
-  async updateProduct(product: Product): Promise<{ success: boolean; message?: string }> {
+  async updateProduct(product: Product): Promise<{ success: boolean; product?: Product; message?: string }> {
     const result = await safeFetch('update_product', { method: 'POST', body: JSON.stringify(product) });
     if (result?.status === 'success') {
-      return { success: true };
+      return { success: true, product: result.product };
     }
     return { success: false, message: result?.message || 'فشل تحديث المنتج. قد يكون هناك مشكلة في الصلاحيات أو حجم الصور.' };
   },

@@ -43,6 +43,56 @@ function isUnitUsedInDB($pdo, $unitId) {
     return false;
 }
 
+function getFormattedProduct($pdo, $productId) {
+    $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ?");
+    $stmt->execute([$productId]);
+    $p = $stmt->fetch();
+    if (!$p) return null;
+
+    $p['images'] = json_decode($p['images'] ?? '[]', true) ?: [];
+    $p['batches'] = json_decode($p['batches'] ?? '[]', true) ?: [];
+    $p['price'] = (float)$p['price'];
+    $p['stockQuantity'] = (float)$p['stockQuantity'];
+    $p['wholesalePrice'] = (float)$p['wholesalePrice'];
+    $p['reorderLevel'] = (float)$p['reorderLevel'];
+
+    $unitsStmt = $pdo->prepare("SELECT * FROM product_units WHERE productId = ? AND isActive = 1");
+    $unitsStmt->execute([$productId]);
+    $units = $unitsStmt->fetchAll();
+    $p['units'] = [];
+
+    $defaultUnit = null;
+    foreach ($units as $u) {
+        $unitObj = [
+            'id' => $u['id'],
+            'productId' => $u['productId'],
+            'unitName' => $u['unitName'],
+            'barcode' => $u['barcode'],
+            'purchasePrice' => (float)$u['purchasePrice'],
+            'salePrice' => (float)$u['salePrice'],
+            'conversionFactor' => (float)$u['conversionFactor'],
+            'isDefault' => (int)$u['isDefault'],
+            'isActive' => (int)$u['isActive']
+        ];
+        $p['units'][] = $unitObj;
+
+        if ($unitObj['isDefault'] == 1 || $unitObj['conversionFactor'] == 1) {
+            if (!$defaultUnit || $unitObj['isDefault'] == 1) {
+                $defaultUnit = $unitObj;
+            }
+        }
+    }
+
+    $p['baseUnit'] = $p['unit'];
+    if ($defaultUnit) {
+        $p['price'] = $defaultUnit['salePrice'];
+        $p['wholesalePrice'] = $defaultUnit['purchasePrice'];
+        $p['unit'] = $defaultUnit['unitName'];
+        $p['barcode'] = $defaultUnit['barcode'];
+    }
+    return $p;
+}
+
 switch ($action) {
     case 'get_products':
         $prods = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC")->fetchAll();
@@ -208,7 +258,7 @@ switch ($action) {
             ]);
             
             $pdo->commit();
-            sendRes(['status' => 'success']);
+            sendRes(['status' => 'success', 'product' => getFormattedProduct($pdo, $productId)]);
         } catch (Exception $e) {
             $pdo->rollBack();
             sendErr('فشل في حفظ المنتج الجديد: ' . $e->getMessage());
@@ -307,7 +357,7 @@ switch ($action) {
             }
             
             $pdo->commit();
-            sendRes(['status' => 'success']);
+            sendRes(['status' => 'success', 'product' => getFormattedProduct($pdo, $productId)]);
         } catch (Exception $e) {
             $pdo->rollBack();
             sendErr($e->getMessage());
