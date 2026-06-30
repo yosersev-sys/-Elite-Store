@@ -328,17 +328,6 @@ const App: React.FC = () => {
     loadDataRef.current = loadData;
   });
 
-  // التحديث الدوري لطلبات لوحة التحكم (كل 10 ثوانٍ)
-  useEffect(() => {
-    if (!currentUser || currentUser.role !== 'admin' || !isTrulyInAdminMode) return;
-
-    const intervalId = setInterval(() => {
-      loadDataRef.current(true, currentUser, true);
-    }, 30000); // كل 30 ثانية لتوفير استهلاك الإنترنت
-
-    return () => clearInterval(intervalId);
-  }, [currentUser?.id, isTrulyInAdminMode]);
-
   // الاستماع لحدث انتهاء الجلسة وتنبيه المستخدم
   useEffect(() => {
     const handleSessionExpired = () => {

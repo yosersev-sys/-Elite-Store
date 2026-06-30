@@ -20,29 +20,20 @@ root.render(
 );
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(registration => {
-        console.log('SW registered: ', registration);
-        
-        // التحقق التلقائي من وجود تحديثات وإعادة تحميل الصفحة للعميل فوراً
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed') {
-                if (navigator.serviceWorker.controller) {
-                  console.log('نسخة جديدة متوفرة، جاري إعادة تحميل التطبيق تلقائياً...');
-                  window.location.reload();
-                }
-              }
-            });
-          }
-        });
-      })
-      .catch(registrationError => {
-        console.log('SW registration failed: ', registrationError);
-      });
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+      console.log('SW unregistered successfully');
+    }
+  });
+}
+
+if ('caches' in window) {
+  caches.keys().then((names) => {
+    for (const name of names) {
+      caches.delete(name);
+      console.log('Cache storage cleared: ' + name);
+    }
   });
 }
 
