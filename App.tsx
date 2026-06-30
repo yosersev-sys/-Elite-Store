@@ -153,14 +153,14 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', sync);
   }, [view]);
 
-  const loadData = async (silent = false, user = currentUser) => {
+  const loadData = async (silent = false, user = currentUser, ordersOnly = false) => {
     let hasCache = false;
 
     if (silent) {
       setIsSyncing(true);
     }
 
-    if (!silent) {
+    if (!silent && !ordersOnly) {
       // 1. جلب البيانات المخزنة محلياً لعرضها فوراً وتسريع فتح التطبيق
       const local = await ApiService.getLocalState();
 
@@ -188,12 +188,15 @@ const App: React.FC = () => {
     }
 
     // 2. تفعيل المزامنة الصامتة في الخلفية إذا كانت البيانات مخزنة مسبقاً لمنع ظهور شريط التحميل
-    const isSilent = silent || hasCache;
+    const isSilent = silent || hasCache || ordersOnly;
     if (!isSilent) setIsLoading(true);
 
-    let totalRequests = 4;
-    if (isTrulyInAdminMode && user?.role === 'admin') totalRequests = 8;
-    else if (view === 'my-orders' && user && user.role !== 'admin') totalRequests = 5;
+    let totalRequests = 0;
+    if (ordersOnly) {
+      totalRequests = (isTrulyInAdminMode && user?.role === 'admin') ? 2 : 1;
+    } else {
+      totalRequests = (isTrulyInAdminMode && user?.role === 'admin') ? 8 : (view === 'my-orders' && user && user.role !== 'admin') ? 5 : 4;
+    }
 
     setLoadProgress(0);
     let completed = 0;
@@ -203,21 +206,23 @@ const App: React.FC = () => {
     };
 
     try {
-      // 3. جلب البيانات الأساسية للمتجر من السيرفر بالتوازي مع تتبع التقدم
-      const p1 = ApiService.getAdminPhone().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
-      const p2 = ApiService.getProducts().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
-      const p3 = ApiService.getCategories().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
-      const p4 = ApiService.getStoreSettings().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+      if (!ordersOnly) {
+        // 3. جلب البيانات الأساسية للمتجر من السيرفر بالتوازي مع تتبع التقدم
+        const p1 = ApiService.getAdminPhone().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+        const p2 = ApiService.getProducts().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+        const p3 = ApiService.getCategories().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+        const p4 = ApiService.getStoreSettings().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
 
-      const [ph, pr, ct, st] = await Promise.all([p1, p2, p3, p4]);
-      if (ph) setAdminPhone(ph.phone);
-      if (st?.delivery_fee) setDeliveryFee(parseFloat(st.delivery_fee));
-      
-      if (pr) {
-        setProducts(prev => JSON.stringify(prev) === JSON.stringify(pr) ? prev : pr);
-      }
-      if (ct) {
-        setCategories(prev => JSON.stringify(prev) === JSON.stringify(ct) ? prev : ct);
+        const [ph, pr, ct, st] = await Promise.all([p1, p2, p3, p4]);
+        if (ph) setAdminPhone(ph.phone);
+        if (st?.delivery_fee) setDeliveryFee(parseFloat(st.delivery_fee));
+        
+        if (pr) {
+          setProducts(prev => JSON.stringify(prev) === JSON.stringify(pr) ? prev : pr);
+        }
+        if (ct) {
+          setCategories(prev => JSON.stringify(prev) === JSON.stringify(ct) ? prev : ct);
+        }
       }
 
       if (user?.role === 'admin') {
@@ -232,18 +237,24 @@ const App: React.FC = () => {
       // 4. جلب بيانات الإدارة من السيرفر بالتوازي مع تتبع التقدم
       if (isTrulyInAdminMode && user?.role === 'admin') {
         const p5 = ApiService.getAdminSummary().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
-        const p6 = ApiService.getUsers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
-        const p7 = ApiService.getSuppliers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
         const p8 = ApiService.getOrders().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+        
+        let p6 = Promise.resolve(null);
+        let p7 = Promise.resolve(null);
+        
+        if (!ordersOnly) {
+          p6 = ApiService.getUsers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+          p7 = ApiService.getSuppliers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+        }
 
-        const [sum, usrs, sups, ords] = await Promise.all([p5, p6, p7, p8]);
+        const [sum, ords, usrs, sups] = await Promise.all([p5, p8, p6, p7]);
         if (sum) {
           setAdminSummary(prev => JSON.stringify(prev) === JSON.stringify(sum) ? prev : sum);
         }
-        if (usrs) {
+        if (!ordersOnly && usrs) {
           setUsers(prev => JSON.stringify(prev) === JSON.stringify(usrs) ? prev : usrs);
         }
-        if (sups) {
+        if (!ordersOnly && sups) {
           setSuppliers(prev => JSON.stringify(prev) === JSON.stringify(sups) ? prev : sups);
         }
         if (ords) {
@@ -322,8 +333,8 @@ const App: React.FC = () => {
     if (!currentUser || currentUser.role !== 'admin' || !isTrulyInAdminMode) return;
 
     const intervalId = setInterval(() => {
-      loadDataRef.current(true);
-    }, 10000);
+      loadDataRef.current(true, currentUser, true);
+    }, 30000); // كل 30 ثانية لتوفير استهلاك الإنترنت
 
     return () => clearInterval(intervalId);
   }, [currentUser?.id, isTrulyInAdminMode]);
