@@ -76,6 +76,68 @@ const StatsTab: React.FC<StatsTabProps> = ({
     };
   }, [orders]);
 
+  // حساب إحصائيات الوردية المفتوحة حالياً فقط
+  const shiftStats = useMemo(() => {
+    if (!activeShift || !activeShift.id) {
+      return { sales: 0, profit: 0, ordersCount: 0, cashSales: 0, digitalSales: 0, debtSales: 0, avgOrderValue: 0, duration: '' };
+    }
+
+    const safeOrders = Array.isArray(orders) ? orders : [];
+    const shiftOrders = safeOrders.filter(o => 
+      o && (o.confirmedShiftId === activeShift.id || o.shiftId === activeShift.id) && o.status === 'completed'
+    );
+
+    const sales = shiftOrders.reduce((s, o) => s + Number(o.total || 0), 0);
+    const ordersCount = shiftOrders.length;
+
+    let cost = 0;
+    let cashSales = 0;
+    let digitalSales = 0;
+    let debtSales = 0;
+
+    shiftOrders.forEach(o => {
+      if (o.items) {
+        o.items.forEach(item => {
+          if (item) cost += (Number(item.actualWholesalePrice) || Number(item.wholesalePrice) || 0) * (Number(item.quantity) || 0);
+        });
+      }
+      if (o.payments && o.payments.length > 0) {
+        o.payments.forEach(p => {
+          if (p.method === 'cash') cashSales += Number(p.amount);
+          else digitalSales += Number(p.amount);
+        });
+        debtSales += Number(o.outstandingAmount || 0);
+      } else {
+        if (String(o.paymentMethod).includes('نقدي') || String(o.paymentMethod).includes('عند الاستلام')) {
+          cashSales += Number(o.total || 0);
+        } else if (String(o.paymentMethod).includes('آجل')) {
+          debtSales += Number(o.total || 0);
+        } else {
+          digitalSales += Number(o.total || 0);
+        }
+      }
+    });
+
+    // حساب مدة الوردية
+    const startMs = Number(activeShift.startTime);
+    const nowMs = Date.now();
+    const diffMs = nowMs - startMs;
+    const hours = Math.floor(diffMs / 3600000);
+    const mins = Math.floor((diffMs % 3600000) / 60000);
+    const duration = hours > 0 ? `${hours} س ${mins} د` : `${mins} دقيقة`;
+
+    return {
+      sales,
+      profit: sales - cost,
+      ordersCount,
+      cashSales,
+      digitalSales,
+      debtSales,
+      avgOrderValue: ordersCount > 0 ? Math.round(sales / ordersCount) : 0,
+      duration
+    };
+  }, [orders, activeShift]);
+
   const stats = useMemo(() => {
     // إذا كان لدينا ملخص جاهز من السيرفر، نستخدمه فوراً
     if (adminSummary) {
@@ -184,75 +246,144 @@ const StatsTab: React.FC<StatsTabProps> = ({
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard title="إجمالي المبيعات" value={`${stats.totalSales.toLocaleString()} ج.م`} icon="💰" color="emerald" />
-          <StatCard title="صافي الأرباح" value={`${stats.netProfit.toLocaleString()} ج.م`} icon="📈" color="indigo" isDark />
-          <StatCard title="نواقص المخزن" value={stats.lowStockCount} icon="⚠️" color="rose" onClick={() => onNavigateToTab('products', '', 'low_stock')} />
-          <StatCard title="طلبات اليوم" value={stats.newOrders || todayStats.todayOrdersCount} icon="⚡" color="amber" onClick={() => onNavigateToTab('orders')} />
+      {/* بطاقات إحصائيات الوردية المفتوحة حالياً */}
+      <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+        {/* هيدر الوردية */}
+        <div className="px-6 py-5 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-900 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-lg border ${activeShift?.id ? 'bg-emerald-500/20 border-emerald-400/30' : 'bg-slate-700/50 border-slate-600/30'}`}>
+              {activeShift?.id ? '🟢' : '🔒'}
+            </div>
+            <div>
+              <h4 className="font-black text-white text-sm flex items-center gap-2">
+                {activeShift?.id ? `الوردية #${activeShift.id}` : 'لا توجد وردية مفتوحة'}
+                {activeShift?.id && (
+                  <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/20">مفتوحة</span>
+                )}
+              </h4>
+              <p className="text-slate-400 text-[10px] font-bold mt-0.5">
+                {activeShift?.id 
+                  ? `${activeShift.openedByName || 'أدمن'} · منذ ${shiftStats.duration}`
+                  : 'يرجى فتح وردية جديدة من الخزينة'
+                }
+              </p>
+            </div>
+          </div>
+          {activeShift?.id && (
+            <button 
+              onClick={() => onNavigateToTab('shifts')}
+              className="text-[10px] font-black text-slate-300 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/10 transition-all"
+            >إدارة الورديات ←</button>
+          )}
+        </div>
+
+        {activeShift?.id ? (
+          <div className="p-6">
+            {/* الصف الأول: 4 بطاقات رئيسية */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* مبيعات الوردية */}
+              <div className="group relative bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 rounded-2xl shadow-lg shadow-emerald-100 overflow-hidden">
+                <div className="absolute -left-3 -bottom-3 w-16 h-16 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">💰</span>
+                    <span className="text-[8px] font-black text-emerald-100 bg-white/15 px-2 py-0.5 rounded-full">الوردية</span>
+                  </div>
+                  <p className="text-[9px] font-bold text-emerald-100 mb-0.5">مبيعات الوردية</p>
+                  <p className="text-xl font-black text-white tracking-tight">{shiftStats.sales.toLocaleString()} <span className="text-[10px] font-bold text-emerald-100">ج.م</span></p>
+                </div>
+              </div>
+
+              {/* صافي ربح الوردية */}
+              <div className="group relative bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-lg shadow-slate-200 overflow-hidden">
+                <div className="absolute -right-3 -top-3 w-16 h-16 bg-emerald-500/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">📈</span>
+                    <span className="text-[8px] font-black text-slate-400 bg-white/5 px-2 py-0.5 rounded-full">الربح</span>
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-400 mb-0.5">صافي أرباح الوردية</p>
+                  <p className={`text-xl font-black tracking-tight ${shiftStats.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{shiftStats.profit.toLocaleString()} <span className="text-[10px] font-bold text-slate-500">ج.م</span></p>
+                </div>
+              </div>
+
+              {/* عدد الفواتير */}
+              <div className="group relative bg-gradient-to-br from-indigo-500 to-violet-600 p-5 rounded-2xl shadow-lg shadow-indigo-100 overflow-hidden">
+                <div className="absolute -left-3 -top-3 w-16 h-16 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">🧾</span>
+                    <span className="text-[8px] font-black text-indigo-100 bg-white/15 px-2 py-0.5 rounded-full">فواتير</span>
+                  </div>
+                  <p className="text-[9px] font-bold text-indigo-100 mb-0.5">فواتير الوردية</p>
+                  <p className="text-xl font-black text-white tracking-tight">{shiftStats.ordersCount} <span className="text-[10px] font-bold text-indigo-100">فاتورة</span></p>
+                </div>
+              </div>
+
+              {/* رصيد الدرج */}
+              <div className="group relative bg-gradient-to-br from-amber-400 to-orange-500 p-5 rounded-2xl shadow-lg shadow-amber-100 overflow-hidden">
+                <div className="absolute -right-3 -bottom-3 w-16 h-16 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">🏦</span>
+                    <span className="text-[8px] font-black text-amber-100 bg-white/15 px-2 py-0.5 rounded-full">الخزينة</span>
+                  </div>
+                  <p className="text-[9px] font-bold text-amber-100 mb-0.5">رصيد الدرج</p>
+                  <p className="text-xl font-black text-white tracking-tight">{Number(activeShift.currentCashBalance).toLocaleString()} <span className="text-[10px] font-bold text-amber-100">ج.م</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* الصف الثاني: توزيع طرق الدفع + متوسط الفاتورة */}
+            {shiftStats.sales > 0 && (
+              <div className="mt-4 bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] font-black text-slate-500">توزيع التحصيل في الوردية</p>
+                  <p className="text-[10px] font-bold text-slate-400">متوسط الفاتورة: <span className="text-slate-600 font-black">{shiftStats.avgOrderValue.toLocaleString()} ج.م</span></p>
+                </div>
+                <div className="h-3 w-full bg-white rounded-full overflow-hidden flex shadow-inner border border-slate-100">
+                  {shiftStats.cashSales > 0 && (
+                    <div style={{ width: `${(shiftStats.cashSales / shiftStats.sales) * 100}%` }} className="h-full bg-emerald-500 transition-all duration-700"></div>
+                  )}
+                  {shiftStats.digitalSales > 0 && (
+                    <div style={{ width: `${(shiftStats.digitalSales / shiftStats.sales) * 100}%` }} className="h-full bg-indigo-500 transition-all duration-700"></div>
+                  )}
+                  {shiftStats.debtSales > 0 && (
+                    <div style={{ width: `${(shiftStats.debtSales / shiftStats.sales) * 100}%` }} className="h-full bg-amber-500 transition-all duration-700"></div>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-4 mt-2.5 text-[9px] font-black text-slate-500">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    <span>نقدي: {shiftStats.cashSales.toLocaleString()} ج.م</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
+                    <span>بنكي: {shiftStats.digitalSales.toLocaleString()} ج.م</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                    <span>آجل: {shiftStats.debtSales.toLocaleString()} ج.م</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-10 text-center space-y-3">
+            <span className="text-4xl block">🔒</span>
+            <p className="text-sm font-black text-slate-700">لا توجد وردية مفتوحة حالياً</p>
+            <p className="text-[11px] text-slate-400 font-bold max-w-sm mx-auto">قم بفتح وردية جديدة من قسم الورديات لتتبع حركة المبيعات والخزينة</p>
+            <button 
+              onClick={() => onNavigateToTab('shifts')}
+              className="mt-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-xs shadow-lg hover:shadow-xl hover:bg-slate-800 transition-all active:scale-95"
+            >فتح وردية جديدة ←</button>
+          </div>
+        )}
       </div>
 
-      {/* قسم النشاط المالي وحالة الوردية */}
+      {/* قسم النشاط المالي */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* حالة الوردية الجارية */}
-        <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 flex flex-col justify-between">
-           <div>
-              <h4 className="font-black text-lg text-slate-800 flex items-center gap-2">
-                 <span>حالة الوردية الجارية</span>
-                 <span className="animate-pulse">⏱️</span>
-              </h4>
-              <p className="text-slate-400 text-xs font-bold mt-1">تتبع كاشير الوردية الحالية ونقدية الخزينة</p>
-           </div>
-           
-           {activeShift && activeShift.id ? (
-             <div className="mt-6 space-y-4">
-                <div className="flex justify-between items-center bg-emerald-50 text-emerald-800 p-4 rounded-2xl border border-emerald-100">
-                   <div className="text-right">
-                      <p className="text-[10px] font-black uppercase">الوردية المفتوحة</p>
-                      <p className="text-sm font-black mt-0.5">#{activeShift.id} - {activeShift.openedByName || 'أدمن'}</p>
-                   </div>
-                   <span className="text-2xl">🟢</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <p className="text-slate-400 text-[10px] font-black mb-1">نقدية البداية</p>
-                      <p className="text-sm font-black text-slate-800">{Number(activeShift.startingCash).toFixed(2)} ج.م</p>
-                   </div>
-                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <p className="text-slate-400 text-[10px] font-black mb-1">رصيد الدرج المتوقع</p>
-                      <p className="text-sm font-black text-emerald-600">{Number(activeShift.currentCashBalance).toFixed(2)} ج.م</p>
-                   </div>
-                </div>
-                <p className="text-[10px] text-slate-400 font-bold text-center mt-2">
-                   بدأت الوردية في: {new Date(activeShift.startTime).toLocaleString('ar-EG')}
-                </p>
-             </div>
-           ) : (
-             <div className="mt-6 p-8 bg-slate-50 rounded-3xl border border-dashed text-center space-y-3">
-                <span className="text-3xl">🔒</span>
-                <p className="text-xs font-black text-slate-700">لا توجد وردية مفتوحة بالدرج حالياً</p>
-                <p className="text-[10px] text-slate-400 font-bold max-w-xs mx-auto">الفواتير الجديدة ستبقي معلقة حتى يتم فتح وردية جديدة لتسجيل حركات الخزينة.</p>
-             </div>
-           )}
-            <div className="mt-6 pt-4 border-t border-slate-50 flex justify-end gap-3">
-               {activeShift && activeShift.id && (
-                 <button 
-                   onClick={() => {
-                     localStorage.setItem('shifts_tab_initial_action', 'close');
-                     onNavigateToTab('shifts');
-                   }} 
-                   className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all shadow-lg shadow-rose-100 active:scale-95 cursor-pointer"
-                 >
-                    إغلاق الوردية 🔒
-                 </button>
-               )}
-               <button 
-                 onClick={() => onNavigateToTab('shifts')} 
-                 className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-5 py-2.5 rounded-xl font-black text-xs transition-all"
-               >
-                  إدارة الخزينة والورديات ←
-               </button>
-            </div>
-        </div>
 
         {/* مبيعات اليوم وتفاصيل الدفع */}
         <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 flex flex-col justify-between">
@@ -377,24 +508,6 @@ const QuickActionButton = ({ label, icon, onClick }: any) => (
   </button>
 );
 
-const StatCard = ({ title, value, icon, color, onClick, isDark }: any) => {
-  const themes: any = {
-    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
-    rose: 'bg-rose-50 text-rose-600 border-rose-100',
-    amber: 'bg-amber-50 text-amber-600 border-amber-100'
-  };
-  return (
-    <div onClick={onClick} className={`p-8 rounded-[3rem] border shadow-xl transition-all duration-500 hover:-translate-y-2 relative overflow-hidden group ${isDark ? 'bg-slate-900 text-white border-slate-800' : themes[color]} ${onClick ? 'cursor-pointer' : ''}`}>
-      <div className="flex justify-between items-start mb-6 relative z-10">
-        <div className={`text-4xl ${isDark ? 'text-emerald-500' : ''}`}>{icon}</div>
-      </div>
-      <div className="relative z-10">
-        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDark ? 'text-slate-400' : 'opacity-60'}`}>{title}</p>
-        <p className="text-2xl font-black tracking-tight">{value}</p>
-      </div>
-    </div>
-  );
-};
 
 export default StatsTab;
+
