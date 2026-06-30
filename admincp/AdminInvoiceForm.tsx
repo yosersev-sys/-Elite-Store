@@ -570,10 +570,10 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     let customerDebt = 0;
 
     if (selectedUser) {
-      customerDebt = selectedUser.balance || 0;
+      customerDebt = Number(selectedUser.balance || 0);
       const userOrders = orders.filter(o => o && o.phone && normalizePhone(o.phone) === normalizePhone(selectedUser.phone) && o.status === 'completed');
       customerOrdersCount = userOrders.length;
-      customerTotalPurchases = userOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+      customerTotalPurchases = userOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
       customerLastOrder = customerOrdersCount > 0 ? Math.max(...userOrders.map(o => o.createdAt)) : null;
       customerAOV = customerOrdersCount > 0 ? (customerTotalPurchases / customerOrdersCount) : 0;
 
