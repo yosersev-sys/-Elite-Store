@@ -122,7 +122,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       });
   }, []);
 
-  const normalizePhone = (phone: string) => {
+  const normalizePhone = (phone: any) => {
+    if (!phone || typeof phone !== 'string') return '';
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length > 11 && cleaned.startsWith('20')) {
       return cleaned.slice(2);
@@ -146,7 +147,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
   const getUserStats = (userPhone: string) => {
     const normPhone = normalizePhone(userPhone);
-    const userOrders = orders.filter(o => normalizePhone(o.phone) === normPhone && o.status === 'completed');
+    if (!normPhone) return { count: 0, lastOrder: null };
+    const userOrders = orders.filter(o => o && o.phone && normalizePhone(o.phone) === normPhone && o.status === 'completed');
     const count = userOrders.length;
     const lastOrder = count > 0 ? Math.max(...userOrders.map(o => o.createdAt)) : null;
     return { count, lastOrder };
@@ -569,7 +571,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
     if (selectedUser) {
       customerDebt = selectedUser.balance || 0;
-      const userOrders = orders.filter(o => normalizePhone(o.phone) === normalizePhone(selectedUser.phone) && o.status === 'completed');
+      const userOrders = orders.filter(o => o && o.phone && normalizePhone(o.phone) === normalizePhone(selectedUser.phone) && o.status === 'completed');
       customerOrdersCount = userOrders.length;
       customerTotalPurchases = userOrders.reduce((sum, o) => sum + (o.total || 0), 0);
       customerLastOrder = customerOrdersCount > 0 ? Math.max(...userOrders.map(o => o.createdAt)) : null;
