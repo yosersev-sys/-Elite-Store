@@ -828,6 +828,18 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
     return products.filter(p => Number(p.price || 0) < Number(p.wholesalePrice || 0));
   }, [products]);
 
+  // Find products with outlier values (potential data entry errors like scanning barcode into quantity/price)
+  const outlierProducts = useMemo(() => {
+    return products.filter(p => {
+      const stock = Number(p.stockQuantity || 0);
+      const cost = Number(p.wholesalePrice || 0);
+      const price = Number(p.price || 0);
+      const isHugeValue = (stock * cost) > 500000 || (stock * price) > 500000;
+      const isHugeStock = stock > 10000 && p.unit !== 'gram';
+      return isHugeValue || isHugeStock;
+    });
+  }, [products]);
+
   return (
     <div className="space-y-6">
       
@@ -915,7 +927,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
       </div>
 
       {/* 2. Smart Alerts Panel - Redesigned & Collapsible */}
-      {isManager && (lossMakingProducts.length > 0 || stats.outOfStockCount > 0) && (
+      {isManager && (lossMakingProducts.length > 0 || stats.outOfStockCount > 0 || outlierProducts.length > 0) && (
         <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden transition-all duration-300">
           <div 
             onClick={() => setAlertsOpen(!alertsOpen)}
@@ -931,7 +943,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
             <div className="flex items-center gap-3">
               {!alertsOpen && (
                 <span className="px-3 py-1 bg-amber-500 text-slate-900 rounded-lg text-[9px] font-black animate-pulse">
-                  {lossMakingProducts.length + products.filter(p => Number(p.stockQuantity || 0) <= 0).length} تنبيهات معلقة
+                  {lossMakingProducts.length + products.filter(p => Number(p.stockQuantity || 0) <= 0).length + outlierProducts.length} تنبيهات معلقة
                 </span>
               )}
               <span 
@@ -944,6 +956,24 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
           </div>
           {alertsOpen && (
             <div className="divide-y divide-slate-50 animate-fadeIn">
+              {outlierProducts.map(p => (
+                <div key={'outlier-'+p.id} className="flex items-start gap-3 px-5 py-3.5 bg-rose-50/20 hover:bg-rose-50/40 transition-colors group">
+                  <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-rose-100 transition-colors">⚠️</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-slate-700 leading-relaxed">
+                      <span className="text-rose-650 font-extrabold">{p.name}</span>
+                      <span className="text-rose-600 font-bold"> — خطأ إدخال محتمل! قيمة مخزون شاذة جداً</span>
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                      الكمية: {Number(p.stockQuantity).toLocaleString()} · سعر البيع: {Number(p.price).toLocaleString()} ج.م · القيمة الكلية للمنتج: {Number(p.stockQuantity * (p.wholesalePrice || p.price)).toLocaleString()} ج.م
+                    </p>
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onOpenEditForm(p); }}
+                    className="shrink-0 text-[9px] font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg hover:bg-rose-150 transition-colors mt-0.5"
+                  >تعديل القيمة</button>
+                </div>
+              ))}
               {lossMakingProducts.slice(0, 3).map(p => (
                 <div key={'loss-'+p.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-amber-50/40 transition-colors group">
                   <span className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-amber-100 transition-colors">⚠️</span>
