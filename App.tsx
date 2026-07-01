@@ -518,7 +518,17 @@ const App: React.FC = () => {
           );
         }
         return <AdminInvoiceForm products={products} categories={categories} currentUser={currentUser} onRefreshData={() => loadData(true)} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
-      default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={(q) => { setSearchQuery(q); AnalyticsTracker.trackSearch(q, products.filter(p => p.name.includes(q) || p.id.includes(q)).length); }} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); const updated = ex ? prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x) : [...prev, {...p, quantity: 1}]; AnalyticsTracker.trackCartEvent('add_to_cart', p, updated); return updated; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => { const isFav = wishlist.includes(id); AnalyticsTracker.trackFavorite(id, isFav ? 'remove' : 'add'); setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); }} />;
+      default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={(q) => {
+        setSearchQuery(q);
+        const count = products.filter(p => {
+          if (!p) return false;
+          const name = p.name ? String(p.name).toLowerCase() : '';
+          const id = p.id ? String(p.id).toLowerCase() : '';
+          const query = q ? String(q).toLowerCase() : '';
+          return name.includes(query) || id.includes(query);
+        }).length;
+        AnalyticsTracker.trackSearch(q, count);
+      }} selectedCategoryId={selectedCategoryId} onCategorySelect={setSelectedCategoryId} onAddToCart={(p) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); const updated = ex ? prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + 1} : x) : [...prev, {...p, quantity: 1}]; AnalyticsTracker.trackCartEvent('add_to_cart', p, updated); return updated; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); }} onViewProduct={(p) => { setSelectedProduct(p); onNavigate('product-details', p); }} wishlist={wishlist} onToggleFavorite={(id) => { const isFav = wishlist.includes(id); AnalyticsTracker.trackFavorite(id, isFav ? 'remove' : 'add'); setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); }} />;
     }
   };
 
