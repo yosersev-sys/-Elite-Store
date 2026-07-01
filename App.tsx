@@ -441,6 +441,10 @@ const App: React.FC = () => {
 
   const handleOpenShiftFromBlocker = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!shiftNameInput.trim()) {
+      showNotification('يرجى إدخال اسم الوردية أولاً', 'error');
+      return;
+    }
     const cash = parseFloat(startingCashInput);
     if (isNaN(cash) || cash < 0) {
       showNotification('يرجى إدخال مبلغ صحيح غير سالب', 'error');
@@ -507,6 +511,7 @@ const App: React.FC = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية (مثال: وردية الصباح)</label>
                   <input
+                    required
                     type="text"
                     value={shiftNameInput}
                     onChange={(e) => setShiftNameInput(e.target.value)}
@@ -625,6 +630,7 @@ const App: React.FC = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية (مثال: وردية الصباح)</label>
                     <input
+                      required
                       type="text"
                       value={shiftNameInput}
                       onChange={(e) => setShiftNameInput(e.target.value)}

@@ -74,6 +74,10 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
 
   const handleOpenShiftSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!shiftName.trim()) {
+      alert('يرجى إدخال اسم الوردية أولاً');
+      return;
+    }
     const cash = parseFloat(startingCash);
     if (isNaN(cash) || cash < 0) {
       alert('يرجى إدخال مبلغ صحيح غير سالب');
@@ -862,6 +866,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية (مثال: وردية الصباح)</label>
               <input
+                required
                 type="text"
                 value={shiftName}
                 onChange={(e) => setShiftName(e.target.value)}

@@ -52,6 +52,9 @@ switch ($action) {
         }
 
         $shiftName = trim($input['shiftName'] ?? '');
+        if (empty($shiftName)) {
+            sendErr('يرجى إدخال اسم الوردية أولاً.');
+        }
 
         $userId = $_SESSION['user']['id'];
         $now = time() * 1000;
