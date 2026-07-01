@@ -40,6 +40,7 @@ class AnalyticsTrackerService {
   private utmParams: Record<string, string> = {};
   private cachedCity: string | null = null;
   private cachedCountry: string | null = null;
+  private searchDebounceTimeout: any = null;
 
   constructor() {
     if (typeof window === 'undefined') return;
@@ -237,13 +238,23 @@ class AnalyticsTrackerService {
     this.pushEvent('page_view', page, productId);
   }
 
-  // Search track
+  // Search track (Debounced by 1000ms to avoid recording incomplete keystrokes)
   public trackSearch(query: string, resultsCount: number, clickedResult = false) {
-    this.pushEvent('search', this.currentPage, null, {
-      query,
-      resultsCount,
-      clickedResult: clickedResult.toString()
-    });
+    if (this.searchDebounceTimeout) {
+      clearTimeout(this.searchDebounceTimeout);
+    }
+
+    this.searchDebounceTimeout = setTimeout(() => {
+      const trimmed = (query || '').trim();
+      // Ignore empty searches or single character typos to keep logs clean
+      if (trimmed.length < 2) return;
+
+      this.pushEvent('search', this.currentPage, null, {
+        query: trimmed,
+        resultsCount,
+        clickedResult: clickedResult.toString()
+      });
+    }, 1000);
   }
 
   // Cart events
