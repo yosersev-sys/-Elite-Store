@@ -574,6 +574,73 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = () => {
 
       </div>
 
+      {/* تفاصيل مصادر الزيارات الجغرافية والمنصات */}
+      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+        <div>
+          <h3 className="text-sm font-black text-slate-800">🗺️ تفاصيل مصادر الزيارات الجغرافية والمنصات</h3>
+          <p className="text-[10px] font-bold text-slate-400 mt-1">عرض تفصيلي يوضح مصادر الزيارة (فيسبوك، جوجل، مباشر...) مع الموقع الجغرافي ونوع الأجهزة والمتصفحات</p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-right text-xs">
+            <thead>
+              <tr className="border-b border-slate-100 text-slate-400">
+                <th className="pb-3 font-bold">مصدر الزيارة (Source)</th>
+                <th className="pb-3 font-bold">الموقع (البلد / المحافظة / المدينة)</th>
+                <th className="pb-3 font-bold text-center">نوع الجهاز</th>
+                <th className="pb-3 font-bold text-center">المتصفح</th>
+                <th className="pb-3 font-bold text-center">الزيارات</th>
+                <th className="pb-3 font-bold text-left">الزوار الفريدون</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {summaryData?.referrerGeoDetails?.map((item: any, idx: number) => {
+                let refLabel = item.referrer;
+                if (!refLabel || refLabel === '' || refLabel === 'null' || refLabel.includes('Direct') || refLabel.toLowerCase() === 'direct') {
+                  refLabel = 'زيارة مباشرة (Direct / Bookmark)';
+                } else if (refLabel.includes('google')) {
+                  refLabel = '🔍 محرك بحث جوجل (Google)';
+                } else if (refLabel.includes('facebook') || refLabel.includes('fb.me')) {
+                  refLabel = '👥 فيسبوك (Facebook)';
+                } else if (refLabel.includes('whatsapp') || refLabel.includes('wa.me')) {
+                  refLabel = '💬 واتساب (WhatsApp)';
+                } else if (refLabel.includes('instagram')) {
+                  refLabel = '📸 إنستغرام (Instagram)';
+                } else if (refLabel.includes('t.co') || refLabel.includes('twitter') || refLabel.includes('x.com')) {
+                  refLabel = '🐦 منصة إكس (Twitter/X)';
+                } else {
+                  refLabel = refLabel.replace(/https?:\/\/(www\.)?/, '');
+                }
+
+                return (
+                  <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="py-3 font-bold text-slate-800 truncate max-w-[200px]" title={item.referrer}>{refLabel}</td>
+                    <td className="py-3 font-bold text-slate-600">
+                      📍 {item.city && item.city !== 'Unknown' ? item.city : 'غير محدد'} ({item.country || 'مصر'})
+                    </td>
+                    <td className="py-3 font-bold text-slate-500 text-center">
+                      {item.deviceType === 'Mobile' ? '📱 جوال' : item.deviceType === 'Tablet' ? '📟 تابلت' : '💻 حاسوب'}
+                    </td>
+                    <td className="py-3 font-bold text-slate-500 text-center">{item.browserName || 'غير معروف'}</td>
+                    <td className="py-3 font-black text-slate-700 text-center">{Number(item.visitsCount).toLocaleString()}</td>
+                    <td className="py-3 font-black text-indigo-600 text-left">{Number(item.uniqueVisitors).toLocaleString()}</td>
+                  </tr>
+                );
+              }) || (
+                <tr>
+                  <td colSpan={6} className="py-4 text-center text-slate-400">لا توجد بيانات تفصيلية متوفرة للفترة المحددة</td>
+                </tr>
+              )}
+              {summaryData?.referrerGeoDetails?.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-4 text-center text-slate-400">لا توجد بيانات تفصيلية متوفرة للفترة المحددة</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* 5. Campaign UTM Tracking */}
       <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
         <div>

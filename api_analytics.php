@@ -313,9 +313,24 @@ switch ($action) {
 
         $salesByCity = $pdo->query("SELECT ae.city, SUM(o.total) as totalSales
             FROM analytics_events ae
-            INNER JOIN orders o ON ae.visitorId = o.userId OR ae.sessionId = o.id
+            INNER JOIN orders o ON (ae.visitorId COLLATE utf8mb4_unicode_ci = o.userId COLLATE utf8mb4_unicode_ci) OR (ae.sessionId COLLATE utf8mb4_unicode_ci = o.id COLLATE utf8mb4_unicode_ci)
             WHERE ae.city IS NOT NULL AND ae.city != 'Unknown' AND ae.createdAt >= $startTime AND ae.createdAt <= $endTime AND ae.eventType = 'checkout_complete'
             GROUP BY ae.city ORDER BY totalSales DESC LIMIT 10")->fetchAll();
+
+        // 5.5 Detailed Traffic Sources Geo and Device distribution
+        $referrerGeoDetails = $pdo->query("SELECT 
+            IF(referrer IS NULL OR referrer = '', 'direct', referrer) as referrer, 
+            country, 
+            city, 
+            deviceType,
+            browserName,
+            COUNT(*) as visitsCount,
+            COUNT(DISTINCT visitorId) as uniqueVisitors
+            FROM analytics_events 
+            WHERE createdAt >= $startTime AND createdAt <= $endTime
+            GROUP BY referrer, country, city, deviceType, browserName
+            ORDER BY visitsCount DESC 
+            LIMIT 50")->fetchAll();
 
         // 6. Conversion Funnel calculation
         $funnelStore = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE page = 'store' AND createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
@@ -377,6 +392,7 @@ switch ($action) {
             'topProducts' => $topProducts,
             'productCartStats' => $productCartStats,
             'referrers' => $topReferrers,
+            'referrerGeoDetails' => $referrerGeoDetails,
             'devices' => $devices,
             'browsers' => $browsers,
             'os' => $osList,
