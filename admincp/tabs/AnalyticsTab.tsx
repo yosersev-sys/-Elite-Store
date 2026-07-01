@@ -495,6 +495,85 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = () => {
 
       </div>
 
+      {/* 4.5. Geographical Location Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Most Active Cities/Governorates */}
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+          <div>
+            <h3 className="text-sm font-black text-slate-800">📍 المحافظات والمدن الأكثر زيارة</h3>
+            <p className="text-[10px] font-bold text-slate-400 mt-1">توزيع الزوار جغرافياً داخل وخارج مصر</p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400">
+                  <th className="pb-3 font-bold">الموقع (المدينة/المحافظة)</th>
+                  <th className="pb-3 font-bold">الدولة</th>
+                  <th className="pb-3 font-bold text-left">عدد الزوار</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {summaryData?.cities?.filter((c: any) => c.city && c.city !== 'Unknown').map((c: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="py-3 font-bold text-slate-800">📍 {c.city}</td>
+                    <td className="py-3 font-bold text-slate-500">{c.country || 'مصر'}</td>
+                    <td className="py-3 font-black text-slate-700 text-left">{Number(c.visitors).toLocaleString()}</td>
+                  </tr>
+                )) || (
+                  <tr>
+                    <td colSpan={3} className="py-4 text-center text-slate-400">لم يتم رصد أي مواقع جغرافية للزوار بعد</td>
+                  </tr>
+                )}
+                {summaryData?.cities?.filter((c: any) => c.city && c.city !== 'Unknown').length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="py-4 text-center text-slate-400">لم يتم رصد أي مواقع جغرافية للزوار بعد</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Most Sales by City */}
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+          <div>
+            <h3 className="text-sm font-black text-slate-800">💸 المناطق والمدن الأكثر شراءً</h3>
+            <p className="text-[10px] font-bold text-slate-400 mt-1">توزيع إجمالي قيمة المبيعات حسب المناطق الجغرافية للزوار</p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400">
+                  <th className="pb-3 font-bold">المنطقة الجغرافية</th>
+                  <th className="pb-3 font-bold text-left">حجم المبيعات بالجنيه</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {summaryData?.salesByCity?.filter((c: any) => c.city && c.city !== 'Unknown').map((c: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="py-3 font-bold text-slate-855">📍 {c.city}</td>
+                    <td className="py-3 font-black text-emerald-600 text-left">{Number(c.totalSales).toLocaleString()} ج.م</td>
+                  </tr>
+                )) || (
+                  <tr>
+                    <td colSpan={2} className="py-4 text-center text-slate-400">لا توجد مبيعات مسجلة جغرافياً بعد</td>
+                  </tr>
+                )}
+                {summaryData?.salesByCity?.filter((c: any) => c.city && c.city !== 'Unknown').length === 0 && (
+                  <tr>
+                    <td colSpan={2} className="py-4 text-center text-slate-400">لا توجد مبيعات مسجلة جغرافياً بعد</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
       {/* 5. Campaign UTM Tracking */}
       <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
         <div>
