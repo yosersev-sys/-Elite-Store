@@ -1,6 +1,7 @@
 <?php
 /**
  * Self-Hosted Analytics & Visitor Tracking Module
+ * Enhanced with Period Comparison, Product Revenue, Coupon, Social, Page Performance analytics
  */
 if (!defined('DB_HOST')) exit;
 
@@ -94,6 +95,48 @@ function getGeoLocation($ip) {
         }
     }
     return [$country, $city];
+}
+
+/**
+ * Reusable helper: compute core KPIs for any time range.
+ */
+function getPeriodStats($pdo, $startTime, $endTime) {
+    $totalPageViews = (int)$pdo->query("SELECT COUNT(*) FROM analytics_events WHERE eventType = 'page_view' AND createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
+    $uniqueVisitors = (int)$pdo->query("SELECT COUNT(DISTINCT visitorId) FROM analytics_events WHERE createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
+    $totalSessions = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
+
+    $bounces = (int)$pdo->query("SELECT COUNT(*) FROM (
+        SELECT sessionId FROM analytics_events 
+        WHERE createdAt >= $startTime AND createdAt <= $endTime
+        GROUP BY sessionId 
+        HAVING COUNT(CASE WHEN eventType = 'page_view' THEN 1 END) = 1
+    ) AS bounce_sessions")->fetchColumn();
+    $bounceRate = $totalSessions > 0 ? round(($bounces / $totalSessions) * 100, 2) : 0.00;
+
+    $avgDuration = (float)$pdo->query("SELECT AVG(session_duration) FROM (
+        SELECT sessionId, (MAX(createdAt) - MIN(createdAt)) / 1000 AS session_duration
+        FROM analytics_events 
+        WHERE createdAt >= $startTime AND createdAt <= $endTime
+        GROUP BY sessionId
+    ) AS session_durations")->fetchColumn();
+    $avgSessionDuration = round($avgDuration, 1);
+
+    $returningVisitors = (int)$pdo->query("SELECT COUNT(DISTINCT visitorId) FROM analytics_events 
+        WHERE createdAt >= $startTime AND createdAt <= $endTime 
+        AND visitorId IN (SELECT visitorId FROM analytics_events WHERE createdAt < $startTime)")->fetchColumn();
+
+    $funnelComplete = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE eventType = 'checkout_complete' AND createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
+    $conversionRate = $uniqueVisitors > 0 ? round(($funnelComplete / $uniqueVisitors) * 100, 2) : 0.00;
+
+    return [
+        'pageViews' => $totalPageViews,
+        'uniqueVisitors' => $uniqueVisitors,
+        'sessions' => $totalSessions,
+        'bounceRate' => $bounceRate,
+        'avgSessionDuration' => $avgSessionDuration,
+        'returningVisitors' => $returningVisitors,
+        'conversionRate' => $conversionRate
+    ];
 }
 
 switch ($action) {
@@ -221,37 +264,34 @@ switch ($action) {
             $startTime = strtotime('-7 days') * 1000;
         }
 
-        // 1. Core KPIs
-        $totalPageViews = (int)$pdo->query("SELECT COUNT(*) FROM analytics_events WHERE eventType = 'page_view' AND createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
-        $uniqueVisitors = (int)$pdo->query("SELECT COUNT(DISTINCT visitorId) FROM analytics_events WHERE createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
-        $totalSessions = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
-        
-        // Bounces: sessions with only 1 page_view event
-        $bounces = (int)$pdo->query("SELECT COUNT(*) FROM (
-            SELECT sessionId FROM analytics_events 
-            WHERE createdAt >= $startTime AND createdAt <= $endTime
-            GROUP BY sessionId 
-            HAVING COUNT(CASE WHEN eventType = 'page_view' THEN 1 END) = 1
-        ) AS bounce_sessions")->fetchColumn();
+        // ═══════════════════════════════════════════════
+        // 1. Core KPIs — Current Period & Prior Period
+        // ═══════════════════════════════════════════════
+        $currentStats = getPeriodStats($pdo, $startTime, $endTime);
 
-        $bounceRate = $totalSessions > 0 ? round(($bounces / $totalSessions) * 100, 2) : 0.00;
+        // Prior period: same duration, immediately before current
+        $periodDuration = $endTime - $startTime;
+        $priorStart = $startTime - $periodDuration;
+        $priorEnd = $startTime - 1;
+        $priorStats = getPeriodStats($pdo, $priorStart, $priorEnd);
 
-        // Session Durations
-        $avgDuration = (float)$pdo->query("SELECT AVG(session_duration) FROM (
-            SELECT sessionId, (MAX(createdAt) - MIN(createdAt)) / 1000 AS session_duration
-            FROM analytics_events 
-            WHERE createdAt >= $startTime AND createdAt <= $endTime
-            GROUP BY sessionId
-        ) AS session_durations")->fetchColumn();
-        
-        $avgSessionDuration = round($avgDuration, 1);
+        // ═══════════════════════════════════════════════
+        // 2. Average Page Load Speed (from page_performance events)
+        // ═══════════════════════════════════════════════
+        $avgLoadTimeMs = 0;
+        try {
+            $avgLoadTimeMs = (float)$pdo->query("SELECT AVG(CAST(JSON_UNQUOTE(JSON_EXTRACT(eventData, '$.loadTime')) AS SIGNED)) 
+                FROM analytics_events 
+                WHERE eventType = 'page_performance' AND createdAt >= $startTime AND createdAt <= $endTime
+                AND JSON_UNQUOTE(JSON_EXTRACT(eventData, '$.loadTime')) IS NOT NULL")->fetchColumn();
+        } catch (\Exception $e) {
+            $avgLoadTimeMs = 0;
+        }
+        $avgLoadTimeSec = $avgLoadTimeMs > 0 ? round($avgLoadTimeMs / 1000, 2) : 0;
 
-        // Returning visitors count
-        $returningVisitors = (int)$pdo->query("SELECT COUNT(DISTINCT visitorId) FROM analytics_events 
-            WHERE createdAt >= $startTime AND createdAt <= $endTime 
-            AND visitorId IN (SELECT visitorId FROM analytics_events WHERE createdAt < $startTime)")->fetchColumn();
-
-        // 2. UTM Campaigns performance
+        // ═══════════════════════════════════════════════
+        // 3. UTM Campaigns performance
+        // ═══════════════════════════════════════════════
         $utmStats = $pdo->query("SELECT 
             utm_campaign, 
             utm_source,
@@ -263,33 +303,99 @@ switch ($action) {
             ORDER BY visitors DESC
             LIMIT 10")->fetchAll();
 
-        // 3. Top viewed products
-        $topProducts = $pdo->query("SELECT 
-            ae.productId, 
-            p.name as productName,
-            COUNT(*) as viewsCount
-            FROM analytics_events ae
-            LEFT JOIN products p ON ae.productId = p.id
-            WHERE ae.eventType = 'page_view' AND ae.productId IS NOT NULL AND ae.createdAt >= $startTime AND ae.createdAt <= $endTime
-            GROUP BY ae.productId, p.name
-            ORDER BY viewsCount DESC
-            LIMIT 10")->fetchAll();
+        // ═══════════════════════════════════════════════
+        // 4. Top Visited Pages with Average Duration
+        // ═══════════════════════════════════════════════
+        $topPages = $pdo->query("SELECT 
+            page, 
+            COUNT(CASE WHEN eventType = 'page_view' THEN 1 END) as viewsCount,
+            COUNT(DISTINCT CASE WHEN eventType = 'page_view' THEN visitorId END) as uniqueVisitors,
+            AVG(CASE WHEN eventType = 'page_duration' THEN duration END) as avgDuration
+            FROM analytics_events 
+            WHERE createdAt >= $startTime AND createdAt <= $endTime
+            GROUP BY page 
+            HAVING viewsCount > 0
+            ORDER BY viewsCount DESC 
+            LIMIT 20")->fetchAll();
 
-        // 4. Cart Additions vs Checkout Conversions per Product
-        $productCartStats = $pdo->query("SELECT 
+        // ═══════════════════════════════════════════════
+        // 5. Product Performance: Views, Cart Adds, Revenue
+        // ═══════════════════════════════════════════════
+        $productEvents = $pdo->query("SELECT 
             ae.productId, 
             p.name as productName,
-            COUNT(CASE WHEN ae.eventType = 'add_to_cart' THEN 1 END) as cartAdds,
-            COUNT(CASE WHEN ae.eventType = 'checkout_complete' THEN 1 END) as ordersCount
+            COUNT(CASE WHEN ae.eventType = 'page_view' AND ae.page = 'product-details' THEN 1 END) as viewsCount,
+            COUNT(CASE WHEN ae.eventType = 'add_to_cart' THEN 1 END) as cartAdds
             FROM analytics_events ae
             LEFT JOIN products p ON ae.productId = p.id
             WHERE ae.productId IS NOT NULL AND ae.createdAt >= $startTime AND ae.createdAt <= $endTime
             GROUP BY ae.productId, p.name
-            HAVING cartAdds > 0
-            ORDER BY cartAdds DESC
-            LIMIT 10")->fetchAll();
+            ORDER BY viewsCount DESC
+            LIMIT 20")->fetchAll(PDO::FETCH_ASSOC);
 
-        // 5. Distributions
+        // Parse checkout_complete events to get per-product revenue
+        $completeEventsRaw = $pdo->query("SELECT eventData FROM analytics_events 
+            WHERE eventType = 'checkout_complete' AND createdAt >= $startTime AND createdAt <= $endTime
+            AND eventData IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+
+        $productSales = [];
+        foreach ($completeEventsRaw as $eventJson) {
+            if (empty($eventJson)) continue;
+            $data = json_decode($eventJson, true);
+            if (isset($data['items']) && is_array($data['items'])) {
+                foreach ($data['items'] as $item) {
+                    $pid = $item['id'] ?? null;
+                    if (!$pid) continue;
+                    $price = floatval($item['price'] ?? 0);
+                    $qty = intval($item['quantity'] ?? 0);
+                    if (!isset($productSales[$pid])) {
+                        $productSales[$pid] = ['orders' => 0, 'revenue' => 0.00];
+                    }
+                    $productSales[$pid]['orders'] += $qty;
+                    $productSales[$pid]['revenue'] += ($price * $qty);
+                }
+            }
+        }
+
+        // Merge product events with sales data
+        $productPerformance = [];
+        $addedPids = [];
+        foreach ($productEvents as $pe) {
+            $pid = $pe['productId'];
+            $addedPids[] = $pid;
+            $sales = $productSales[$pid] ?? ['orders' => 0, 'revenue' => 0.00];
+            $views = intval($pe['viewsCount']);
+            $carts = intval($pe['cartAdds']);
+            $productPerformance[] = [
+                'productId' => $pid,
+                'productName' => $pe['productName'] ?? $pid,
+                'viewsCount' => $views,
+                'cartAdds' => $carts,
+                'cartRate' => $views > 0 ? round(($carts / $views) * 100, 1) : 0,
+                'ordersCount' => $sales['orders'],
+                'revenue' => round($sales['revenue'], 2)
+            ];
+        }
+        // Add products that had sales but no views in this period
+        foreach ($productSales as $pid => $sales) {
+            if (in_array($pid, $addedPids)) continue;
+            $pName = $pdo->query("SELECT name FROM products WHERE id = " . $pdo->quote($pid))->fetchColumn();
+            $productPerformance[] = [
+                'productId' => $pid,
+                'productName' => $pName ?: $pid,
+                'viewsCount' => 0,
+                'cartAdds' => 0,
+                'cartRate' => 0,
+                'ordersCount' => $sales['orders'],
+                'revenue' => round($sales['revenue'], 2)
+            ];
+        }
+        // Sort by revenue descending
+        usort($productPerformance, function($a, $b) { return $b['revenue'] <=> $a['revenue']; });
+
+        // ═══════════════════════════════════════════════
+        // 6. Distributions (Referrers, Devices, Browsers, OS, Cities)
+        // ═══════════════════════════════════════════════
         $topReferrers = $pdo->query("SELECT referrer, COUNT(*) as count FROM analytics_events 
             WHERE referrer IS NOT NULL AND referrer != '' AND createdAt >= $startTime AND createdAt <= $endTime
             GROUP BY referrer ORDER BY count DESC LIMIT 10")->fetchAll();
@@ -317,7 +423,7 @@ switch ($action) {
             WHERE ae.city IS NOT NULL AND ae.city != 'Unknown' AND ae.createdAt >= $startTime AND ae.createdAt <= $endTime AND ae.eventType = 'checkout_complete'
             GROUP BY ae.city ORDER BY totalSales DESC LIMIT 10")->fetchAll();
 
-        // 5.5 Detailed Traffic Sources Geo and Device distribution
+        // Detailed Traffic Sources Geo and Device distribution
         $referrerGeoDetails = $pdo->query("SELECT 
             IF(referrer IS NULL OR referrer = '', 'direct', referrer) as referrer, 
             country, 
@@ -332,14 +438,33 @@ switch ($action) {
             ORDER BY visitsCount DESC 
             LIMIT 50")->fetchAll();
 
-        // 6. Conversion Funnel calculation
+        // ═══════════════════════════════════════════════
+        // 7. Conversion Funnel calculation
+        // ═══════════════════════════════════════════════
         $funnelStore = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE page = 'store' AND createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
         $funnelProduct = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE page = 'product-details' AND createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
         $funnelCart = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE eventType = 'add_to_cart' AND createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
         $funnelCheckout = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE eventType = 'checkout_start' AND createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
         $funnelComplete = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE eventType = 'checkout_complete' AND createdAt >= $startTime AND createdAt <= $endTime")->fetchColumn();
 
-        // 7. Abandoned Carts
+        // ═══════════════════════════════════════════════
+        // 8. Enhanced Abandoned Carts with Recovery Rate
+        // ═══════════════════════════════════════════════
+        // Sessions with add_to_cart AND checkout_complete = recovered
+        $recoveredCount = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events 
+            WHERE eventType = 'add_to_cart' AND createdAt >= $startTime AND createdAt <= $endTime
+            AND sessionId IN (SELECT sessionId FROM analytics_events WHERE eventType = 'checkout_complete' AND createdAt >= $startTime AND createdAt <= $endTime)")->fetchColumn();
+
+        // Sessions with add_to_cart but NO checkout_complete = abandoned
+        $abandonedSessionCount = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events 
+            WHERE eventType = 'add_to_cart' AND createdAt >= $startTime AND createdAt <= $endTime
+            AND sessionId NOT IN (SELECT sessionId FROM analytics_events WHERE eventType = 'checkout_complete' AND createdAt >= $startTime AND createdAt <= $endTime)")->fetchColumn();
+
+        $recoveryRate = ($recoveredCount + $abandonedSessionCount) > 0 
+            ? round(($recoveredCount / ($recoveredCount + $abandonedSessionCount)) * 100, 1) 
+            : 0;
+
+        // Fetch abandoned cart details
         $abandonedCarts = $pdo->query("SELECT 
             ae.sessionId, 
             ae.visitorId,
@@ -354,6 +479,7 @@ switch ($action) {
             LIMIT 15")->fetchAll();
 
         $formattedAbandoned = [];
+        $totalAbandonedValue = 0;
         foreach ($abandonedCarts as $c) {
             $cartItems = $pdo->prepare("SELECT eventData FROM analytics_events 
                 WHERE sessionId = ? AND eventType = 'add_to_cart' 
@@ -361,27 +487,104 @@ switch ($action) {
             $cartItems->execute([$c['sessionId']]);
             $itemRaw = $cartItems->fetchColumn();
             
+            // Calculate cart value
+            $cartValue = 0;
+            $parsedItems = null;
+            if ($itemRaw) {
+                $parsedItems = json_decode($itemRaw, true);
+                if (isset($parsedItems['items']) && is_array($parsedItems['items'])) {
+                    foreach ($parsedItems['items'] as $item) {
+                        $cartValue += (floatval($item['price'] ?? 0) * intval($item['quantity'] ?? 0));
+                    }
+                } elseif (isset($parsedItems['cartTotal'])) {
+                    $cartValue = floatval($parsedItems['cartTotal']);
+                }
+            }
+            $totalAbandonedValue += $cartValue;
+
+            // Try to find phone from previous orders by this visitor
+            $phone = null;
+            if (!empty($c['visitorId'])) {
+                $phoneStmt = $pdo->prepare("SELECT phone FROM orders WHERE userId = ? ORDER BY createdAt DESC LIMIT 1");
+                $phoneStmt->execute([$c['visitorId']]);
+                $phone = $phoneStmt->fetchColumn() ?: null;
+            }
+            
             $formattedAbandoned[] = [
                 'sessionId' => $c['sessionId'],
                 'visitorId' => $c['visitorId'],
                 'lastActive' => (float)$c['lastActive'],
                 'city' => $c['city'],
-                'items' => $itemRaw ? json_decode($itemRaw, true) : null
+                'items' => $parsedItems,
+                'cartValue' => round($cartValue, 2),
+                'phone' => $phone
             ];
         }
 
+        $avgAbandonedValue = count($formattedAbandoned) > 0 
+            ? round($totalAbandonedValue / count($formattedAbandoned), 2) 
+            : 0;
+
+        // ═══════════════════════════════════════════════
+        // 9. Coupon Performance Analytics
+        // ═══════════════════════════════════════════════
+        $couponPerformance = [];
+        try {
+            $couponPerformance = $pdo->query("SELECT 
+                JSON_UNQUOTE(JSON_EXTRACT(eventData, '$.code')) as couponCode,
+                COUNT(CASE WHEN eventType = 'use_coupon' THEN 1 END) as successCount,
+                COUNT(CASE WHEN eventType = 'coupon_failed' THEN 1 END) as failCount,
+                SUM(CASE WHEN eventType = 'use_coupon' THEN CAST(JSON_UNQUOTE(JSON_EXTRACT(eventData, '$.discountAmount')) AS DECIMAL(10,2)) ELSE 0 END) as totalDiscount
+                FROM analytics_events 
+                WHERE eventType IN ('use_coupon', 'coupon_failed') AND createdAt >= $startTime AND createdAt <= $endTime
+                GROUP BY couponCode
+                ORDER BY successCount DESC
+                LIMIT 20")->fetchAll();
+        } catch (\Exception $e) {
+            $couponPerformance = [];
+        }
+
+        // ═══════════════════════════════════════════════
+        // 10. Social Engagement Analytics
+        // ═══════════════════════════════════════════════
+        $socialEngagement = [];
+        try {
+            $socialEngagement = $pdo->query("SELECT 
+                JSON_UNQUOTE(JSON_EXTRACT(eventData, '$.network')) as networkName,
+                COUNT(CASE WHEN eventType = 'social_click' THEN 1 END) as clickCount,
+                COUNT(CASE WHEN eventType = 'share_product' THEN 1 END) as shareCount
+                FROM analytics_events 
+                WHERE eventType IN ('social_click', 'share_product') AND createdAt >= $startTime AND createdAt <= $endTime
+                GROUP BY networkName
+                ORDER BY (clickCount + shareCount) DESC
+                LIMIT 10")->fetchAll();
+        } catch (\Exception $e) {
+            $socialEngagement = [];
+        }
+
+        // ═══════════════════════════════════════════════
+        // 11. Daily Digest (Yesterday vs Day Before Yesterday)
+        // ═══════════════════════════════════════════════
+        $yesterdayStart = strtotime('yesterday') * 1000;
+        $yesterdayEnd = (strtotime('today') * 1000) - 1;
+        $dayBeforeStart = strtotime('-2 days') * 1000;
+        $dayBeforeEnd = $yesterdayStart - 1;
+
+        $yesterdayStats = getPeriodStats($pdo, $yesterdayStart, $yesterdayEnd);
+        $dayBeforeStats = getPeriodStats($pdo, $dayBeforeStart, $dayBeforeEnd);
+
+        // Yesterday's completed orders count
+        $yesterdayOrders = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE eventType = 'checkout_complete' AND createdAt >= $yesterdayStart AND createdAt <= $yesterdayEnd")->fetchColumn();
+        $dayBeforeOrders = (int)$pdo->query("SELECT COUNT(DISTINCT sessionId) FROM analytics_events WHERE eventType = 'checkout_complete' AND createdAt >= $dayBeforeStart AND createdAt <= $dayBeforeEnd")->fetchColumn();
+
+        // ═══════════════════════════════════════════════
         // Return everything packed
+        // ═══════════════════════════════════════════════
         sendRes([
             'status' => 'success',
-            'summary' => [
-                'pageViews' => $totalPageViews,
-                'uniqueVisitors' => $uniqueVisitors,
-                'sessions' => $totalSessions,
-                'bounceRate' => $bounceRate,
-                'avgSessionDuration' => $avgSessionDuration,
-                'returningVisitors' => $returningVisitors,
-                'conversionRate' => $uniqueVisitors > 0 ? round(($funnelComplete / $uniqueVisitors) * 100, 2) : 0
-            ],
+            'summary' => $currentStats,
+            'priorSummary' => $priorStats,
+            'avgLoadTimeSec' => $avgLoadTimeSec,
             'funnel' => [
                 'store' => $funnelStore,
                 'product' => $funnelProduct,
@@ -389,8 +592,8 @@ switch ($action) {
                 'checkout' => $funnelCheckout,
                 'complete' => $funnelComplete
             ],
-            'topProducts' => $topProducts,
-            'productCartStats' => $productCartStats,
+            'topPages' => $topPages,
+            'productPerformance' => $productPerformance,
             'referrers' => $topReferrers,
             'referrerGeoDetails' => $referrerGeoDetails,
             'devices' => $devices,
@@ -399,7 +602,20 @@ switch ($action) {
             'cities' => $cities,
             'salesByCity' => $salesByCity,
             'utmCampaigns' => $utmStats,
-            'abandonedCarts' => $formattedAbandoned
+            'abandonedCarts' => $formattedAbandoned,
+            'abandonedStats' => [
+                'abandonedCount' => $abandonedSessionCount,
+                'recoveredCount' => $recoveredCount,
+                'recoveryRate' => $recoveryRate,
+                'totalAbandonedValue' => round($totalAbandonedValue, 2),
+                'avgAbandonedValue' => $avgAbandonedValue
+            ],
+            'couponPerformance' => $couponPerformance,
+            'socialEngagement' => $socialEngagement,
+            'dailyDigest' => [
+                'yesterday' => array_merge($yesterdayStats, ['orders' => $yesterdayOrders]),
+                'dayBefore' => array_merge($dayBeforeStats, ['orders' => $dayBeforeOrders])
+            ]
         ]);
         break;
 

@@ -54,6 +54,9 @@ class AnalyticsTrackerService {
     // 2.5 Initialize Browser Geolocation (asks permission to get highly accurate city/town)
     this.initGeolocation();
 
+    // 2.6 Track page load speed
+    this.initPageLoadTracking();
+
     // 3. Listen to page visibility changes to accurately track duration
     document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
     window.addEventListener('pagehide', () => this.flushSync());
@@ -69,6 +72,51 @@ class AnalyticsTrackerService {
       }
     }, 5000);
   }
+
+  /**
+   * Measure actual page load time using the Performance Navigation Timing API
+   * and send it as a page_performance event.
+   */
+  private initPageLoadTracking() {
+    if (typeof window === 'undefined') return;
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        try {
+          let loadTime = 0;
+
+          // Modern API (PerformanceNavigationTiming)
+          if (performance && performance.getEntriesByType) {
+            const entries = performance.getEntriesByType('navigation');
+            if (entries && entries.length > 0) {
+              const perf = entries[0] as PerformanceNavigationTiming;
+              if (perf && perf.duration > 0) {
+                loadTime = Math.round(perf.duration);
+              }
+            }
+          }
+
+          // Fallback to legacy timing API
+          if (loadTime <= 0 && window.performance && (window.performance as any).timing) {
+            const t = (window.performance as any).timing;
+            if (t.loadEventEnd > 0 && t.navigationStart > 0) {
+              loadTime = t.loadEventEnd - t.navigationStart;
+            }
+          }
+
+          // Only record reasonable values (between 50ms and 30s)
+          if (loadTime > 50 && loadTime < 30000) {
+            this.pushEvent('page_performance', this.currentPage, null, {
+              loadTime: loadTime
+            });
+          }
+        } catch (e) {
+          console.warn('Failed to measure page load time', e);
+        }
+      }, 500);
+    });
+  }
+
 
   private initVisitorAndSession() {
     // Visitor ID (Permanent in localStorage)
