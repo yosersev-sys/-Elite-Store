@@ -15,6 +15,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
   // حوار فتح الوردية
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [startingCash, setStartingCash] = useState('');
+  const [shiftName, setShiftName] = useState('');
 
   // حوار حركة الخزينة (إيداع/سحب)
   const [showTxModal, setShowTxModal] = useState(false);
@@ -81,11 +82,12 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
 
     setIsSaving(true);
     try {
-      const res = await ApiService.openShift(cash);
+      const res = await ApiService.openShift(cash, shiftName.trim());
       if (res.success) {
         alert('تم فتح الوردية بنجاح.');
         setShowOpenModal(false);
         setStartingCash('');
+        setShiftName('');
         loadShiftsData();
         if (onRefreshData) onRefreshData();
       } else {
@@ -213,7 +215,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 pb-6 mb-6">
               <div>
                 <span className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-xs font-black tracking-wide uppercase">وردية مفتوحة نشطة 🟢</span>
-                <h3 className="text-2xl font-black text-slate-800 mt-2">رقم الوردية: #{activeShift.id}</h3>
+                <h3 className="text-2xl font-black text-slate-800 mt-2">رقم الوردية: #{activeShift.id} {activeShift.shiftName ? ` - (${activeShift.shiftName})` : ''}</h3>
                 <p className="text-slate-400 text-xs font-bold mt-1">
                   بدأت في: {new Date(activeShift.startTime).toLocaleString('ar-EG')} بواسطة {activeShift.openedByName || 'أدمن'}
                 </p>
@@ -320,7 +322,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
               <tbody className="divide-y divide-slate-50">
                 {shifts.map((s) => (
                   <tr key={s.id} className="text-slate-700 text-xs font-bold hover:bg-slate-50/50 transition">
-                    <td className="py-4 px-2 font-black">#{s.id}</td>
+                    <td className="py-4 px-2 font-black">#{s.id} {s.shiftName ? `(${s.shiftName})` : ''}</td>
                     <td className="py-4 px-2">
                       <span className={`px-2.5 py-1 rounded-full text-[9px] font-black ${s.status === 'open' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
                         {s.status === 'open' ? 'مفتوحة' : 'مغلقة'}
@@ -548,7 +550,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
               <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                    <span>تفاصيل الوردية #{selectedShiftDetails.shift.id}</span>
+                    <span>تفاصيل الوردية #{selectedShiftDetails.shift.id} {selectedShiftDetails.shift.shiftName ? ` - (${selectedShiftDetails.shift.shiftName})` : ''}</span>
                     <span className={`px-2.5 py-1 rounded-full text-xs font-black ${selectedShiftDetails.shift.status === 'open' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
                       {selectedShiftDetails.shift.status === 'open' ? 'مفتوحة نشطة 🟢' : 'مغلقة'}
                     </span>
@@ -855,6 +857,17 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
               <p className="text-slate-400 font-bold text-xs leading-relaxed">
                 يرجى إدخال مبلغ نقدية بداية الوردية الموجود في الدرج لبدء استقبال فواتير المبيعات.
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية (مثال: وردية الصباح)</label>
+              <input
+                type="text"
+                value={shiftName}
+                onChange={(e) => setShiftName(e.target.value)}
+                placeholder="وردية الصباح، الوردية الأولى..."
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 font-bold text-sm text-center"
+              />
             </div>
 
             <div className="space-y-2">

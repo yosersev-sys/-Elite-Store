@@ -476,10 +476,10 @@ export const ApiService = {
     return result;
   },
 
-  async openShift(startingCash: number): Promise<{ success: boolean; message?: string }> {
+  async openShift(startingCash: number, shiftName?: string): Promise<{ success: boolean; message?: string }> {
     const result = await safeFetch('open_shift', {
       method: 'POST',
-      body: JSON.stringify({ startingCash })
+      body: JSON.stringify({ startingCash, shiftName })
     });
     if (result?.status === 'success') {
       const active: Shift = {
@@ -488,7 +488,8 @@ export const ApiService = {
         startingCash: startingCash,
         currentCashBalance: startingCash,
         startTime: Date.now(),
-        openedByName: 'أدمن'
+        openedByName: 'أدمن',
+        shiftName: shiftName
       };
       await idbSet('active_shift', active);
       return { success: true };

@@ -89,6 +89,7 @@ const App: React.FC = () => {
   const [loadProgress, setLoadProgress] = useState(0);
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
   const [startingCashInput, setStartingCashInput] = useState('0');
+  const [shiftNameInput, setShiftNameInput] = useState('');
   const [isOpeningShift, setIsOpeningShift] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const isLoggingOutRef = useRef(false);
@@ -448,10 +449,11 @@ const App: React.FC = () => {
 
     setIsOpeningShift(true);
     try {
-      const res = await ApiService.openShift(cash);
+      const res = await ApiService.openShift(cash, shiftNameInput.trim());
       if (res.success) {
         showNotification('تم فتح الوردية بنجاح.', 'success');
         setStartingCashInput('0');
+        setShiftNameInput('');
         await loadData(true);
       } else {
         showNotification(res.message || 'فشل فتح الوردية', 'error');
@@ -502,6 +504,17 @@ const App: React.FC = () => {
                   </p>
                 </div>
                 
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية (مثال: وردية الصباح)</label>
+                  <input
+                    type="text"
+                    value={shiftNameInput}
+                    onChange={(e) => setShiftNameInput(e.target.value)}
+                    placeholder="وردية الصباح، الوردية الأولى..."
+                    className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 font-bold text-sm text-center"
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-500 mr-2">نقدية بداية الوردية (الدرج)</label>
                   <input
@@ -609,6 +622,17 @@ const App: React.FC = () => {
                     </p>
                   </div>
                   
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية (مثال: وردية الصباح)</label>
+                    <input
+                      type="text"
+                      value={shiftNameInput}
+                      onChange={(e) => setShiftNameInput(e.target.value)}
+                      placeholder="وردية الصباح، الوردية الأولى..."
+                      className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 font-bold text-sm text-center"
+                    />
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-500 mr-2">نقدية بداية الوردية (الدرج)</label>
                     <input

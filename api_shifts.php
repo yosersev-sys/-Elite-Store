@@ -25,6 +25,11 @@ switch ($action) {
         break;
 
     case 'open_shift':
+        // تأكيد وجود حقل اسم الوردية
+        try {
+            $pdo->exec("ALTER TABLE shifts ADD COLUMN shiftName VARCHAR(100) NULL DEFAULT NULL");
+        } catch (Exception $e) {}
+
         // التحقق من عدم وجود وردية مفتوحة بالفعل على السيرفر
         $activeCount = (int)$pdo->query("SELECT COUNT(*) FROM shifts WHERE status = 'open'")->fetchColumn();
         if ($activeCount > 0) {
@@ -36,11 +41,13 @@ switch ($action) {
             sendErr('يجب إدخال رصيد بداية صحيح غير سالب.');
         }
 
+        $shiftName = trim($input['shiftName'] ?? '');
+
         $userId = $_SESSION['user']['id'];
         $now = time() * 1000;
 
-        $stmt = $pdo->prepare("INSERT INTO shifts (openedById, status, startTime, startingCash, expectedCash, actualCash, currentCashBalance, difference) VALUES (?, 'open', ?, ?, ?, 0, ?, 0)");
-        $stmt->execute([$userId, $now, $startingCash, $startingCash, $startingCash]);
+        $stmt = $pdo->prepare("INSERT INTO shifts (openedById, status, startTime, startingCash, expectedCash, actualCash, currentCashBalance, difference, shiftName) VALUES (?, 'open', ?, ?, ?, 0, ?, 0, ?)");
+        $stmt->execute([$userId, $now, $startingCash, $startingCash, $startingCash, $shiftName]);
         $shiftId = $pdo->lastInsertId();
 
         // تسجيل في سجل التدقيق
@@ -48,7 +55,7 @@ switch ($action) {
         $stmtLog->execute([
             $userId,
             $shiftId,
-            "تم فتح الوردية رقم {$shiftId} برصيد بداية: {$startingCash} ج.م بواسطة " . $_SESSION['user']['name'],
+            "تم فتح الوردية رقم {$shiftId} (اسمها: {$shiftName}) برصيد بداية: {$startingCash} ج.م بواسطة " . $_SESSION['user']['name'],
             $now
         ]);
 
