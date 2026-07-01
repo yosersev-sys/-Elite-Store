@@ -706,7 +706,17 @@ const App: React.FC = () => {
         <Header 
           cartCount={cart.length} wishlistCount={wishlist.length} categories={categories} currentUser={currentUser}
           onNavigate={onNavigate} onLoginClick={() => setShowAuthModal(true)} onLogout={handleLogout}
-          onSearch={setSearchQuery} onCategorySelect={(id) => { setSelectedCategoryId(id); onNavigate('store'); }}
+          onSearch={(q) => {
+            setSearchQuery(q);
+            const count = products.filter(p => {
+              if (!p) return false;
+              const name = p.name ? String(p.name).toLowerCase() : '';
+              const id = p.id ? String(p.id).toLowerCase() : '';
+              const query = q ? String(q).toLowerCase() : '';
+              return name.includes(query) || id.includes(query);
+            }).length;
+            AnalyticsTracker.trackSearch(q, count);
+          }} onCategorySelect={(id) => { setSelectedCategoryId(id); onNavigate('store'); }}
         />
 
         <main className="flex-grow container mx-auto px-2 md:px-4 pt-24 md:pt-32">
