@@ -289,9 +289,18 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
         </div>
 
         {/* التذييل */}
-        <div className="mt-4 text-center border-t-2 border-dashed border-gray-300 pt-3">
+        <div className="mt-4 text-center border-t-2 border-dashed border-gray-300 pt-3 flex flex-col items-center justify-center">
           <p className="text-[10px] font-black text-slate-800 mb-1">شكراً لزيارتكم!</p>
-          <p className="store-link text-[14px] text-emerald-600 font-black uppercase tracking-widest mt-1">soqelasr.com</p>
+          <p className="store-link text-[13px] text-emerald-600 font-black uppercase tracking-widest mt-0.5 mb-2">soqelasr.com</p>
+          
+          <div className="w-20 h-20 p-1 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm mx-auto">
+            <img 
+              src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://soqelasr.com" 
+              alt="QR Code" 
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <p className="text-[7px] text-slate-400 font-bold mt-1">امسح الكود لزيارة موقعنا 🌐</p>
         </div>
       </div>
 
