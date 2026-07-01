@@ -4,6 +4,16 @@
  */
 if (!defined('DB_HOST')) exit;
 
+// التحقق وإضافة أعمدة التأكيد والاعتماد ديناميكياً لجدول الطلبات إذا لم تكن موجودة
+try {
+    $checkCols = $pdo->query("SHOW COLUMNS FROM orders LIKE 'confirmedShiftId'")->fetch();
+    if (!$checkCols) {
+        $pdo->exec("ALTER TABLE orders ADD COLUMN confirmedShiftId INT NULL");
+    }
+} catch (Exception $e) {
+    // تجاهل أي خطأ مؤقت لتفادي التوقف
+}
+
 // التحقق من تسجيل الدخول العام لكافة حركات الورديات
 if (!isset($_SESSION['user'])) {
     sendErr('يجب تسجيل الدخول أولاً', 401);
@@ -206,15 +216,15 @@ switch ($action) {
         // 2.5 حساب تحصيلات ديون العملاء النقدية خلال هذه الوردية
         $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND paymentMethod LIKE '%نقدي%'")->fetchColumn());
 
-        // 3. حساب الرصيد المتوقع بالمعادلة المحاسبية الشاملة
-        $expectedCash = (float)$active['startingCash'] + $cashSales - $cashReturns + $totalDeposits - $totalWithdrawals + $ledgerCashPayments;
+        // 3. حساب الرصيد المتوقع بالمعادلة المحاسبية الشاملة (مطابق للرصيد الدفتري المسجل بالدرج)
+        $expectedCash = (float)$active['currentCashBalance'];
 
         // 4. احتساب الفرق
-        $difference = $actualCash - $expectedCash;
+        $difference = round($actualCash - $expectedCash, 2);
 
         // 5. التحقق من إلزامية إدخال سبب الفارق (عجز أو زيادة)
         $discrepancyReason = trim($input['discrepancyReason'] ?? '');
-        if ($difference != 0 && empty($discrepancyReason)) {
+        if (abs($difference) >= 0.01 && empty($discrepancyReason)) {
             sendErr('يوجد فارق جرد بالزيادة أو العجز. يرجى إدخال سبب الفارق قبل إغلاق الوردية.');
         }
 
