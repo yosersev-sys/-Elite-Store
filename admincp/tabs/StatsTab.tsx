@@ -21,12 +21,25 @@ const StatsTab: React.FC<StatsTabProps> = ({
   isLoading, onNavigateToTab, onOpenAddForm, adminSummary, loadProgress
 }) => {
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
+  const [activeShiftExpenses, setActiveShiftExpenses] = useState<number>(0);
 
   useEffect(() => {
     ApiService.getActiveShift()
-      .then(setActiveShift)
+      .then(shift => {
+        setActiveShift(shift);
+        if (shift && shift.id) {
+          ApiService.getExpenses()
+            .then(list => {
+              const shiftExp = list
+                .filter(e => e.shiftId === shift.id && e.status === 'active')
+                .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+              setActiveShiftExpenses(shiftExp);
+            })
+            .catch(err => console.error('Failed to load active shift expenses', err));
+        }
+      })
       .catch(err => console.error('Failed to load active shift for stats dashboard', err));
-  }, []);
+  }, [isLoading]);
 
   const todayStats = useMemo(() => {
     const todayStart = new Date().setHours(0, 0, 0, 0);
@@ -79,7 +92,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
   // حساب إحصائيات الوردية المفتوحة حالياً فقط
   const shiftStats = useMemo(() => {
     if (!activeShift || !activeShift.id) {
-      return { sales: 0, profit: 0, ordersCount: 0, cashSales: 0, digitalSales: 0, debtSales: 0, avgOrderValue: 0, duration: '' };
+      return { sales: 0, profit: 0, ordersCount: 0, cashSales: 0, digitalSales: 0, debtSales: 0, vodafoneSales: 0, instapaySales: 0, visaSales: 0, avgOrderValue: 0, duration: '' };
     }
 
     const safeOrders = Array.isArray(orders) ? orders : [];
@@ -92,8 +105,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
 
     let cost = 0;
     let cashSales = 0;
-    let digitalSales = 0;
     let debtSales = 0;
+    let vodafoneSales = 0;
+    let instapaySales = 0;
+    let visaSales = 0;
 
     shiftOrders.forEach(o => {
       if (o.items) {
@@ -103,20 +118,41 @@ const StatsTab: React.FC<StatsTabProps> = ({
       }
       if (o.payments && o.payments.length > 0) {
         o.payments.forEach(p => {
-          if (p.method === 'cash') cashSales += Number(p.amount);
-          else digitalSales += Number(p.amount);
+          const method = String(p.method || '').toLowerCase();
+          const amount = Number(p.amount || 0);
+          if (method === 'cash' || method.includes('نقدي')) {
+            cashSales += amount;
+          } else if (method === 'vodafone' || method.includes('فودافون')) {
+            vodafoneSales += amount;
+          } else if (method === 'instapay' || method.includes('انستا')) {
+            instapaySales += amount;
+          } else if (method === 'visa' || method.includes('فيزا') || method.includes('card') || method.includes('بطاقة')) {
+            visaSales += amount;
+          } else {
+            visaSales += amount;
+          }
         });
         debtSales += Number(o.outstandingAmount || 0);
       } else {
-        if (String(o.paymentMethod).includes('نقدي') || String(o.paymentMethod).includes('عند الاستلام')) {
-          cashSales += Number(o.total || 0);
-        } else if (String(o.paymentMethod).includes('آجل')) {
-          debtSales += Number(o.total || 0);
+        const methodStr = String(o.paymentMethod || '').toLowerCase();
+        const totalAmount = Number(o.total || 0);
+        if (methodStr.includes('نقدي') || methodStr.includes('عند الاستلام') || methodStr === 'cash') {
+          cashSales += totalAmount;
+        } else if (methodStr.includes('آجل') || methodStr.includes('debt') || methodStr.includes('credit')) {
+          debtSales += totalAmount;
+        } else if (methodStr.includes('فودافون') || methodStr.includes('vodafone')) {
+          vodafoneSales += totalAmount;
+        } else if (methodStr.includes('انستا') || methodStr.includes('instapay')) {
+          instapaySales += totalAmount;
+        } else if (methodStr.includes('فيزا') || methodStr.includes('visa') || methodStr.includes('card') || methodStr.includes('بطاقة')) {
+          visaSales += totalAmount;
         } else {
-          digitalSales += Number(o.total || 0);
+          visaSales += totalAmount;
         }
       }
     });
+
+    const digitalSales = vodafoneSales + instapaySales + visaSales;
 
     // حساب مدة الوردية
     const startMs = Number(activeShift.startTime);
@@ -133,6 +169,9 @@ const StatsTab: React.FC<StatsTabProps> = ({
       cashSales,
       digitalSales,
       debtSales,
+      vodafoneSales,
+      instapaySales,
+      visaSales,
       avgOrderValue: ordersCount > 0 ? Math.round(sales / ordersCount) : 0,
       duration
     };
@@ -330,6 +369,87 @@ const StatsTab: React.FC<StatsTabProps> = ({
                   </div>
                   <p className="text-[9px] font-bold text-amber-100 mb-0.5">رصيد الدرج</p>
                   <p className="text-xl font-black text-white tracking-tight">{Number(activeShift.currentCashBalance).toLocaleString()} <span className="text-[10px] font-bold text-amber-100">ج.م</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* تفاصيل طرق الدفع والمصروفات بالوردية */}
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mt-4">
+              {/* إجمالي نقدي */}
+              <div className="group relative bg-gradient-to-br from-emerald-600 to-teal-600 p-4 rounded-2xl shadow-md overflow-hidden">
+                <div className="absolute -left-2 -bottom-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base">💵</span>
+                    <span className="text-[7px] font-black text-emerald-100 bg-white/15 px-2 py-0.5 rounded-full">نقدي</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-emerald-100 mb-0.5">إجمالي النقدي</p>
+                  <p className="text-lg font-black text-white tracking-tight">{shiftStats.cashSales.toLocaleString()} <span className="text-[9px] font-bold text-emerald-100">ج.م</span></p>
+                </div>
+              </div>
+
+              {/* إجمالي فودافون كاش */}
+              <div className="group relative bg-gradient-to-br from-red-600 to-rose-700 p-4 rounded-2xl shadow-md overflow-hidden">
+                <div className="absolute -right-2 -top-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base">📱</span>
+                    <span className="text-[7px] font-black text-red-100 bg-white/15 px-2 py-0.5 rounded-full">فودافون كاش</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-red-100 mb-0.5">فودافون كاش</p>
+                  <p className="text-lg font-black text-white tracking-tight">{shiftStats.vodafoneSales.toLocaleString()} <span className="text-[9px] font-bold text-red-100">ج.م</span></p>
+                </div>
+              </div>
+
+              {/* إجمالي انستا باي */}
+              <div className="group relative bg-gradient-to-br from-pink-600 to-pink-800 p-4 rounded-2xl shadow-md overflow-hidden">
+                <div className="absolute -left-2 -top-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base">💸</span>
+                    <span className="text-[7px] font-black text-pink-100 bg-white/15 px-2 py-0.5 rounded-full">انستا باي</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-pink-100 mb-0.5">انستا باي</p>
+                  <p className="text-lg font-black text-white tracking-tight">{shiftStats.instapaySales.toLocaleString()} <span className="text-[9px] font-bold text-pink-100">ج.م</span></p>
+                </div>
+              </div>
+
+              {/* إجمالي الفيزا */}
+              <div className="group relative bg-gradient-to-br from-cyan-600 to-blue-700 p-4 rounded-2xl shadow-md overflow-hidden">
+                <div className="absolute -right-2 -bottom-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base">💳</span>
+                    <span className="text-[7px] font-black text-cyan-100 bg-white/15 px-2 py-0.5 rounded-full">الفيزا</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-cyan-100 mb-0.5">إجمالي الفيزا</p>
+                  <p className="text-lg font-black text-white tracking-tight">{shiftStats.visaSales.toLocaleString()} <span className="text-[9px] font-bold text-cyan-100">ج.م</span></p>
+                </div>
+              </div>
+
+              {/* إجمالي أجل الوردية */}
+              <div className="group relative bg-gradient-to-br from-amber-500 to-amber-600 p-4 rounded-2xl shadow-md overflow-hidden">
+                <div className="absolute -left-2 -bottom-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base">⏳</span>
+                    <span className="text-[7px] font-black text-amber-100 bg-white/15 px-2 py-0.5 rounded-full">آجل</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-amber-100 mb-0.5">آجل الوردية</p>
+                  <p className="text-lg font-black text-white tracking-tight">{shiftStats.debtSales.toLocaleString()} <span className="text-[9px] font-bold text-amber-100">ج.م</span></p>
+                </div>
+              </div>
+
+              {/* مصروفات الوردية */}
+              <div className="group relative bg-gradient-to-br from-rose-500 to-red-600 p-4 rounded-2xl shadow-md overflow-hidden animate-pulse-once">
+                <div className="absolute -right-2 -top-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base">📤</span>
+                    <span className="text-[7px] font-black text-rose-100 bg-white/15 px-2 py-0.5 rounded-full">المصروفات</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-rose-100 mb-0.5">مصروفات الوردية</p>
+                  <p className="text-lg font-black text-white tracking-tight">{activeShiftExpenses.toLocaleString()} <span className="text-[9px] font-bold text-rose-100">ج.م</span></p>
                 </div>
               </div>
             </div>
