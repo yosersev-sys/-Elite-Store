@@ -418,6 +418,17 @@ const App: React.FC = () => {
 
   const onNavigate = (v: View, param?: any) => {
     if ((v === 'profile' || v === 'my-orders') && !currentUser) { setShowAuthModal(true); return; }
+    
+    // إذا كان المسار الفعلي للمتصفح هو صفحة التوصيل ورغبنا بالانتقال لأي مكان آخر
+    if (window.location.pathname.toLowerCase().includes('/delivery-areas')) {
+      if (v === 'store') {
+        window.location.href = '/';
+      } else {
+        window.location.href = '/#' + ((v === 'admin' || v === 'admincp') ? 'admincp' : v);
+      }
+      return;
+    }
+
     let h = (v === 'admin' || v === 'admincp') ? 'admincp' : (v === 'store' ? '' : v);
     if (v === 'product-details' && param) {
       const p = param as Product;
