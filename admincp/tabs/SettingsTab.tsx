@@ -46,6 +46,35 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   });
 
   const [villages, setVillages] = useState<any[]>(DEFAULT_VILLAGES_LIST);
+  const [newVillage, setNewVillage] = useState({
+    name: '',
+    fee: '15',
+    desc: 'توصيل لباب المنزل خلال ساعات.'
+  });
+
+  const handleAddVillage = () => {
+    if (!newVillage.name.trim()) {
+      alert('يرجى كتابة اسم القرية أو المنطقة أولاً');
+      return;
+    }
+    if (villages.some(v => v.name.trim().toLowerCase() === newVillage.name.trim().toLowerCase())) {
+      alert('هذه المنطقة مضافة بالفعل في القائمة');
+      return;
+    }
+    const created = {
+      name: newVillage.name.trim(),
+      center: 'فاقوس',
+      status: 'متاح (توصيل منزلي سريع)',
+      fee: parseFloat(newVillage.fee) || 0,
+      desc: newVillage.desc.trim() || 'توصيل لباب المنزل خلال ساعات.'
+    };
+    setVillages([...villages, created]);
+    setNewVillage({
+      name: '',
+      fee: '15',
+      desc: 'توصيل لباب المنزل خلال ساعات.'
+    });
+  };
 
   // بيانات المدير
   const [adminData, setAdminData] = useState({
@@ -201,8 +230,22 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
           
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {villages.map((v, idx) => (
-              <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between gap-2">
-                <span className="text-xs font-black text-slate-700">📍 {v.name}</span>
+              <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between gap-2 relative">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-black text-slate-700 truncate" title={v.name}>📍 {v.name}</span>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`هل أنت متأكد من حذف منطقة "${v.name}"؟`)) {
+                        setVillages(villages.filter((_, i) => i !== idx));
+                      }
+                    }}
+                    className="text-rose-500 hover:text-rose-700 font-bold text-[10px] px-1.5 py-0.5 hover:bg-rose-50 rounded-lg transition"
+                    title="حذف"
+                  >
+                    حذف ✕
+                  </button>
+                </div>
                 <div className="relative mt-1">
                   <input 
                     type="number"
@@ -219,6 +262,52 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* نموذج إضافة قرية أو منطقة توصيل جديدة */}
+          <div className="bg-emerald-50/20 p-6 rounded-[2rem] border border-emerald-100/50 space-y-4 mt-6">
+            <h5 className="text-xs font-black text-emerald-800 flex items-center gap-1">
+              <span>➕ إضافة قرية أو منطقة توصيل جديدة:</span>
+            </h5>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 mr-1">اسم القرية / المنطقة</label>
+                <input 
+                  type="text"
+                  placeholder="مثال: الديدامون الجديدة، كفر أبو درويش..."
+                  value={newVillage.name}
+                  onChange={e => setNewVillage({...newVillage, name: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-emerald-500 rounded-xl outline-none font-bold text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 mr-1">رسوم التوصيل (ج.م)</label>
+                <input 
+                  type="number"
+                  placeholder="15"
+                  value={newVillage.fee}
+                  onChange={e => setNewVillage({...newVillage, fee: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-emerald-500 rounded-xl outline-none font-bold text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 mr-1">وصف التغطية أو التوقيت المتوقع</label>
+                <input 
+                  type="text"
+                  placeholder="توصيل للمنزل خلال 2-4 ساعات"
+                  value={newVillage.desc}
+                  onChange={e => setNewVillage({...newVillage, desc: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-emerald-500 rounded-xl outline-none font-bold text-xs"
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddVillage}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] px-6 py-2.5 rounded-xl transition active:scale-95 shadow-sm"
+            >
+              أضف المنطقة لقائمة الشحن ➕
+            </button>
           </div>
         </div>
 
