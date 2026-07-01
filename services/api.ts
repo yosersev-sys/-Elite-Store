@@ -466,17 +466,24 @@ export const ApiService = {
     const result = await safeFetch('get_active_shift');
     if (result === null) {
       // Network/Server error, switch to local fallback!
-      return await idbGet<Shift>('active_shift');
+      const local = await idbGet<Shift>('active_shift');
+      if (local && local.id) {
+        local.shiftName = local.shiftName || `وردية #${local.id}`;
+      }
+      return local;
     }
     if (result && (result.status === 'no_active_shift' || result.status === 'error' || !result.id)) {
       await idbSet('active_shift', null);
       return null;
     }
+    if (result && result.id) {
+      result.shiftName = result.shiftName || `وردية #${result.id}`;
+    }
     await idbSet('active_shift', result);
     return result;
   },
 
-  async openShift(startingCash: number, shiftName?: string): Promise<{ success: boolean; message?: string }> {
+  async openShift(startingCash: number, shiftName: string): Promise<{ success: boolean; message?: string }> {
     const result = await safeFetch('open_shift', {
       method: 'POST',
       body: JSON.stringify({ startingCash, shiftName })
@@ -525,13 +532,20 @@ export const ApiService = {
     if (result && (result as any).status === 'error') {
       return [];
     }
-    return Array.isArray(result) ? result : [];
+    const list = Array.isArray(result) ? result : [];
+    return list.map((s: any) => ({
+      ...s,
+      shiftName: s.shiftName || `وردية #${s.id}`
+    }));
   },
 
   async getShiftDetails(id: number): Promise<{ shift: Shift; transactions: DrawerTransaction[]; orders: Order[]; auditLogs: any[] } | null> {
     const result = await safeFetch(`get_shift_details&id=${id}`);
     if (result && result.status === 'error') {
       return null;
+    }
+    if (result && result.shift) {
+      result.shift.shiftName = result.shift.shiftName || `وردية #${result.shift.id}`;
     }
     return result;
   },

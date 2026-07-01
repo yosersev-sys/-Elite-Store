@@ -509,7 +509,7 @@ const App: React.FC = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية (مثال: وردية الصباح)</label>
+                  <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية <span className="text-rose-500">*</span> (مثال: وردية الصباح)</label>
                   <input
                     required
                     type="text"
@@ -628,7 +628,7 @@ const App: React.FC = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية (مثال: وردية الصباح)</label>
+                    <label className="text-sm font-bold text-slate-500 mr-2">اسم الوردية <span className="text-rose-500">*</span> (مثال: وردية الصباح)</label>
                     <input
                       required
                       type="text"

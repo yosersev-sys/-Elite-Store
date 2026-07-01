@@ -181,6 +181,7 @@ export interface Shift {
   snapshotData?: string; // serialized JSON
   openedByName?: string;
   closedByName?: string;
+  shiftName: string;
 }
 
 export interface DrawerTransaction {

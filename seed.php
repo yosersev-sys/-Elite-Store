@@ -123,7 +123,8 @@ try {
         difference DECIMAL(10,2) DEFAULT 0.00,
         discrepancyReason VARCHAR(255) NULL,
         notes TEXT NULL,
-        snapshotData LONGTEXT NULL
+        snapshotData LONGTEXT NULL,
+        shiftName VARCHAR(100) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS drawer_transactions (
