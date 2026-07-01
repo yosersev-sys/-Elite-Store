@@ -581,6 +581,27 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = () => {
           <p className="text-[10px] font-bold text-slate-400 mt-1">تتبع العملاء القادمين من إعلانات فيسبوك، جوجل، أو وسائل التواصل الاجتماعي</p>
         </div>
 
+        <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 text-xs text-slate-700 leading-relaxed space-y-2">
+          <p className="font-black text-emerald-800">💡 كيفية الاستخدام لتتبع حملاتك الإعلانية ومبيعاتها:</p>
+          <p>
+            عند عمل إعلانات ممولة، لا تضع رابط المتجر العادي. بدلاً من ذلك، استخدم روابط تحتوي على معاملات تتبع (UTM) لكي يتعرف عليها النظام ويقوم بحساب الأرباح والزوار القادمين من هذا الإعلان بالتحديد.
+          </p>
+          <p className="font-bold">أمثلة للروابط التي تضعها داخل إعلاناتك:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div className="bg-slate-900 text-slate-100 p-3 rounded-xl font-mono text-[10px] space-y-1">
+              <span className="text-emerald-400 font-black text-[9px] block">🔗 إعلان ممول فيسبوك:</span>
+              <span className="block break-all select-all">https://soqelasr.com/?utm_source=facebook&utm_campaign=summer_sale</span>
+            </div>
+            <div className="bg-slate-900 text-slate-100 p-3 rounded-xl font-mono text-[10px] space-y-1">
+              <span className="text-sky-400 font-black text-[9px] block">🔗 إعلان ممول جوجل:</span>
+              <span className="block break-all select-all">https://soqelasr.com/?utm_source=google&utm_campaign=search_ads</span>
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-500 font-bold pt-1">
+            * الرموز المرفقة بالرابط: <span className="text-slate-700 font-black">utm_source</span> (مصدر الإعلان) و <span className="text-slate-700 font-black">utm_campaign</span> (اسم الحملة الإعلانية).
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead>
