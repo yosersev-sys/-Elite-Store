@@ -61,12 +61,15 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
   // Payment methods and split payments states
   const [dbPaymentMethods, setDbPaymentMethods] = useState<any[]>([]);
+  const [paymentNumbers, setPaymentNumbers] = useState<any[]>([]);
   const [isSplitPayment, setIsSplitPayment] = useState<boolean>(false);
   const [isFullDebt, setIsFullDebt] = useState<boolean>(false);
   const [selectedSingleMethod, setSelectedSingleMethod] = useState<string>('cash');
+  const [singleSelectedNumber, setSingleSelectedNumber] = useState<string>('');
   const [singleReference, setSingleReference] = useState<string>('');
   const [paymentAmounts, setPaymentAmounts] = useState<Record<string, string>>({});
   const [paymentReferences, setPaymentReferences] = useState<Record<string, string>>({});
+  const [splitSelectedNumbers, setSplitSelectedNumbers] = useState<Record<string, string>>({});
   const [dueDate, setDueDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7); // Default due date is 7 days from now
@@ -92,6 +95,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       .then(s => {
         if (s) {
           setStoreSettings(prev => ({ ...prev, ...s }));
+          if (s.payment_numbers_json) {
+            try {
+              setPaymentNumbers(JSON.parse(s.payment_numbers_json));
+            } catch (e) {}
+          }
         }
       })
       .catch(err => console.error("Failed to load settings in AdminInvoiceForm", err));
@@ -827,18 +835,30 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
       const orderId = order ? order.id : 'INV-' + Date.now().toString().slice(-8);
       
+      const buildReference = (methodId: string, refText: string, selectedNum: string) => {
+        if (methodId === 'vodafone' || methodId === 'instapay') {
+          const numberObj = paymentNumbers.find(n => n.type === methodId && n.value === selectedNum);
+          const walletLabel = numberObj ? `${numberObj.label}: ${numberObj.value}` : selectedNum;
+          if (walletLabel && refText.trim()) {
+            return `${walletLabel} (مرجع: ${refText})`;
+          }
+          return walletLabel || refText || '';
+        }
+        return refText;
+      };
+
       const paymentsToSend = isSplitPayment
         ? dbPaymentMethods.map(m => ({
             method: m.id,
             amount: parseFloat(paymentAmounts[m.id] || '0') || 0,
-            reference: paymentReferences[m.id] || ''
+            reference: buildReference(m.id, paymentReferences[m.id] || '', splitSelectedNumbers[m.id] || '')
           })).filter(p => p.amount > 0)
         : isFullDebt
           ? []
           : [{
               method: selectedSingleMethod,
               amount: total,
-              reference: singleReference
+              reference: buildReference(selectedSingleMethod, singleReference, singleSelectedNumber)
             }];
 
       const newOrder: Order = {
@@ -1617,16 +1637,43 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     )}
 
                     {!isSplitPayment && !isFullDebt && dbPaymentMethods.find(m => m.id === selectedSingleMethod)?.type === 'digital' && (
-                      <div className="space-y-1.5 animate-slideDown text-right">
-                        <label className="text-[9px] font-black text-slate-400 mr-1 block">رقم مرجع المعاملة / التحويل (اختياري)</label>
-                        <input 
-                          disabled={isSaving}
-                          type="text"
-                          value={singleReference}
-                          onChange={e => setSingleReference(e.target.value)}
-                          placeholder="أدخل رقم العملية أو كود المرجع للتأكيد..."
-                          className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl outline-none font-bold text-xs"
-                        />
+                      <div className="space-y-3 animate-slideDown text-right">
+                        {(selectedSingleMethod === 'vodafone' || selectedSingleMethod === 'instapay') && (
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-500 mr-1 block">اختر رقم الاستلام 📞</label>
+                            {paymentNumbers.filter(n => n.type === selectedSingleMethod).length > 0 ? (
+                              <select
+                                disabled={isSaving}
+                                value={singleSelectedNumber}
+                                onChange={e => setSingleSelectedNumber(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl outline-none font-bold text-xs"
+                              >
+                                <option value="">-- اختر رقم / محفظة الاستقبال --</option>
+                                {paymentNumbers.filter(n => n.type === selectedSingleMethod).map(num => (
+                                  <option key={num.id} value={num.value}>
+                                    {num.label} ({num.value})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <p className="text-[10px] font-bold text-rose-500 mr-1">
+                                ⚠️ لا يوجد أرقام مضافة في النظام لهذه الوسيلة. يرجى إضافتها من إدارة وسائل الدفع.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black text-slate-400 mr-1 block">رقم مرجع المعاملة / التحويل (اختياري)</label>
+                          <input 
+                            disabled={isSaving}
+                            type="text"
+                            value={singleReference}
+                            onChange={e => setSingleReference(e.target.value)}
+                            placeholder="أدخل رقم العملية أو كود المرجع للتأكيد..."
+                            className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl outline-none font-bold text-xs"
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -1656,7 +1703,32 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                               </div>
                             </div>
                             {(parseFloat(paymentAmounts[m.id] || '0') || 0) > 0 && m.type === 'digital' && (
-                              <div className="flex justify-end animate-slideDown">
+                              <div className="flex flex-col gap-2 items-end animate-slideDown">
+                                {(m.id === 'vodafone' || m.id === 'instapay') && (
+                                  <div className="w-56 text-right space-y-1">
+                                    <label className="text-[8px] font-black text-slate-400">رقم الاستقبال:</label>
+                                    {paymentNumbers.filter(n => n.type === m.id).length > 0 ? (
+                                      <select
+                                        disabled={isSaving}
+                                        value={splitSelectedNumbers[m.id] || ''}
+                                        onChange={e => {
+                                          const val = e.target.value;
+                                          setSplitSelectedNumbers(prev => ({ ...prev, [m.id]: val }));
+                                        }}
+                                        className="w-full px-2 py-1 bg-white border rounded-lg outline-none font-bold text-[9px]"
+                                      >
+                                        <option value="">-- اختر الرقم --</option>
+                                        {paymentNumbers.filter(n => n.type === m.id).map(num => (
+                                          <option key={num.id} value={num.value}>
+                                            {num.label} ({num.value})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <p className="text-[8px] font-bold text-rose-500">لا يوجد أرقام مضافة بالسيستم</p>
+                                    )}
+                                  </div>
+                                )}
                                 <input 
                                   disabled={isSaving}
                                   type="text"

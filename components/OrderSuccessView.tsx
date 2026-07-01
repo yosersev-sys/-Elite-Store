@@ -243,8 +243,25 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
             </div>
           )}
           
-          <div className="text-center pt-3 text-[9px] font-bold text-gray-400 italic">
-            طريقة الدفع: {order.paymentMethod}
+          <div className="text-center pt-3 text-[10px] font-bold text-gray-500 space-y-1">
+            <div>طريقة الدفع: {order.paymentMethod}</div>
+            {order.payments && order.payments.length > 0 && (
+              <div className="mt-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[9px] font-bold text-slate-600 space-y-1">
+                <p className="border-b pb-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-wider">تفاصيل المدفوعات المستلمة</p>
+                {order.payments.map((p: any, idx: number) => (
+                  <div key={idx} className="flex justify-between flex-row-reverse text-right">
+                    <span>{(Number(p.amount) || 0).toFixed(2)} ج.م</span>
+                    <span className="text-slate-700">
+                      {p.method === 'cash' ? '💵 نقدي (كاش)' : 
+                       p.method === 'vodafone' ? '📱 فودافون كاش' : 
+                       p.method === 'instapay' ? '💸 انستا باي' : 
+                       p.method === 'visa' ? '💳 فيزا' : p.method}
+                      {p.reference && <span className="block text-[8px] text-slate-400 mt-0.5" dir="rtl">{p.reference}</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           
           {order.status === 'completed' && order.confirmedAt && (

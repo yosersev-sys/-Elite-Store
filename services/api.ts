@@ -639,5 +639,18 @@ export const ApiService = {
       return { success: true };
     }
     return { success: false, message: result?.message || 'فشل حذف وسيلة الدفع.' };
+  },
+
+  async getPaymentNumbersStats(): Promise<Array<{ paymentMethodId: string; reference: string; totalAmount: number; usageCount: number }>> {
+    const result = await safeFetch('get_payment_numbers_stats');
+    if (result && (result as any).status === 'error') {
+      return [];
+    }
+    return Array.isArray(result) ? result.map((r: any) => ({
+      paymentMethodId: r.paymentMethodId,
+      reference: r.reference || '',
+      totalAmount: parseFloat(r.totalAmount) || 0,
+      usageCount: parseInt(r.usageCount) || 0
+    })) : [];
   }
 };
