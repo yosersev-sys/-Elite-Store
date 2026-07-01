@@ -15,6 +15,8 @@ if (isset($_GET['delete_all_test_data_warning']) && $_GET['delete_all_test_data_
 try {
     $total = $pdo->query("SELECT COUNT(*) FROM analytics_events")->fetchColumn();
     
+    $settings = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'analytics_%'")->fetchAll();
+    
     $eventTypes = $pdo->query("SELECT eventType, COUNT(*) as count FROM analytics_events GROUP BY eventType")->fetchAll();
     
     $lastEvents = $pdo->query("SELECT id, eventUuid, visitorId, eventType, eventData, createdAt FROM analytics_events ORDER BY id DESC LIMIT 20")->fetchAll();
@@ -30,6 +32,7 @@ try {
     echo json_encode([
         'status' => 'success',
         'total_events' => (int)$total,
+        'settings' => $settings,
         'event_types' => $eventTypes,
         'last_20_events' => $lastEvents,
         'test_json_extract' => $topQueriesTest
