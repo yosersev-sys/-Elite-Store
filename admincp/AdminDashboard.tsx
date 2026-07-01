@@ -152,7 +152,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         
         <nav className="flex lg:flex-col flex-row gap-2 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-3 lg:pb-0 -mx-2 px-2 lg:mx-0 lg:px-0">
           <AdminNavButton active={activeTab === 'stats'} onClick={() => handleTabChange('stats')} icon="📊" label="الإحصائيات" />
-          <AdminNavButton active={activeTab === 'analytics'} onClick={() => handleTabChange('analytics')} icon="📈" label="تحليلات الزوار" />
           <AdminNavButton active={activeTab === 'products'} onClick={() => handleTabChange('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
           <AdminNavButton active={activeTab === 'invoices'} onClick={() => handleTabChange('invoices', '')} icon="🧾" label="الفواتير" />
@@ -168,6 +167,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             <AdminNavButton active={activeTab === 'payment-methods'} onClick={() => handleTabChange('payment-methods')} icon="💳" label="وسائل الدفع" />
           )}
           <AdminNavButton active={activeTab === 'shifts'} onClick={() => handleTabChange('shifts')} icon="⏱️" label="الورديات" />
+          <AdminNavButton active={activeTab === 'analytics'} onClick={() => handleTabChange('analytics')} icon="📈" label="تحليلات الزوار" />
           <AdminNavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon="🛠️" label="الإعدادات" />
         </nav>
 
