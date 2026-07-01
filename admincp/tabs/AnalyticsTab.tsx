@@ -388,6 +388,34 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = () => {
                 </div>
               )) || <p className="text-xs text-slate-400 text-center">لا توجد بيانات متاحة</p>}
             </div>
+
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider border-b pb-1 pt-2">مصادر الزيارات الأكثر نشاطاً</h4>
+            <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
+              {summaryData?.referrers?.map((r: any, idx: number) => {
+                let refLabel = r.referrer;
+                if (!refLabel || refLabel === '' || refLabel === 'null' || refLabel.includes('Direct') || refLabel.toLowerCase() === 'direct') {
+                  refLabel = 'Direct / Bookmark (زيارة مباشرة)';
+                } else if (refLabel.includes('google')) {
+                  refLabel = '🔍 محرك بحث جوجل (Google)';
+                } else if (refLabel.includes('facebook') || refLabel.includes('fb.me')) {
+                  refLabel = '👥 فيسبوك (Facebook)';
+                } else if (refLabel.includes('whatsapp') || refLabel.includes('wa.me')) {
+                  refLabel = '💬 واتساب (WhatsApp)';
+                } else if (refLabel.includes('instagram')) {
+                  refLabel = '📸 إنستغرام (Instagram)';
+                } else if (refLabel.includes('t.co') || refLabel.includes('twitter') || refLabel.includes('x.com')) {
+                  refLabel = '🐦 منصة إكس (Twitter/X)';
+                } else {
+                  refLabel = refLabel.replace(/https?:\/\/(www\.)?/, '');
+                }
+                return (
+                  <div key={idx} className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700 truncate max-w-[170px]" title={r.referrer}>{refLabel}</span>
+                    <span className="font-black text-slate-800">{(r.count || 0).toLocaleString()} زيارة</span>
+                  </div>
+                );
+              }) || <p className="text-xs text-slate-400 text-center">لا توجد بيانات مصادر زيارات</p>}
+            </div>
           </div>
         </div>
 
