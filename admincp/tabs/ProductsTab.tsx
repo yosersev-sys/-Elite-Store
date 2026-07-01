@@ -955,7 +955,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
             </div>
           </div>
           {alertsOpen && (
-            <div className="divide-y divide-slate-50 animate-fadeIn">
+            <div className="divide-y divide-slate-50 animate-fadeIn max-h-[350px] overflow-y-auto">
               {outlierProducts.map(p => (
                 <div key={'outlier-'+p.id} className="flex items-start gap-3 px-5 py-3.5 bg-rose-50/20 hover:bg-rose-50/40 transition-colors group">
                   <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-rose-100 transition-colors">⚠️</span>
@@ -974,7 +974,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
                   >تعديل القيمة</button>
                 </div>
               ))}
-              {lossMakingProducts.slice(0, 3).map(p => (
+              {lossMakingProducts.map(p => (
                 <div key={'loss-'+p.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-amber-50/40 transition-colors group">
                   <span className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-amber-100 transition-colors">⚠️</span>
                   <div className="min-w-0 flex-1">
@@ -992,7 +992,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
                   >تعديل</button>
                 </div>
               ))}
-              {products.filter(p => Number(p.stockQuantity || 0) <= 0).slice(0, 3).map(p => (
+              {products.filter(p => Number(p.stockQuantity || 0) <= 0).map(p => (
                 <div key={'out-'+p.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-rose-50/40 transition-colors group">
                   <span className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center text-xs shrink-0 mt-0.5 group-hover:bg-rose-100 transition-colors">📦</span>
                   <div className="min-w-0 flex-1">
