@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Allow: /delivery-areas
+Allow: /product/
+Disallow: /admincp/
+Disallow: /api.php
+Disallow: /config.php
+Disallow: /seed.php
+
+Sitemap: https://soqelasr.com/sitemap.xml

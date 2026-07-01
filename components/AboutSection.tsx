@@ -58,6 +58,24 @@ const AboutSection: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {/* 🗺️ قسم تفصيلي لمناطق التوصيل والخدمة المحلية لـ SEO وتوجيه الزوار */}
+        <div className="mt-16 bg-slate-50 border border-slate-100 p-8 md:p-12 rounded-[3rem] text-right space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <h3 className="text-xl md:text-2xl font-black text-slate-800">🚚 شحن منزلي سريع لجميع أحياء وقرى فاقوس والشرقية</h3>
+              <p className="text-slate-500 font-bold text-xs md:text-sm max-w-3xl leading-relaxed">
+                سوق العصر يقدم نظام توصيل محلي متكامل يخدم مدينة فاقوس بالكامل بالإضافة لجميع القرى التابعة للمركز (مثل الديدامون، جهينة، الصوالح، السماعنة، الغزالي، ميت العز وغيرها)، والمراكز المجاورة بالشرقية. نحرص على تسليم طلباتكم لباب المنزل بأقصى سرعة وبأعلى معايير الأمان والجودة.
+              </p>
+            </div>
+            <a 
+              href="/delivery-areas" 
+              className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs px-8 py-4 rounded-2xl shadow-lg transition-all shrink-0 text-center"
+            >
+              🗺️ استعلم عن قريتك ورسوم التوصيل
+            </a>
+          </div>
+        </div>
       </div>
     </section>
   );

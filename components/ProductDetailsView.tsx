@@ -23,6 +23,52 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
   const mainImageRef = useRef<HTMLImageElement>(null);
+
+  // ═══════════════════════════════════════════════════
+  // Dynamic JSON-LD Product Schema Injection
+  // ═══════════════════════════════════════════════════
+  React.useEffect(() => {
+    if (!product) return;
+
+    try {
+      const scriptId = 'product-jsonld-schema';
+      let script = document.getElementById(scriptId) as HTMLScriptElement;
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.type = 'application/ld+json';
+        document.head.appendChild(script);
+      }
+
+      const productSchema = {
+        "@context": "https://schema.org/",
+        "@type": "Product",
+        "name": product.name,
+        "image": product.images?.[0] || 'https://soqelasr.com/shopping-bag512.png',
+        "description": product.description || '',
+        "offers": {
+          "@type": "Offer",
+          "url": window.location.href,
+          "priceCurrency": "EGP",
+          "price": product.price,
+          "availability": (product.stockQuantity || 0) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          "itemCondition": "https://schema.org/NewCondition"
+        }
+      };
+
+      script.text = JSON.stringify(productSchema);
+
+      return () => {
+        const scriptToRemove = document.getElementById(scriptId);
+        if (scriptToRemove) {
+          scriptToRemove.remove();
+        }
+      };
+    } catch (e) {
+      console.warn('Failed to inject product JSON-LD schema', e);
+    }
+  }, [product]);
+
   
   const images = Array.isArray(product?.images) ? product.images : [];
   const sizes = Array.isArray(product?.sizes) ? product.sizes : [];

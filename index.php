@@ -15,7 +15,189 @@ try {
     $gemini_key = $stmt->fetchColumn() ?: '';
 } catch (Exception $e) {}
 
-$meta_title = 'سوق العصر - فاقوس';
+// ═══════════════════════════════════════════════════
+// Dynamic SEO & Metadata Processor (Server-Side)
+// ═══════════════════════════════════════════════════
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+$domainName = $_SERVER['HTTP_HOST'] ?? 'soqelasr.com';
+$request_uri = $_SERVER['REQUEST_URI'] ?? '';
+$path = parse_url($request_uri, PHP_URL_PATH);
+
+$meta_title = 'سوق العصر فاقوس | متجر التوصيل الأول في فاقوس ومحافظة الشرقية';
+$meta_desc = 'تسوق الآن من متجر سوق العصر بفاقوس. منظفات، سلع استهلاكية، ومستلزمات منزلية بأسعار منافسة مع خدمة توصيل فائقة السرعة لجميع قرى مركز فاقوس والشرقية.';
+$meta_image = 'https://soqelasr.com/shopping-bag512.png';
+$canonical_url = $protocol . $domainName . $path;
+$custom_schemas = [];
+
+// Determine page type
+$is_delivery_page = ($path === '/delivery-areas' || ($_GET['page'] ?? '') === 'delivery-areas');
+$is_product_page = false;
+$product_id = null;
+
+if (preg_match('#^/product/([a-zA-Z0-9_-]+)#', $path, $matches)) {
+    $is_product_page = true;
+    $product_id = $matches[1];
+} elseif (isset($_GET['productId'])) {
+    $is_product_page = true;
+    $product_id = $_GET['productId'];
+}
+
+// 1. Delivery Areas page metadata & pre-render
+if ($is_delivery_page) {
+    $meta_title = 'مناطق التوصيل والقرى المخدمة في فاقوس والشرقية | سوق العصر';
+    $meta_desc = 'تعرف على القرى والمناطق المخدمة بمركز فاقوس ومحافظة الشرقية من متجر سوق العصر. نوصل لباب بيتك في الديدامون، جهينة، الصوالح، السماعنة، الغزالي وكافة الأنحاء خلال ساعات.';
+} 
+// 2. Product details page metadata & pre-render
+elseif ($is_product_page && $product_id) {
+    try {
+        $stmt = $pdo->prepare("SELECT name, description, price, image FROM products WHERE id = ? AND isArchived = 0");
+        $stmt->execute([$product_id]);
+        $prod = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($prod) {
+            $meta_title = htmlspecialchars($prod['name']) . ' | متجر سوق العصر فاقوس';
+            $meta_desc = htmlspecialchars(mb_substr(strip_tags($prod['description']), 0, 160)) . ' - اشتري الآن بأفضل سعر وتوصيل فوري لفاقوس والشرقية.';
+            if (!empty($prod['image'])) {
+                $meta_image = $prod['image'];
+            }
+            
+            // Build Product Schema (JSON-LD)
+            $custom_schemas[] = [
+                "@context" => "https://schema.org/",
+                "@type" => "Product",
+                "name" => $prod['name'],
+                "image" => $meta_image,
+                "description" => strip_tags($prod['description']),
+                "offers" => [
+                    "@type" => "Offer",
+                    "url" => $canonical_url,
+                    "priceCurrency" => "EGP",
+                    "price" => $prod['price'],
+                    "availability" => "https://schema.org/InStock",
+                    "itemCondition" => "https://schema.org/NewCondition"
+                ]
+            ];
+            
+            // Build Breadcrumb for Product
+            $custom_schemas[] = [
+                "@context" => "https://schema.org",
+                "@type" => "BreadcrumbList",
+                "itemListElement" => [
+                    [
+                        "@type" => "ListItem",
+                        "position" => 1,
+                        "name" => "الرئيسية",
+                        "item" => $protocol . $domainName . "/"
+                    ],
+                    [
+                        "@type" => "ListItem",
+                        "position" => 2,
+                        "name" => "المنتجات",
+                        "item" => $protocol . $domainName . "/#store"
+                    ],
+                    [
+                        "@type" => "ListItem",
+                        "position" => 3,
+                        "name" => $prod['name'],
+                        "item" => $canonical_url
+                    ]
+                ]
+            ];
+        }
+    } catch (Exception $e) {}
+}
+
+// 3. Add default Breadcrumbs for main/delivery pages
+if (!$is_product_page) {
+    $crumbs = [
+        [
+            "@type" => "ListItem",
+            "position" => 1,
+            "name" => "الرئيسية",
+            "item" => $protocol . $domainName . "/"
+        ]
+    ];
+    if ($is_delivery_page) {
+        $crumbs[] = [
+            "@type" => "ListItem",
+            "position" => 2,
+            "name" => "مناطق التوصيل",
+            "item" => $canonical_url
+        ];
+    }
+    $custom_schemas[] = [
+        "@context" => "https://schema.org",
+        "@type" => "BreadcrumbList",
+        "itemListElement" => $crumbs
+    ];
+}
+
+// 4. Global Schemas: Website, Organization, LocalBusiness
+$global_schemas = [
+    // Website SearchAction
+    [
+        "@context" => "https://schema.org",
+        "@type" => "WebSite",
+        "name" => "سوق العصر",
+        "url" => $protocol . $domainName . "/",
+        "potentialAction" => [
+            "@type" => "SearchAction",
+            "target" => $protocol . $domainName . "/?q={search_term_string}",
+            "query-input" => "required name=search_term_string"
+        ]
+    ],
+    // Organization Info
+    [
+        "@context" => "https://schema.org",
+        "@type" => "Organization",
+        "name" => "سوق العصر فاقوس",
+        "url" => $protocol . $domainName . "/",
+        "logo" => "https://soqelasr.com/shopping-bag512.png",
+        "contactPoint" => [
+            "@type" => "ContactPoint",
+            "telephone" => "+201026034170",
+            "contactType" => "customer service",
+            "areaServed" => "EG",
+            "availableLanguage" => "Arabic"
+        ]
+    ],
+    // LocalBusiness geo coordinates & area served
+    [
+        "@context" => "https://schema.org",
+        "@type" => "LocalBusiness",
+        "name" => "سوق العصر فاقوس",
+        "image" => "https://soqelasr.com/shopping-bag512.png",
+        "telephone" => "+201026034170",
+        "url" => $protocol . $domainName . "/",
+        "address" => [
+            "@type" => "PostalAddress",
+            "streetAddress" => "شارع الإنتاج, مركز فاقوس",
+            "addressLocality" => "فاقوس",
+            "addressRegion" => "محافظة الشرقية",
+            "addressCountry" => "EG"
+        ],
+        "geo" => [
+            "@type" => "GeoCoordinates",
+            "latitude" => 30.7303,
+            "longitude" => 31.8016
+        ],
+        "openingHoursSpecification" => [
+            "@type" => "OpeningHoursSpecification",
+            "dayOfWeek" => ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+            "opens" => "08:00",
+            "closes" => "23:59"
+        ],
+        "areaServed" => [
+            ["@type" => "AdministrativeArea", "name" => "فاقوس"],
+            ["@type" => "AdministrativeArea", "name": "الديدامون"],
+            ["@type" => "AdministrativeArea", "name": "جهينة"],
+            ["@type" => "AdministrativeArea", "name": "الصوالح"],
+            ["@type" => "AdministrativeArea", "name": "السماعنة"],
+            ["@type" => "AdministrativeArea", "name": "الغزالي"],
+            ["@type" => "AdministrativeArea", "name": "ميت العز"],
+            ["@type" => "AdministrativeArea", "name": "محافظة الشرقية"]
+        ]
+    ]
+];
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -23,6 +205,23 @@ $meta_title = 'سوق العصر - فاقوس';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title><?php echo $meta_title; ?></title>
+    <meta name="description" content="<?php echo $meta_desc; ?>">
+    <link rel="canonical" href="<?php echo $canonical_url; ?>">
+
+    <!-- OpenGraph Social Metadata -->
+    <meta property="og:title" content="<?php echo $meta_title; ?>">
+    <meta property="og:description" content="<?php echo $meta_desc; ?>">
+    <meta property="og:image" content="<?php echo $meta_image; ?>">
+    <meta property="og:url" content="<?php echo $canonical_url; ?>">
+    <meta property="og:type" content="website">
+    
+    <!-- Render JSON-LD Schemas -->
+    <?php
+    foreach (array_merge($global_schemas, $custom_schemas) as $schema) {
+        echo '<script type="application/ld+json">' . json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . '</script>' . "\n";
+    }
+    ?>
+
     
     <link rel="icon" type="image/png" href="https://soqelasr.com/shopping-bag512.png">
     <link rel="manifest" href="manifest.json">
@@ -69,14 +268,57 @@ $meta_title = 'سوق العصر - فاقوس';
 </head>
 <body>
     <div id="root">
-        <div id="initial-skeleton" style="padding: 10px;">
-            <div class="skeleton" style="height: 60px; border-radius: 20px; margin-bottom: 20px;"></div>
-            <div class="skeleton" style="height: 200px; border-radius: 30px; margin-bottom: 20px;"></div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
-                <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
+        <?php if ($is_delivery_page): ?>
+            <!-- Pre-rendered Local SEO content for search engine crawlers and JavaScript-disabled users -->
+            <div style="max-width: 800px; margin: 0 auto; padding: 40px 20px; font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; line-height: 1.8;">
+                <h1 style="font-size: 32px; font-weight: 900; color: #1e293b; margin-bottom: 20px;">مناطق التوصيل والخدمة المحلية في مركز فاقوس ومحافظة الشرقية</h1>
+                <p style="font-size: 16px; font-weight: 700; color: #64748b; margin-bottom: 30px;">
+                    يرحب بكم متجر <strong>سوق العصر</strong>، ويسرنا تزويدكم بتفاصيل تغطية التوصيل والشحن المحلي لجميع طلباتكم. نحن ملتزمون بتقديم أسرع خدمة توصيل للمنظفات، والسلع الاستهلاكية، والمستلزمات المنزلية مباشرة لباب بيتك في فاقوس وكافة القرى المجاورة.
+                </p>
+                
+                <h2 style="font-size: 20px; font-weight: 900; color: #10b981; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-top: 30px;">🏙️ مدينة فاقوس والمراكز المجاورة المشمولة بالتوصيل:</h2>
+                <ul style="list-style: none; padding: 0; margin: 15px 0;">
+                    <li style="padding: 5px 0;">✔️ <strong>مدينة فاقوس بالكامل</strong> (توصيل فوري خلال ساعات معدودة).</li>
+                    <li style="padding: 5px 0;">✔️ <strong>أبو كبير</strong> (توصيل يومي لكافة الأحياء).</li>
+                    <li style="padding: 5px 0;">✔️ <strong>الصالحية الجديدة</strong> (شحن يومي لطلبات الجملة والتجزئة).</li>
+                    <li style="padding: 5px 0;">✔️ <strong>الحسينية</strong> (تغطية شاملة للمركز والقرى التابعة).</li>
+                    <li style="padding: 5px 0;">✔️ <strong>ههيا وأبو حماد</strong> (خدمات شحن مجدولة على مدار الأسبوع).</li>
+                </ul>
+
+                <h2 style="font-size: 20px; font-weight: 900; color: #10b981; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-top: 30px;">🏡 قرى مركز فاقوس المخدمة بالتوصيل المنزلي:</h2>
+                <p style="font-size: 14px; font-weight: 700; color: #475569; margin-top: 10px;">
+                    نفخر بخدمة أهالينا وتوصيل احتياجاتهم اليومية للقرى والنجوع التالية التابعة لمركز فاقوس بأقل تكلفة توصيل وبسرعة فائقة:
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0;">
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الديدامون</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 جهينة</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الصوالح</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 السماعنة</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الغزالي</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 ميت العز</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 سوادة</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 السلاطنة</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 أكياد والخطارة</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الدميين والنوافعة</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الهيصمية وأشكر</div>
+                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 بني صريد وكفر الحوت</div>
+                </div>
+
+                <h2 style="font-size: 20px; font-weight: 900; color: #1e293b; margin-top: 40px;">🛒 كيف تطلب منتجاتك من سوق العصر؟</h2>
+                <p style="font-size: 14px; font-weight: 700; color: #475569;">
+                    يمكنك تصفح متجرنا بالكامل واختيار منتجاتك المفضلة وإضافتها للسلة، ثم الانتقال لصفحة الدفع وإدخال عنوانك وهاتفك للتوصيل الفوري. تفضل بزيارة <a href="/" style="color: #10b981; font-weight: 900; text-decoration: underline;">الصفحة الرئيسية للمتجر للبدء بالتسوق الآن</a>.
+                </p>
             </div>
-        </div>
+        <?php else: ?>
+            <div id="initial-skeleton" style="padding: 10px;">
+                <div class="skeleton" style="height: 60px; border-radius: 20px; margin-bottom: 20px;"></div>
+                <div class="skeleton" style="height: 200px; border-radius: 30px; margin-bottom: 20px;"></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
+                    <div class="skeleton" style="height: 250px; border-radius: 20px;"></div>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 
     <script>

@@ -26,6 +26,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <nav className="flex flex-wrap justify-center gap-x-8 gap-y-3">
             <button onClick={() => onNavigate('store')} className="text-xs font-black text-slate-400 hover:text-emerald-600 transition-colors">الرئيسية</button>
             <button onClick={() => onNavigate('cart')} className="text-xs font-black text-slate-400 hover:text-emerald-600 transition-colors">سلة المشتريات</button>
+            <a href="/delivery-areas" className="text-xs font-black text-slate-400 hover:text-emerald-600 transition-colors">مناطق التوصيل 🚚</a>
             <button onClick={() => onNavigate('my-orders')} className="text-xs font-black text-slate-400 hover:text-emerald-600 transition-colors">طلباتي</button>
             <button onClick={() => onNavigate('profile')} className="text-xs font-black text-slate-400 hover:text-emerald-600 transition-colors">حسابي</button>
           </nav>
