@@ -13,6 +13,7 @@ import ShiftsTab from './tabs/ShiftsTab.tsx';
 import ExpensesTab from './tabs/ExpensesTab.tsx';
 import CustomerLedgerTab from './tabs/CustomerLedgerTab.tsx';
 import PaymentMethodsTab from './tabs/PaymentMethodsTab.tsx';
+import AnalyticsTab from './tabs/AnalyticsTab.tsx';
 
 
 interface AdminDashboardProps {
@@ -49,7 +50,7 @@ interface AdminDashboardProps {
   isSyncing?: boolean;
 }
 
-export type AdminTab = 'stats' | 'products' | 'categories' | 'invoices' | 'store-orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods';
+export type AdminTab = 'stats' | 'analytics' | 'products' | 'categories' | 'invoices' | 'store-orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   // صمامات أمان نهائية لضمان وجود مصفوفات دائماً قبل العرض
@@ -76,6 +77,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
   const tabTitles: Record<AdminTab, string> = {
     stats: 'احصائيات عامة',
+    analytics: 'تحليلات الزوار',
     products: 'المخزن',
     categories: 'الأقسام',
     invoices: 'الفواتير (الكاشير)',
@@ -103,6 +105,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
     switch (activeTab) {
       case 'stats': return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
+      case 'analytics': return <AnalyticsTab isOnline={props.isOnline} />;
       case 'products': return <ProductsTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} initialFilter={adminFilter} onPrintBarcode={props.onPrintBarcode} />;
       case 'categories': return <CategoriesTab {...tabProps} />;
       case 'invoices': return <OrdersTab {...tabProps} mode="invoices" adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
@@ -149,6 +152,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         
         <nav className="flex lg:flex-col flex-row gap-2 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-3 lg:pb-0 -mx-2 px-2 lg:mx-0 lg:px-0">
           <AdminNavButton active={activeTab === 'stats'} onClick={() => handleTabChange('stats')} icon="📊" label="الإحصائيات" />
+          <AdminNavButton active={activeTab === 'analytics'} onClick={() => handleTabChange('analytics')} icon="📈" label="تحليلات الزوار" />
           <AdminNavButton active={activeTab === 'products'} onClick={() => handleTabChange('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
           <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
           <AdminNavButton active={activeTab === 'invoices'} onClick={() => handleTabChange('invoices', '')} icon="🧾" label="الفواتير" />

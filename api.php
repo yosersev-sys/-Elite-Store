@@ -123,6 +123,14 @@ try {
             require_once 'api_system.php';
             break;
 
+        // --- موديول التحليلات وتتبع الزوار ---
+        case 'track_events':
+        case 'get_analytics_summary':
+        case 'get_search_analytics':
+        case 'run_analytics_maintenance':
+            require_once 'api_analytics.php';
+            break;
+
         default:
             sendRes(['status' => 'ok', 'message' => 'Action handled by default router']);
             break;

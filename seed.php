@@ -278,8 +278,57 @@ try {
         }
     } catch (PDOException $e) {}
 
+    // إنشاء جداول التحليلات وتتبع الزوار
+    $pdo->exec("CREATE TABLE IF NOT EXISTS analytics_events (
+        id INT AUTO_INCREMENT,
+        eventUuid CHAR(36) NOT NULL,
+        visitorId VARCHAR(64) NOT NULL,
+        sessionId VARCHAR(64) NOT NULL,
+        userId VARCHAR(50) NULL,
+        eventType VARCHAR(50) NOT NULL,
+        page VARCHAR(100) NOT NULL,
+        productId VARCHAR(50) NULL,
+        referrer VARCHAR(500) NULL,
+        userAgent VARCHAR(500) NULL,
+        ipHash VARCHAR(64) NOT NULL,
+        country VARCHAR(100) NULL,
+        city VARCHAR(100) NULL,
+        deviceType VARCHAR(20) NULL,
+        browserName VARCHAR(50) NULL,
+        osName VARCHAR(50) NULL,
+        appVersion VARCHAR(20) NULL,
+        utm_source VARCHAR(100) NULL,
+        utm_medium VARCHAR(100) NULL,
+        utm_campaign VARCHAR(100) NULL,
+        utm_content VARCHAR(100) NULL,
+        utm_term VARCHAR(100) NULL,
+        eventData JSON NULL,
+        duration INT DEFAULT 0,
+        createdAt BIGINT NOT NULL,
+        PRIMARY KEY (id, createdAt),
+        UNIQUE KEY uq_event_uuid (eventUuid, createdAt),
+        INDEX idx_session_created (sessionId, createdAt),
+        INDEX idx_visitor_created (visitorId, createdAt),
+        INDEX idx_product_created (productId, createdAt),
+        INDEX idx_event_created (eventType, createdAt),
+        INDEX idx_page_created (page, createdAt),
+        INDEX idx_utm_campaign (utm_campaign, createdAt)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS analytics_daily_summary (
+        summary_date DATE PRIMARY KEY,
+        unique_visitors INT DEFAULT 0,
+        returning_visitors INT DEFAULT 0,
+        page_views INT DEFAULT 0,
+        total_sessions INT DEFAULT 0,
+        bounces INT DEFAULT 0,
+        total_session_duration INT DEFAULT 0,
+        conversion_rate DECIMAL(5,2) DEFAULT 0.00,
+        aggregated_data JSON NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
     // 1.5 إصلاح تعارض ترميز الحقول (Collation Mismatch) لجميع الجداول لضمان التوافق التام
-    $tablesToConvert = ['categories', 'products', 'suppliers', 'users', 'settings', 'orders', 'shifts', 'drawer_transactions', 'expenses', 'audit_logs', 'customer_ledger'];
+    $tablesToConvert = ['categories', 'products', 'suppliers', 'users', 'settings', 'orders', 'shifts', 'drawer_transactions', 'expenses', 'audit_logs', 'customer_ledger', 'analytics_events', 'analytics_daily_summary'];
     foreach ($tablesToConvert as $tableToConvert) {
         try {
             $pdo->exec("ALTER TABLE `$tableToConvert` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
@@ -311,7 +360,11 @@ try {
     // 4. تهيئة إعدادات سياسة المخزون الافتراضية
     $settingsDefaults = [
         ['out_of_stock_policy', 'prevent'],
-        ['negative_stock_limit', '0']
+        ['negative_stock_limit', '0'],
+        ['analytics_enabled', '1'],
+        ['analytics_track_cart', '1'],
+        ['analytics_track_search', '1'],
+        ['analytics_track_social', '1']
     ];
     $settStmt = $pdo->prepare("INSERT IGNORE INTO settings (setting_key, setting_value) VALUES (?, ?)");
     foreach ($settingsDefaults as $sett) {
