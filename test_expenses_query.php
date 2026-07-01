@@ -15,11 +15,11 @@ try {
     $params = [];
 
     if ($month > 0) {
-        $sql .= " AND FROM_UNIXTIME(e.date/1000, '%c') = ?";
+        $sql .= " AND MONTH(FROM_UNIXTIME(e.date/1000)) = ?";
         $params[] = $month;
     }
     if ($year > 0) {
-        $sql .= " AND FROM_UNIXTIME(e.date/1000, '%Y') = ?";
+        $sql .= " AND YEAR(FROM_UNIXTIME(e.date/1000)) = ?";
         $params[] = $year;
     }
 
