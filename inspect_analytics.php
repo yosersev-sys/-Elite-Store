@@ -29,13 +29,26 @@ try {
         WHERE eventType = 'search'
         LIMIT 10")->fetchAll();
 
+    $expenses = $pdo->query("SELECT id, title, amount, category, paymentSource, status, date FROM expenses LIMIT 10")->fetchAll();
+    
+    $expensesTimeTest = $pdo->query("SELECT 
+        id,
+        date,
+        FROM_UNIXTIME(date/1000) as defaultTime,
+        FROM_UNIXTIME(date/1000, '%c') as monthVal,
+        FROM_UNIXTIME(date/1000, '%Y') as yearVal
+        FROM expenses 
+        LIMIT 10")->fetchAll();
+
     echo json_encode([
         'status' => 'success',
         'total_events' => (int)$total,
         'settings' => $settings,
         'event_types' => $eventTypes,
         'last_20_events' => $lastEvents,
-        'test_json_extract' => $topQueriesTest
+        'test_json_extract' => $topQueriesTest,
+        'raw_expenses' => $expenses,
+        'expenses_time_test' => $expensesTimeTest
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
 } catch (Exception $e) {
