@@ -140,6 +140,13 @@ const ProductRow = React.memo<{
                 </button>
               )}
             </div>
+            {product.createdAt && (
+              <div className="text-[9px] text-slate-400 font-bold mt-1 flex items-center gap-1.5">
+                <span>📅 {new Date(product.createdAt).toLocaleDateString('ar-EG')}</span>
+                <span className="text-slate-300">•</span>
+                <span>🕒 {new Date(product.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+              </div>
+            )}
           </div>
         </div>
       </td>
@@ -278,7 +285,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
   const [selectedSupplier, setSelectedSupplier] = useState('all');
   const [stockStatus, setStockStatus] = useState(initialFilter || 'all');
   const [profitStatus, setProfitStatus] = useState('all');
-  const [sortBy, setSortBy] = useState('name_asc');
+  const [sortBy, setSortBy] = useState('created_desc');
 
   // Drawer states
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
@@ -449,6 +456,8 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
       const costB = Number(b.wholesalePrice || 0);
 
       switch (sortBy) {
+        case 'created_desc': return (b.createdAt || 0) - (a.createdAt || 0);
+        case 'created_asc': return (a.createdAt || 0) - (b.createdAt || 0);
         case 'name_asc': return a.name.localeCompare(b.name, 'ar');
         case 'name_desc': return b.name.localeCompare(a.name, 'ar');
         case 'stock_desc': return stockB - stockA;
@@ -1031,12 +1040,13 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
           </div>
 
           <div className="flex gap-2">
-            {/* Sort Dropdown */}
             <select 
               value={sortBy} 
               onChange={e => setSortBy(e.target.value)}
               className="bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-600 outline-none w-full md:w-auto"
             >
+              <option value="created_desc">المضاف حديثاً</option>
+              <option value="created_asc">المضاف قديماً</option>
               <option value="name_asc">الاسم (أ - ي)</option>
               <option value="name_desc">الاسم (ي - أ)</option>
               <option value="stock_desc">المخزون (الأعلى للأقل)</option>
