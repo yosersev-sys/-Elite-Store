@@ -134,39 +134,53 @@ export const DeliveryAreasView: React.FC<DeliveryAreasViewProps> = ({ onNavigate
         {isLoading ? (
           <div className="py-8 text-center text-slate-400 animate-pulse font-bold">جاري تحميل أسعار التوصيل الحالية...</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 text-slate-400">
-                  <th className="pb-3 font-bold">القرية / المنطقة</th>
-                  <th className="pb-3 font-bold text-center">المركز الجغرافي</th>
-                  <th className="pb-3 font-bold text-center">حالة التوصيل</th>
-                  <th className="pb-3 font-bold text-center">تكلفة التوصيل</th>
-                  <th className="pb-3 font-bold text-left">التفاصيل</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filteredVillages.length > 0 ? filteredVillages.map((v, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/50">
-                    <td className="py-3.5 font-black text-slate-800">📍 {v.name}</td>
-                    <td className="py-3.5 font-bold text-slate-500 text-center">{v.center}</td>
-                    <td className="py-3.5 text-center">
-                      <span className="inline-block px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-black text-[10px]">
-                        {v.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 font-black text-emerald-600 text-center">{v.fee} ج.م</td>
-                    <td className="py-3.5 font-bold text-slate-400 text-left max-w-xs truncate" title={v.desc}>{v.desc}</td>
+          <div>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400">
+                    <th className="pb-3 font-bold">القرية / المنطقة</th>
+                    <th className="pb-3 font-bold text-center">تكلفة التوصيل</th>
+                    <th className="pb-3 font-bold text-left">التفاصيل ومدة التوصيل</th>
                   </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400 font-bold">
-                      😔 نعتذر، لم نجد قريتك في البحث الحالي. يرجى الاتصال بنا عبر واتساب للاستعلام يدوياً عن إمكانية الشحن لعنوانك.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredVillages.length > 0 ? filteredVillages.map((v, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50">
+                      <td className="py-3.5 font-black text-slate-800">📍 {v.name}</td>
+                      <td className="py-3.5 font-black text-emerald-600 text-center">{v.fee} ج.م</td>
+                      <td className="py-3.5 font-bold text-slate-400 text-left" title={v.desc}>{v.desc}</td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={3} className="py-8 text-center text-slate-400 font-bold">
+                        😔 نعتذر، لم نجد قريتك في البحث الحالي. يرجى الاتصال بنا عبر واتساب للاستعلام يدوياً عن إمكانية الشحن لعنوانك.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List View */}
+            <div className="block md:hidden space-y-3">
+              {filteredVillages.length > 0 ? filteredVillages.map((v, idx) => (
+                <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="font-black text-xs text-slate-800">📍 {v.name}</div>
+                    <div className="text-[10px] text-slate-400 font-bold">{v.desc}</div>
+                  </div>
+                  <div className="bg-emerald-50 text-emerald-700 font-black text-xs px-3 py-1.5 rounded-xl shrink-0">
+                    {v.fee} ج.م
+                  </div>
+                </div>
+              )) : (
+                <div className="py-8 text-center text-slate-400 font-bold text-xs">
+                  😔 نعتذر، لم نجد قريتك في البحث الحالي. يرجى الاتصال بنا عبر واتساب للاستعلام يدوياً عن إمكانية الشحن لعنوانك.
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
