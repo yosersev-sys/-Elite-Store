@@ -118,7 +118,10 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
           images: product.images || [],
           batches: product.batches || [],
           reorderLevel: product.reorderLevel?.toString() || '5',
-          units: product.units || []
+          units: (product.units || []).map(u => ({
+            ...u,
+            unitName: u.unitName === 'piece' ? 'قطعة' : u.unitName
+          }))
         });
         
         if (product.seoSettings) {
