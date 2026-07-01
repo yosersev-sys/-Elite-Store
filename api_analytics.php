@@ -165,6 +165,10 @@ switch ($action) {
             // Optional User Agent storage (shortened to save space)
             $shortUserAgent = !empty($userAgent) ? substr($userAgent, 0, 150) : null;
 
+            // Prioritize client-provided GPS/network geocoded location if available
+            $eventCountry = !empty($event['country']) ? $event['country'] : $country;
+            $eventCity = !empty($event['city']) ? $event['city'] : $city;
+
             $stmt->execute([
                 $eUuid,
                 $event['visitorId'] ?? '',
@@ -176,8 +180,8 @@ switch ($action) {
                 $event['referrer'] ?? null,
                 $shortUserAgent,
                 $ipHash,
-                $country,
-                $city,
+                $eventCountry,
+                $eventCity,
                 $deviceType,
                 $browserName,
                 $osName,

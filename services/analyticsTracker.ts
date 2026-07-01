@@ -18,6 +18,8 @@ export interface AnalyticsEvent {
   duration?: number; // active duration in seconds
   createdAt: number;
   appVersion?: string;
+  city?: string | null;
+  country?: string | null;
 }
 
 const STORAGE_VISITOR_KEY = 'souq_analytics_visitor_id';
@@ -36,6 +38,8 @@ class AnalyticsTrackerService {
   private lastActiveTime = Date.now();
   private isTabActive = true;
   private utmParams: Record<string, string> = {};
+  private cachedCity: string | null = null;
+  private cachedCountry: string | null = null;
 
   constructor() {
     if (typeof window === 'undefined') return;
@@ -45,6 +49,9 @@ class AnalyticsTrackerService {
 
     // 2. Parse UTM campaign parameters
     this.parseUtmParameters();
+
+    // 2.5 Initialize Browser Geolocation (asks permission to get highly accurate city/town)
+    this.initGeolocation();
 
     // 3. Listen to page visibility changes to accurately track duration
     document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
@@ -101,6 +108,69 @@ class AnalyticsTrackerService {
     } catch (e) {
       console.warn('Failed parsing UTM parameters', e);
     }
+  }
+
+  private async initGeolocation() {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+    // Check if already geocoded and cached in sessionStorage
+    const cached = sessionStorage.getItem('souq_cached_location');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        this.cachedCity = parsed.city;
+        this.cachedCountry = parsed.country;
+        return;
+      } catch (e) {}
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          // Fetch Arabic names from OSM Nominatim (reverse geocoding)
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&accept-language=ar`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            const address = data.address || {};
+            // Extract the Arabic town/city/state/governorate name
+            let city = address.city || address.town || address.village || address.suburb || address.state || address.governorate || 'فاقوس';
+            const country = address.country || 'Egypt';
+
+            // Clean city name from "مركز" prefix if exists
+            city = city.replace(/مركز\s+/i, '').trim();
+
+            this.cachedCity = city;
+            this.cachedCountry = country;
+
+            sessionStorage.setItem('souq_cached_location', JSON.stringify({
+              city: this.cachedCity,
+              country: this.cachedCountry
+            }));
+            
+            // Retroactively update queued events that don't have city set
+            if (this.queue.length > 0) {
+              this.queue = this.queue.map(evt => {
+                if (!evt.city) {
+                  return { ...evt, city: this.cachedCity, country: this.cachedCountry };
+                }
+                return evt;
+              });
+              // send batch immediately with updated locations
+              this.sendBatch();
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to reverse geocode lat/lon', e);
+        }
+      },
+      (error) => {
+        console.warn('Geolocation permission denied or failed', error);
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
   }
 
   private getLoggedInUserId(): string | null {
@@ -249,7 +319,9 @@ class AnalyticsTrackerService {
       eventData: eventData,
       duration: duration,
       createdAt: Date.now(),
-      appVersion: APP_VERSION
+      appVersion: APP_VERSION,
+      city: this.cachedCity,
+      country: this.cachedCountry
     };
 
     this.queue.push(event);
