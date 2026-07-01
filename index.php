@@ -188,13 +188,13 @@ $global_schemas = [
         ],
         "areaServed" => [
             ["@type" => "AdministrativeArea", "name" => "فاقوس"],
-            ["@type" => "AdministrativeArea", "name": "الديدامون"],
-            ["@type" => "AdministrativeArea", "name": "جهينة"],
-            ["@type" => "AdministrativeArea", "name": "الصوالح"],
-            ["@type" => "AdministrativeArea", "name": "السماعنة"],
-            ["@type" => "AdministrativeArea", "name": "الغزالي"],
-            ["@type" => "AdministrativeArea", "name": "ميت العز"],
-            ["@type" => "AdministrativeArea", "name": "محافظة الشرقية"]
+            ["@type" => "AdministrativeArea", "name" => "الديدامون"],
+            ["@type" => "AdministrativeArea", "name" => "جهينة"],
+            ["@type" => "AdministrativeArea", "name" => "الصوالح"],
+            ["@type" => "AdministrativeArea", "name" => "السماعنة"],
+            ["@type" => "AdministrativeArea", "name" => "الغزالي"],
+            ["@type" => "AdministrativeArea", "name" => "ميت العز"],
+            ["@type" => "AdministrativeArea", "name" => "محافظة الشرقية"]
         ]
     ]
 ];
