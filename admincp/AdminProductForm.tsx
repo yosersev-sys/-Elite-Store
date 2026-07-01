@@ -481,7 +481,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">وحدة البيع</label>
-              <select value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value as any})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
+              <select value={formData.unit} onChange={e => {
+                const nextUnit = e.target.value;
+                setFormData(prev => {
+                  const updatedUnits = prev.units.map(u => {
+                    if (u.conversionFactor === 1 || u.isDefault === 1 || u.unitName === prev.unit) {
+                      return { ...u, unitName: nextUnit };
+                    }
+                    return u;
+                  });
+                  return { ...prev, unit: nextUnit as any, units: updatedUnits };
+                });
+              }} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
                 <option value="piece">قطعة</option>
                 <option value="carton">كرتونة</option>
                 <option value="box">علبة</option>
@@ -497,7 +508,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
               <div className="flex gap-2">
                  <input 
                    value={formData.barcode} 
-                   onChange={e => setFormData({...formData, barcode: e.target.value})} 
+                   onChange={e => {
+                     const nextBarcode = e.target.value;
+                     setFormData(prev => {
+                       const updatedUnits = prev.units.map(u => {
+                         if (u.conversionFactor === 1 || u.isDefault === 1 || u.unitName === prev.unit) {
+                           return { ...u, barcode: nextBarcode };
+                         }
+                         return u;
+                       });
+                       return { ...prev, barcode: nextBarcode, units: updatedUnits };
+                     });
+                   }} 
                    onKeyDown={e => {
                      if (e.key === 'Enter') {
                        e.preventDefault();
@@ -626,7 +648,19 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
              <div className="w-full md:w-auto space-y-4">
                 <label className="text-xs font-black text-slate-500 uppercase tracking-widest">سعر البيع للجمهور (ج.م)</label>
                 <div className="relative max-w-sm">
-                  <input required type="number" step="any" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full pl-12 pr-12 py-6 bg-slate-900 text-emerald-400 text-5xl font-black rounded-[2.5rem] outline-none shadow-2xl text-center" placeholder="0.00" />
+                  <input required type="number" step="any" value={formData.price} onChange={e => {
+                    const nextPrice = e.target.value;
+                    const parsedPrice = parseFloat(nextPrice) || 0;
+                    setFormData(prev => {
+                      const updatedUnits = prev.units.map(u => {
+                        if (u.conversionFactor === 1 || u.isDefault === 1 || u.unitName === prev.unit) {
+                          return { ...u, salePrice: parsedPrice };
+                        }
+                        return u;
+                      });
+                      return { ...prev, price: nextPrice, units: updatedUnits };
+                    });
+                  }} className="w-full pl-12 pr-12 py-6 bg-slate-900 text-emerald-400 text-5xl font-black rounded-[2.5rem] outline-none shadow-2xl text-center" placeholder="0.00" />
                 </div>
              </div>
              <div className="flex-grow max-w-md bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 flex items-start gap-4">
@@ -702,7 +736,11 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                           onChange={e => setFormData(prev => {
                             const updated = [...prev.units];
                             updated[index].barcode = e.target.value;
-                            return { ...prev, units: updated };
+                            let nextBarcode = prev.barcode;
+                            if (updated[index].conversionFactor === 1 || updated[index].isDefault === 1 || updated[index].unitName === prev.unit) {
+                              nextBarcode = e.target.value;
+                            }
+                            return { ...prev, barcode: nextBarcode, units: updated };
                           })}
                           placeholder="باركود فريد للعبوة"
                           className="flex-grow px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs"
@@ -714,7 +752,11 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                             setFormData(prev => {
                               const updated = [...prev.units];
                               updated[index].barcode = randomCode.toString();
-                              return { ...prev, units: updated };
+                              let nextBarcode = prev.barcode;
+                              if (updated[index].conversionFactor === 1 || updated[index].isDefault === 1 || updated[index].unitName === prev.unit) {
+                                nextBarcode = randomCode.toString();
+                              }
+                              return { ...prev, barcode: nextBarcode, units: updated };
                             });
                           }}
                           className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 rounded-xl shadow-md active:scale-95 transition-all text-xs flex items-center justify-center"
@@ -733,8 +775,13 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         value={unit.salePrice || ''}
                         onChange={e => setFormData(prev => {
                           const updated = [...prev.units];
-                          updated[index].salePrice = parseFloat(e.target.value) || 0;
-                          return { ...prev, units: updated };
+                          const nextVal = parseFloat(e.target.value) || 0;
+                          updated[index].salePrice = nextVal;
+                          let nextPrice = prev.price;
+                          if (updated[index].conversionFactor === 1 || updated[index].isDefault === 1 || updated[index].unitName === prev.unit) {
+                            nextPrice = nextVal.toString();
+                          }
+                          return { ...prev, price: nextPrice, units: updated };
                         })}
                         placeholder="0.00"
                         className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs text-emerald-600 text-center"
@@ -749,8 +796,13 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         value={unit.purchasePrice || ''}
                         onChange={e => setFormData(prev => {
                           const updated = [...prev.units];
-                          updated[index].purchasePrice = parseFloat(e.target.value) || 0;
-                          return { ...prev, units: updated };
+                          const nextVal = parseFloat(e.target.value) || 0;
+                          updated[index].purchasePrice = nextVal;
+                          let nextWholesale = prev.wholesalePrice;
+                          if (updated[index].conversionFactor === 1 || updated[index].isDefault === 1 || updated[index].unitName === prev.unit) {
+                            nextWholesale = nextVal.toString();
+                          }
+                          return { ...prev, wholesalePrice: nextWholesale, units: updated };
                         })}
                         placeholder="0.00"
                         className="w-full px-4 py-2.5 bg-white border rounded-xl outline-none font-bold text-xs text-center"
