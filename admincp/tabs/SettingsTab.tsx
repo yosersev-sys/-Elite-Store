@@ -7,6 +7,26 @@ interface SettingsTabProps {
   onLogout: () => void;
 }
 
+const DEFAULT_VILLAGES_LIST = [
+  { name: 'مدينة فاقوس بالكامل', center: 'فاقوس (المدينة)', status: 'متاح فوراً (خلال ساعة إلى ساعتين)', fee: 10, desc: 'الخدمة الفورية لجميع أحياء وشوارع فاقوس بالكامل.' },
+  { name: 'الديدامون', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'تغطية كاملة لجميع شوارع وأنحاء قرية الديدامون الكبرى.' },
+  { name: 'جهينة', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'شحن يومي سريع لقرية جهينة والمناطق التابعة لها.' },
+  { name: 'الصوالح', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'توصيل لباب المنزل لقرية الصوالح.' },
+  { name: 'السماعنة', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'توصيل يومي لكافة مستلزمات البيوت بقرية السماعنة.' },
+  { name: 'الغزالي', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'تغطية التوصيل لقرية الغزالي وتوابعها.' },
+  { name: 'ميت العز', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'توصيل للمنازل بقرية ميت العز.' },
+  { name: 'سوادة', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'شحن مباشر وسريع لمنطقة سوادة.' },
+  { name: 'السلاطنة', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'تغطية لقرية السلاطنة والمناطق المجاورة.' },
+  { name: 'أكياد', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'توصيل مجدول مرتين يومياً لقرية أكياد.' },
+  { name: 'الخطارة', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'شحن لقرية الخطارة وما حولها.' },
+  { name: 'الدميين', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'خدمة التوصيل السريع لقرية الدميين.' },
+  { name: 'النوافعة', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'توصيل يومي للطلبات بقرية النوافعة.' },
+  { name: 'الهيصمية', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'شحن وتوصيل لقرية الهيصمية.' },
+  { name: 'أشكر', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'توصيل مباشر لقرية أشكر.' },
+  { name: 'بني صريد', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'تغطية يومية لقرية بني صريد.' },
+  { name: 'كفر الحوت', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'شحن سريع لقرية كفر الحوت.' },
+];
+
 const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -21,8 +41,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
     homepage_description: 'تسوق أفضل الخضروات، الفواكه، ومنتجات السوبر ماركت في فاقوس أونلاين بضغطة زر.',
     homepage_keywords: 'سوق العصر، فاقوس، سوبر ماركت فاقوس، خضروات فاقوس، توصيل فاقوس',
     out_of_stock_policy: 'prevent',
-    negative_stock_limit: '0'
+    negative_stock_limit: '0',
+    delivery_villages_json: ''
   });
+
+  const [villages, setVillages] = useState<any[]>(DEFAULT_VILLAGES_LIST);
 
   // بيانات المدير
   const [adminData, setAdminData] = useState({
@@ -44,6 +67,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
           ...prev,
           ...settings
         }));
+        if (settings.delivery_villages_json) {
+          try {
+            const parsed = JSON.parse(settings.delivery_villages_json);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setVillages(parsed);
+            }
+          } catch(e) {}
+        }
       }
     } catch (err) {
       console.error("Failed to load settings:", err);
@@ -55,9 +86,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   const handleSaveStoreSettings = async () => {
     setIsSaving(true);
     try {
-      const success = await ApiService.updateStoreSettings(storeSettings);
+      const payload = {
+        ...storeSettings,
+        delivery_villages_json: JSON.stringify(villages)
+      };
+      const success = await ApiService.updateStoreSettings(payload);
       if (success) {
-        alert('تم حفظ إعدادات المتجر بنجاح! ✨');
+        alert('تم حفظ إعدادات المتجر والتوصيل بنجاح! ✨');
       }
     } catch (err) {
       alert('حدث خطأ أثناء الحفظ');
@@ -156,13 +191,43 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
             </div>
           </div>
         </div>
+        
+        {/* شبكة لتعديل أسعار توصيل القرى التابعة لفاقوس */}
+        <div className="border-t border-slate-100 pt-8 space-y-4">
+          <h4 className="text-sm font-black text-slate-700">📍 أسعار التوصيل المخصصة لقرى مركز فاقوس:</h4>
+          <p className="text-[10px] text-slate-400 font-bold leading-relaxed">
+            يمكنك تعديل رسوم التوصيل لكل قرية تابعة لمركز فاقوس أدناه. سيتم تطبيق الأسعار المعدلة فوراً في المتجر وفي تفاصيل التوصيل.
+          </p>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {villages.map((v, idx) => (
+              <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between gap-2">
+                <span className="text-xs font-black text-slate-700">📍 {v.name}</span>
+                <div className="relative mt-1">
+                  <input 
+                    type="number"
+                    value={v.fee}
+                    onChange={e => {
+                      const updated = [...villages];
+                      updated[idx].fee = parseFloat(e.target.value) || 0;
+                      setVillages(updated);
+                    }}
+                    className="w-full pl-12 pr-4 py-2 bg-white border border-slate-200 rounded-xl outline-none font-black text-xs text-left"
+                    placeholder="0"
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">ج.م</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         <button 
           onClick={handleSaveStoreSettings}
           disabled={isSaving}
           className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50"
         >
-          {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات التوصيل 💾'}
+          {isSaving ? 'جاري الحفظ...' : 'حفظ إعدادات التوصيل والقرى 💾'}
         </button>
       </section>
 

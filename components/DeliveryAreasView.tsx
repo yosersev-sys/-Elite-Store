@@ -1,46 +1,70 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View } from '../types';
+import { ApiService } from '../services/api';
 
 interface DeliveryAreasViewProps {
   onNavigate: (view: View) => void;
 }
 
-const VILLAGES = [
-  { name: 'الديدامون', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: '15 ج.م', desc: 'تغطية كاملة لجميع شوارع وأنحاء قرية الديدامون الكبرى.' },
-  { name: 'جهينة', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: '15 ج.م', desc: 'شحن يومي سريع لقرية جهينة والمناطق التابعة لها.' },
-  { name: 'الصوالح', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: '20 ج.م', desc: 'توصيل لباب المنزل لقرية الصوالح.' },
-  { name: 'السماعنة', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: '20 ج.م', desc: 'توصيل يومي لكافة مستلزمات البيوت بقرية السماعنة.' },
-  { name: 'الغزالي', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: '25 ج.م', desc: 'تغطية التوصيل لقرية الغزالي وتوابعها.' },
-  { name: 'ميت العز', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: '25 ج.م', desc: 'توصيل للمنازل بقرية ميت العز.' },
-  { name: 'سوادة', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: '15 ج.م', desc: 'شحن مباشر وسريع لمنطقة سوادة.' },
-  { name: 'السلاطنة', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: '20 ج.م', desc: 'تغطية لقرية السلاطنة والمناطق المجاورة.' },
-  { name: 'أكياد', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: '25 ج.م', desc: 'توصيل مجدول مرتين يومياً لقرية أكياد.' },
-  { name: 'الخطارة', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 hours)', fee: '25 ج.م', desc: 'شحن لقرية الخطارة وما حولها.' },
-  { name: 'الدميين', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: '20 ج.م', desc: 'خدمة التوصيل السريع لقرية الدميين.' },
-  { name: 'النوافعة', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: '20 ج.م', desc: 'توصيل يومي للطلبات بقرية النوافعة.' },
-  { name: 'الهيصمية', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: '25 ج.م', desc: 'شحن وتوصيل لقرية الهيصمية.' },
-  { name: 'أشكر', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: '20 ج.م', desc: 'توصيل مباشر لقرية أشكر.' },
-  { name: 'بني صريد', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: '15 ج.م', desc: 'تغطية يومية لقرية بني صريد.' },
-  { name: 'كفر الحوت', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: '15 ج.م', desc: 'شحن سريع لقرية كفر الحوت.' },
-  
-  // مراكز مجاورة
-  { name: 'مدينة فاقوس بالكامل', center: 'فاقوس (المدينة)', status: 'متاح فوراً (خلال ساعة إلى ساعتين)', fee: '10 ج.م', desc: 'الخدمة الفورية لجميع أحياء وشوارع فاقوس بالكامل.' },
-  { name: 'أبو كبير', center: 'مركز مجاور', status: 'متاح شحن يومي (خلال 24 ساعة)', fee: '30 ج.م', desc: 'شحن يومي لمدينة أبو كبير والمناطق التابعة لها.' },
-  { name: 'الصالحية الجديدة', center: 'مركز مجاور', status: 'متاح شحن يومي (خلال 24 ساعة)', fee: '30 ج.م', desc: 'تغطية للمناطق السكنية والصناعية بالصالحية الجديدة.' },
-  { name: 'الحسينية', center: 'مركز مجاور', status: 'متاح (شحن خلال 24-48 ساعة)', fee: '35 ج.م', desc: 'شحن مجدول لمركز الحسينية.' },
-  { name: 'ههيا وأبو حماد', center: 'مركز مجاور', status: 'متاح (شحن خلال 24-48 ساعة)', fee: '35 ج.م', desc: 'توصيل مجدول أسبوعياً لخدمة عملائنا الكرام.' },
+interface VillageData {
+  name: string;
+  center: string;
+  status: string;
+  fee: number;
+  desc: string;
+}
+
+const DEFAULT_VILLAGES: VillageData[] = [
+  { name: 'مدينة فاقوس بالكامل', center: 'فاقوس (المدينة)', status: 'متاح فوراً (خلال ساعة إلى ساعتين)', fee: 10, desc: 'الخدمة الفورية لجميع أحياء وشوارع فاقوس بالكامل.' },
+  { name: 'الديدامون', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'تغطية كاملة لجميع شوارع وأنحاء قرية الديدامون الكبرى.' },
+  { name: 'جهينة', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'شحن يومي سريع لقرية جهينة والمناطق التابعة لها.' },
+  { name: 'الصوالح', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'توصيل لباب المنزل لقرية الصوالح.' },
+  { name: 'السماعنة', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'توصيل يومي لكافة مستلزمات البيوت بقرية السماعنة.' },
+  { name: 'الغزالي', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'تغطية التوصيل لقرية الغزالي وتوابعها.' },
+  { name: 'ميت العز', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'توصيل للمنازل بقرية ميت العز.' },
+  { name: 'سوادة', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'شحن مباشر وسريع لمنطقة سوادة.' },
+  { name: 'السلاطنة', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'تغطية لقرية السلاطنة والمناطق المجاورة.' },
+  { name: 'أكياد', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'توصيل مجدول مرتين يومياً لقرية أكياد.' },
+  { name: 'الخطارة', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'شحن لقرية الخطارة وما حولها.' },
+  { name: 'الدميين', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'خدمة التوصيل السريع لقرية الدميين.' },
+  { name: 'النوافعة', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'توصيل يومي للطلبات بقرية النوافعة.' },
+  { name: 'الهيصمية', center: 'فاقوس', status: 'متاح (توصيل خلال 4-6 ساعات)', fee: 25, desc: 'شحن وتوصيل لقرية الهيصمية.' },
+  { name: 'أشكر', center: 'فاقوس', status: 'متاح (توصيل خلال 3-5 ساعات)', fee: 20, desc: 'توصيل مباشر لقرية أشكر.' },
+  { name: 'بني صريد', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'تغطية يومية لقرية بني صريد.' },
+  { name: 'كفر الحوت', center: 'فاقوس', status: 'متاح (توصيل خلال 2-4 ساعات)', fee: 15, desc: 'شحن سريع لقرية كفر الحوت.' },
 ];
 
 export const DeliveryAreasView: React.FC<DeliveryAreasViewProps> = ({ onNavigate }) => {
   const [search, setSearch] = useState('');
+  const [villages, setVillages] = useState<VillageData[]>(DEFAULT_VILLAGES);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await ApiService.getStoreSettings();
+        if (settings && settings.delivery_villages_json) {
+          const parsed = JSON.parse(settings.delivery_villages_json);
+          if (Array.isArray(parsed)) {
+            setVillages(parsed);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load dynamic village list, using defaults', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const filteredVillages = useMemo(() => {
-    return VILLAGES.filter(v => 
+    return villages.filter(v => 
       v.name.includes(search) || 
       v.center.includes(search) || 
       v.desc.includes(search)
     );
-  }, [search]);
+  }, [search, villages]);
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-16 font-Cairo max-w-5xl space-y-8 animate-fadeIn">
@@ -107,40 +131,44 @@ export const DeliveryAreasView: React.FC<DeliveryAreasViewProps> = ({ onNavigate
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400">
-                <th className="pb-3 font-bold">القرية / المنطقة</th>
-                <th className="pb-3 font-bold text-center">المركز الجغرافي</th>
-                <th className="pb-3 font-bold text-center">حالة التوصيل</th>
-                <th className="pb-3 font-bold text-center">تكلفة التوصيل</th>
-                <th className="pb-3 font-bold text-left">التفاصيل</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredVillages.length > 0 ? filteredVillages.map((v, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/50">
-                  <td className="py-3.5 font-black text-slate-800">📍 {v.name}</td>
-                  <td className="py-3.5 font-bold text-slate-500 text-center">{v.center}</td>
-                  <td className="py-3.5 text-center">
-                    <span className="inline-block px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-black text-[10px]">
-                      {v.status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 font-black text-emerald-600 text-center">{v.fee}</td>
-                  <td className="py-3.5 font-bold text-slate-400 text-left max-w-xs truncate" title={v.desc}>{v.desc}</td>
+        {isLoading ? (
+          <div className="py-8 text-center text-slate-400 animate-pulse font-bold">جاري تحميل أسعار التوصيل الحالية...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400">
+                  <th className="pb-3 font-bold">القرية / المنطقة</th>
+                  <th className="pb-3 font-bold text-center">المركز الجغرافي</th>
+                  <th className="pb-3 font-bold text-center">حالة التوصيل</th>
+                  <th className="pb-3 font-bold text-center">تكلفة التوصيل</th>
+                  <th className="pb-3 font-bold text-left">التفاصيل</th>
                 </tr>
-              )) : (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-400 font-bold">
-                    😔 نعتذر، لم نجد قريتك في البحث الحالي. يرجى الاتصال بنا عبر واتساب للاستعلام يدوياً عن إمكانية الشحن لعنوانك.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredVillages.length > 0 ? filteredVillages.map((v, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="py-3.5 font-black text-slate-800">📍 {v.name}</td>
+                    <td className="py-3.5 font-bold text-slate-500 text-center">{v.center}</td>
+                    <td className="py-3.5 text-center">
+                      <span className="inline-block px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-black text-[10px]">
+                        {v.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 font-black text-emerald-600 text-center">{v.fee} ج.م</td>
+                    <td className="py-3.5 font-bold text-slate-400 text-left max-w-xs truncate" title={v.desc}>{v.desc}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-400 font-bold">
+                      😔 نعتذر، لم نجد قريتك في البحث الحالي. يرجى الاتصال بنا عبر واتساب للاستعلام يدوياً عن إمكانية الشحن لعنوانك.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* CTA section */}

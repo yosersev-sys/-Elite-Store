@@ -29,6 +29,39 @@ $meta_image = 'https://soqelasr.com/shopping-bag512.png';
 $canonical_url = $protocol . $domainName . $path;
 $custom_schemas = [];
 
+// Load villages from settings or use defaults
+$delivery_villages = [];
+try {
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'delivery_villages_json'");
+    $stmt->execute();
+    $raw_json = $stmt->fetchColumn();
+    if ($raw_json) {
+        $delivery_villages = json_decode($raw_json, true);
+    }
+} catch (Exception $e) {}
+
+if (empty($delivery_villages) || !is_array($delivery_villages)) {
+    $delivery_villages = [
+        ['name' => 'مدينة فاقوس بالكامل', 'center' => 'فاقوس (المدينة)', 'status' => 'متاح فوراً (خلال ساعة إلى ساعتين)', 'fee' => 10, 'desc' => 'الخدمة الفورية لجميع أحياء وشوارع فاقوس بالكامل.'],
+        ['name' => 'الديدامون', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 2-4 ساعات)', 'fee' => 15, 'desc' => 'تغطية كاملة لجميع شوارع وأنحاء قرية الديدامون الكبرى.'],
+        ['name' => 'جهينة', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 2-4 ساعات)', 'fee' => 15, 'desc' => 'شحن يومي سريع لقرية جهينة والمناطق التابعة لها.'],
+        ['name' => 'الصوالح', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 3-5 ساعات)', 'fee' => 20, 'desc' => 'توصيل لباب المنزل لقرية الصوالح.'],
+        ['name' => 'السماعنة', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 3-5 ساعات)', 'fee' => 20, 'desc' => 'توصيل يومي لكافة مستلزمات البيوت بقرية السماعنة.'],
+        ['name' => 'الغزالي', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 4-6 ساعات)', 'fee' => 25, 'desc' => 'تغطية التوصيل لقرية الغزالي وتوابعها.'],
+        ['name' => 'ميت العز', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 4-6 ساعات)', 'fee' => 25, 'desc' => 'توصيل للمنازل بقرية ميت العز.'],
+        ['name' => 'سوادة', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 2-4 ساعات)', 'fee' => 15, 'desc' => 'شحن مباشر وسريع لمنطقة سوادة.'],
+        ['name' => 'السلاطنة', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 3-5 ساعات)', 'fee' => 20, 'desc' => 'تغطية لقرية السلاطنة والمناطق المجاورة.'],
+        ['name' => 'أكياد', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 4-6 ساعات)', 'fee' => 25, 'desc' => 'توصيل مجدول مرتين يومياً لقرية أكياد.'],
+        ['name' => 'الخطارة', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 4-6 ساعات)', 'fee' => 25, 'desc' => 'شحن لقرية الخطارة وما حولها.'],
+        ['name' => 'الدميين', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 3-5 ساعات)', 'fee' => 20, 'desc' => 'خدمة التوصيل السريع لقرية الدميين.'],
+        ['name' => 'النوافعة', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 3-5 ساعات)', 'fee' => 20, 'desc' => 'توصيل يومي للطلبات بقرية النوافعة.'],
+        ['name' => 'الهيصمية', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 4-6 ساعات)', 'fee' => 25, 'desc' => 'شحن وتوصيل لقرية الهيصمية.'],
+        ['name' => 'أشكر', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 3-5 ساعات)', 'fee' => 20, 'desc' => 'توصيل مباشر لقرية أشكر.'],
+        ['name' => 'بني صريد', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 2-4 ساعات)', 'fee' => 15, 'desc' => 'تغطية يومية لقرية بني صريد.'],
+        ['name' => 'كفر الحوت', 'center' => 'فاقوس', 'status' => 'متاح (توصيل خلال 2-4 ساعات)', 'fee' => 15, 'desc' => 'شحن سريع لقرية كفر الحوت.']
+    ];
+}
+
 // Determine page type
 $is_delivery_page = ($path === '/delivery-areas' || ($_GET['page'] ?? '') === 'delivery-areas');
 $is_product_page = false;
@@ -186,16 +219,12 @@ $global_schemas = [
             "opens" => "08:00",
             "closes" => "23:59"
         ],
-        "areaServed" => [
-            ["@type" => "AdministrativeArea", "name" => "فاقوس"],
-            ["@type" => "AdministrativeArea", "name" => "الديدامون"],
-            ["@type" => "AdministrativeArea", "name" => "جهينة"],
-            ["@type" => "AdministrativeArea", "name" => "الصوالح"],
-            ["@type" => "AdministrativeArea", "name" => "السماعنة"],
-            ["@type" => "AdministrativeArea", "name" => "الغزالي"],
-            ["@type" => "AdministrativeArea", "name" => "ميت العز"],
-            ["@type" => "AdministrativeArea", "name" => "محافظة الشرقية"]
-        ]
+        "areaServed" => array_merge(
+            [["@type" => "AdministrativeArea", "name" => "محافظة الشرقية"]],
+            array_map(function($v) {
+                return ["@type" => "AdministrativeArea", "name" => $v['name']];
+            }, $delivery_villages)
+        )
     ]
 ];
 ?>
@@ -276,32 +305,17 @@ $global_schemas = [
                     يرحب بكم متجر <strong>سوق العصر</strong>، ويسرنا تزويدكم بتفاصيل تغطية التوصيل والشحن المحلي لجميع طلباتكم. نحن ملتزمون بتقديم أسرع خدمة توصيل للمنظفات، والسلع الاستهلاكية، والمستلزمات المنزلية مباشرة لباب بيتك في فاقوس وكافة القرى المجاورة.
                 </p>
                 
-                <h2 style="font-size: 20px; font-weight: 900; color: #10b981; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-top: 30px;">🏙️ مدينة فاقوس والمراكز المجاورة المشمولة بالتوصيل:</h2>
-                <ul style="list-style: none; padding: 0; margin: 15px 0;">
-                    <li style="padding: 5px 0;">✔️ <strong>مدينة فاقوس بالكامل</strong> (توصيل فوري خلال ساعات معدودة).</li>
-                    <li style="padding: 5px 0;">✔️ <strong>أبو كبير</strong> (توصيل يومي لكافة الأحياء).</li>
-                    <li style="padding: 5px 0;">✔️ <strong>الصالحية الجديدة</strong> (شحن يومي لطلبات الجملة والتجزئة).</li>
-                    <li style="padding: 5px 0;">✔️ <strong>الحسينية</strong> (تغطية شاملة للمركز والقرى التابعة).</li>
-                    <li style="padding: 5px 0;">✔️ <strong>ههيا وأبو حماد</strong> (خدمات شحن مجدولة على مدار الأسبوع).</li>
-                </ul>
-
-                <h2 style="font-size: 20px; font-weight: 900; color: #10b981; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-top: 30px;">🏡 قرى مركز فاقوس المخدمة بالتوصيل المنزلي:</h2>
+                <h2 style="font-size: 20px; font-weight: 900; color: #10b981; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-top: 30px;">🏡 قرى ومناطق مركز فاقوس المخدمة بالتوصيل المنزلي ورسومها:</h2>
                 <p style="font-size: 14px; font-weight: 700; color: #475569; margin-top: 10px;">
-                    نفخر بخدمة أهالينا وتوصيل احتياجاتهم اليومية للقرى والنجوع التالية التابعة لمركز فاقوس بأقل تكلفة توصيل وبسرعة فائقة:
+                    نفخر بخدمة أهالينا وتوصيل احتياجاتهم اليومية للقرى والنجوع التالية التابعة لمركز فاقوس ورسومات التوصيل الفعلي المحددة:
                 </p>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0;">
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الديدامون</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 جهينة</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الصوالح</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 السماعنة</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الغزالي</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 ميت العز</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 سوادة</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 السلاطنة</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 أكياد والخطارة</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الدميين والنوافعة</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 الهيصمية وأشكر</div>
-                    <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">📍 بني صريد وكفر الحوت</div>
+                    <?php foreach ($delivery_villages as $v): ?>
+                        <div style="background: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; font-weight: 700;">
+                            📍 <?php echo htmlspecialchars($v['name']); ?> 
+                            <span style="color: #10b981; float: left;"><?php echo htmlspecialchars($v['fee']); ?> ج.م</span>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
 
                 <h2 style="font-size: 20px; font-weight: 900; color: #1e293b; margin-top: 40px;">🛒 كيف تطلب منتجاتك من سوق العصر؟</h2>
