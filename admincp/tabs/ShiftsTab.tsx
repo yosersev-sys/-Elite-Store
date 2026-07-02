@@ -721,7 +721,9 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                                 <td className="py-3 px-4 font-black">{p.name}</td>
                                 <td className="py-3 px-4 text-center">{p.quantity} {p.unit === 'piece' ? 'قطعة' : p.unit === 'kg' ? 'كجم' : 'جرام'}</td>
                                 <td className="py-3 px-4">{p.totalSales.toFixed(2)} ج.م</td>
-                                <td className="py-3 px-4 text-emerald-600">+{p.totalProfit.toFixed(2)} ج.م</td>
+                                <td className={`py-3 px-4 ${p.totalProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                  {p.totalProfit >= 0 ? '+' : ''}{p.totalProfit.toFixed(2)} ج.م
+                                </td>
                               </tr>
                             ))}
                           </tbody>
