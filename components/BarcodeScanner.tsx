@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { BrowserMultiFormatReader } from '@zxing/library';
 
 interface BarcodeScannerProps {
   onScan: (code: string) => void;
@@ -13,18 +14,18 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
   useEffect(() => {
     let stream: MediaStream | null = null;
     let interval: any = null;
+    let codeReader: BrowserMultiFormatReader | null = null;
 
     const startCamera = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' } 
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-
         // استخدام BarcodeDetector API إذا كان مدعوماً (Chrome/Android)
         if ('BarcodeDetector' in window) {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } 
+          });
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
           const barcodeDetector = new (window as any).BarcodeDetector({
             formats: ['ean_13', 'code_128', 'qr_code', 'upc_a']
           });
@@ -46,10 +47,24 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
             }
           }, 500);
         } else {
-          setError("متصفحك لا يدعم خاصية التعرف التلقائي على الباركود مباشرة. يرجى استخدام متصفح كروم على أندرويد.");
+          // Fallback to @zxing/library for iOS/Safari/Chrome on iOS
+          codeReader = new BrowserMultiFormatReader();
+          if (videoRef.current) {
+            await codeReader.decodeFromVideoDevice(undefined, videoRef.current, (result, err) => {
+              if (result && isScanning) {
+                const code = result.getText();
+                onScan(code);
+                setIsScanning(false);
+                if (navigator.vibrate) navigator.vibrate(200);
+                if (codeReader) codeReader.reset();
+                setTimeout(() => onClose(), 500);
+              }
+            });
+          }
         }
       } catch (err) {
         setError("فشل الوصول للكاميرا. تأكد من إعطاء الصلاحيات اللازمة.");
+        console.error("Camera error:", err);
       }
     };
 
@@ -58,6 +73,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
     return () => {
       if (stream) stream.getTracks().forEach(track => track.stop());
       if (interval) clearInterval(interval);
+      if (codeReader) codeReader.reset();
     };
   }, [onScan, onClose, isScanning]);
 

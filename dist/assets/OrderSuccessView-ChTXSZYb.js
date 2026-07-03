@@ -1,4 +1,4 @@
-import{r as u,j as e}from"./index-DjdY_eiX.js";import{W as w}from"./whatsappService-CnHL0wL1.js";const D=({order:t,adminPhone:j,onContinueShopping:g})=>{const r=u.useRef(null),[o,d]=u.useState(!1),x=Number(t.total||0),m=Number(t.subtotalBeforeDiscount!==void 0?t.subtotalBeforeDiscount:t.subtotal||0),l=Number(t.totalItemDiscounts||0),c=Number(t.discount||0),p=Number(t.deliveryFee!==void 0?t.deliveryFee:Math.max(0,x-m)),h=l+c,y=()=>{window.print()},v=()=>{const s=document.createElement("style");s.id="drawer-only-print-style",s.innerHTML=`
+import{r as u,j as e}from"./index-HFPNTJPs.js";import{W as w}from"./whatsappService-CnHL0wL1.js";const D=({order:t,adminPhone:j,onContinueShopping:g})=>{const r=u.useRef(null),[o,d]=u.useState(!1),x=Number(t.total||0),m=Number(t.subtotalBeforeDiscount!==void 0?t.subtotalBeforeDiscount:t.subtotal||0),l=Number(t.totalItemDiscounts||0),c=Number(t.discount||0),p=Number(t.deliveryFee!==void 0?t.deliveryFee:Math.max(0,x-m)),h=l+c,y=()=>{window.print()},v=()=>{const s=document.createElement("style");s.id="drawer-only-print-style",s.innerHTML=`
       @media print {
         body * {
           display: none !important;
