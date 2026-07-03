@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BrowserMultiFormatReader } from '@zxing/library';
+import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library';
 
 interface BarcodeScannerProps {
   onScan: (code: string) => void;
@@ -18,14 +18,16 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
 
     const startCamera = async () => {
       try {
+        // 1. طلب الوصول للكاميرا الخلفية وتعيينها للمستعرض (يضمن فتح الكاميرا الخلفية للآيفون)
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+
         // استخدام BarcodeDetector API إذا كان مدعوماً (Chrome/Android)
         if ('BarcodeDetector' in window) {
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment' } 
-          });
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
           const barcodeDetector = new (window as any).BarcodeDetector({
             formats: ['ean_13', 'code_128', 'qr_code', 'upc_a']
           });
@@ -48,9 +50,21 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
           }, 500);
         } else {
           // Fallback to @zxing/library for iOS/Safari/Chrome on iOS
-          codeReader = new BrowserMultiFormatReader();
+          const hints = new Map();
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+            BarcodeFormat.EAN_13,
+            BarcodeFormat.CODE_128,
+            BarcodeFormat.QR_CODE,
+            BarcodeFormat.UPC_A,
+            BarcodeFormat.UPC_E,
+            BarcodeFormat.EAN_8,
+            BarcodeFormat.CODE_39
+          ]);
+          hints.set(DecodeHintType.TRY_HARDER, true);
+
+          codeReader = new BrowserMultiFormatReader(hints);
           if (videoRef.current) {
-            await codeReader.decodeFromVideoDevice(undefined, videoRef.current, (result, err) => {
+            codeReader.decodeFromVideoElementContinuously(videoRef.current, (result, err) => {
               if (result && isScanning) {
                 const code = result.getText();
                 onScan(code);
