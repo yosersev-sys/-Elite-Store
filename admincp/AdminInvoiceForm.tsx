@@ -46,6 +46,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [invoiceDiscountValue, setInvoiceDiscountValue] = useState<number>(0);
   const [invoiceDiscountType, setInvoiceDiscountType] = useState<'fixed' | 'percent'>('fixed');
   const [editReason, setEditReason] = useState<string>('');
+  const [selectedReasonOption, setSelectedReasonOption] = useState<string>('');
+  const [customEditReason, setCustomEditReason] = useState<string>('');
 
   const [invoiceTimeline, setInvoiceTimeline] = useState<{ id: string; time: number; text: string; type: 'info' | 'warn' | 'success' | 'danger' }[]>([
     { id: 'init', time: Date.now(), text: 'بدء إنشاء فاتورة جديدة', type: 'info' }
@@ -231,6 +233,26 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         // No payments means it's fully unpaid (outstanding debt)
         setIsSplitPayment(false);
         setIsFullDebt(true);
+      }
+
+      if (order.editReason) {
+        const predefinedReasons = [
+          'تصحيح أسعار الأصناف',
+          'خصم إضافي متفق عليه',
+          'تعديل الكميات بطلب من العميل',
+          'إضافة أصناف جديدة للفاتورة',
+          'حذف أصناف مرتجعة',
+          'تعديل طريقة الدفع',
+          'تصحيح خطأ إدخال كاشير'
+        ];
+        const isPredefined = predefinedReasons.includes(order.editReason);
+        if (isPredefined) {
+          setSelectedReasonOption(order.editReason);
+        } else {
+          setSelectedReasonOption('custom');
+          setCustomEditReason(order.editReason);
+        }
+        setEditReason(order.editReason);
       }
     }
   }, [order]);
@@ -1209,16 +1231,47 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                  </div>
 
                  {order && order.status === 'completed' && (
-                   <div className="space-y-1.5 text-right bg-rose-50/50 p-4 rounded-2xl border border-rose-100">
-                      <label className="text-[10px] font-black text-rose-800 uppercase mr-1 block">سبب تعديل الخصومات / الفاتورة (مطلوب للتدقيق)</label>
-                      <input 
+                   <div className="space-y-1.5 text-right bg-rose-50/50 p-4 rounded-2xl border border-rose-100 font-Cairo">
+                      <label className="text-[10px] font-black text-rose-800 uppercase mr-1 block mb-1">سبب تعديل الخصومات / الفاتورة (مطلوب للتدقيق)</label>
+                      
+                      <select 
                         required
-                        type="text"
-                        value={editReason}
-                        onChange={e => setEditReason(e.target.value)}
-                        placeholder="مثال: تصحيح أسعار، خصم إضافي متفق عليه..."
-                        className="w-full px-4 py-2.5 bg-white border border-rose-200 rounded-xl outline-none text-xs font-bold focus:border-rose-500 transition-colors"
-                      />
+                        value={selectedReasonOption}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setSelectedReasonOption(val);
+                          if (val === 'custom') {
+                            setEditReason(customEditReason);
+                          } else {
+                            setEditReason(val);
+                          }
+                        }}
+                        className="w-full px-4 py-2.5 bg-white border border-rose-200 rounded-xl outline-none text-xs font-bold focus:border-rose-500 transition-colors mb-2"
+                      >
+                        <option value="">-- اختر سبب التعديل --</option>
+                        <option value="تصحيح أسعار الأصناف">تصحيح أسعار الأصناف</option>
+                        <option value="خصم إضافي متفق عليه">خصم إضافي متفق عليه</option>
+                        <option value="تعديل الكميات بطلب من العميل">تعديل الكميات بطلب من العميل</option>
+                        <option value="إضافة أصناف جديدة للفاتورة">إضافة أصناف جديدة للفاتورة</option>
+                        <option value="حذف أصناف مرتجعة">حذف أصناف مرتجعة</option>
+                        <option value="تعديل طريقة الدفع">تعديل طريقة الدفع</option>
+                        <option value="تصحيح خطأ إدخال كاشير">تصحيح خطأ إدخال كاشير</option>
+                        <option value="custom">أخرى (كتابة سبب مخصص)</option>
+                      </select>
+
+                      {selectedReasonOption === 'custom' && (
+                        <input 
+                          required
+                          type="text"
+                          value={customEditReason}
+                          onChange={e => {
+                            setCustomEditReason(e.target.value);
+                            setEditReason(e.target.value);
+                          }}
+                          placeholder="اكتب السبب المخصص هنا بالتفصيل..."
+                          className="w-full px-4 py-2.5 bg-white border border-rose-200 rounded-xl outline-none text-xs font-bold focus:border-rose-500 transition-colors animate-slideDown"
+                        />
+                      )}
                    </div>
                  )}
 
