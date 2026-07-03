@@ -523,6 +523,98 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
           return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0);
         }, 0);
 
+        const snap = parseSnapshot(selectedShiftDetails.shift.snapshotData);
+        // في حال كانت الوردية مفتوحة، نقوم بحساب الأرقام بشكل فوري من الطلبات الحالية
+        const cashSalesVal = snap ? snap.cashSales : selectedShiftDetails.orders.reduce((sum, o) => {
+          if (o.status === 'completed' && (o.paymentMethod.includes('نقدي') || o.paymentMethod.includes('عند الاستلام'))) {
+            return sum + o.total;
+          }
+          return sum;
+        }, 0);
+        const cashReturnsVal = snap ? snap.cashReturns : selectedShiftDetails.orders.reduce((sum, o) => {
+          if (o.status === 'cancelled' && (o.paymentMethod.includes('نقدي') || o.paymentMethod.includes('عند الاستلام'))) {
+            return sum + o.total;
+          }
+          return sum;
+        }, 0);
+        const cardSalesVal = snap ? snap.cardSales : selectedShiftDetails.orders.reduce((sum, o) => {
+          if (o.status === 'completed' && !o.paymentMethod.includes('نقدي') && !o.paymentMethod.includes('عند الاستلام') && !o.paymentMethod.includes('آجل')) {
+            return sum + o.total;
+          }
+          return sum;
+        }, 0);
+        const debtSalesVal = snap ? snap.debtSales : selectedShiftDetails.orders.reduce((sum, o) => {
+          if (o.status === 'completed' && o.paymentMethod.includes('آجل')) {
+            return sum + o.total;
+          }
+          return sum;
+        }, 0);
+        const depVal = snap ? snap.totalDeposits : selectedShiftDetails.transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
+        const witVal = snap ? snap.totalWithdrawals : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + t.amount, 0);
+        const ledgerCashVal = snap ? (snap.ledgerCashPayments || 0) : 0;
+
+        const handlePrintDetails = () => {
+          const style = document.createElement('style');
+          style.id = 'shift-report-details-print-style';
+          style.innerHTML = `
+            @media print {
+              @page {
+                size: auto;
+                margin: 0;
+              }
+              body * {
+                visibility: hidden !important;
+              }
+              #thermal-shift-history-report, #thermal-shift-history-report * {
+                visibility: visible !important;
+              }
+              #thermal-shift-history-report {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 80mm !important;
+                max-width: 80mm !important;
+                padding: 6mm !important;
+                margin: 0 !important;
+                background: #fff !important;
+                color: #000 !important;
+                direction: rtl !important;
+                font-family: 'Cairo', 'Arial', sans-serif !important;
+              }
+              #thermal-shift-history-report * {
+                font-size: 10pt !important;
+                color: #000 !important;
+                line-height: 1.4 !important;
+              }
+              #thermal-shift-history-report h3 {
+                font-size: 13pt !important;
+                font-weight: bold !important;
+                text-align: center !important;
+                margin-bottom: 2mm !important;
+              }
+              #thermal-shift-history-report .text-center {
+                text-align: center !important;
+              }
+              #thermal-shift-history-report .divider {
+                border-top: 1px dashed #000 !important;
+                margin: 3mm 0 !important;
+              }
+              #thermal-shift-history-report .flex-between {
+                display: flex !important;
+                justify-content: space-between !important;
+              }
+              #thermal-shift-history-report .font-bold {
+                font-weight: bold !important;
+              }
+            }
+          `;
+          document.head.appendChild(style);
+          window.print();
+          setTimeout(() => {
+            document.getElementById('shift-report-details-print-style')?.remove();
+          }, 1000);
+        };
+
         const productStats: Record<string, { name: string; quantity: number; unit: string; totalSales: number; totalProfit: number }> = {};
         completedOrders.forEach(order => {
           order.items.forEach(item => {
@@ -841,12 +933,135 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                 )}
               </div>
 
-              <button
-                onClick={() => setSelectedShiftDetails(null)}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-2xl font-black text-sm active:scale-95"
-              >
-                إغلاق
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handlePrintDetails}
+                  className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg shadow-emerald-100 transition-all text-center flex items-center justify-center gap-2 font-Cairo"
+                >
+                  <span>🖨️ طباعة الوردية (حراري)</span>
+                </button>
+                <button
+                  onClick={() => setSelectedShiftDetails(null)}
+                  className="px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-sm active:scale-95 transition-all font-Cairo"
+                >
+                  إغلاق
+                </button>
+              </div>
+            </div>
+
+            {/* تقرير الوردية للطباعة الحرارية بمقاس 80 مم من الأرشيف */}
+            <div id="thermal-shift-history-report" className="hidden">
+              <div className="text-center font-bold" style={{ fontSize: '13pt' }}>سوق العصر - فاقوس</div>
+              <div className="text-center font-bold" style={{ fontSize: '10pt', marginTop: '1mm' }}>تقرير ملخص الوردية الأرشيفية</div>
+              <div className="divider"></div>
+              
+              <div className="flex-between">
+                <span>رقم الوردية:</span>
+                <span className="font-bold">#{selectedShiftDetails.shift.id}</span>
+              </div>
+              <div className="flex-between">
+                <span>اسم الوردية:</span>
+                <span className="font-bold">{selectedShiftDetails.shift.shiftName || 'غير محدد'}</span>
+              </div>
+              <div className="flex-between">
+                <span>المحاسب المسؤول:</span>
+                <span className="font-bold">{selectedShiftDetails.shift.openedByName || 'أدمن'}</span>
+              </div>
+              {selectedShiftDetails.shift.closedByName && (
+                <div className="flex-between">
+                  <span>أغلق بواسطة:</span>
+                  <span className="font-bold">{selectedShiftDetails.shift.closedByName}</span>
+                </div>
+              )}
+              <div className="flex-between">
+                <span>الحالة:</span>
+                <span className="font-bold">{selectedShiftDetails.shift.status === 'open' ? 'مفتوحة نشطة' : 'مغلقة'}</span>
+              </div>
+              <div className="flex-between">
+                <span>تاريخ البدء:</span>
+                <span>{new Date(selectedShiftDetails.shift.startTime).toLocaleString('ar-EG')}</span>
+              </div>
+              {selectedShiftDetails.shift.endTime && (
+                <div className="flex-between">
+                  <span>تاريخ الإغلاق:</span>
+                  <span>{new Date(selectedShiftDetails.shift.endTime).toLocaleString('ar-EG')}</span>
+                </div>
+              )}
+              
+              <div className="divider"></div>
+              <div className="text-center font-bold" style={{ fontSize: '10pt', margin: '2mm 0 1mm' }}>الملخص المالي للمبيعات</div>
+              <div className="divider"></div>
+              
+              <div className="flex-between">
+                <span>عدد الفواتير الصادرة:</span>
+                <span>{selectedShiftDetails.orders.length} فاتورة</span>
+              </div>
+              <div className="flex-between">
+                <span>إجمالي المبيعات النقدية:</span>
+                <span>{cashSalesVal.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between">
+                <span>المرتجع النقدي:</span>
+                <span>{cashReturnsVal.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between">
+                <span>المبيعات البنكية:</span>
+                <span>{cardSalesVal.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between">
+                <span>المبيعات الآجلة:</span>
+                <span>{debtSalesVal.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between font-bold" style={{ fontSize: '11pt', marginTop: '1mm' }}>
+                <span>صافي أرباح الوردية:</span>
+                <span>{netProfit.toLocaleString()} ج.م</span>
+              </div>
+              
+              <div className="divider"></div>
+              <div className="text-center font-bold" style={{ fontSize: '10pt', margin: '2mm 0 1mm' }}>تفاصيل حركة الخزينة (الدرج)</div>
+              <div className="divider"></div>
+              
+              <div className="flex-between">
+                <span>نقدية البداية (رصيد الدرج):</span>
+                <span>{selectedShiftDetails.shift.startingCash.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between text-emerald-600">
+                <span>المبيعات النقدية (+):</span>
+                <span>{cashSalesVal.toLocaleString()} ج.m</span>
+              </div>
+              <div className="flex-between text-rose-500">
+                <span>المرتجع النقدي (-):</span>
+                <span>{cashReturnsVal.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between text-emerald-600">
+                <span>تحصيلات ديون نقدية (+):</span>
+                <span>{ledgerCashVal.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between text-emerald-600">
+                <span>إجمالي الإيداعات (+):</span>
+                <span>{depVal.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between text-rose-600">
+                <span>إجمالي السحوبات (-):</span>
+                <span>{witVal.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between font-bold" style={{ marginTop: '1mm' }}>
+                <span>النقدية المتوقعة بالدرج:</span>
+                <span>{selectedShiftDetails.shift.expectedCash.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex-between font-bold" style={{ fontSize: '11pt' }}>
+                <span>الرصيد الفعلي (المجرود):</span>
+                <span>{(selectedShiftDetails.shift.status === 'open' ? selectedShiftDetails.shift.currentCashBalance : selectedShiftDetails.shift.actualCash).toLocaleString()} ج.م</span>
+              </div>
+              {selectedShiftDetails.shift.difference !== 0 && (
+                <div className="flex-between font-bold text-rose-600">
+                  <span>فرق الجرد (عجز/زيادة):</span>
+                  <span>{selectedShiftDetails.shift.difference.toLocaleString()} ج.م</span>
+                </div>
+              )}
+              
+              <div className="divider"></div>
+              <p className="text-center" style={{ fontSize: '8pt' }}>طُبع بواسطة نظام سوق العصر للمبيعات</p>
             </div>
           </div>
         );
