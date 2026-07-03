@@ -75,10 +75,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
             BarcodeFormat.EAN_13,
             BarcodeFormat.CODE_128,
             BarcodeFormat.QR_CODE,
-            BarcodeFormat.UPC_A,
-            BarcodeFormat.UPC_E,
-            BarcodeFormat.EAN_8,
-            BarcodeFormat.CODE_39
+            BarcodeFormat.UPC_A
           ]);
           hints.set(DecodeHintType.TRY_HARDER, true);
 
