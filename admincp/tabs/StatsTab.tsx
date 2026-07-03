@@ -23,6 +23,72 @@ const StatsTab: React.FC<StatsTabProps> = ({
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
   const [activeShiftExpenses, setActiveShiftExpenses] = useState<number>(0);
 
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [actualCash, setActualCash] = useState('');
+  const [discrepancyReason, setDiscrepancyReason] = useState('');
+  const [closeNotes, setCloseNotes] = useState('');
+  const [closedShiftSummary, setClosedShiftSummary] = useState<any | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const parseSnapshot = (data: string | undefined) => {
+    try {
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleCloseShiftSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const actual = parseFloat(actualCash);
+    if (isNaN(actual) || actual < 0) {
+      alert('يرجى إدخال مبلغ نقدية فعلية صحيح');
+      return;
+    }
+
+    const expected = (activeShift?.currentCashBalance || 0);
+    const difference = actual - expected;
+
+    if (difference !== 0 && !discrepancyReason.trim()) {
+      alert('يوجد فارق جرد (عجز أو زيادة). يجب كتابة سبب الفارق لإتمام إغلاق الوردية.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const shiftIdToFetch = activeShift?.id;
+      const res = await ApiService.closeShift(actual, discrepancyReason.trim(), closeNotes.trim());
+      if (res.success) {
+        let closedDetails = null;
+        if (shiftIdToFetch) {
+          try {
+            closedDetails = await ApiService.getShiftDetails(shiftIdToFetch);
+          } catch (detailsErr) {
+            console.error('Failed to load closed shift details for printing summary', detailsErr);
+          }
+        }
+
+        alert('تم إغلاق الوردية بنجاح وتجميد التقرير المالي.');
+        setShowCloseModal(false);
+        setActualCash('');
+        setDiscrepancyReason('');
+        setCloseNotes('');
+        
+        if (closedDetails) {
+          setClosedShiftSummary(closedDetails);
+        }
+
+        setActiveShift(null);
+      } else {
+        alert(res.message || 'فشل إغلاق الوردية');
+      }
+    } catch (err) {
+      alert('حدث خطأ فني أثناء إغلاق الوردية');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const [activeModal, setActiveModal] = useState<'sales' | 'profit' | 'cash' | 'digital' | 'debt' | 'expenses' | null>(null);
   const [shiftDetails, setShiftDetails] = useState<any>(null);
   const [shiftExpenses, setShiftExpenses] = useState<any[]>([]);
@@ -343,10 +409,16 @@ const StatsTab: React.FC<StatsTabProps> = ({
             </div>
           </div>
           {activeShift?.id && (
-            <button 
-              onClick={() => onNavigateToTab('shifts')}
-              className="text-[10px] font-black text-slate-300 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/10 transition-all"
-            >إدارة الورديات ←</button>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setShowCloseModal(true)}
+                className="text-[10px] font-black text-white bg-rose-600 hover:bg-rose-700 px-4 py-2 rounded-xl border border-rose-500/20 transition-all active:scale-95 cursor-pointer font-Cairo"
+              >🔒 إغلاق الوردية</button>
+              <button 
+                onClick={() => onNavigateToTab('shifts')}
+                className="text-[10px] font-black text-slate-300 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/10 transition-all cursor-pointer font-Cairo"
+              >إدارة الورديات ←</button>
+            </div>
           )}
         </div>
 
@@ -695,6 +767,267 @@ const StatsTab: React.FC<StatsTabProps> = ({
           onRetry={() => fetchShiftDetails(activeModal)}
           onNavigateToTab={onNavigateToTab}
         />
+      )}
+
+      {/* مودال إغلاق الوردية وجرد النقدية */}
+      {showCloseModal && activeShift && activeShift.id && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowCloseModal(false)}></div>
+          <form onSubmit={handleCloseShiftSubmit} className="relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl p-8 animate-slideUp space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar font-Cairo text-right" dir="rtl">
+            <h3 className="text-2xl font-black text-slate-800 text-center">🔒 جرد وإغلاق الوردية</h3>
+            <p className="text-slate-400 text-xs font-bold text-center">
+              يرجى عد النقدية الفعلية الموجودة في الدرج ومطابقتها
+            </p>
+
+            <div className="bg-slate-50 p-5 rounded-2xl border space-y-2 text-xs font-bold text-slate-600">
+              <div className="flex justify-between">
+                <span>رصيد البداية:</span>
+                <span>{Number(activeShift.startingCash).toFixed(2)} ج.م</span>
+              </div>
+              <div className="flex justify-between text-emerald-600">
+                <span>النقدية المتوقعة بالدرج (الرصيد الدفتري):</span>
+                <span>{Number(activeShift.currentCashBalance).toFixed(2)} ج.م</span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">النقدية الفعلية بالدرج (ج.م)</label>
+                <input
+                  required
+                  type="number"
+                  step="any"
+                  value={actualCash}
+                  onChange={(e) => setActualCash(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-400 font-black text-2xl text-center text-emerald-600"
+                />
+              </div>
+
+              {actualCash !== '' && parseFloat(actualCash) !== Number(activeShift.currentCashBalance) && (
+                <div className="space-y-2 animate-fadeIn">
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs font-bold text-rose-700">
+                    ⚠️ يوجد فرق جرد بقيمة: {(parseFloat(actualCash) - Number(activeShift.currentCashBalance)).toFixed(2)} ج.م
+                  </div>
+                  <label className="text-sm font-bold text-slate-500 mr-2">سبب فرق الجرد (مطلوب)</label>
+                  <input
+                    required
+                    type="text"
+                    value={discrepancyReason}
+                    onChange={(e) => setDiscrepancyReason(e.target.value)}
+                    placeholder="اكتب سبب العجز أو الزيادة هنا..."
+                    className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-rose-400 font-bold text-xs"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">ملاحظات عامة إضافية</label>
+                <textarea
+                  value={closeNotes}
+                  onChange={(e) => setCloseNotes(e.target.value)}
+                  placeholder="أي ملاحظات حول الوردية..."
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold text-xs min-h-[80px] resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                disabled={isSaving}
+                type="submit"
+                className="flex-grow bg-rose-600 hover:bg-rose-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50 font-Cairo"
+              >
+                {isSaving ? 'جاري الإغلاق...' : 'تأكيد وإغلاق الوردية'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCloseModal(false);
+                  setActualCash('');
+                  setDiscrepancyReason('');
+                  setCloseNotes('');
+                }}
+                className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95 font-Cairo"
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* مودال طباعة ملخص الوردية المغلقة */}
+      {closedShiftSummary && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm font-Cairo text-right animate-fadeIn" dir="rtl">
+          <div className="relative bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden max-h-[90vh] flex flex-col justify-between">
+            <style>{`
+              @media print {
+                body * {
+                  visibility: hidden;
+                }
+                .print-shift-area, .print-shift-area * {
+                  visibility: visible !important;
+                }
+                .print-shift-area {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  max-width: 80mm !important;
+                  padding: 4mm !important;
+                  font-family: 'Courier New', Courier, monospace !important;
+                  direction: rtl !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `}</style>
+            
+            <div className="overflow-y-auto no-scrollbar flex-grow pr-2 pb-6 print-shift-area">
+              {/* ترويسة التقرير للطباعة */}
+              <div className="text-center border-b-2 border-dashed border-slate-300 pb-4 mb-4">
+                <h2 className="text-xl font-black text-slate-800">تقرير تسليم خزينة الوردية</h2>
+                <p className="text-xs text-slate-500 font-bold mt-1">سوق العصر - فاقوس</p>
+                <div className="mt-2 text-sm font-black text-slate-900 bg-slate-100 py-1.5 px-3 rounded-xl inline-block">
+                  رقم الوردية: #{closedShiftSummary.shift.id}
+                </div>
+              </div>
+
+              {/* البيانات العامة */}
+              <div className="space-y-2 text-xs font-bold text-slate-700 border-b border-slate-100 pb-3 mb-4">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">حالة الوردية:</span>
+                  <span className="text-rose-600 font-black">مغلقة 🔒</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">المحاسب المسؤول:</span>
+                  <span className="font-black">{closedShiftSummary.shift.openedByName || 'أدمن'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">أغلق بواسطة:</span>
+                  <span className="font-black">{closedShiftSummary.shift.closedByName || 'أدمن'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">وقت البدء:</span>
+                  <span className="ltr text-right">{new Date(closedShiftSummary.shift.startTime).toLocaleString('ar-EG')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">وقت الإغلاق:</span>
+                  <span className="ltr text-right">{closedShiftSummary.shift.endTime ? new Date(closedShiftSummary.shift.endTime).toLocaleString('ar-EG') : '-'}</span>
+                </div>
+              </div>
+
+              {/* أرقام الخزينة والجرد */}
+              <div className="bg-slate-50 p-4 rounded-2xl border space-y-2 text-xs font-bold text-slate-700 mb-4">
+                <div className="flex justify-between">
+                  <span>نقدية بداية الوردية (الافتتاح):</span>
+                  <span className="font-black text-slate-800">{Number(closedShiftSummary.shift.startingCash).toFixed(2)} ج.م</span>
+                </div>
+                {(() => {
+                  const snap = parseSnapshot(closedShiftSummary.shift.snapshotData) || {
+                    cashSales: 0,
+                    cashReturns: 0,
+                    cardSales: 0,
+                    debtSales: 0,
+                    totalDeposits: 0,
+                    totalWithdrawals: 0,
+                    ledgerCashPayments: 0,
+                    ordersCount: 0,
+                    returnsCount: 0
+                  };
+                  const cashSalesVal = Number(snap.cashSales || 0);
+                  const cashReturnsVal = Number(snap.cashReturns || 0);
+                  const depVal = Number(snap.totalDeposits || 0);
+                  const witVal = Number(snap.totalWithdrawals || 0);
+                  const ledgerCashVal = Number(snap.ledgerCashPayments || 0);
+                  
+                  return (
+                    <>
+                      <div className="flex justify-between text-emerald-600">
+                        <span>المبيعات النقدية (+):</span>
+                        <span>{cashSalesVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-rose-500">
+                        <span>المرتجع النقدي (-):</span>
+                        <span>{cashReturnsVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-600">
+                        <span>تحصيلات ديون نقدية (+):</span>
+                        <span>{ledgerCashVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-600">
+                        <span>إجمالي الإيداعات (+):</span>
+                        <span>{depVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-rose-600">
+                        <span>إجمالي السحوبات (-):</span>
+                        <span>{witVal.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between border-t border-slate-200 pt-2 text-slate-800">
+                        <span>النقدية المتوقعة بالدرج (الرصيد الدفتري):</span>
+                        <span className="font-black">{Number(closedShiftSummary.shift.expectedCash).toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between text-indigo-600 border-t border-slate-200 pt-1">
+                        <span>النقدية الفعلية (المجرود والمسلم):</span>
+                        <span className="font-black">{Number(closedShiftSummary.shift.actualCash).toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between border-t border-slate-200 pt-1 font-black">
+                        <span>فرق الجرد (عجز/زيادة):</span>
+                        <span className={closedShiftSummary.shift.difference === 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                          {closedShiftSummary.shift.difference > 0 ? '+' : ''}{Number(closedShiftSummary.shift.difference).toFixed(2)} ج.م
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* سبب فرق الجرد والملاحظات */}
+              {closedShiftSummary.shift.difference !== 0 && (
+                <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs font-bold text-rose-700 mb-4">
+                  <span className="block font-black mb-1">سبب فرق الجرد:</span>
+                  <span>{closedShiftSummary.shift.discrepancyReason || 'غير محدد'}</span>
+                </div>
+              )}
+
+              {closedShiftSummary.shift.notes && (
+                <div className="p-3 bg-slate-50 border rounded-xl text-xs font-bold text-slate-600 mb-4">
+                  <span className="block font-black mb-1">ملاحظات الوردية:</span>
+                  <p className="whitespace-pre-line">{closedShiftSummary.shift.notes}</p>
+                </div>
+              )}
+
+              {/* التواقيع */}
+              <div className="mt-8 grid grid-cols-2 gap-4 text-center text-[10px] font-bold text-slate-400 pt-4 border-t border-dashed border-slate-300">
+                <div>
+                  <span className="block mb-6">توقيع مسؤول الوردية</span>
+                  <span className="block border-t border-slate-200 pt-2 max-w-[100px] mx-auto text-slate-600">________________</span>
+                </div>
+                <div>
+                  <span className="block mb-6">توقيع المستلم (المدير)</span>
+                  <span className="block border-t border-slate-200 pt-2 max-w-[100px] mx-auto text-slate-600">________________</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-6 border-t border-slate-100 no-print">
+              <button
+                onClick={() => window.print()}
+                className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg shadow-emerald-100 transition-all cursor-pointer font-Cairo"
+              >
+                🖨️ طباعة تقرير الوردية
+              </button>
+              <button
+                onClick={() => setClosedShiftSummary(null)}
+                className="px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-sm active:scale-95 transition-all cursor-pointer font-Cairo"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
