@@ -35,20 +35,19 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
 
     const startCamera = async () => {
       try {
-        // 1. طلب الوصول للكاميرا الخلفية وتعيينها للمستعرض (يضمن فتح الكاميرا الخلفية للآيفون)
+        // 1. طلب الوصول للكاميرا الخلفية الأساسية (بدون قيود دقة فائقة لتجنب العدسة الواسعة جداً في الآيفون)
         stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
+          video: { facingMode: 'environment' } 
         });
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.setAttribute('playsinline', 'true');
-          videoRef.current.setAttribute('muted', 'true');
-          await videoRef.current.play().catch(err => console.warn("Video play failed:", err));
-        }
 
         // استخدام BarcodeDetector API إذا كان مدعوماً (Chrome/Android)
         if ('BarcodeDetector' in window) {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.setAttribute('playsinline', 'true');
+            videoRef.current.setAttribute('muted', 'true');
+            await videoRef.current.play().catch(err => console.warn("Video play failed:", err));
+          }
           const barcodeDetector = new (window as any).BarcodeDetector({
             formats: ['ean_13', 'code_128', 'qr_code', 'upc_a']
           });
@@ -85,7 +84,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
 
           codeReader = new BrowserMultiFormatReader(hints);
           if (videoRef.current) {
-            codeReader.decodeFromVideoElementContinuously(videoRef.current, (result, err) => {
+            await codeReader.decodeFromStream(stream, videoRef.current, (result, err) => {
               if (result && isScanningRef.current) {
                 const code = result.getText();
                 onScanRef.current(code);
