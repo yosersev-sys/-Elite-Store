@@ -29,6 +29,45 @@ const NewOrderPopup = React.lazy(() => import('./components/NewOrderPopup.tsx'))
 const BarcodePrintPopup = React.lazy(() => import('./components/BarcodePrintPopup.tsx'));
 const DeliveryAreasView = React.lazy(() => import('./components/DeliveryAreasView.tsx'));
 
+const openCashDrawer = () => {
+  const style = document.createElement('style');
+  style.id = 'drawer-only-print-style';
+  style.innerHTML = `
+    @media print {
+      body * {
+        display: none !important;
+      }
+      html, body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 1px !important;
+        height: 1px !important;
+        overflow: hidden !important;
+      }
+      #drawer-kick-container {
+        display: block !important;
+        width: 1px !important;
+        height: 1px !important;
+        overflow: hidden !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const div = document.createElement('div');
+  div.id = 'drawer-kick-container';
+  div.innerHTML = '&nbsp;';
+  document.body.appendChild(div);
+
+  window.print();
+
+  setTimeout(() => {
+    document.getElementById('drawer-only-print-style')?.remove();
+    document.getElementById('drawer-kick-container')?.remove();
+  }, 1000);
+};
+
 const App: React.FC = () => {
   // 1. تحديد المسار الحالي بدقة مطلقة (فحص الهاش والمسار معاً)
   const getInitialView = (): View => {
@@ -553,7 +592,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <AdminInvoiceForm products={products} categories={categories} currentUser={currentUser} onRefreshData={() => loadData(true)} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
+        return <AdminInvoiceForm products={products} categories={categories} currentUser={currentUser} onRefreshData={() => loadData(true)} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); openCashDrawer(); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
       default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={(q) => {
         setSearchQuery(q);
         const count = products.filter(p => {
@@ -671,7 +710,7 @@ const App: React.FC = () => {
                 </form>
               </div>
             ) : (
-              <AdminInvoiceForm products={products} users={users} orders={orders} categories={categories} currentUser={currentUser} onRefreshData={() => loadData(true)} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
+              <AdminInvoiceForm products={products} users={users} orders={orders} categories={categories} currentUser={currentUser} onRefreshData={() => loadData(true)} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); if (!editingOrder) { openCashDrawer(); } onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
             )
           ) : (
             <AdminDashboard 

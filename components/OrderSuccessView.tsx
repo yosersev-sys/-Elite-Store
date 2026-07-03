@@ -25,6 +25,45 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
     window.print();
   };
 
+  const handleOpenDrawerOnly = () => {
+    const style = document.createElement('style');
+    style.id = 'drawer-only-print-style';
+    style.innerHTML = `
+      @media print {
+        body * {
+          display: none !important;
+        }
+        html, body {
+          background: #fff !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 1px !important;
+          height: 1px !important;
+          overflow: hidden !important;
+        }
+        #drawer-kick-container {
+          display: block !important;
+          width: 1px !important;
+          height: 1px !important;
+          overflow: hidden !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+
+    const div = document.createElement('div');
+    div.id = 'drawer-kick-container';
+    div.innerHTML = '&nbsp;';
+    document.body.appendChild(div);
+
+    window.print();
+
+    setTimeout(() => {
+      document.getElementById('drawer-only-print-style')?.remove();
+      document.getElementById('drawer-kick-container')?.remove();
+    }, 1000);
+  };
+
   const handleWhatsAppConfirm = () => {
     WhatsAppService.sendOrderNotification(order, adminPhone);
   };
@@ -313,6 +352,12 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
           <span>🖨️</span> طباعة الفاتورة
         </button>
         <button 
+          onClick={handleOpenDrawerOnly} 
+          className="flex items-center justify-center gap-2 bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 transition active:scale-95 shadow-xl cursor-pointer"
+        >
+          <span>🔓</span> فتح الدرج فقط
+        </button>
+        <button 
           onClick={handleShareScreenshot} 
           disabled={isCapturing}
           className="flex items-center justify-center gap-2 bg-blue-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-blue-700 transition active:scale-95 shadow-xl disabled:opacity-50 cursor-pointer"
@@ -321,13 +366,13 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
         </button>
         <button 
           onClick={handleWhatsAppConfirm} 
-          className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white py-4 rounded-2xl font-black text-sm transition active:scale-95 shadow-xl sm:col-span-2 cursor-pointer"
+          className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white py-4 rounded-2xl font-black text-sm transition active:scale-95 shadow-xl cursor-pointer"
         >
           <span>💬</span> تأكيد وإرسال عبر واتساب
         </button>
         <button 
           onClick={onContinueShopping} 
-          className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-4 rounded-2xl font-black text-sm hover:bg-slate-250 transition active:scale-95 shadow-sm sm:col-span-2 cursor-pointer"
+          className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition active:scale-95 shadow-sm sm:col-span-2 cursor-pointer"
         >
           العودة للمتجر
         </button>
