@@ -108,8 +108,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'analytics': return <AnalyticsTab isOnline={props.isOnline} />;
       case 'products': return <ProductsTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} initialFilter={adminFilter} onPrintBarcode={props.onPrintBarcode} />;
       case 'categories': return <CategoriesTab {...tabProps} />;
-      case 'invoices': return <OrdersTab {...tabProps} mode="invoices" adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
-      case 'store-orders': return <OrdersTab {...tabProps} mode="store-orders" adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} />;
+      case 'invoices': return <OrdersTab {...tabProps} mode="invoices" adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} initialFilter={adminFilter} onNavigateToTab={handleTabChange} />;
+      case 'store-orders': return <OrdersTab {...tabProps} mode="store-orders" adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} initialFilter={adminFilter} onNavigateToTab={handleTabChange} />;
       case 'members': return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'suppliers': return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
       case 'reports': return <ReportsTab orders={safeOrders} adminSummary={props.adminSummary} />;

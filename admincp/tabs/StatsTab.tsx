@@ -23,6 +23,40 @@ const StatsTab: React.FC<StatsTabProps> = ({
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
   const [activeShiftExpenses, setActiveShiftExpenses] = useState<number>(0);
 
+  const [activeModal, setActiveModal] = useState<'sales' | 'profit' | 'cash' | 'digital' | 'debt' | 'expenses' | null>(null);
+  const [shiftDetails, setShiftDetails] = useState<any>(null);
+  const [shiftExpenses, setShiftExpenses] = useState<any[]>([]);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+
+  const fetchShiftDetails = (type: any) => {
+    setActiveModal(type);
+    if (!activeShift || !activeShift.id) return;
+    setIsLoadingDetails(true);
+    setDetailsError(null);
+    setShiftDetails(null);
+
+    Promise.all([
+      ApiService.getShiftDetails(activeShift.id),
+      ApiService.getExpenses()
+    ])
+      .then(([details, expenses]) => {
+        if (!details) {
+          throw new Error('تعذر جلب تفاصيل الوردية من السيرفر');
+        }
+        setShiftDetails(details);
+        const relatedExpenses = expenses.filter((e: any) => e.shiftId === activeShift.id && e.status === 'active');
+        setShiftExpenses(relatedExpenses);
+      })
+      .catch(err => {
+        console.error("Error loading shift details:", err);
+        setDetailsError(err.message || 'فشل الاتصال بالسيرفر. يرجى التحقق من الشبكة وإعادة المحاولة.');
+      })
+      .finally(() => {
+        setIsLoadingDetails(false);
+      });
+  };
+
   useEffect(() => {
     ApiService.getActiveShift()
       .then(shift => {
@@ -321,7 +355,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
             {/* الصف الأول: 4 بطاقات رئيسية */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {/* مبيعات الوردية */}
-              <div className="group relative bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 rounded-2xl shadow-lg shadow-emerald-100 overflow-hidden">
+              <div 
+                onClick={() => fetchShiftDetails('sales')} 
+                className="group relative bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 rounded-2xl shadow-lg shadow-emerald-100 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -left-3 -bottom-3 w-16 h-16 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-3">
@@ -334,7 +371,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
 
               {/* صافي ربح الوردية */}
-              <div className="group relative bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-lg shadow-slate-200 overflow-hidden">
+              <div 
+                onClick={() => fetchShiftDetails('profit')} 
+                className="group relative bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-lg shadow-slate-200 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -right-3 -top-3 w-16 h-16 bg-emerald-500/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-3">
@@ -347,7 +387,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
 
               {/* عدد الفواتير */}
-              <div className="group relative bg-gradient-to-br from-indigo-500 to-violet-600 p-5 rounded-2xl shadow-lg shadow-indigo-100 overflow-hidden">
+              <div 
+                onClick={() => onNavigateToTab('invoices', '', 'shift:' + activeShift.id)} 
+                className="group relative bg-gradient-to-br from-indigo-500 to-violet-600 p-5 rounded-2xl shadow-lg shadow-indigo-100 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -left-3 -top-3 w-16 h-16 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-3">
@@ -360,7 +403,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
 
               {/* رصيد الدرج */}
-              <div className="group relative bg-gradient-to-br from-amber-400 to-orange-500 p-5 rounded-2xl shadow-lg shadow-amber-100 overflow-hidden">
+              <div 
+                onClick={() => fetchShiftDetails('cash')} 
+                className="group relative bg-gradient-to-br from-amber-400 to-orange-500 p-5 rounded-2xl shadow-lg shadow-amber-100 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -right-3 -bottom-3 w-16 h-16 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-3">
@@ -376,7 +422,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
             {/* تفاصيل طرق الدفع والمصروفات بالوردية */}
             <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mt-4">
               {/* إجمالي نقدي */}
-              <div className="group relative bg-gradient-to-br from-emerald-600 to-teal-600 p-4 rounded-2xl shadow-md overflow-hidden">
+              <div 
+                onClick={() => fetchShiftDetails('cash')} 
+                className="group relative bg-gradient-to-br from-emerald-600 to-teal-600 p-4 rounded-2xl shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -left-2 -bottom-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
@@ -389,7 +438,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
 
               {/* إجمالي فودافون كاش */}
-              <div className="group relative bg-gradient-to-br from-red-600 to-rose-700 p-4 rounded-2xl shadow-md overflow-hidden">
+              <div 
+                onClick={() => fetchShiftDetails('digital')} 
+                className="group relative bg-gradient-to-br from-red-600 to-rose-700 p-4 rounded-2xl shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -right-2 -top-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
@@ -402,7 +454,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
 
               {/* إجمالي انستا باي */}
-              <div className="group relative bg-gradient-to-br from-pink-600 to-pink-800 p-4 rounded-2xl shadow-md overflow-hidden">
+              <div 
+                onClick={() => fetchShiftDetails('digital')} 
+                className="group relative bg-gradient-to-br from-pink-600 to-pink-800 p-4 rounded-2xl shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -left-2 -top-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
@@ -415,7 +470,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
 
               {/* إجمالي الفيزا */}
-              <div className="group relative bg-gradient-to-br from-cyan-600 to-blue-700 p-4 rounded-2xl shadow-md overflow-hidden">
+              <div 
+                onClick={() => fetchShiftDetails('digital')} 
+                className="group relative bg-gradient-to-br from-cyan-600 to-blue-700 p-4 rounded-2xl shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -right-2 -bottom-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
@@ -428,7 +486,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
 
               {/* إجمالي أجل الوردية */}
-              <div className="group relative bg-gradient-to-br from-amber-500 to-amber-600 p-4 rounded-2xl shadow-md overflow-hidden">
+              <div 
+                onClick={() => fetchShiftDetails('debt')} 
+                className="group relative bg-gradient-to-br from-amber-500 to-amber-600 p-4 rounded-2xl shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -left-2 -bottom-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
@@ -441,7 +502,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
 
               {/* مصروفات الوردية */}
-              <div className="group relative bg-gradient-to-br from-rose-500 to-red-600 p-4 rounded-2xl shadow-md overflow-hidden animate-pulse-once">
+              <div 
+                onClick={() => fetchShiftDetails('expenses')} 
+                className="group relative bg-gradient-to-br from-rose-500 to-red-600 p-4 rounded-2xl shadow-md overflow-hidden animate-pulse-once cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
                 <div className="absolute -right-2 -top-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
@@ -618,6 +682,20 @@ const StatsTab: React.FC<StatsTabProps> = ({
            </div>
         </div>
       </div>
+
+      {activeModal && (
+        <ShiftDetailsModal
+          type={activeModal}
+          activeShift={activeShift}
+          isLoading={isLoadingDetails}
+          details={shiftDetails}
+          expenses={shiftExpenses}
+          error={detailsError}
+          onClose={() => { setActiveModal(null); setShiftDetails(null); setDetailsError(null); }}
+          onRetry={() => fetchShiftDetails(activeModal)}
+          onNavigateToTab={onNavigateToTab}
+        />
+      )}
     </div>
   );
 };
@@ -629,6 +707,458 @@ const QuickActionButton = ({ label, icon, onClick }: any) => (
   </button>
 );
 
+const ShiftDetailsModal = ({ 
+  type, activeShift, isLoading, details, expenses, error, onClose, onRetry, onNavigateToTab 
+}: { 
+  type: 'sales' | 'profit' | 'cash' | 'digital' | 'debt' | 'expenses';
+  activeShift: Shift | null;
+  isLoading: boolean;
+  details: any;
+  expenses: any[];
+  error: string | null;
+  onClose: () => void;
+  onRetry: () => void;
+  onNavigateToTab: (tab: any, search?: string, filter?: string) => void;
+}) => {
+  const getModalTitle = () => {
+    switch (type) {
+      case 'sales': return '📊 ملخص مبيعات الوردية';
+      case 'profit': return '📈 تفاصيل أرباح الوردية';
+      case 'cash': return '💵 تفاصيل النقدية والدرج';
+      case 'digital': return '💳 تفاصيل الدفع الإلكتروني والبنكي';
+      case 'debt': return '⏳ تفاصيل فواتير الآجل (الديون)';
+      case 'expenses': return '📤 مصروفات الوردية';
+      default: return 'ملخص تفصيلي';
+    }
+  };
+
+  const renderContent = () => {
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center">
+          <span className="text-4xl text-rose-500 font-Cairo">⚠️</span>
+          <p className="text-sm font-black text-rose-600 font-Cairo">{error}</p>
+          <button 
+            onClick={onRetry} 
+            className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-xl font-black text-xs transition-all active:scale-95 cursor-pointer font-Cairo"
+          >
+            إعادة المحاولة 🔄
+          </button>
+        </div>
+      );
+    }
+
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <div className="w-10 h-10 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs font-black text-slate-500 animate-pulse font-Cairo">جاري تحميل البيانات التفصيلية من السيرفر...</p>
+        </div>
+      );
+    }
+
+    const shiftOrders = details?.orders || [];
+
+    switch (type) {
+      case 'sales': {
+        const totalSales = shiftOrders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
+        const avgOrder = shiftOrders.length > 0 ? Math.round(totalSales / shiftOrders.length) : 0;
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-emerald-50 p-4 rounded-2xl text-center border border-emerald-100">
+                <p className="text-[9px] font-bold text-emerald-600 mb-1">إجمالي المبيعات</p>
+                <p className="text-sm font-black text-emerald-800">{totalSales.toLocaleString()} ج.م</p>
+              </div>
+              <div className="bg-indigo-50 p-4 rounded-2xl text-center border border-indigo-100">
+                <p className="text-[9px] font-bold text-indigo-600 mb-1">الفواتير</p>
+                <p className="text-sm font-black text-indigo-800">{shiftOrders.length} فاتورة</p>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+                <p className="text-[9px] font-bold text-slate-500 mb-1">متوسط الفاتورة</p>
+                <p className="text-sm font-black text-slate-800">{avgOrder} ج.م</p>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 border-b pb-1">سجل المبيعات</h4>
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {shiftOrders.length === 0 ? (
+                  <p className="text-center py-6 text-slate-300 font-bold text-xs">لا توجد فواتير في هذه الوردية</p>
+                ) : (
+                  shiftOrders.map((o: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-100 transition-colors">
+                      <div>
+                        <p className="font-black text-slate-700 text-xs">#{o.id} - {o.customerName || 'عميل نقدي'}</p>
+                        <p className="text-[9px] text-slate-400 font-bold mt-0.5">{new Date(o.createdAt).toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'})} · {o.phone || 'بدون هاتف'}</p>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-black text-emerald-600 text-xs">{Number(o.total || 0).toLocaleString()} ج.م</p>
+                        <span className="text-[8px] font-bold text-slate-400 bg-white border border-slate-100 px-1.5 py-0.5 rounded-md mt-0.5 inline-block">{o.paymentMethod || 'نقدي'}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <button 
+              onClick={() => { onClose(); onNavigateToTab('invoices', '', 'shift:' + activeShift?.id); }}
+              className="w-full bg-slate-900 text-white font-black text-xs py-3.5 rounded-xl active:scale-95 transition-all text-center cursor-pointer"
+            >
+              عرض كافة الفواتير في صفحة إدارة الفواتير بالتفصيل ←
+            </button>
+          </div>
+        );
+      }
+
+      case 'profit': {
+        const totalSales = shiftOrders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
+        let cost = 0;
+        shiftOrders.forEach((o: any) => {
+          if (o.items) {
+            o.items.forEach((item: any) => {
+              cost += (Number(item.actualWholesalePrice) || Number(item.wholesalePrice) || 0) * (Number(item.quantity) || 0);
+            });
+          }
+        });
+        const totalExp = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+        const netProfit = totalSales - cost - totalExp;
+
+        return (
+          <div className="space-y-6">
+            <div className="bg-slate-900 text-white p-6 rounded-3xl text-center relative overflow-hidden">
+              <div className="absolute right-0 top-0 w-16 h-16 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+              <p className="text-xs font-bold text-slate-400 mb-1">صافي الربح الفعلي للوردية</p>
+              <p className={`text-3xl font-black ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{netProfit.toLocaleString()} ج.م</p>
+              <p className="text-[9px] text-slate-500 font-bold mt-1.5">الحساب يتم بالكامل من السيرفر بالمعادلة التالية:</p>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-4">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-500">إجمالي مبيعات الوردية (+)</span>
+                <span className="font-black text-slate-800">+{totalSales.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-500">تكلفة البضاعة المباعة (-)</span>
+                <span className="font-black text-rose-500">-{cost.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-500">المصروفات النشطة للوردية (-)</span>
+                <span className="font-black text-rose-500">-{totalExp.toLocaleString()} ج.م</span>
+              </div>
+              <div className="h-px bg-slate-200"></div>
+              <div className="flex justify-between items-center text-sm font-black">
+                <span className="text-slate-800">صافي الربح النهائي للوردية</span>
+                <span className={netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{netProfit.toLocaleString()} ج.م</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      case 'cash': {
+        const startCash = activeShift?.startingCash || 0;
+        
+        let cashSales = 0;
+        shiftOrders.forEach((o: any) => {
+          if (o.payments && o.payments.length > 0) {
+            o.payments.forEach((p: any) => {
+              const method = String(p.method || '').toLowerCase();
+              if (method === 'cash' || method.includes('نقدي')) {
+                cashSales += Number(p.amount);
+              }
+            });
+          } else {
+            const methodStr = String(o.paymentMethod || '').toLowerCase();
+            if (methodStr.includes('نقدي') || methodStr.includes('عند الاستلام') || methodStr === 'cash') {
+              cashSales += Number(o.total || 0);
+            }
+          }
+        });
+
+        const txs = details?.transactions || [];
+        const deposits = txs.filter((t: any) => t.type === 'deposit').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+        const withdrawals = txs.filter((t: any) => t.type === 'withdrawal').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+        const drawerExpenses = expenses.filter((e: any) => e.paymentSource === 'drawer').reduce((sum, e) => sum + Number(e.amount), 0);
+
+        const expectedCash = startCash + cashSales + deposits - withdrawals - drawerExpenses;
+
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-amber-50 p-4 rounded-2xl text-center border border-amber-100">
+                <p className="text-[9px] font-bold text-amber-600 mb-1">الرصيد الحالي بالدرج</p>
+                <p className="text-sm font-black text-amber-800">{(activeShift?.currentCashBalance || 0).toLocaleString()} ج.م</p>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+                <p className="text-[9px] font-bold text-slate-500 mb-1">الرصيد المالي المتوقع</p>
+                <p className="text-sm font-black text-slate-800">{expectedCash.toLocaleString()} ج.م</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-slate-500">رصيد البداية (الدرج)</span>
+                <span className="font-black text-slate-800">+{startCash.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-slate-500">المبيعات النقدية (+)</span>
+                <span className="font-black text-emerald-600">+{cashSales.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-slate-500">إيداعات يدوية (+)</span>
+                <span className="font-black text-emerald-600">+{deposits.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-slate-500">سحوبات يدوية (-)</span>
+                <span className="font-black text-rose-500">-{withdrawals.toLocaleString()} ج.م</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-slate-500">مصروفات من الدرج (-)</span>
+                <span className="font-black text-rose-500">-{drawerExpenses.toLocaleString()} ج.م</span>
+              </div>
+              <div className="h-px bg-slate-200 my-1"></div>
+              <div className="flex justify-between items-center font-black text-sm">
+                <span className="text-slate-800">الرصيد المتوقع للدرج</span>
+                <span className="text-slate-900">{expectedCash.toLocaleString()} ج.م</span>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 border-b pb-1">سجل الحركات اليدوية</h4>
+              <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {txs.length === 0 ? (
+                  <p className="text-center py-4 text-slate-300 font-bold text-xs">لا توجد حركات يدوية مسجلة</p>
+                ) : (
+                  txs.map((t: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center p-3 bg-slate-100/50 rounded-xl border border-slate-100">
+                      <div>
+                        <p className="font-black text-slate-700 text-xs">{t.reason}</p>
+                        <p className="text-[9px] text-slate-400 font-bold mt-0.5">{new Date(t.createdAt).toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'})} · {t.userName}</p>
+                      </div>
+                      <span className={`text-xs font-black ${t.type === 'deposit' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                        {t.type === 'deposit' ? '+' : '-'}{t.amount.toLocaleString()} ج.م
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      case 'digital': {
+        let vodafone = 0;
+        let instapay = 0;
+        let visa = 0;
+
+        shiftOrders.forEach((o: any) => {
+          if (o.payments && o.payments.length > 0) {
+            o.payments.forEach((p: any) => {
+              const method = String(p.method || '').toLowerCase();
+              const amount = Number(p.amount || 0);
+              if (method === 'vodafone' || method.includes('فودافون')) {
+                vodafone += amount;
+              } else if (method === 'instapay' || method.includes('انستا')) {
+                instapay += amount;
+              } else if (method === 'visa' || method.includes('فيزا') || method.includes('card') || method.includes('بطاقة')) {
+                visa += amount;
+              }
+            });
+          } else {
+            const methodStr = String(o.paymentMethod || '').toLowerCase();
+            const totalAmount = Number(o.total || 0);
+            if (methodStr.includes('فودافون') || methodStr.includes('vodafone')) {
+              vodafone += totalAmount;
+            } else if (methodStr.includes('انستا') || methodStr.includes('instapay')) {
+              instapay += totalAmount;
+            } else if (methodStr.includes('فيزا') || methodStr.includes('visa') || methodStr.includes('card') || methodStr.includes('بطاقة')) {
+              visa += totalAmount;
+            }
+          }
+        });
+
+        const totalDigital = vodafone + instapay + visa;
+        const digitalOrders = shiftOrders.filter((o: any) => {
+          const method = String(o.paymentMethod || '').toLowerCase();
+          return method.includes('vodafone') || method.includes('فودافون') || method.includes('انستا') || method.includes('instapay') || method.includes('فيزا') || method.includes('visa') || method.includes('card') || method.includes('بطاقة') || (o.payments && o.payments.some((p: any) => p.method !== 'cash'));
+        });
+
+        return (
+          <div className="space-y-6">
+            <div className="bg-indigo-600 text-white p-5 rounded-3xl text-center">
+              <p className="text-xs font-bold text-indigo-200 mb-1">إجمالي الدفع الإلكتروني والبنكي</p>
+              <p className="text-2xl font-black">{totalDigital.toLocaleString()} ج.م</p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 text-center text-xs">
+              <div className="bg-red-50 p-3 rounded-2xl border border-red-100 text-red-800">
+                <p className="text-[9px] font-bold text-red-500 mb-1">📱 فودافون كاش</p>
+                <p className="font-black text-sm">{vodafone.toLocaleString()} ج.م</p>
+              </div>
+              <div className="bg-pink-50 p-3 rounded-2xl border border-pink-100 text-pink-800">
+                <p className="text-[9px] font-bold text-pink-500 mb-1">💸 انستا باي</p>
+                <p className="font-black text-sm">{instapay.toLocaleString()} ج.م</p>
+              </div>
+              <div className="bg-cyan-50 p-3 rounded-2xl border border-cyan-100 text-cyan-800">
+                <p className="text-[9px] font-bold text-cyan-500 mb-1">💳 الفيزا والبطاقات</p>
+                <p className="font-black text-sm">{visa.toLocaleString()} ج.م</p>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 border-b pb-1">الفواتير الإلكترونية</h4>
+              <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {digitalOrders.length === 0 ? (
+                  <p className="text-center py-4 text-slate-300 font-bold text-xs">لا توجد عمليات دفع إلكترونية في هذه الوردية</p>
+                ) : (
+                  digitalOrders.map((o: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-100 transition-colors">
+                      <div>
+                        <p className="font-black text-slate-700 text-xs">#{o.id} - {o.customerName || 'عميل نقدي'}</p>
+                        <p className="text-[9px] text-slate-400 font-bold mt-0.5">{new Date(o.createdAt).toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'})}</p>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-black text-indigo-600 text-xs">{Number(o.total || 0).toLocaleString()} ج.م</p>
+                        <span className="text-[8px] font-bold text-slate-400 bg-white border border-slate-100 px-1.5 py-0.5 rounded-md mt-0.5 inline-block">{o.paymentMethod}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      case 'debt': {
+        let debtSales = 0;
+        shiftOrders.forEach((o: any) => {
+          if (o.payments && o.payments.length > 0) {
+            debtSales += Number(o.outstandingAmount || 0);
+          } else {
+            const methodStr = String(o.paymentMethod || '').toLowerCase();
+            if (methodStr.includes('آجل') || methodStr.includes('debt') || methodStr.includes('credit')) {
+              debtSales += Number(o.total || 0);
+            }
+          }
+        });
+
+        const creditOrders = shiftOrders.filter((o: any) => {
+          const method = String(o.paymentMethod || '').toLowerCase();
+          return method.includes('آجل') || method.includes('debt') || method.includes('credit') || Number(o.outstandingAmount || 0) > 0;
+        });
+
+        return (
+          <div className="space-y-6">
+            <div className="bg-orange-500 text-white p-5 rounded-3xl text-center">
+              <p className="text-xs font-bold text-orange-100 mb-1">إجمالي المبيعات الآجلة (الديون) بالوردية</p>
+              <p className="text-2xl font-black">{debtSales.toLocaleString()} ج.م</p>
+            </div>
+
+            <div>
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 border-b pb-1">الفواتير الآجلة</h4>
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {creditOrders.length === 0 ? (
+                  <p className="text-center py-4 text-slate-300 font-bold text-xs">لا توجد فواتير آجلة في هذه الوردية</p>
+                ) : (
+                  creditOrders.map((o: any, i: number) => {
+                    const outstanding = o.outstandingAmount !== undefined ? o.outstandingAmount : o.total;
+                    return (
+                      <div key={i} className="flex justify-between items-center p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-100 transition-colors">
+                        <div>
+                          <p className="font-black text-slate-700 text-xs">#{o.id} - {o.customerName}</p>
+                          <p className="text-[9px] text-slate-400 font-bold mt-0.5">{new Date(o.createdAt).toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'})} · {o.phone || 'بدون هاتف'}</p>
+                        </div>
+                        <div className="text-left">
+                          <p className="font-black text-orange-600 text-xs">{Number(outstanding).toLocaleString()} ج.م</p>
+                          <span className="text-[8px] font-bold text-slate-400 bg-white border border-slate-100 px-1.5 py-0.5 rounded-md mt-0.5 inline-block">مستحق</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      case 'expenses': {
+        const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+        return (
+          <div className="space-y-6">
+            <div className="bg-rose-600 text-white p-5 rounded-3xl text-center">
+              <p className="text-xs font-bold text-rose-200 mb-1">إجمالي مصروفات الوردية</p>
+              <p className="text-2xl font-black">{totalExpenses.toLocaleString()} ج.م</p>
+            </div>
+
+            <div>
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 border-b pb-1">كشف المصروفات بالوردية</h4>
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {expenses.length === 0 ? (
+                  <p className="text-center py-4 text-slate-300 font-bold text-xs">لا توجد مصروفات مسجلة في هذه الوردية</p>
+                ) : (
+                  expenses.map((e: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-100 transition-colors">
+                      <div>
+                        <p className="font-black text-slate-700 text-xs">{e.title} · <span className="text-[10px] font-bold text-slate-400">{e.category}</span></p>
+                        <p className="text-[9px] text-slate-400 font-bold mt-0.5">{new Date(e.date || e.createdAt || Date.now()).toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'})} · طريقة الدفع: {e.paymentSource === 'drawer' ? 'درج الخزينة' : 'مصدر خارجي'}</p>
+                        {e.notes && <p className="text-[9px] text-slate-500 mt-1 bg-slate-100 p-1.5 rounded-lg font-bold">{e.notes}</p>}
+                      </div>
+                      <span className="text-xs font-black text-rose-600">
+                        -{Number(e.amount).toLocaleString()} ج.م
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden animate-scaleUp max-h-[85vh] flex flex-col font-Cairo text-right" dir="rtl">
+        {/* Modal Header */}
+        <div className="px-8 py-6 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div>
+            <h3 className="text-lg font-black">{getModalTitle()}</h3>
+            <p className="text-slate-400 text-[10px] font-bold mt-0.5">الوردية #{activeShift?.id} · {activeShift?.shiftName}</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-xl flex items-center justify-center font-bold text-lg transition-all active:scale-95 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-8 overflow-y-auto flex-grow space-y-6">
+          {renderContent()}
+        </div>
+
+        {/* Modal Footer */}
+        <div className="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+          <button 
+            onClick={onClose}
+            className="bg-slate-950 text-white px-6 py-2.5 rounded-xl font-black text-xs transition-all active:scale-95 cursor-pointer"
+          >
+            إغلاق النافذة
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default StatsTab;
 

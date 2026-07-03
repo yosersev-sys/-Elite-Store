@@ -13,13 +13,23 @@ interface OrdersTabProps {
   onUpdateOrderPayment: (id: string, paymentMethod: string) => Promise<void> | void;
   onReturnOrder: (id: string) => Promise<void> | void;
   mode?: 'invoices' | 'store-orders';
+  initialFilter?: string;
+  onNavigateToTab?: (tab: any, search?: string, filter?: string) => void;
 }
 
-const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, setAdminSearch, onViewOrder, onEditOrder, onUpdateOrderPayment, onReturnOrder, mode }) => {
+const OrdersTab: React.FC<OrdersTabProps> = ({ 
+  orders, adminSearch, isLoading, setAdminSearch, onViewOrder, 
+  onEditOrder, onUpdateOrderPayment, onReturnOrder, mode,
+  initialFilter, onNavigateToTab
+}) => {
   const [orderPage, setOrderPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'cancelled'>('all');
   const ordersPerPage = 10;
   const [processingIds, setProcessingIds] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    setOrderPage(1);
+  }, [initialFilter]);
 
   const handleReturnOrder = async (id: string) => {
     const isInv = id.startsWith('INV-') || id.startsWith('OFF-');
@@ -60,6 +70,35 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
     if (statusFilter !== 'all') {
       result = result.filter(o => o.status === statusFilter);
     }
+
+    // Apply generic key:value filter
+    if (initialFilter && initialFilter.includes(':')) {
+      const parts = initialFilter.split(':');
+      const key = parts[0].trim().toLowerCase();
+      const val = parts.slice(1).join(':').trim().toLowerCase();
+
+      if (key === 'shift') {
+        const shiftId = Number(val);
+        if (!isNaN(shiftId)) {
+          result = result.filter(o => o.confirmedShiftId === shiftId || o.shiftId === shiftId);
+        }
+      } else if (key === 'customer') {
+        result = result.filter(o => 
+          (o.userId && o.userId.toLowerCase() === val) || 
+          (o.customerName && o.customerName.toLowerCase().includes(val))
+        );
+      } else if (key === 'employee') {
+        result = result.filter(o => o.confirmedBy && o.confirmedBy.toLowerCase().includes(val));
+      } else if (key === 'payment') {
+        result = result.filter(o => {
+          if (o.payments && o.payments.length > 0) {
+            return o.payments.some(p => String(p.method).toLowerCase().includes(val));
+          }
+          return String(o.paymentMethod).toLowerCase().includes(val);
+        });
+      }
+    }
+
     const q = adminSearch.toLowerCase().trim();
     if (!q) return result;
     return result.filter(o => 
@@ -68,7 +107,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
       (o.phone && o.phone.includes(q)) ||
       (o.paymentMethod && String(o.paymentMethod).toLowerCase().includes(q))
     );
-  }, [orders, adminSearch, statusFilter, mode]);
+  }, [orders, adminSearch, statusFilter, mode, initialFilter]);
 
   const handleStatusFilterChange = (filter: 'all' | 'pending' | 'completed' | 'cancelled') => {
     setStatusFilter(filter);
@@ -159,6 +198,38 @@ const OrdersTab: React.FC<OrdersTabProps> = ({ orders, adminSearch, isLoading, s
           <span className="absolute left-4 top-3.5 text-slate-300">🔍</span>
         </div>
       </div>
+
+      {initialFilter && initialFilter.includes(':') && (
+        <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex items-center justify-between text-xs font-bold text-indigo-800 animate-fadeIn" dir="rtl">
+          <span className="flex items-center gap-2">
+            <span className="text-sm">🔍</span>
+            <span>
+              {(() => {
+                const parts = initialFilter.split(':');
+                const key = parts[0].trim().toLowerCase();
+                const val = parts.slice(1).join(':').trim();
+                if (key === 'shift') {
+                  return `أنت تعرض الآن فواتير الوردية رقم #${val} فقط`;
+                } else if (key === 'customer') {
+                  return `أنت تعرض الآن فواتير العميل: ${val}`;
+                } else if (key === 'employee') {
+                  return `أنت تعرض الآن فواتير البائع: ${val}`;
+                } else if (key === 'payment') {
+                  return `أنت تعرض الآن فواتير طريقة الدفع: ${val}`;
+                }
+                return `تصفية نشطة: ${key} = ${val}`;
+              })()}
+            </span>
+          </span>
+          <button 
+            onClick={() => onNavigateToTab && onNavigateToTab(mode === 'store-orders' ? 'store-orders' : 'invoices', '', 'all')}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-xl font-black transition-all active:scale-95 cursor-pointer"
+          >
+            عرض كل الفواتير ✕
+          </button>
+        </div>
+      )}
+
       <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-right text-sm">
           <thead>
