@@ -22,11 +22,40 @@ function sendRes($data) {
     exit;
 }
 
+function translateDbError($msg) {
+    if (stripos($msg, 'Duplicate entry') !== false) {
+        preg_match("/Duplicate entry '([^']+)'/i", $msg, $matches);
+        $val = isset($matches[1]) ? $matches[1] : '';
+        
+        if (stripos($msg, 'barcode') !== false || (is_numeric($val) && strlen($val) > 5)) {
+            return "هذا الباركود أو الرمز ($val) مسجل لمنتج آخر بالفعل. يرجى استخدام باركود فريد.";
+        }
+        if (stripos($msg, 'phone') !== false) {
+            return "رقم الهاتف ($val) مسجل بالفعل لمستعمل آخر.";
+        }
+        return "القيمة المدخلة ($val) مكررة وموجودة بالفعل في النظام.";
+    }
+    
+    if (stripos($msg, 'a foreign key constraint fails') !== false || stripos($msg, 'cannot delete or update a parent row') !== false) {
+        return "لا يمكن إتمام العملية لوجود بيانات وسجلات مرتبطة بهذا العنصر في أقسام أخرى من النظام.";
+    }
+    
+    if (stripos($msg, 'cannot be null') !== false || (stripos($msg, 'Column') !== false && stripos($msg, 'null') !== false)) {
+        return "يرجى التأكد من ملء الحقول المطلوبة بالكامل وبشكل صحيح.";
+    }
+    
+    return $msg;
+}
+
 // دالة المساعدة لإرسال الخطأ مع حماية من تداخل العمليات
 function sendErr($msg, $code = 400, $debug = null) {
     if (isset($GLOBALS['pdo']) && $GLOBALS['pdo']->inTransaction()) $GLOBALS['pdo']->rollBack();
     http_response_code($code);
-    sendRes(['status' => 'error', 'message' => $msg, 'debug' => $debug]);
+    
+    // ترجمة رسائل الخطأ الخاصة بالداتابيز لتكون صديقة للمستخدم باللغة العربية
+    $friendlyMsg = translateDbError($msg);
+    
+    sendRes(['status' => 'error', 'message' => $friendlyMsg, 'debug' => $debug]);
 }
 
 function isAdmin() {
