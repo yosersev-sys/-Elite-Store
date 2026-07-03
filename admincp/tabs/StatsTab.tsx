@@ -732,6 +732,163 @@ const ShiftDetailsModal = ({
     }
   };
 
+  // الحسابات المالية المسبقة للوردية لتمريرها للطباعة الحرارية
+  const shiftOrders = details?.orders || [];
+  const totalSales = shiftOrders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
+  const avgOrder = shiftOrders.length > 0 ? Math.round(totalSales / shiftOrders.length) : 0;
+
+  let cost = 0;
+  shiftOrders.forEach((o: any) => {
+    if (o.items) {
+      o.items.forEach((item: any) => {
+        cost += (Number(item.actualWholesalePrice) || Number(item.wholesalePrice) || 0) * (Number(item.quantity) || 0);
+      });
+    }
+  });
+  
+  const totalExp = (expenses || []).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  const netProfit = totalSales - cost - totalExp;
+
+  const startCash = activeShift?.startingCash || 0;
+  
+  let cashSales = 0;
+  shiftOrders.forEach((o: any) => {
+    if (o.payments && o.payments.length > 0) {
+      o.payments.forEach((p: any) => {
+        const method = String(p.method || '').toLowerCase();
+        if (method === 'cash' || method.includes('نقدي')) {
+          cashSales += Number(p.amount);
+        }
+      });
+    } else {
+      const methodStr = String(o.paymentMethod || '').toLowerCase();
+      if (methodStr.includes('نقدي') || methodStr.includes('عند الاستلام') || methodStr === 'cash') {
+        cashSales += Number(o.total || 0);
+      }
+    }
+  });
+
+  const txs = details?.transactions || [];
+  const deposits = txs.filter((t: any) => t.type === 'deposit').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+  const withdrawals = txs.filter((t: any) => t.type === 'withdrawal').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+  const drawerExpenses = (expenses || []).filter((e: any) => e.paymentSource === 'drawer').reduce((sum, e) => sum + Number(e.amount), 0);
+  const expectedCash = startCash + cashSales + deposits - withdrawals - drawerExpenses;
+
+  let vodafone = 0;
+  let instapay = 0;
+  let visa = 0;
+  shiftOrders.forEach((o: any) => {
+    if (o.payments && o.payments.length > 0) {
+      o.payments.forEach((p: any) => {
+        const method = String(p.method || '').toLowerCase();
+        const amount = Number(p.amount || 0);
+        if (method === 'vodafone' || method.includes('فودافون')) {
+          vodafone += amount;
+        } else if (method === 'instapay' || method.includes('انستا')) {
+          instapay += amount;
+        } else if (method === 'visa' || method.includes('فيزا') || method.includes('card') || method.includes('بطاقة')) {
+          visa += amount;
+        }
+      });
+    } else {
+      const methodStr = String(o.paymentMethod || '').toLowerCase();
+      const totalAmount = Number(o.total || 0);
+      if (methodStr.includes('فودافون') || methodStr.includes('vodafone')) {
+        vodafone += totalAmount;
+      } else if (methodStr.includes('انستا') || methodStr.includes('instapay')) {
+        instapay += totalAmount;
+      } else if (methodStr.includes('فيزا') || methodStr.includes('visa') || methodStr.includes('card') || methodStr.includes('بطاقة')) {
+        visa += totalAmount;
+      }
+    }
+  });
+
+  const totalDigital = vodafone + instapay + visa;
+  const digitalOrders = shiftOrders.filter((o: any) => {
+    const method = String(o.paymentMethod || '').toLowerCase();
+    return method.includes('vodafone') || method.includes('فودافون') || method.includes('انستا') || method.includes('instapay') || method.includes('فيزا') || method.includes('visa') || method.includes('card') || method.includes('بطاقة') || (o.payments && o.payments.some((p: any) => p.method !== 'cash'));
+  });
+
+  let debtSales = 0;
+  shiftOrders.forEach((o: any) => {
+    if (o.payments && o.payments.length > 0) {
+      debtSales += Number(o.outstandingAmount || 0);
+    } else {
+      const methodStr = String(o.paymentMethod || '').toLowerCase();
+      if (methodStr.includes('آجل') || methodStr.includes('debt') || methodStr.includes('credit')) {
+        debtSales += Number(o.total || 0);
+      }
+    }
+  });
+
+  const creditOrders = shiftOrders.filter((o: any) => {
+    const method = String(o.paymentMethod || '').toLowerCase();
+    return method.includes('آجل') || method.includes('debt') || method.includes('credit') || Number(o.outstandingAmount || 0) > 0;
+  });
+
+  // كود تشغيل الطباعة الحرارية للوردية بمقاس 80 مم
+  const handlePrint = () => {
+    const style = document.createElement('style');
+    style.id = 'shift-report-print-style';
+    style.innerHTML = `
+      @media print {
+        @page {
+          size: auto;
+          margin: 0;
+        }
+        body * {
+          visibility: hidden !important;
+        }
+        #thermal-shift-report, #thermal-shift-report * {
+          visibility: visible !important;
+        }
+        #thermal-shift-report {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 80mm !important;
+          max-width: 80mm !important;
+          padding: 6mm !important;
+          margin: 0 !important;
+          background: #fff !important;
+          color: #000 !important;
+          direction: rtl !important;
+          font-family: 'Cairo', 'Arial', sans-serif !important;
+        }
+        #thermal-shift-report * {
+          font-size: 10pt !important;
+          color: #000 !important;
+          line-height: 1.4 !important;
+        }
+        #thermal-shift-report h3 {
+          font-size: 13pt !important;
+          font-weight: bold !important;
+          text-align: center !important;
+          margin-bottom: 2mm !important;
+        }
+        #thermal-shift-report .text-center {
+          text-align: center !important;
+        }
+        #thermal-shift-report .divider {
+          border-top: 1px dashed #000 !important;
+          margin: 3mm 0 !important;
+        }
+        #thermal-shift-report .flex-between {
+          display: flex !important;
+          justify-content: space-between !important;
+        }
+        #thermal-shift-report .font-bold {
+          font-weight: bold !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    window.print();
+    setTimeout(() => {
+      document.getElementById('shift-report-print-style')?.remove();
+    }, 1000);
+  };
+
   const renderContent = () => {
     if (error) {
       return (
@@ -757,12 +914,8 @@ const ShiftDetailsModal = ({
       );
     }
 
-    const shiftOrders = details?.orders || [];
-
     switch (type) {
       case 'sales': {
-        const totalSales = shiftOrders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
-        const avgOrder = shiftOrders.length > 0 ? Math.round(totalSales / shiftOrders.length) : 0;
         return (
           <div className="space-y-6">
             <div className="grid grid-cols-3 gap-3">
@@ -812,18 +965,6 @@ const ShiftDetailsModal = ({
       }
 
       case 'profit': {
-        const totalSales = shiftOrders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
-        let cost = 0;
-        shiftOrders.forEach((o: any) => {
-          if (o.items) {
-            o.items.forEach((item: any) => {
-              cost += (Number(item.actualWholesalePrice) || Number(item.wholesalePrice) || 0) * (Number(item.quantity) || 0);
-            });
-          }
-        });
-        const totalExp = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-        const netProfit = totalSales - cost - totalExp;
-
         return (
           <div className="space-y-6">
             <div className="bg-slate-900 text-white p-6 rounded-3xl text-center relative overflow-hidden">
@@ -857,32 +998,6 @@ const ShiftDetailsModal = ({
       }
 
       case 'cash': {
-        const startCash = activeShift?.startingCash || 0;
-        
-        let cashSales = 0;
-        shiftOrders.forEach((o: any) => {
-          if (o.payments && o.payments.length > 0) {
-            o.payments.forEach((p: any) => {
-              const method = String(p.method || '').toLowerCase();
-              if (method === 'cash' || method.includes('نقدي')) {
-                cashSales += Number(p.amount);
-              }
-            });
-          } else {
-            const methodStr = String(o.paymentMethod || '').toLowerCase();
-            if (methodStr.includes('نقدي') || methodStr.includes('عند الاستلام') || methodStr === 'cash') {
-              cashSales += Number(o.total || 0);
-            }
-          }
-        });
-
-        const txs = details?.transactions || [];
-        const deposits = txs.filter((t: any) => t.type === 'deposit').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-        const withdrawals = txs.filter((t: any) => t.type === 'withdrawal').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-        const drawerExpenses = expenses.filter((e: any) => e.paymentSource === 'drawer').reduce((sum, e) => sum + Number(e.amount), 0);
-
-        const expectedCash = startCash + cashSales + deposits - withdrawals - drawerExpenses;
-
         return (
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-3">
@@ -949,42 +1064,6 @@ const ShiftDetailsModal = ({
       }
 
       case 'digital': {
-        let vodafone = 0;
-        let instapay = 0;
-        let visa = 0;
-
-        shiftOrders.forEach((o: any) => {
-          if (o.payments && o.payments.length > 0) {
-            o.payments.forEach((p: any) => {
-              const method = String(p.method || '').toLowerCase();
-              const amount = Number(p.amount || 0);
-              if (method === 'vodafone' || method.includes('فودافون')) {
-                vodafone += amount;
-              } else if (method === 'instapay' || method.includes('انستا')) {
-                instapay += amount;
-              } else if (method === 'visa' || method.includes('فيزا') || method.includes('card') || method.includes('بطاقة')) {
-                visa += amount;
-              }
-            });
-          } else {
-            const methodStr = String(o.paymentMethod || '').toLowerCase();
-            const totalAmount = Number(o.total || 0);
-            if (methodStr.includes('فودافون') || methodStr.includes('vodafone')) {
-              vodafone += totalAmount;
-            } else if (methodStr.includes('انستا') || methodStr.includes('instapay')) {
-              instapay += totalAmount;
-            } else if (methodStr.includes('فيزا') || methodStr.includes('visa') || methodStr.includes('card') || methodStr.includes('بطاقة')) {
-              visa += totalAmount;
-            }
-          }
-        });
-
-        const totalDigital = vodafone + instapay + visa;
-        const digitalOrders = shiftOrders.filter((o: any) => {
-          const method = String(o.paymentMethod || '').toLowerCase();
-          return method.includes('vodafone') || method.includes('فودافون') || method.includes('انستا') || method.includes('instapay') || method.includes('فيزا') || method.includes('visa') || method.includes('card') || method.includes('بطاقة') || (o.payments && o.payments.some((p: any) => p.method !== 'cash'));
-        });
-
         return (
           <div className="space-y-6">
             <div className="bg-indigo-600 text-white p-5 rounded-3xl text-center">
@@ -1033,23 +1112,6 @@ const ShiftDetailsModal = ({
       }
 
       case 'debt': {
-        let debtSales = 0;
-        shiftOrders.forEach((o: any) => {
-          if (o.payments && o.payments.length > 0) {
-            debtSales += Number(o.outstandingAmount || 0);
-          } else {
-            const methodStr = String(o.paymentMethod || '').toLowerCase();
-            if (methodStr.includes('آجل') || methodStr.includes('debt') || methodStr.includes('credit')) {
-              debtSales += Number(o.total || 0);
-            }
-          }
-        });
-
-        const creditOrders = shiftOrders.filter((o: any) => {
-          const method = String(o.paymentMethod || '').toLowerCase();
-          return method.includes('آجل') || method.includes('debt') || method.includes('credit') || Number(o.outstandingAmount || 0) > 0;
-        });
-
         return (
           <div className="space-y-6">
             <div className="bg-orange-500 text-white p-5 rounded-3xl text-center">
@@ -1086,12 +1148,11 @@ const ShiftDetailsModal = ({
       }
 
       case 'expenses': {
-        const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
         return (
           <div className="space-y-6">
             <div className="bg-rose-600 text-white p-5 rounded-3xl text-center">
               <p className="text-xs font-bold text-rose-200 mb-1">إجمالي مصروفات الوردية</p>
-              <p className="text-2xl font-black">{totalExpenses.toLocaleString()} ج.م</p>
+              <p className="text-2xl font-black">{totalExp.toLocaleString()} ج.م</p>
             </div>
 
             <div>
@@ -1147,14 +1208,138 @@ const ShiftDetailsModal = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+        <div className="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-between items-center shrink-0">
+          {!isLoading && !error && activeShift && (
+            <button 
+              onClick={handlePrint}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 cursor-pointer flex items-center gap-2 font-Cairo"
+            >
+              <span>🖨️ طباعة الوردية (حراري)</span>
+            </button>
+          )}
           <button 
             onClick={onClose}
-            className="bg-slate-950 text-white px-6 py-2.5 rounded-xl font-black text-xs transition-all active:scale-95 cursor-pointer"
+            className="bg-slate-950 text-white px-6 py-3 rounded-2xl font-black text-xs transition-all active:scale-95 cursor-pointer font-Cairo"
           >
             إغلاق النافذة
           </button>
         </div>
+      </div>
+
+      {/* تقرير الوردية للطباعة الحرارية بمقاس 80 مم */}
+      <div id="thermal-shift-report" className="hidden">
+        <div className="text-center font-bold" style={{ fontSize: '13pt' }}>سوق العصر - فاقوس</div>
+        <div className="text-center font-bold" style={{ fontSize: '10pt', marginTop: '1mm' }}>تقرير ملخص الوردية</div>
+        <div className="divider"></div>
+        
+        <div className="flex-between">
+          <span>رقم الوردية:</span>
+          <span className="font-bold">#{activeShift?.id}</span>
+        </div>
+        <div className="flex-between">
+          <span>اسم الوردية:</span>
+          <span className="font-bold">{activeShift?.shiftName}</span>
+        </div>
+        <div className="flex-between">
+          <span>المحاسب المسؤول:</span>
+          <span className="font-bold">{activeShift?.openedByName || 'النظام'}</span>
+        </div>
+        <div className="flex-between">
+          <span>الحالة:</span>
+          <span className="font-bold">{activeShift?.status === 'closed' ? 'مغلقة' : 'مفتوحة'}</span>
+        </div>
+        <div className="flex-between">
+          <span>تاريخ البدء:</span>
+          <span>{activeShift?.startTime ? new Date(activeShift.startTime).toLocaleString('ar-EG') : '-'}</span>
+        </div>
+        {activeShift?.endTime && (
+          <div className="flex-between">
+            <span>تاريخ الإغلاق:</span>
+            <span>{new Date(activeShift.endTime).toLocaleString('ar-EG')}</span>
+          </div>
+        )}
+        
+        <div className="divider"></div>
+        <div className="text-center font-bold" style={{ fontSize: '10pt', margin: '2mm 0 1mm' }}>الملخص المالي للمبيعات</div>
+        <div className="divider"></div>
+        
+        <div className="flex-between">
+          <span>عدد الفواتير الصادرة:</span>
+          <span>{shiftOrders.length} فاتورة</span>
+        </div>
+        <div className="flex-between">
+          <span>إجمالي المبيعات:</span>
+          <span className="font-bold">{totalSales.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between">
+          <span>تكلفة البضاعة المباعة:</span>
+          <span>{cost.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between">
+          <span>المصروفات النشطة:</span>
+          <span>{totalExp.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between font-bold" style={{ fontSize: '11pt', marginTop: '1mm' }}>
+          <span>صافي ربح الوردية:</span>
+          <span>{netProfit.toLocaleString()} ج.م</span>
+        </div>
+        
+        <div className="divider"></div>
+        <div className="text-center font-bold" style={{ fontSize: '10pt', margin: '2mm 0 1mm' }}>تفاصيل حركة الخزينة (الدرج)</div>
+        <div className="divider"></div>
+        
+        <div className="flex-between">
+          <span>نقدية البداية (رصيد الدرج):</span>
+          <span>{startCash.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between">
+          <span>المبيعات النقدية (+):</span>
+          <span className="font-bold">{cashSales.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between">
+          <span>إيداعات يدوية (+):</span>
+          <span>{deposits.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between">
+          <span>سحوبات يدوية (-):</span>
+          <span>{withdrawals.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between">
+          <span>مصروفات من الدرج (-):</span>
+          <span>{drawerExpenses.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between font-bold" style={{ marginTop: '1mm' }}>
+          <span>الرصيد المتوقع بالدرج:</span>
+          <span>{expectedCash.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between font-bold" style={{ fontSize: '11pt' }}>
+          <span>الرصيد الفعلي (المجرود):</span>
+          <span>{(activeShift?.currentCashBalance || 0).toLocaleString()} ج.م</span>
+        </div>
+        
+        <div className="divider"></div>
+        <div className="text-center font-bold" style={{ fontSize: '10pt', margin: '2mm 0 1mm' }}>تفاصيل طرق الدفع والآجل</div>
+        <div className="divider"></div>
+        
+        <div className="flex-between">
+          <span>📱 فودافون كاش:</span>
+          <span>{vodafone.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between">
+          <span>💸 انستا باي:</span>
+          <span>{instapay.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between">
+          <span>💳 فيزا وبطاقات:</span>
+          <span>{visa.toLocaleString()} ج.م</span>
+        </div>
+        <div className="flex-between font-bold" style={{ fontSize: '11pt', marginTop: '1mm' }}>
+          <span>⏳ مبيعات الآجل (الديون):</span>
+          <span>{debtSales.toLocaleString()} ج.م</span>
+        </div>
+        
+        <div className="divider"></div>
+        <p className="text-center" style={{ fontSize: '8pt' }}>طُبع بواسطة نظام سوق العصر للمبيعات</p>
       </div>
     </div>
   );
