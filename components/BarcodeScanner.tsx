@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library';
+import { 
+  MultiFormatReader, 
+  BarcodeFormat, 
+  DecodeHintType, 
+  HTMLCanvasElementLuminanceSource, 
+  HybridBinarizer, 
+  BinaryBitmap 
+} from '@zxing/library';
 
 interface BarcodeScannerProps {
   onScan: (code: string) => void;
@@ -31,7 +38,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
   useEffect(() => {
     let stream: MediaStream | null = null;
     let interval: any = null;
-    let codeReader: BrowserMultiFormatReader | null = null;
+    let isUnmounted = false;
 
     const startCamera = async () => {
       try {
@@ -39,15 +46,16 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
         });
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.setAttribute('playsinline', 'true');
+          videoRef.current.setAttribute('muted', 'true');
+          await videoRef.current.play().catch(err => console.warn("Video play failed:", err));
+        }
 
         // استخدام BarcodeDetector API إذا كان مدعوماً (Chrome/Android)
         if ('BarcodeDetector' in window) {
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.setAttribute('playsinline', 'true');
-            videoRef.current.setAttribute('muted', 'true');
-            await videoRef.current.play().catch(err => console.warn("Video play failed:", err));
-          }
           const barcodeDetector = new (window as any).BarcodeDetector({
             formats: ['ean_13', 'code_128', 'qr_code', 'upc_a']
           });
@@ -69,29 +77,69 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
             }
           }, 500);
         } else {
-          // Fallback to @zxing/library for iOS/Safari/Chrome on iOS
+          // البديل الموثوق للآيفون (iOS): التقاط إطارات الكاميرا ورسمها على كانفاس لفك تشفيرها يدوياً
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
           const hints = new Map();
           hints.set(DecodeHintType.POSSIBLE_FORMATS, [
             BarcodeFormat.EAN_13,
             BarcodeFormat.CODE_128,
             BarcodeFormat.QR_CODE,
-            BarcodeFormat.UPC_A
+            BarcodeFormat.UPC_A,
+            BarcodeFormat.UPC_E,
+            BarcodeFormat.EAN_8
           ]);
           hints.set(DecodeHintType.TRY_HARDER, true);
 
-          codeReader = new BrowserMultiFormatReader(hints);
-          if (videoRef.current) {
-            await codeReader.decodeFromStream(stream, videoRef.current, (result, err) => {
-              if (result && isScanningRef.current) {
-                const code = result.getText();
-                onScanRef.current(code);
-                setIsScanning(false);
-                if (navigator.vibrate) navigator.vibrate(200);
-                if (codeReader) codeReader.reset();
-                setTimeout(() => onCloseRef.current(), 500);
+          const reader = new MultiFormatReader();
+          reader.setHints(hints);
+
+          const scanFrame = () => {
+            if (isUnmounted || !isScanningRef.current || !videoRef.current) return;
+
+            const video = videoRef.current;
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+              const width = video.videoWidth;
+              const height = video.videoHeight;
+              
+              if (width > 0 && height > 0) {
+                canvas.width = width;
+                canvas.height = height;
+                
+                if (ctx) {
+                  // رسم الإطار الحالي للفيديو على الكانفاس
+                  ctx.drawImage(video, 0, 0, width, height);
+                  
+                  try {
+                    const luminanceSource = new HTMLCanvasElementLuminanceSource(canvas);
+                    const binarizer = new HybridBinarizer(luminanceSource);
+                    const binaryBitmap = new BinaryBitmap(binarizer);
+                    
+                    const result = reader.decode(binaryBitmap);
+                    if (result) {
+                      const code = result.getText();
+                      onScanRef.current(code);
+                      setIsScanning(false);
+                      if (navigator.vibrate) navigator.vibrate(200);
+                      setTimeout(() => onCloseRef.current(), 500);
+                      return; // التوقف عن إرسال طلبات أخرى في حال النجاح
+                    }
+                  } catch (e) {
+                    // تجاهل أخطاء عدم العثور على باركود في الإطار الحالي
+                  }
+                }
               }
-            });
-          }
+            }
+            
+            // طلب الإطار التالي طالما أن المسح نشط
+            if (!isUnmounted && isScanningRef.current) {
+              requestAnimationFrame(scanFrame);
+            }
+          };
+
+          // بدء تشغيل حلقة المسح
+          requestAnimationFrame(scanFrame);
         }
       } catch (err) {
         setError("فشل الوصول للكاميرا. تأكد من إعطاء الصلاحيات اللازمة.");
@@ -102,9 +150,9 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
     startCamera();
 
     return () => {
+      isUnmounted = true;
       if (stream) stream.getTracks().forEach(track => track.stop());
       if (interval) clearInterval(interval);
-      if (codeReader) codeReader.reset();
     };
   }, []);
 
