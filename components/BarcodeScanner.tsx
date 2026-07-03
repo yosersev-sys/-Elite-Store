@@ -35,9 +35,9 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
 
     const startCamera = async () => {
       try {
-        // 1. طلب الوصول للكاميرا الخلفية الأساسية (بدون قيود دقة فائقة لتجنب العدسة الواسعة جداً في الآيفون)
+        // 1. طلب الوصول للكاميرا الخلفية الأساسية بدقة عالية لضمان وضوح خطوط الباركود للآيفون
         stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' } 
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
         });
 
         // استخدام BarcodeDetector API إذا كان مدعوماً (Chrome/Android)
