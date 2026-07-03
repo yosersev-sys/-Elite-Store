@@ -60,6 +60,28 @@ const ProductRow = React.memo<{
   const reorder = product.reorderLevel !== undefined ? Number(product.reorderLevel) : 5;
   const isOut = stock <= 0;
   const isLow = stock > 0 && stock < reorder;
+
+  const getEquivalentUnitsText = () => {
+    if (!product.units || product.units.length === 0) return '';
+    const largerUnits = [...product.units]
+      .filter(u => u.conversionFactor > 1 && Number(u.isActive) !== 0)
+      .sort((a, b) => b.conversionFactor - a.conversionFactor);
+    if (largerUnits.length === 0) return '';
+    const targetUnit = largerUnits[0];
+    const factor = Number(targetUnit.conversionFactor || 1);
+    if (factor <= 1) return '';
+    const wholeUnits = Math.floor(stock / factor);
+    const remainder = Math.round(stock % factor);
+    const unitLabel = targetUnit.unitName || 'وحدة';
+    const baseUnitLabel = getUnitArabic(product.baseUnit || product.unit || 'piece');
+    if (wholeUnits === 0) {
+      return `(يعادل 0 ${unitLabel} و ${remainder} ${baseUnitLabel})`;
+    }
+    if (remainder === 0) {
+      return `(يعادل ${wholeUnits} ${unitLabel})`;
+    }
+    return `(يعادل ${wholeUnits} ${unitLabel} و ${remainder} ${baseUnitLabel})`;
+  };
   
   // Profitability margins
   const cost = Number(product.wholesalePrice || 0);
@@ -178,6 +200,15 @@ const ProductRow = React.memo<{
           <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
             <div className={`${progressColor} h-full transition-all duration-500`} style={{ width: `${progressWidth}%` }}></div>
           </div>
+          {(() => {
+            const equivText = getEquivalentUnitsText();
+            if (!equivText) return null;
+            return (
+              <p className="text-[10px] text-indigo-600 font-black leading-none mt-0.5" dir="rtl">
+                {equivText}
+              </p>
+            );
+          })()}
           <div className="flex justify-between items-center text-[8px] text-slate-400 font-bold">
             <span>الحد الأدنى: {reorder}</span>
             <span className={`font-black px-1.5 rounded ${turnoverColor}`}>{turnoverLabel}</span>
