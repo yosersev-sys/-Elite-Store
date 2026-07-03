@@ -11,6 +11,23 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(true);
 
+  // لحفظ المراجع محدثة دون التسبب في إعادة تشغيل الـ useEffect الخاص بالكاميرا
+  const onScanRef = useRef(onScan);
+  const onCloseRef = useRef(onClose);
+  const isScanningRef = useRef(isScanning);
+
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    isScanningRef.current = isScanning;
+  }, [isScanning]);
+
   useEffect(() => {
     let stream: MediaStream | null = null;
     let interval: any = null;
@@ -22,8 +39,12 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
         });
+        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          videoRef.current.setAttribute('playsinline', 'true');
+          videoRef.current.setAttribute('muted', 'true');
+          await videoRef.current.play().catch(err => console.warn("Video play failed:", err));
         }
 
         // استخدام BarcodeDetector API إذا كان مدعوماً (Chrome/Android)
@@ -33,15 +54,15 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
           });
 
           interval = setInterval(async () => {
-            if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && isScanning) {
+            if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && isScanningRef.current) {
               try {
                 const barcodes = await barcodeDetector.detect(videoRef.current);
                 if (barcodes.length > 0) {
                   const code = barcodes[0].rawValue;
-                  onScan(code);
+                  onScanRef.current(code);
                   setIsScanning(false); // توقف مؤقت بعد النجاح
                   if (navigator.vibrate) navigator.vibrate(200);
-                  setTimeout(() => onClose(), 500);
+                  setTimeout(() => onCloseRef.current(), 500);
                 }
               } catch (err) {
                 console.error("Detection error:", err);
@@ -65,13 +86,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
           codeReader = new BrowserMultiFormatReader(hints);
           if (videoRef.current) {
             codeReader.decodeFromVideoElementContinuously(videoRef.current, (result, err) => {
-              if (result && isScanning) {
+              if (result && isScanningRef.current) {
                 const code = result.getText();
-                onScan(code);
+                onScanRef.current(code);
                 setIsScanning(false);
                 if (navigator.vibrate) navigator.vibrate(200);
                 if (codeReader) codeReader.reset();
-                setTimeout(() => onClose(), 500);
+                setTimeout(() => onCloseRef.current(), 500);
               }
             });
           }
@@ -89,7 +110,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
       if (interval) clearInterval(interval);
       if (codeReader) codeReader.reset();
     };
-  }, [onScan, onClose, isScanning]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[10000] bg-black flex flex-col items-center justify-center animate-fadeIn">
@@ -103,6 +124,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
           ref={videoRef} 
           autoPlay 
           playsInline 
+          muted
           className="w-full h-full object-cover"
         />
         
