@@ -20,14 +20,17 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({
 
   useEffect(() => {
     if (postSubmitAction) {
-      if (postSubmitAction === 'print_and_open') {
-        POSPrintService.printInvoice(order);
-      } else if (postSubmitAction === 'open_only') {
-        POSPrintService.openDrawer();
-      }
-      if (onResetPostSubmitAction) {
-        onResetPostSubmitAction();
-      }
+      const timer = setTimeout(() => {
+        if (postSubmitAction === 'print_and_open') {
+          POSPrintService.printInvoice(order);
+        } else if (postSubmitAction === 'open_only') {
+          POSPrintService.openDrawer();
+        }
+        if (onResetPostSubmitAction) {
+          onResetPostSubmitAction();
+        }
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [postSubmitAction]);
 

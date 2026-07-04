@@ -32,7 +32,7 @@ export class POSPrintService {
     try {
       const printStyles = `
         @media print {
-          body * {
+          body > :not(#pos-invoice-print-container) {
             display: none !important;
           }
           #pos-invoice-print-container, #pos-invoice-print-container * {
@@ -255,7 +255,7 @@ export class POSPrintService {
     try {
       const drawerStyles = `
         @media print {
-          body * {
+          body > :not(#pos-drawer-kick-container) {
             display: none !important;
           }
           #pos-drawer-kick-container {
@@ -292,7 +292,7 @@ export class POSPrintService {
     try {
       const shiftStyles = `
         @media print {
-          body * {
+          body > :not(#pos-shift-print-container) {
             display: none !important;
           }
           #pos-shift-print-container, #pos-shift-print-container * {

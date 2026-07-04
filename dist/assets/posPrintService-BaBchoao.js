@@ -1,6 +1,6 @@
 class y{static injectStyle(t,i){this.removeStyle(t);const e=document.createElement("style");e.id=t,e.innerHTML=i,document.head.appendChild(e)}static removeStyle(t){const i=document.getElementById(t);i&&i.remove()}static injectContainer(t,i){this.removeContainer(t);const e=document.createElement("div");return e.id=t,e.innerHTML=i,document.body.appendChild(e),e}static removeContainer(t){const i=document.getElementById(t);i&&i.remove()}static async printInvoice(t){try{this.injectStyle("pos-invoice-print-style",`
         @media print {
-          body * {
+          body > :not(#pos-invoice-print-container) {
             display: none !important;
           }
           #pos-invoice-print-container, #pos-invoice-print-container * {
@@ -169,7 +169,7 @@ class y{static injectStyle(t,i){this.removeStyle(t);const e=document.createEleme
         </div>
       `;return this.injectContainer("pos-invoice-print-container",l),window.print(),setTimeout(()=>{this.removeStyle("pos-invoice-print-style"),this.removeContainer("pos-invoice-print-container")},1e3),!0}catch(i){return console.error("Invoice Print Error:",i),!1}}static async openDrawer(){try{return this.injectStyle("pos-drawer-print-style",`
         @media print {
-          body * {
+          body > :not(#pos-drawer-kick-container) {
             display: none !important;
           }
           #pos-drawer-kick-container {
@@ -185,7 +185,7 @@ class y{static injectStyle(t,i){this.removeStyle(t);const e=document.createEleme
         }
       `),this.injectContainer("pos-drawer-kick-container","&nbsp;"),window.print(),setTimeout(()=>{this.removeStyle("pos-drawer-print-style"),this.removeContainer("pos-drawer-kick-container")},1e3),!0}catch(t){return console.error("Drawer Open Error:",t),!1}}static async printShift(t){try{this.injectStyle("pos-shift-print-style",`
         @media print {
-          body * {
+          body > :not(#pos-shift-print-container) {
             display: none !important;
           }
           #pos-shift-print-container, #pos-shift-print-container * {
