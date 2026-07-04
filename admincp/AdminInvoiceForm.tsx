@@ -65,6 +65,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   // Payment methods and split payments states
   const [dbPaymentMethods, setDbPaymentMethods] = useState<any[]>([]);
   const [paymentNumbers, setPaymentNumbers] = useState<any[]>([]);
+  const [numberStats, setNumberStats] = useState<any[]>([]);
   const [isSplitPayment, setIsSplitPayment] = useState<boolean>(false);
   const [isFullDebt, setIsFullDebt] = useState<boolean>(false);
   const [selectedSingleMethod, setSelectedSingleMethod] = useState<string>('cash');
@@ -106,6 +107,14 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         }
       })
       .catch(err => console.error("Failed to load settings in AdminInvoiceForm", err));
+
+    ApiService.getPaymentNumbersStats()
+      .then(stats => {
+        if (stats) {
+          setNumberStats(stats);
+        }
+      })
+      .catch(err => console.error("Failed to load payment numbers stats in AdminInvoiceForm", err));
   }, []);
 
   useEffect(() => {
@@ -1724,17 +1733,40 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                 className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl outline-none font-bold text-xs"
                               >
                                 <option value="">-- اختر رقم / محفظة الاستقبال --</option>
-                                {paymentNumbers.filter(n => n.type === selectedSingleMethod).map(num => (
-                                  <option key={num.id} value={num.value}>
-                                    {num.label} ({num.value})
-                                  </option>
-                                ))}
+                                {paymentNumbers.filter(n => n.type === selectedSingleMethod).map(num => {
+                                  const matchedStats = numberStats.filter((s: any) => 
+                                    s.paymentMethodId === num.type && 
+                                    s.reference && 
+                                    s.reference.includes(num.value)
+                                  );
+                                  const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
+                                  return (
+                                    <option key={num.id} value={num.value}>
+                                      {num.label} ({num.value}) - [المحصل: ${totalAmount.toFixed(2)} ج.م]
+                                    </option>
+                                  );
+                                })}
                               </select>
                             ) : (
                               <p className="text-[10px] font-bold text-rose-500 mr-1">
                                 ⚠️ لا يوجد أرقام مضافة في النظام لهذه الوسيلة. يرجى إضافتها من إدارة وسائل الدفع.
                               </p>
                             )}
+                            {singleSelectedNumber && (() => {
+                              const num = paymentNumbers.find(n => n.type === selectedSingleMethod && n.value === singleSelectedNumber);
+                              if (!num) return null;
+                              const matchedStats = numberStats.filter((s: any) => 
+                                s.paymentMethodId === num.type && 
+                                s.reference && 
+                                s.reference.includes(num.value)
+                              );
+                              const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
+                              return (
+                                <div className="text-[10px] font-black text-emerald-600 mt-1 mr-1 animate-fadeIn">
+                                  📊 إجمالي المحصل (الشهر الجاري): ${totalAmount.toFixed(2)} ج.م
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                         
@@ -1793,15 +1825,38 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                         className="w-full px-2 py-1 bg-white border rounded-lg outline-none font-bold text-[9px]"
                                       >
                                         <option value="">-- اختر الرقم --</option>
-                                        {paymentNumbers.filter(n => n.type === m.id).map(num => (
-                                          <option key={num.id} value={num.value}>
-                                            {num.label} ({num.value})
-                                          </option>
-                                        ))}
+                                        {paymentNumbers.filter(n => n.type === m.id).map(num => {
+                                          const matchedStats = numberStats.filter((s: any) => 
+                                            s.paymentMethodId === num.type && 
+                                            s.reference && 
+                                            s.reference.includes(num.value)
+                                          );
+                                          const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
+                                          return (
+                                            <option key={num.id} value={num.value}>
+                                              {num.label} ({num.value}) - [المحصل: ${totalAmount.toFixed(2)} ج.م]
+                                            </option>
+                                          );
+                                        })}
                                       </select>
                                     ) : (
                                       <p className="text-[8px] font-bold text-rose-500">لا يوجد أرقام مضافة بالسيستم</p>
                                     )}
+                                    {splitSelectedNumbers[m.id] && (() => {
+                                      const num = paymentNumbers.find(n => n.type === m.id && n.value === splitSelectedNumbers[m.id]);
+                                      if (!num) return null;
+                                      const matchedStats = numberStats.filter((s: any) => 
+                                        s.paymentMethodId === num.type && 
+                                        s.reference && 
+                                        s.reference.includes(num.value)
+                                      );
+                                      const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
+                                      return (
+                                        <div className="text-[8px] font-black text-emerald-600 mt-1 mr-0.5 animate-fadeIn">
+                                          📊 إجمالي المحصل (الشهر الجاري): ${totalAmount.toFixed(2)} ج.م
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 )}
                                 <input 
