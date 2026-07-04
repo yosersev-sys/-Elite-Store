@@ -920,6 +920,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         dueDate: outstanding > 0 ? new Date(dueDate).getTime() : undefined
       } as any;
 
+      localStorage.setItem('post_submit_action', submitAction);
       await onSubmit(newOrder);
     } catch (err) {
       console.error("Save error:", err);
