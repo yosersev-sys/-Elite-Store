@@ -899,7 +899,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           ? []
           : [{
               method: selectedSingleMethod,
-              amount: total,
+              amount: total - (outstanding || 0),
               reference: buildReference(selectedSingleMethod, singleReference, singleSelectedNumber)
             }];
 

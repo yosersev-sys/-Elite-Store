@@ -220,7 +220,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
       if (o.payments && o.payments.length > 0) {
         o.payments.forEach(p => {
           const method = String(p.method || '').toLowerCase();
-          const amount = Number(p.amount || 0);
+          let amount = Number(p.amount || 0);
+          if (o.payments.length === 1 && o.outstandingAmount > 0) {
+            amount = Math.max(0, amount - Number(o.outstandingAmount));
+          }
           if (method === 'cash' || method.includes('نقدي')) {
             cashSales += amount;
           } else if (method === 'vodafone' || method.includes('فودافون')) {
@@ -237,8 +240,9 @@ const StatsTab: React.FC<StatsTabProps> = ({
       } else {
         const methodStr = String(o.paymentMethod || '').toLowerCase();
         const totalAmount = Number(o.total || 0);
+        const outstanding = Number(o.outstandingAmount || 0);
         if (methodStr.includes('نقدي') || methodStr.includes('عند الاستلام') || methodStr === 'cash') {
-          cashSales += totalAmount;
+          cashSales += (totalAmount - outstanding);
         } else if (methodStr.includes('آجل') || methodStr.includes('debt') || methodStr.includes('credit')) {
           debtSales += totalAmount;
         } else if (methodStr.includes('فودافون') || methodStr.includes('vodafone')) {
