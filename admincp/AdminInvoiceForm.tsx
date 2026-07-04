@@ -1734,20 +1734,32 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                               >
                                 <option value="">-- اختر رقم / محفظة الاستقبال --</option>
                                 {paymentNumbers.filter(n => n.type === selectedSingleMethod).flatMap((num, idx, arr) => {
+                                  const matchedStats = numberStats.filter((s: any) => 
+                                    s.paymentMethodId === num.type && 
+                                    s.reference && 
+                                    s.reference.includes(num.value)
+                                  );
+                                  const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
                                   const option = (
                                     <option key={num.id} value={num.value}>
                                       {num.label} ({num.value})
                                     </option>
                                   );
+                                  const statsOption = (
+                                    <option key={`stats-${num.id}`} disabled className="text-emerald-600 font-bold">
+                                      {`    └─ [المحصل للشهر الحالي: ${totalAmount.toFixed(2)} ج.م]`}
+                                    </option>
+                                  );
                                   if (idx < arr.length - 1) {
                                     return [
                                       option,
+                                      statsOption,
                                       <option key={`sep-${num.id}`} disabled className="text-slate-300">
                                         ───────────────────────────
                                       </option>
                                     ];
                                   }
-                                  return [option];
+                                  return [option, statsOption];
                                 })}
                               </select>
                             ) : (
@@ -1830,20 +1842,32 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                       >
                                         <option value="">-- اختر الرقم --</option>
                                         {paymentNumbers.filter(n => n.type === m.id).flatMap((num, idx, arr) => {
+                                          const matchedStats = numberStats.filter((s: any) => 
+                                            s.paymentMethodId === num.type && 
+                                            s.reference && 
+                                            s.reference.includes(num.value)
+                                          );
+                                          const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
                                           const option = (
                                             <option key={num.id} value={num.value}>
                                               {num.label} ({num.value})
                                             </option>
                                           );
+                                          const statsOption = (
+                                            <option key={`stats-${num.id}`} disabled className="text-emerald-600 font-bold">
+                                              {`    └─ [المحصل للشهر الحالي: ${totalAmount.toFixed(2)} ج.م]`}
+                                            </option>
+                                          );
                                           if (idx < arr.length - 1) {
                                             return [
                                               option,
+                                              statsOption,
                                               <option key={`sep-${num.id}`} disabled className="text-slate-300">
                                                 ───────────────────────────
                                               </option>
                                             ];
                                           }
-                                          return [option];
+                                          return [option, statsOption];
                                         })}
                                       </select>
                                     ) : (
