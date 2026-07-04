@@ -57,11 +57,14 @@ class y{static injectStyle(t,i){this.removeStyle(t);const e=document.createEleme
           .qr-container {
             text-align: center !important;
             margin-top: 3mm !important;
+            display: block !important;
+            width: 100% !important;
           }
           .qr-container img {
             width: 80px !important;
             height: 80px !important;
-            display: inline-block !important;
+            display: block !important;
+            margin: 0 auto !important;
           }
         }
       `);const e=Number(t.total||0),c=Number(t.subtotalBeforeDiscount!==void 0?t.subtotalBeforeDiscount:t.subtotal||0),a=Number(t.totalItemDiscounts||0),o=Number(t.discount||0),r=Number(t.deliveryFee!==void 0?t.deliveryFee:Math.max(0,e-c)),d=a+o,m=(t.items||[]).map(n=>{const s=n.discountValue?n.discountType==="percent"?n.price*n.discountValue/100:n.discountValue:0,v=n.price-s,b=v*Number(n.quantity||0);return`

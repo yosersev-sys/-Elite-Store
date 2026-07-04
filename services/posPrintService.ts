@@ -89,11 +89,14 @@ export class POSPrintService {
           .qr-container {
             text-align: center !important;
             margin-top: 3mm !important;
+            display: block !important;
+            width: 100% !important;
           }
           .qr-container img {
             width: 80px !important;
             height: 80px !important;
-            display: inline-block !important;
+            display: block !important;
+            margin: 0 auto !important;
           }
         }
       `;
