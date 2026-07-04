@@ -770,6 +770,16 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     };
   }, [invoiceItems, customerInfo, total, orders, users, products, outstanding, isSplitPayment, isFullDebt, sumOfPayments, invoiceDiscountValue]);
 
+  const handleSaveWithPrint = () => {
+    setSubmitAction('print_and_open');
+    setShowPreview(true);
+  };
+
+  const handleSaveOnlyDrawer = () => {
+    setSubmitAction('open_only');
+    setShowPreview(true);
+  };
+
   const handleFinalSubmit = async () => {
     if (isSaving) return;
     if (invoiceItems.length === 0) return alert('يرجى إضافة منتجات للفاتورة');
@@ -1935,8 +1945,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
                   {order ? (
                     <button 
+                      type="button"
                       disabled={invoiceItems.length === 0 || isSaving}
-                      onClick={() => { setSubmitAction('print_and_open'); setShowPreview(true); }}
+                      onClick={handleSaveWithPrint}
                       className="w-full text-white py-4 md:py-6 rounded-2xl md:rounded-3xl font-black text-sm md:text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-40 bg-slate-900 hover:bg-emerald-600 font-Cairo cursor-pointer"
                     >
                       تحديث الفاتورة 🔄
@@ -1944,18 +1955,20 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                   ) : (
                     <div className="flex flex-col sm:flex-row gap-3 w-full">
                       <button 
+                        type="button"
                         disabled={invoiceItems.length === 0 || isSaving}
-                        onClick={() => { setSubmitAction('print_and_open'); setShowPreview(true); }}
+                        onClick={handleSaveWithPrint}
                         className="flex-grow bg-slate-900 hover:bg-slate-800 text-white py-4 md:py-5 rounded-2xl font-black text-xs md:text-sm shadow-lg transition-all active:scale-95 disabled:opacity-40 font-Cairo flex items-center justify-center gap-2 cursor-pointer"
                       >
-                        🖨️ حفظ وطباعة الفاتورة ${isOnline ? '' : '(أوفلاين)'}
+                        🖨️ حفظ وطباعة الفاتورة {isOnline ? '' : '(أوفلاين)'}
                       </button>
                       <button 
+                        type="button"
                         disabled={invoiceItems.length === 0 || isSaving}
-                        onClick={() => { setSubmitAction('open_only'); setShowPreview(true); }}
+                        onClick={handleSaveOnlyDrawer}
                         className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 md:py-5 rounded-2xl font-black text-xs md:text-sm shadow-lg transition-all active:scale-95 disabled:opacity-40 font-Cairo flex items-center justify-center gap-2 cursor-pointer"
                       >
-                        🔓 حفظ وفتح الدرج فقط ${isOnline ? '' : '(أوفلاين)'}
+                        🔓 حفظ وفتح الدرج فقط {isOnline ? '' : '(أوفلاين)'}
                       </button>
                     </div>
                   )}
