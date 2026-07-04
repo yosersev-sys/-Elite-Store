@@ -45,13 +45,17 @@ const PaymentMethodsTab: React.FC<PaymentMethodsTabProps> = ({ onRefreshData }) 
   const loadNumbersAndStats = async () => {
     try {
       const settings = await ApiService.getStoreSettings();
+      let numbers = [];
       if (settings && settings.payment_numbers_json) {
         try {
-          setPaymentNumbers(JSON.parse(settings.payment_numbers_json));
+          numbers = JSON.parse(settings.payment_numbers_json);
+          setPaymentNumbers(numbers);
         } catch (e) {}
       }
       
       const stats = await ApiService.getPaymentNumbersStats();
+      console.log('Payment Numbers:', numbers);
+      console.log('Loaded Stats from server:', stats);
       setNumberStats(stats || []);
     } catch (e) {
       console.error('Failed to load payment numbers or stats', e);
