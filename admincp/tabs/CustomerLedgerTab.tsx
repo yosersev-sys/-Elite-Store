@@ -63,8 +63,8 @@ const CustomerLedgerTab: React.FC<CustomerLedgerTabProps> = ({ users = [], order
 
   // إحصائيات الديون العامة للعملاء الحاليين
   const totals = useMemo(() => {
-    const activeDebtors = users.filter(u => (u.balance || 0) > 0);
-    const totalDebts = users.reduce((sum, u) => sum + (u.balance || 0), 0);
+    const activeDebtors = users.filter(u => Number(u.balance || 0) > 0);
+    const totalDebts = users.reduce((sum, u) => sum + Number(u.balance || 0), 0);
     
     // حساب المبيعات الآجلة الإجمالية، المرتجعات، والتحصيلات من الحركات
     // نظراً لأنها قد تكون ضخمة، نقوم بحسابها من البيانات المسلحة
@@ -150,7 +150,7 @@ const CustomerLedgerTab: React.FC<CustomerLedgerTabProps> = ({ users = [], order
     const q = searchTerm.toLowerCase().trim();
     return users.filter(u => {
       const matchesSearch = u.name.toLowerCase().includes(q) || u.phone.includes(q);
-      const matchesStatus = filterStatus === 'all' || (u.balance || 0) > 0;
+      const matchesStatus = filterStatus === 'all' || Number(u.balance || 0) > 0;
       return matchesSearch && matchesStatus;
     });
   }, [users, searchTerm, filterStatus]);
@@ -361,7 +361,7 @@ const CustomerLedgerTab: React.FC<CustomerLedgerTabProps> = ({ users = [], order
                    <p className="text-[10px] text-slate-400 font-black tracking-wide mt-0.5">{u.phone}</p>
                  </div>
                  <div className="text-left shrink-0">
-                    <p className={`font-black text-sm ${(u.balance || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    <p className={`font-black text-sm ${Number(u.balance || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                       {u.balance ? `${Number(u.balance).toFixed(2)} ج.م` : 'خالص ✅'}
                     </p>
                  </div>
