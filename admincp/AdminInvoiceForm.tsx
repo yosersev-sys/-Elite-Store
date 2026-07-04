@@ -1733,18 +1733,21 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                 className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl outline-none font-bold text-xs"
                               >
                                 <option value="">-- اختر رقم / محفظة الاستقبال --</option>
-                                {paymentNumbers.filter(n => n.type === selectedSingleMethod).map(num => {
-                                  const matchedStats = numberStats.filter((s: any) => 
-                                    s.paymentMethodId === num.type && 
-                                    s.reference && 
-                                    s.reference.includes(num.value)
-                                  );
-                                  const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
-                                  return (
+                                {paymentNumbers.filter(n => n.type === selectedSingleMethod).flatMap((num, idx, arr) => {
+                                  const option = (
                                     <option key={num.id} value={num.value}>
-                                      {num.label} ({num.value}) - [المحصل: ${totalAmount.toFixed(2)} ج.م]
+                                      {num.label} ({num.value})
                                     </option>
                                   );
+                                  if (idx < arr.length - 1) {
+                                    return [
+                                      option,
+                                      <option key={`sep-${num.id}`} disabled className="text-slate-300">
+                                        ───────────────────────────
+                                      </option>
+                                    ];
+                                  }
+                                  return [option];
                                 })}
                               </select>
                             ) : (
@@ -1762,8 +1765,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                               );
                               const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
                               return (
-                                <div className="text-[10px] font-black text-emerald-600 mt-1 mr-1 animate-fadeIn">
-                                  📊 إجمالي المحصل (الشهر الجاري): ${totalAmount.toFixed(2)} ج.م
+                                <div className="text-xs font-black bg-emerald-50/50 border border-emerald-100/80 rounded-xl p-3 mt-2 text-right flex justify-between items-center animate-fadeIn">
+                                  <span className="text-emerald-600 font-mono text-sm">{totalAmount.toFixed(2)} ج.م</span>
+                                  <span className="text-slate-500">💰 إجمالي المحصل (الشهر الجاري):</span>
                                 </div>
                               );
                             })()}
@@ -1825,18 +1829,21 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                         className="w-full px-2 py-1 bg-white border rounded-lg outline-none font-bold text-[9px]"
                                       >
                                         <option value="">-- اختر الرقم --</option>
-                                        {paymentNumbers.filter(n => n.type === m.id).map(num => {
-                                          const matchedStats = numberStats.filter((s: any) => 
-                                            s.paymentMethodId === num.type && 
-                                            s.reference && 
-                                            s.reference.includes(num.value)
-                                          );
-                                          const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
-                                          return (
+                                        {paymentNumbers.filter(n => n.type === m.id).flatMap((num, idx, arr) => {
+                                          const option = (
                                             <option key={num.id} value={num.value}>
-                                              {num.label} ({num.value}) - [المحصل: ${totalAmount.toFixed(2)} ج.م]
+                                              {num.label} ({num.value})
                                             </option>
                                           );
+                                          if (idx < arr.length - 1) {
+                                            return [
+                                              option,
+                                              <option key={`sep-${num.id}`} disabled className="text-slate-300">
+                                                ───────────────────────────
+                                              </option>
+                                            ];
+                                          }
+                                          return [option];
                                         })}
                                       </select>
                                     ) : (
@@ -1852,8 +1859,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                       );
                                       const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
                                       return (
-                                        <div className="text-[8px] font-black text-emerald-600 mt-1 mr-0.5 animate-fadeIn">
-                                          📊 إجمالي المحصل (الشهر الجاري): ${totalAmount.toFixed(2)} ج.م
+                                        <div className="text-[10px] font-black bg-emerald-50/50 border border-emerald-100/80 rounded-lg p-2 mt-1.5 text-right flex justify-between items-center animate-fadeIn">
+                                          <span className="text-emerald-600 font-mono">{totalAmount.toFixed(2)} ج.م</span>
+                                          <span className="text-slate-500">💰 المحصل (الشهر الجاري):</span>
                                         </div>
                                       );
                                     })()}
