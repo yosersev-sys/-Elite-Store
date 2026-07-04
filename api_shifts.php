@@ -23,11 +23,50 @@ switch ($action) {
     case 'get_active_shift':
         $shift = $pdo->query("SELECT s.*, u.name as openedByName FROM shifts s LEFT JOIN users u ON s.openedById = u.id WHERE s.status = 'open'")->fetch();
         if ($shift) {
+            $shiftId = (int)$shift['id'];
             $shift['startingCash'] = (float)$shift['startingCash'];
             $shift['expectedCash'] = (float)$shift['expectedCash'];
             $shift['actualCash'] = (float)$shift['actualCash'];
             $shift['currentCashBalance'] = (float)$shift['currentCashBalance'];
             $shift['difference'] = (float)$shift['difference'];
+
+            // Recalculate cash balance dynamically to fix any mismatches
+            $completedCash = 0.0;
+            $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE confirmedShiftId = ? AND status = 'completed'");
+            $stmtCompleted->execute([$shiftId]);
+            foreach ($stmtCompleted->fetchAll() as $o) {
+                if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
+                    $completedCash += (float)$o['total'];
+                }
+            }
+
+            $cancelledCash = 0.0;
+            $stmtCancelled = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE returnShiftId = ? AND status = 'cancelled'");
+            $stmtCancelled->execute([$shiftId]);
+            foreach ($stmtCancelled->fetchAll() as $o) {
+                if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
+                    $cancelledCash += (float)$o['total'];
+                }
+            }
+
+            $deposits = 0.0;
+            $withdrawals = 0.0;
+            $stmtTxs = $pdo->prepare("SELECT type, amount FROM drawer_transactions WHERE shiftId = ?");
+            $stmtTxs->execute([$shiftId]);
+            foreach ($stmtTxs->fetchAll() as $t) {
+                if ($t['type'] === 'deposit') {
+                    $deposits += (float)$t['amount'];
+                } elseif ($t['type'] === 'withdrawal') {
+                    $withdrawals += (float)$t['amount'];
+                }
+            }
+
+            $correctCash = (float)$shift['startingCash'] + $completedCash - $cancelledCash + $deposits - $withdrawals;
+            if (abs((float)$shift['currentCashBalance'] - $correctCash) > 0.01) {
+                $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$correctCash, $shiftId]);
+                $shift['currentCashBalance'] = $correctCash;
+            }
+
             sendRes($shift);
         } else {
             sendRes(['status' => 'no_active_shift']);
