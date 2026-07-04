@@ -771,13 +771,23 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   }, [invoiceItems, customerInfo, total, orders, users, products, outstanding, isSplitPayment, isFullDebt, sumOfPayments, invoiceDiscountValue]);
 
   const handleSaveWithPrint = () => {
-    setSubmitAction('print_and_open');
-    setShowPreview(true);
+    alert("حفظ وطباعة clicked");
+    try {
+      setSubmitAction('print_and_open');
+      setShowPreview(true);
+    } catch(e) {
+      alert("Error in handleSaveWithPrint: " + e.message);
+    }
   };
 
   const handleSaveOnlyDrawer = () => {
-    setSubmitAction('open_only');
-    setShowPreview(true);
+    alert("فتح الدرج clicked");
+    try {
+      setSubmitAction('open_only');
+      setShowPreview(true);
+    } catch(e) {
+      alert("Error in handleSaveOnlyDrawer: " + e.message);
+    }
   };
 
   const handleFinalSubmit = async () => {
