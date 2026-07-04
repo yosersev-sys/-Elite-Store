@@ -25,6 +25,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
   const [isDeliveryEnabled, setIsDeliveryEnabled] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [submitAction, setSubmitAction] = useState<'print_and_open' | 'open_only' | 'save_only'>(() => (localStorage.getItem('pos_device_default_action') as any) || 'print_and_open');
   const [customerInfo, setCustomerInfo] = useState({
     name: initialCustomerName,
     phone: initialPhone,
@@ -771,23 +772,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   }, [invoiceItems, customerInfo, total, orders, users, products, outstanding, isSplitPayment, isFullDebt, sumOfPayments, invoiceDiscountValue]);
 
   const handleSaveWithPrint = () => {
-    alert("حفظ وطباعة clicked");
-    try {
-      setSubmitAction('print_and_open');
-      setShowPreview(true);
-    } catch(e) {
-      alert("Error in handleSaveWithPrint: " + e.message);
-    }
+    setSubmitAction('print_and_open');
+    setShowPreview(true);
   };
 
   const handleSaveOnlyDrawer = () => {
-    alert("فتح الدرج clicked");
-    try {
-      setSubmitAction('open_only');
-      setShowPreview(true);
-    } catch(e) {
-      alert("Error in handleSaveOnlyDrawer: " + e.message);
-    }
+    setSubmitAction('open_only');
+    setShowPreview(true);
   };
 
   const handleFinalSubmit = async () => {
