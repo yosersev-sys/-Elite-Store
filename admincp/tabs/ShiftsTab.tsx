@@ -724,6 +724,27 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                       </div>
                     </div>
 
+                    {/* المساعد المالي للوردية */}
+                    <div className="p-6 bg-[#f8fafc] border border-slate-200/80 rounded-[2rem] space-y-3 text-right">
+                      <h5 className="text-xs font-black text-slate-800 flex items-center justify-start gap-1.5">
+                        <span>💡 الدليل الإرشادي المالي للوردية:</span>
+                      </h5>
+                      <div className="text-[11px] font-bold text-slate-500 space-y-2 leading-relaxed">
+                        <p>
+                          💵 <strong>معادلة نقدية الدرج المفترضة:</strong><br />
+                          رصيد البداية ({selectedShiftDetails.shift.startingCash.toFixed(2)} ج.م) 
+                          {" + "} مبيعات نقدية ({cashSalesVal.toFixed(2)} ج.م) 
+                          {" - "} مرتجع نقدي ({cashReturnsVal.toFixed(2)} ج.م) 
+                          {" + "} إيداعات ({depVal.toFixed(2)} ج.م) 
+                          {" - "} سحوبات ({witVal.toFixed(2)} ج.م) 
+                          {" = "} <span className="text-emerald-600 font-black">{(selectedShiftDetails.shift.startingCash + cashSalesVal - cashReturnsVal + depVal - witVal).toFixed(2)} ج.م</span>.
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          * تنبيه: المبيعات البنكية/الرقمية ({cardSalesVal.toFixed(2)} ج.م) والمبيعات الآجلة ({debtSalesVal.toFixed(2)} ج.م) لا تدخل في حساب نقدية الدرج الفعلية لأنها حركات غير نقدية.
+                        </p>
+                      </div>
+                    </div>
+
                     {/* عجز / زيادة */}
                     {selectedShiftDetails.shift.status === 'closed' && selectedShiftDetails.shift.difference !== 0 && (
                       <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs font-bold text-rose-700 flex justify-between">
