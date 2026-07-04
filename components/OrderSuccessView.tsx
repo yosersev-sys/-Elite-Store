@@ -12,6 +12,12 @@ interface OrderSuccessViewProps {
   onContinueShopping: () => void;
 }
 
+const safeDate = (val: any): Date => {
+  if (!val) return new Date();
+  const num = Number(val);
+  return isNaN(num) ? new Date(val) : new Date(num);
+};
+
 const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ 
   order, adminPhone, postSubmitAction, onResetPostSubmitAction, onContinueShopping 
 }) => {
@@ -181,7 +187,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({
         <div className="space-y-1 mb-3 text-[11px]">
           <div className="flex justify-between">
             <span className="text-gray-400">التاريخ:</span>
-            <span className="font-bold">{new Date(order.createdAt).toLocaleDateString('ar-EG')}</span>
+            <span className="font-bold">{safeDate(order.createdAt).toLocaleDateString('ar-EG')}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-400">العميل:</span>
@@ -293,11 +299,11 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({
             <div className="mt-3 pt-2 border-t border-dashed border-gray-200 space-y-1 text-[9px] text-gray-500 font-bold">
               <div className="flex justify-between">
                 <span>تاريخ الإنشاء:</span>
-                <span>{new Date(order.createdAt).toLocaleString('ar-EG')}</span>
+                <span>{safeDate(order.createdAt).toLocaleString('ar-EG')}</span>
               </div>
               <div className="flex justify-between">
                 <span>تاريخ التأكيد:</span>
-                <span>{new Date(order.confirmedAt).toLocaleString('ar-EG')}</span>
+                <span>{safeDate(order.confirmedAt).toLocaleString('ar-EG')}</span>
               </div>
               <div className="flex justify-between">
                 <span>الموظف المؤكّد:</span>
