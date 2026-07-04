@@ -1304,8 +1304,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                    </button>
                    {!isSaving && (
                      <button onClick={() => setShowPreview(false)} className="w-full bg-slate-100 text-slate-500 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition-colors">
-                       تعديل البيانات
-                     </button>
+                        الرجوع لتعديل البيانات
+                      </button>
                    )}
                 </div>
              </div>
