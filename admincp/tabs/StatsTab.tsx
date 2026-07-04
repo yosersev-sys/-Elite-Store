@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Product, Order, Category, Supplier, Shift } from '../../types';
 import { ApiService } from '../../services/api';
+import { POSPrintService } from '../../services/posPrintService';
 
 interface StatsTabProps {
   products: Product[];
@@ -1014,7 +1015,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
 
             <div className="flex gap-3 pt-6 border-t border-slate-100 no-print">
               <button
-                onClick={() => window.print()}
+                onClick={() => POSPrintService.printShift(closedShiftSummary)}
                 className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg shadow-emerald-100 transition-all cursor-pointer font-Cairo"
               >
                 🖨️ طباعة تقرير الوردية
@@ -1161,65 +1162,14 @@ const ShiftDetailsModal = ({
 
   // كود تشغيل الطباعة الحرارية للوردية بمقاس 80 مم
   const handlePrint = () => {
-    const style = document.createElement('style');
-    style.id = 'shift-report-print-style';
-    style.innerHTML = `
-      @media print {
-        @page {
-          size: auto;
-          margin: 0;
-        }
-        body * {
-          visibility: hidden !important;
-        }
-        #thermal-shift-report, #thermal-shift-report * {
-          visibility: visible !important;
-        }
-        #thermal-shift-report {
-          position: absolute !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: 80mm !important;
-          max-width: 80mm !important;
-          padding: 6mm !important;
-          margin: 0 !important;
-          background: #fff !important;
-          color: #000 !important;
-          direction: rtl !important;
-          font-family: 'Cairo', 'Arial', sans-serif !important;
-        }
-        #thermal-shift-report * {
-          font-size: 10pt !important;
-          color: #000 !important;
-          line-height: 1.4 !important;
-        }
-        #thermal-shift-report h3 {
-          font-size: 13pt !important;
-          font-weight: bold !important;
-          text-align: center !important;
-          margin-bottom: 2mm !important;
-        }
-        #thermal-shift-report .text-center {
-          text-align: center !important;
-        }
-        #thermal-shift-report .divider {
-          border-top: 1px dashed #000 !important;
-          margin: 3mm 0 !important;
-        }
-        #thermal-shift-report .flex-between {
-          display: flex !important;
-          justify-content: space-between !important;
-        }
-        #thermal-shift-report .font-bold {
-          font-weight: bold !important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-    window.print();
-    setTimeout(() => {
-      document.getElementById('shift-report-print-style')?.remove();
-    }, 1000);
+    if (activeShift) {
+      POSPrintService.printShift({
+        shift: activeShift,
+        totalSales,
+        cost,
+        totalExp
+      });
+    }
   };
 
   const renderContent = () => {

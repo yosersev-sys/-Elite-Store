@@ -1,17 +1,35 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Order } from '../types';
 import { WhatsAppService } from '../services/whatsappService';
+import { POSPrintService } from '../services/posPrintService';
 
 interface OrderSuccessViewProps {
   order: Order;
   adminPhone: string;
+  postSubmitAction?: 'print_and_open' | 'open_only' | 'save_only' | null;
+  onResetPostSubmitAction?: () => void;
   onContinueShopping: () => void;
 }
 
-const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, onContinueShopping }) => {
+const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ 
+  order, adminPhone, postSubmitAction, onResetPostSubmitAction, onContinueShopping 
+}) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+
+  useEffect(() => {
+    if (postSubmitAction) {
+      if (postSubmitAction === 'print_and_open') {
+        POSPrintService.printInvoice(order);
+      } else if (postSubmitAction === 'open_only') {
+        POSPrintService.openDrawer();
+      }
+      if (onResetPostSubmitAction) {
+        onResetPostSubmitAction();
+      }
+    }
+  }, [postSubmitAction]);
 
   // معالجة آمنة للقيم الرقمية لمنع الـ Crash ودعم الخصومات
   const safeTotal = Number(order.total || 0);
@@ -22,46 +40,11 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ order, adminPhone, 
   const customerSavings = safeTotalItemDiscounts + safeInvoiceDiscount;
 
   const handlePrint = () => {
-    window.print();
+    POSPrintService.printInvoice(order);
   };
 
   const handleOpenDrawerOnly = () => {
-    const style = document.createElement('style');
-    style.id = 'drawer-only-print-style';
-    style.innerHTML = `
-      @media print {
-        body * {
-          display: none !important;
-        }
-        html, body {
-          background: #fff !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          width: 1px !important;
-          height: 1px !important;
-          overflow: hidden !important;
-        }
-        #drawer-kick-container {
-          display: block !important;
-          width: 1px !important;
-          height: 1px !important;
-          overflow: hidden !important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-
-    const div = document.createElement('div');
-    div.id = 'drawer-kick-container';
-    div.innerHTML = '&nbsp;';
-    document.body.appendChild(div);
-
-    window.print();
-
-    setTimeout(() => {
-      document.getElementById('drawer-only-print-style')?.remove();
-      document.getElementById('drawer-kick-container')?.remove();
-    }, 1000);
+    POSPrintService.openDrawer();
   };
 
   const handleWhatsAppConfirm = () => {

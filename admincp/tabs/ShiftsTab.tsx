@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shift, DrawerTransaction, Order } from '../../types';
 import { ApiService } from '../../services/api';
+import { POSPrintService } from '../../services/posPrintService';
 
 interface ShiftsTabProps {
   onRefreshData?: () => void;
@@ -554,65 +555,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
         const ledgerCashVal = snap ? (snap.ledgerCashPayments || 0) : 0;
 
         const handlePrintDetails = () => {
-          const style = document.createElement('style');
-          style.id = 'shift-report-details-print-style';
-          style.innerHTML = `
-            @media print {
-              @page {
-                size: auto;
-                margin: 0;
-              }
-              body * {
-                visibility: hidden !important;
-              }
-              #thermal-shift-history-report, #thermal-shift-history-report * {
-                visibility: visible !important;
-              }
-              #thermal-shift-history-report {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 80mm !important;
-                max-width: 80mm !important;
-                padding: 6mm !important;
-                margin: 0 !important;
-                background: #fff !important;
-                color: #000 !important;
-                direction: rtl !important;
-                font-family: 'Cairo', 'Arial', sans-serif !important;
-              }
-              #thermal-shift-history-report * {
-                font-size: 10pt !important;
-                color: #000 !important;
-                line-height: 1.4 !important;
-              }
-              #thermal-shift-history-report h3 {
-                font-size: 13pt !important;
-                font-weight: bold !important;
-                text-align: center !important;
-                margin-bottom: 2mm !important;
-              }
-              #thermal-shift-history-report .text-center {
-                text-align: center !important;
-              }
-              #thermal-shift-history-report .divider {
-                border-top: 1px dashed #000 !important;
-                margin: 3mm 0 !important;
-              }
-              #thermal-shift-history-report .flex-between {
-                display: flex !important;
-                justify-content: space-between !important;
-              }
-              #thermal-shift-history-report .font-bold {
-                font-weight: bold !important;
-              }
-            }
-          `;
-          document.head.appendChild(style);
-          window.print();
-          setTimeout(() => {
-            document.getElementById('shift-report-details-print-style')?.remove();
-          }, 1000);
+          POSPrintService.printShift(selectedShiftDetails);
         };
 
         const productStats: Record<string, { name: string; quantity: number; unit: string; totalSales: number; totalProfit: number }> = {};

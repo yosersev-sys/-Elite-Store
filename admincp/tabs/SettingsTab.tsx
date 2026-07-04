@@ -32,6 +32,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingSitemap, setIsGeneratingSitemap] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [deviceAction, setDeviceAction] = useState(() => localStorage.getItem('pos_device_default_action') || 'print_and_open');
 
   // إعدادات المتجر (SEO وتواصل وشحن)
   const [storeSettings, setStoreSettings] = useState({
@@ -448,6 +449,43 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
         >
           حفظ إعدادات SEO 💾
         </button>
+      </section>
+
+      {/* القسم المضاف: إعدادات الطباعة والدرج للجهاز الحالي */}
+      <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 space-y-8 font-Cairo text-right" dir="rtl">
+        <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🖨️</div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800">إعدادات الطباعة والدرج (هذا الجهاز)</h3>
+            <p className="text-slate-400 text-xs font-bold">تحديد السلوك الافتراضي لعمليات الحفظ والطباعة على هذا المتصفح</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 block">السلوك الافتراضي بعد حفظ الفاتورة مباشرة</label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { id: 'print_and_open', label: '🖨️ حفظ وطباعة الفاتورة + فتح الدرج', desc: 'الخيار القياسي لنقاط البيع (يفتح الفاتورة والدرج معاً)' },
+              { id: 'open_only', label: '🔓 حفظ وفتح الدرج فقط دون طباعة', desc: 'يفتح الدرج نقدياً دون استهلاك ورق الفواتير' },
+              { id: 'save_only', label: '💾 حفظ الفاتورة فقط دون أي إجراء', desc: 'يحفظ الفاتورة في النظام فقط دون تشغيل الطابعة أو الدرج' }
+            ].map(item => {
+              const active = deviceAction === item.id;
+              return (
+                <div 
+                  key={item.id}
+                  onClick={() => {
+                    setDeviceAction(item.id);
+                    localStorage.setItem('pos_device_default_action', item.id);
+                  }}
+                  className={`p-6 rounded-2xl border-2 cursor-pointer transition-all ${active ? 'border-emerald-500 bg-emerald-50/20' : 'border-slate-100 hover:border-slate-200'}`}
+                >
+                  <p className="text-sm font-black text-slate-800">{item.label}</p>
+                  <p className="text-[10px] text-slate-400 font-bold mt-2 leading-relaxed">{item.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </section>
 
       {/* حساب المدير */}

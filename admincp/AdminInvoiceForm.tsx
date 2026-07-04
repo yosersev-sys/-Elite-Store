@@ -1279,7 +1279,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                    <button 
                     disabled={isSaving}
                     onClick={handleFinalSubmit} 
-                    className={`w-full py-4 md:py-5 rounded-2xl font-black shadow-xl active:scale-95 text-base text-white transition-all ${isSaving ? 'bg-slate-400 shadow-none' : 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700'} disabled:opacity-50 flex items-center justify-center gap-3`}
+                    className={`w-full py-4 md:py-5 rounded-2xl font-black shadow-xl active:scale-95 text-base text-white transition-all ${isSaving ? 'bg-slate-400 shadow-none' : (submitAction === 'print_and_open' ? 'bg-slate-900 shadow-slate-100 hover:bg-slate-800' : submitAction === 'open_only' ? 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700' : 'bg-blue-600 shadow-blue-100 hover:bg-blue-700')} disabled:opacity-50 flex items-center justify-center gap-3 font-Cairo cursor-pointer`}
                    >
                      {isSaving ? (
                        <>
@@ -1287,7 +1287,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                          <span>جاري الحفظ...</span>
                        </>
                      ) : (
-                       isOnline ? (order ? 'تحديث الفاتورة الآن' : 'إتمام وحفظ الفاتورة') : 'حفظ الفاتورة محلياً (أوفلاين)'
+                       order ? 'تحديث الفاتورة الآن 🔄' : (!isOnline ? 'حفظ الفاتورة محلياً (أوفلاين) 💾' : (submitAction === 'print_and_open' ? '🖨️ إتمام وحفظ وطباعة الفاتورة' : submitAction === 'open_only' ? '🔓 إتمام وحفظ وفتح الدرج فقط' : '💾 إتمام وحفظ الفاتورة فقط'))
                      )}
                    </button>
                    {!isSaving && (
