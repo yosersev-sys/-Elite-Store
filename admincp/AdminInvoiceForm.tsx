@@ -1186,6 +1186,16 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-6 overflow-y-auto">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !isSaving && setShowPreview(false)}></div>
           <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl relative z-10 animate-slideUp overflow-hidden max-h-[90vh] flex flex-col">
+             {!isSaving && (
+               <button 
+                 type="button"
+                 onClick={() => setShowPreview(false)} 
+                 className="absolute top-6 left-6 text-slate-400 hover:text-slate-600 transition-colors w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center font-bold text-sm cursor-pointer z-20 border border-slate-100"
+                 title="إغلاق"
+               >
+                 ✕
+               </button>
+             )}
              <div className="p-6 md:p-10 text-center space-y-4 md:space-y-6 overflow-y-auto no-scrollbar flex-grow">
                 <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">🧾</div>
                 <h3 className="text-xl md:text-2xl font-black text-slate-800">{order ? 'حفظ التعديلات' : 'حفظ الفاتورة'}</h3>
