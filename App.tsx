@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { View, Product, CartItem, Category, Order, User, Supplier, Shift } from './types.ts';
+
+if (typeof window !== 'undefined') {
+  window.onerror = function (message, source, lineno, colno, error) {
+    alert("Global Error: " + message + " at " + source + ":" + lineno + ":" + colno);
+    return false;
+  };
+  window.addEventListener('unhandledrejection', function (event) {
+    alert("Unhandled Promise Rejection: " + event.reason);
+  });
+}
 import Header from './components/Header.tsx';
 import StoreView from './components/StoreView.tsx';
 import FloatingAdminButton from './components/FloatingAdminButton.tsx';
