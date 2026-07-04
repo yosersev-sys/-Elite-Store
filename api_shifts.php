@@ -306,6 +306,43 @@ switch ($action) {
         $sData['currentCashBalance'] = (float)$sData['currentCashBalance'];
         $sData['difference'] = (float)$sData['difference'];
 
+        // Recalculate cash balance dynamically on load to fix any mismatches (e.g. from old returned orders)
+        $completedCash = 0.0;
+        $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE confirmedShiftId = ? AND status = 'completed'");
+        $stmtCompleted->execute([$shiftId]);
+        foreach ($stmtCompleted->fetchAll() as $o) {
+            if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
+                $completedCash += (float)$o['total'];
+            }
+        }
+
+        $cancelledCash = 0.0;
+        $stmtCancelled = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE returnShiftId = ? AND status = 'cancelled'");
+        $stmtCancelled->execute([$shiftId]);
+        foreach ($stmtCancelled->fetchAll() as $o) {
+            if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
+                $cancelledCash += (float)$o['total'];
+            }
+        }
+
+        $deposits = 0.0;
+        $withdrawals = 0.0;
+        $stmtTxs = $pdo->prepare("SELECT type, amount FROM drawer_transactions WHERE shiftId = ?");
+        $stmtTxs->execute([$shiftId]);
+        foreach ($stmtTxs->fetchAll() as $t) {
+            if ($t['type'] === 'deposit') {
+                $deposits += (float)$t['amount'];
+            } elseif ($t['type'] === 'withdrawal') {
+                $withdrawals += (float)$t['amount'];
+            }
+        }
+
+        $correctCash = (float)$sData['startingCash'] + $completedCash - $cancelledCash + $deposits - $withdrawals;
+        if (abs((float)$sData['currentCashBalance'] - $correctCash) > 0.01) {
+            $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$correctCash, $shiftId]);
+            $sData['currentCashBalance'] = $correctCash;
+        }
+
         // جلب حركات الخزينة
         $txs = $pdo->prepare("SELECT t.*, u.name as userName FROM drawer_transactions t LEFT JOIN users u ON t.userId = u.id WHERE t.shiftId = ? ORDER BY t.createdAt DESC");
         $txs->execute([$shiftId]);

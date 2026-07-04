@@ -1235,13 +1235,24 @@ switch ($action) {
                     $cashRefundAmount = 0.00;
                     $refundSummaryParts = [];
 
-                    foreach ($paymentsList as $pay) {
-                        $payAmt = (float)$pay['amount'];
-                        if ($pay['type'] === 'cash') {
-                            $cashRefundAmount += $payAmt;
+                    if (!empty($paymentsList)) {
+                        foreach ($paymentsList as $pay) {
+                            $payAmt = (float)$pay['amount'];
+                            if ($pay['type'] === 'cash') {
+                                $cashRefundAmount += $payAmt;
+                            }
+                            $refundSummaryParts[] = "{$pay['methodName']}: {$payAmt} ج.م";
                         }
-                        $refundSummaryParts[] = "{$pay['methodName']}: {$payAmt} ج.م";
-                    }
+                    } else {
+                        // Fallback for older orders without order_payments records
+                        $methodLower = $order['paymentMethod'];
+                        if (strpos($methodLower, 'نقدي') !== false || strpos($methodLower, 'عند الاستلام') !== false || strpos($methodLower, 'cash') !== false) {
+                            $cashRefundAmount = (float)$order['total'];
+                            $refundSummaryParts[] = "نقدي (كاش): {$cashRefundAmount} ج.م";
+                        } else {
+                            $refundSummaryParts[] = "{$order['paymentMethod']}: {$order['total']} ج.م";
+                        }
+                    }	
 
                     // خصم النقدية المستردة من الوردية الجارية النشطة
                     if ($cashRefundAmount > 0) {
