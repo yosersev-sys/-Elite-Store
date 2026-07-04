@@ -116,6 +116,7 @@ try {
         case 'add_payment_method':
         case 'update_payment_method':
         case 'delete_payment_method':
+        case 'get_payment_numbers_stats':
             require_once 'api_sales.php';
             break;
 
