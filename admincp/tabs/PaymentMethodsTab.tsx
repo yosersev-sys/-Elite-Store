@@ -433,10 +433,14 @@ const PaymentMethodsTab: React.FC<PaymentMethodsTabProps> = ({ onRefreshData }) 
                   </td>
                 </tr>
               ) : paymentNumbers.map((num: any) => {
-                // Find stats for this number
-                const stat = numberStats.find((s: any) => s.paymentMethodId === num.type && s.reference === num.value);
-                const totalAmount = stat ? stat.totalAmount : 0;
-                const usageCount = stat ? stat.usageCount : 0;
+                 // Find stats for this number by matching if reference contains the unique number/value
+                 const matchedStats = numberStats.filter((s: any) => 
+                   s.paymentMethodId === num.type && 
+                   s.reference && 
+                   s.reference.includes(num.value)
+                 );
+                 const totalAmount = matchedStats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0);
+                 const usageCount = matchedStats.reduce((sum: number, s: any) => sum + (s.usageCount || 0), 0);
 
                 return (
                   <tr key={num.id} className="hover:bg-slate-50/50 transition">
