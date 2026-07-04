@@ -32,7 +32,7 @@ switch ($action) {
 
             // Recalculate cash balance dynamically to fix any mismatches
             $completedCash = 0.0;
-            $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE confirmedShiftId = ? AND status = 'completed'");
+            $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE confirmedShiftId = ?");
             $stmtCompleted->execute([$shiftId]);
             foreach ($stmtCompleted->fetchAll() as $o) {
                 if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
@@ -347,7 +347,7 @@ switch ($action) {
 
         // Recalculate cash balance dynamically on load to fix any mismatches (e.g. from old returned orders)
         $completedCash = 0.0;
-        $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE confirmedShiftId = ? AND status = 'completed'");
+        $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE confirmedShiftId = ?");
         $stmtCompleted->execute([$shiftId]);
         foreach ($stmtCompleted->fetchAll() as $o) {
             if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
