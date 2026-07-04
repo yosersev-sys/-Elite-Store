@@ -1104,9 +1104,10 @@ const ShiftDetailsModal = ({
 
   const txs = details?.transactions || [];
   const deposits = txs.filter((t: any) => t.type === 'deposit').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-  const withdrawals = txs.filter((t: any) => t.type === 'withdrawal').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+  const withdrawals = txs.filter((t: any) => t.type === 'withdrawal' && !String(t.reason || '').includes('مصروفات')).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
   const drawerExpenses = (expenses || []).filter((e: any) => e.paymentSource === 'drawer').reduce((sum, e) => sum + Number(e.amount), 0);
-  const expectedCash = startCash + cashSales + deposits - withdrawals - drawerExpenses;
+  const refunds = txs.filter((t: any) => t.type === 'withdrawal_refund').reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+  const expectedCash = startCash + cashSales + deposits - withdrawals - drawerExpenses - refunds;
 
   let vodafone = 0;
   let instapay = 0;
@@ -1315,6 +1316,12 @@ const ShiftDetailsModal = ({
                 <span className="font-bold text-slate-500">مصروفات من الدرج (-)</span>
                 <span className="font-black text-rose-500">-{drawerExpenses.toLocaleString()} ج.م</span>
               </div>
+              {refunds > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500">مرتجع نقدي (-)</span>
+                  <span className="font-black text-rose-500">-{refunds.toLocaleString()} ج.م</span>
+                </div>
+              )}
               <div className="h-px bg-slate-200 my-1"></div>
               <div className="flex justify-between items-center font-black text-sm">
                 <span className="text-slate-800">الرصيد المتوقع للدرج</span>
