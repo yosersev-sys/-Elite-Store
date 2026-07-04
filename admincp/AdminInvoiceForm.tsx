@@ -1933,13 +1933,32 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                     </div>
                  </div>
 
-                 <button 
-                   disabled={invoiceItems.length === 0 || isSaving}
-                   onClick={() => setShowPreview(true)}
-                   className={`w-full text-white py-4 md:py-6 rounded-2xl md:rounded-3xl font-black text-sm md:text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-40 bg-slate-900 hover:bg-emerald-600`}
-                 >
-                    {order ? 'تحديث الفاتورة 🔄' : (isOnline ? 'حفظ الطلب الفوري' : 'حفظ الفاتورة محلياً (أوفلاين)')}
-                 </button>
+                  {order ? (
+                    <button 
+                      disabled={invoiceItems.length === 0 || isSaving}
+                      onClick={() => { setSubmitAction('print_and_open'); setShowPreview(true); }}
+                      className="w-full text-white py-4 md:py-6 rounded-2xl md:rounded-3xl font-black text-sm md:text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-40 bg-slate-900 hover:bg-emerald-600 font-Cairo cursor-pointer"
+                    >
+                      تحديث الفاتورة 🔄
+                    </button>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-3 w-full">
+                      <button 
+                        disabled={invoiceItems.length === 0 || isSaving}
+                        onClick={() => { setSubmitAction('print_and_open'); setShowPreview(true); }}
+                        className="flex-grow bg-slate-900 hover:bg-slate-800 text-white py-4 md:py-5 rounded-2xl font-black text-xs md:text-sm shadow-lg transition-all active:scale-95 disabled:opacity-40 font-Cairo flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        🖨️ حفظ وطباعة الفاتورة ${isOnline ? '' : '(أوفلاين)'}
+                      </button>
+                      <button 
+                        disabled={invoiceItems.length === 0 || isSaving}
+                        onClick={() => { setSubmitAction('open_only'); setShowPreview(true); }}
+                        className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 md:py-5 rounded-2xl font-black text-xs md:text-sm shadow-lg transition-all active:scale-95 disabled:opacity-40 font-Cairo flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        🔓 حفظ وفتح الدرج فقط ${isOnline ? '' : '(أوفلاين)'}
+                      </button>
+                    </div>
+                  )}
               </div>
            </div>
 
