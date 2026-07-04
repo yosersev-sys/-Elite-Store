@@ -35,7 +35,7 @@ switch ($action) {
             $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE confirmedShiftId = ?");
             $stmtCompleted->execute([$shiftId]);
             foreach ($stmtCompleted->fetchAll() as $o) {
-                if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
+                if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false || strpos(strtolower($o['paymentMethod']), 'cash') !== false) {
                     $completedCash += (float)$o['total'];
                 }
             }
@@ -44,7 +44,7 @@ switch ($action) {
             $stmtCancelled = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE returnShiftId = ? AND status = 'cancelled'");
             $stmtCancelled->execute([$shiftId]);
             foreach ($stmtCancelled->fetchAll() as $o) {
-                if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
+                if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false || strpos(strtolower($o['paymentMethod']), 'cash') !== false) {
                     $cancelledCash += (float)$o['total'];
                 }
             }
@@ -350,7 +350,7 @@ switch ($action) {
         $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE confirmedShiftId = ?");
         $stmtCompleted->execute([$shiftId]);
         foreach ($stmtCompleted->fetchAll() as $o) {
-            if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
+            if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false || strpos(strtolower($o['paymentMethod']), 'cash') !== false) {
                 $completedCash += (float)$o['total'];
             }
         }
@@ -359,7 +359,7 @@ switch ($action) {
         $stmtCancelled = $pdo->prepare("SELECT total, paymentMethod FROM orders WHERE returnShiftId = ? AND status = 'cancelled'");
         $stmtCancelled->execute([$shiftId]);
         foreach ($stmtCancelled->fetchAll() as $o) {
-            if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false) {
+            if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false || strpos(strtolower($o['paymentMethod']), 'cash') !== false) {
                 $cancelledCash += (float)$o['total'];
             }
         }
