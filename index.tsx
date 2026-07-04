@@ -1,3 +1,32 @@
+// Safe Date monkey-patch to prevent RangeErrors when parsing numeric string timestamps
+(function() {
+  const NativeDate = window.Date;
+  
+  function SafeDate(this: any, ...args: any[]) {
+    if (!(this instanceof SafeDate)) {
+      return (NativeDate as any)(...args);
+    }
+    
+    if (args.length === 1) {
+      const val = args[0];
+      if (typeof val === 'string' && /^\d{10,}$/.test(val)) {
+        return new (NativeDate as any)(Number(val));
+      }
+    }
+    
+    return new (NativeDate.bind.apply(NativeDate, [null, ...args] as any))();
+  }
+
+  SafeDate.prototype = NativeDate.prototype;
+  
+  Object.getOwnPropertyNames(NativeDate).forEach(prop => {
+    if (prop !== 'prototype' && prop !== 'name' && prop !== 'length') {
+      (SafeDate as any)[prop] = (NativeDate as any)[prop];
+    }
+  });
+
+  window.Date = SafeDate as any;
+})();
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
