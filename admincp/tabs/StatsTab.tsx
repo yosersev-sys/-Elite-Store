@@ -682,6 +682,27 @@ const StatsTab: React.FC<StatsTabProps> = ({
                 </div>
               </div>
             )}
+
+            {/* الدليل الإرشادي المالي للوردية */}
+            <div className="mt-4 p-6 bg-slate-50 border border-slate-200/80 rounded-[2rem] space-y-3 text-right">
+              <h5 className="text-xs font-black text-slate-800 flex items-center justify-start gap-1.5 font-Cairo">
+                <span>💡 الدليل الإرشادي المالي للوردية:</span>
+              </h5>
+              <div className="text-[11px] font-bold text-slate-500 space-y-2 leading-relaxed font-Cairo">
+                <p>
+                  💵 <strong>معادلة نقدية الدرج المفترضة:</strong><br />
+                  رصيد البداية ({(activeShift?.startingCash || 0).toFixed(2)} ج.م) 
+                  {" + "} مبيعات نقدية ({((shiftStats.cashSales || 0) + (shiftStats.cashReturns || 0)).toFixed(2)} ج.م) 
+                  {" - "} مرتجع نقدي ({(shiftStats.cashReturns || 0).toFixed(2)} ج.م) 
+                  {" + "} إيداعات ({((activeShift as any)?.totalDeposits || 0).toFixed(2)} ج.م) 
+                  {" - "} سحوبات ({((activeShift as any)?.totalWithdrawals || 0).toFixed(2)} ج.م) 
+                  {" = "} <span className="text-emerald-600 font-black">{(Number(activeShift?.currentCashBalance || 0)).toFixed(2)} ج.م</span>.
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  * تنبيه: المبيعات البنكية/الرقمية ({(shiftStats.digitalSales || 0).toFixed(2)} ج.م) والمبيعات الآجلة ({(shiftStats.debtSales || 0).toFixed(2)} ج.م) لا تدخل في حساب نقدية الدرج الفعلية لأنها حركات غير نقدية.
+                </p>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="p-10 text-center space-y-3">

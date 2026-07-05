@@ -182,6 +182,8 @@ export interface Shift {
   openedByName?: string;
   closedByName?: string;
   shiftName: string;
+  totalDeposits?: number;
+  totalWithdrawals?: number;
 }
 
 export interface DrawerTransaction {

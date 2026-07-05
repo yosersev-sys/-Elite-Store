@@ -67,6 +67,9 @@ switch ($action) {
                 $shift['currentCashBalance'] = $correctCash;
             }
 
+            $shift['totalDeposits'] = $deposits;
+            $shift['totalWithdrawals'] = $withdrawals;
+
             sendRes($shift);
         } else {
             sendRes(['status' => 'no_active_shift']);
