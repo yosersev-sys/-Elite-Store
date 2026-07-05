@@ -534,7 +534,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
             </div>
 
              {/* تفاصيل طرق الدفع والمصروفات بالوردية */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mt-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mt-4">
               {/* إجمالي نقدي */}
               <div 
                 onClick={() => fetchShiftDetails('cash')} 
@@ -628,6 +628,22 @@ const StatsTab: React.FC<StatsTabProps> = ({
                   </div>
                   <p className="text-[8px] font-bold text-rose-100 mb-0.5">مرتجع الوردية</p>
                   <p className="text-lg font-black text-white tracking-tight">{shiftStats.cashReturns.toLocaleString()} <span className="text-[9px] font-bold text-rose-100">ج.م</span></p>
+                </div>
+              </div>
+
+              {/* تحصيل ديون نقدية */}
+              <div 
+                onClick={() => fetchShiftDetails('cash')} 
+                className="group relative bg-gradient-to-br from-fuchsia-600 to-purple-700 p-4 rounded-2xl shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                <div className="absolute -left-2 -bottom-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base">📥</span>
+                    <span className="text-[7px] font-black text-fuchsia-100 bg-white/15 px-2 py-0.5 rounded-full">تحصيل ديون</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-fuchsia-100 mb-0.5">تحصيل ديون نقدية</p>
+                  <p className="text-lg font-black text-white tracking-tight">{(activeShift?.ledgerCashPayments || 0).toLocaleString()} <span className="text-[9px] font-bold text-fuchsia-100">ج.م</span></p>
                 </div>
               </div>
 

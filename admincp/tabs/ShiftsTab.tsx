@@ -681,6 +681,10 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                               <p className="text-base font-black text-rose-500">{cashReturnsVal.toFixed(2)} ج.م</p>
                             </div>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">تحصيل ديون نقدية</p>
+                              <p className="text-base font-black text-emerald-600">{ledgerCashVal.toFixed(2)} ج.م</p>
+                            </div>
+                            <div className="bg-slate-50 p-5 rounded-2xl border">
                               <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات البنكية</p>
                               <p className="text-base font-black text-indigo-600">{cardSalesVal.toFixed(2)} ج.م</p>
                             </div>
