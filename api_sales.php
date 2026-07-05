@@ -836,6 +836,32 @@ switch ($action) {
                 $id
             ]);
 
+            // إذا تم تغيير حالة الفاتورة المكتملة إلى ملغاة/مرتجعة، نقوم بتحديث بيانات المرتجع وتسجيل حركة الدرج
+            if ($newStatus === 'cancelled' && $oldOrder['status'] !== 'cancelled') {
+                $returnShiftId = $activeShift['id'];
+                $returnedAt = time() * 1000;
+                $returnedAmount = (float)$finalTotal;
+                $returnStatus = 'full';
+                $returnedById = $_SESSION['user']['id'] ?? 'admin';
+                $returnReason = trim($input['editReason'] ?? $input['reason'] ?? 'تعديل حالة الفاتورة إلى ملغاة/مرتجعة');
+
+                $stmtReturnUpdate = $pdo->prepare("UPDATE orders SET returnShiftId = ?, returnedAt = ?, returnedAmount = ?, returnStatus = ?, returnedById = ?, returnReason = ? WHERE id = ?");
+                $stmtReturnUpdate->execute([$returnShiftId, $returnedAt, $returnedAmount, $returnStatus, $returnedById, $returnReason, $id]);
+
+                // إدراج حركة درج نقدية للمرتجع إذا كان هناك مبلغ نقدي تم دفعه مسبقاً
+                if ($oldCashAmount > 0) {
+                    $txStmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId) VALUES (?, 'withdrawal_refund', ?, ?, ?, ?)");
+                    $txStmt->execute([
+                        $returnShiftId,
+                        $oldCashAmount,
+                        "مرتجع نقدي للفاتورة #{$id}: {$returnReason}",
+                        $returnedAt,
+                        $returnedById
+                    ]);
+                }
+            }
+
+
             // جلب الإعدادات والسياسة المطبقة
             $settings = [];
             foreach ($pdo->query("SELECT * FROM settings")->fetchAll() as $s) {
