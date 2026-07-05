@@ -259,6 +259,26 @@ const StatsTab: React.FC<StatsTabProps> = ({
 
     const digitalSales = vodafoneSales + instapaySales + visaSales;
 
+    // حساب المرتجع النقدي للوردية النشطة
+    let cashReturns = 0;
+    safeOrders.forEach(o => {
+      if (o && o.returnShiftId === activeShift.id && o.status === 'cancelled') {
+        if (o.payments && o.payments.length > 0) {
+          o.payments.forEach(p => {
+            const method = String(p.method || '').toLowerCase();
+            if (method === 'cash' || method.includes('نقدي')) {
+              cashReturns += Number(p.amount);
+            }
+          });
+        } else {
+          const methodStr = String(o.paymentMethod || '').toLowerCase();
+          if (methodStr.includes('نقدي') || methodStr.includes('عند الاستلام') || methodStr === 'cash') {
+            cashReturns += Number(o.total || 0);
+          }
+        }
+      }
+    });
+
     // حساب مدة الوردية
     const startMs = Number(activeShift.startTime);
     const nowMs = Date.now();
@@ -277,6 +297,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
       vodafoneSales,
       instapaySales,
       visaSales,
+      cashReturns,
       avgOrderValue: ordersCount > 0 ? Math.round(sales / ordersCount) : 0,
       duration
     };
@@ -496,8 +517,8 @@ const StatsTab: React.FC<StatsTabProps> = ({
               </div>
             </div>
 
-            {/* تفاصيل طرق الدفع والمصروفات بالوردية */}
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mt-4">
+             {/* تفاصيل طرق الدفع والمصروفات بالوردية */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mt-4">
               {/* إجمالي نقدي */}
               <div 
                 onClick={() => fetchShiftDetails('cash')} 
@@ -575,6 +596,22 @@ const StatsTab: React.FC<StatsTabProps> = ({
                   </div>
                   <p className="text-[8px] font-bold text-amber-100 mb-0.5">آجل الوردية</p>
                   <p className="text-lg font-black text-white tracking-tight">{shiftStats.debtSales.toLocaleString()} <span className="text-[9px] font-bold text-amber-100">ج.م</span></p>
+                </div>
+              </div>
+
+              {/* مرتجع الوردية */}
+              <div 
+                onClick={() => fetchShiftDetails('cash')} 
+                className="group relative bg-gradient-to-br from-rose-600 to-orange-500 p-4 rounded-2xl shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                <div className="absolute -left-2 -bottom-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base">↩️</span>
+                    <span className="text-[7px] font-black text-rose-100 bg-white/15 px-2 py-0.5 rounded-full">مرتجع</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-rose-100 mb-0.5">مرتجع الوردية</p>
+                  <p className="text-lg font-black text-white tracking-tight">{shiftStats.cashReturns.toLocaleString()} <span className="text-[9px] font-bold text-rose-100">ج.م</span></p>
                 </div>
               </div>
 
