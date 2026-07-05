@@ -552,7 +552,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
         }, 0);
         const depVal = snap ? snap.totalDeposits : selectedShiftDetails.transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
         const witVal = snap ? snap.totalWithdrawals : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + t.amount, 0);
-        const ledgerCashVal = snap ? (snap.ledgerCashPayments || 0) : 0;
+        const ledgerCashVal = snap ? (snap.ledgerCashPayments || 0) : (selectedShiftDetails.shift.ledgerCashPayments || 0);
 
         const handlePrintDetails = () => {
           POSPrintService.printShift(selectedShiftDetails);
@@ -735,9 +735,10 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                           رصيد البداية ({selectedShiftDetails.shift.startingCash.toFixed(2)} ج.م) 
                           {" + "} مبيعات نقدية ({cashSalesVal.toFixed(2)} ج.م) 
                           {" - "} مرتجع نقدي ({cashReturnsVal.toFixed(2)} ج.م) 
+                          {" + "} تحصيل ديون نقدية ({ledgerCashVal.toFixed(2)} ج.م)
                           {" + "} إيداعات ({depVal.toFixed(2)} ج.م) 
                           {" - "} سحوبات ({witVal.toFixed(2)} ج.م) 
-                          {" = "} <span className="text-emerald-600 font-black">{(selectedShiftDetails.shift.startingCash + cashSalesVal - cashReturnsVal + depVal - witVal).toFixed(2)} ج.م</span>.
+                          {" = "} <span className="text-emerald-600 font-black">{(selectedShiftDetails.shift.startingCash + cashSalesVal - cashReturnsVal + ledgerCashVal + depVal - witVal).toFixed(2)} ج.م</span>.
                         </p>
                         <p className="text-[10px] text-slate-400">
                           * تنبيه: المبيعات البنكية/الرقمية ({cardSalesVal.toFixed(2)} ج.م) والمبيعات الآجلة ({debtSalesVal.toFixed(2)} ج.م) لا تدخل في حساب نقدية الدرج الفعلية لأنها حركات غير نقدية.

@@ -694,6 +694,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                   رصيد البداية ({(activeShift?.startingCash || 0).toFixed(2)} ج.م) 
                   {" + "} مبيعات نقدية ({((shiftStats.cashSales || 0) + (shiftStats.cashReturns || 0)).toFixed(2)} ج.م) 
                   {" - "} مرتجع نقدي ({(shiftStats.cashReturns || 0).toFixed(2)} ج.م) 
+                  {" + "} تحصيل ديون نقدية ({((activeShift as any)?.ledgerCashPayments || 0).toFixed(2)} ج.م)
                   {" + "} إيداعات ({((activeShift as any)?.totalDeposits || 0).toFixed(2)} ج.م) 
                   {" - "} سحوبات ({((activeShift as any)?.totalWithdrawals || 0).toFixed(2)} ج.م) 
                   {" = "} <span className="text-emerald-600 font-black">{(Number(activeShift?.currentCashBalance || 0)).toFixed(2)} ج.م</span>.

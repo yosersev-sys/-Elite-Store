@@ -184,6 +184,7 @@ export interface Shift {
   shiftName: string;
   totalDeposits?: number;
   totalWithdrawals?: number;
+  ledgerCashPayments?: number;
 }
 
 export interface DrawerTransaction {

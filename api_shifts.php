@@ -61,7 +61,9 @@ switch ($action) {
                 }
             }
 
-            $correctCash = (float)$shift['startingCash'] + $completedCash - $cancelledCash + $deposits - $withdrawals;
+            $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn());
+
+            $correctCash = (float)$shift['startingCash'] + $completedCash - $cancelledCash + $deposits - $withdrawals + $ledgerCashPayments;
             if (abs((float)$shift['currentCashBalance'] - $correctCash) > 0.01) {
                 $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$correctCash, $shiftId]);
                 $shift['currentCashBalance'] = $correctCash;
@@ -69,6 +71,7 @@ switch ($action) {
 
             $shift['totalDeposits'] = $deposits;
             $shift['totalWithdrawals'] = $withdrawals;
+            $shift['ledgerCashPayments'] = $ledgerCashPayments;
 
             sendRes($shift);
         } else {
@@ -259,10 +262,10 @@ switch ($action) {
         }
 
         // 2.5 حساب تحصيلات ديون العملاء النقدية خلال هذه الوردية
-        $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND paymentMethod LIKE '%نقدي%'")->fetchColumn());
+        $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn());
 
         // 3. حساب الرصيد المتوقع بالمعادلة المحاسبية الشاملة (مطابق للرصيد الدفتري المسجل بالدرج)
-        $expectedCash = (float)$active['currentCashBalance'];
+        $expectedCash = (float)$active['startingCash'] + $cashSales - $cashReturns + $totalDeposits - $totalWithdrawals + $ledgerCashPayments;
 
         // 4. احتساب الفرق
         $difference = round($actualCash - $expectedCash, 2);
@@ -379,11 +382,15 @@ switch ($action) {
             }
         }
 
-        $correctCash = (float)$sData['startingCash'] + $completedCash - $cancelledCash + $deposits - $withdrawals;
+        $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn());
+
+        $correctCash = (float)$sData['startingCash'] + $completedCash - $cancelledCash + $deposits - $withdrawals + $ledgerCashPayments;
         if (abs((float)$sData['currentCashBalance'] - $correctCash) > 0.01) {
             $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$correctCash, $shiftId]);
             $sData['currentCashBalance'] = $correctCash;
         }
+
+        $sData['ledgerCashPayments'] = $ledgerCashPayments;
 
         // جلب حركات الخزينة
         $txs = $pdo->prepare("SELECT t.*, u.name as userName FROM drawer_transactions t LEFT JOIN users u ON t.userId = u.id WHERE t.shiftId = ? ORDER BY t.createdAt DESC");
