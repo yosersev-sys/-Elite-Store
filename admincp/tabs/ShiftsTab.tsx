@@ -705,7 +705,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                       })()}
                       <div className="bg-slate-50 p-5 rounded-2xl border">
                         <p className="text-[10px] text-slate-400 font-bold mb-1">الرصيد المتوقع بالدرج</p>
-                        <p className="text-base font-black text-slate-800">{selectedShiftDetails.shift.expectedCash.toFixed(2)} ج.م</p>
+                        <p className="text-base font-black text-slate-800">{(selectedShiftDetails.shift.status === 'open' ? selectedShiftDetails.shift.currentCashBalance : (selectedShiftDetails.shift.expectedCash || 0)).toFixed(2)} ج.م</p>
                       </div>
                       <div className="bg-slate-900 text-white p-5 rounded-2xl border">
                         <p className="text-[10px] text-slate-300 font-bold mb-1">{selectedShiftDetails.shift.status === 'open' ? 'الرصيد الفعلي المتوقع' : 'الرصيد الفعلي (المجرود)'}</p>
@@ -737,12 +737,12 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                         <p>
                           💵 <strong>معادلة نقدية الدرج المفترضة:</strong><br />
                           رصيد البداية ({selectedShiftDetails.shift.startingCash.toFixed(2)} ج.م) 
-                          {" + "} مبيعات نقدية ({cashSalesVal.toFixed(2)} ج.م) 
+                          {" + "} مبيعات نقدية ({(cashSalesVal + cashReturnsVal).toFixed(2)} ج.م) 
                           {" - "} مرتجع نقدي ({cashReturnsVal.toFixed(2)} ج.م) 
                           {" + "} تحصيل ديون نقدية ({ledgerCashVal.toFixed(2)} ج.م)
-                          {" + "} إيداعات ({depVal.toFixed(2)} ج.م) 
+                          {" + "} إيداعات ({depVal.toFixed(2)} ج.m) 
                           {" - "} سحوبات ({witVal.toFixed(2)} ج.م) 
-                          {" = "} <span className="text-emerald-600 font-black">{(selectedShiftDetails.shift.startingCash + cashSalesVal - cashReturnsVal + ledgerCashVal + depVal - witVal).toFixed(2)} ج.م</span>.
+                          {" = "} <span className="text-emerald-600 font-black">{(selectedShiftDetails.shift.startingCash + cashSalesVal + ledgerCashVal + depVal - witVal).toFixed(2)} ج.م</span>.
                         </p>
                         <p className="text-[10px] text-slate-400">
                           * تنبيه: المبيعات البنكية/الرقمية ({cardSalesVal.toFixed(2)} ج.م) والمبيعات الآجلة ({debtSalesVal.toFixed(2)} ج.م) لا تدخل في حساب نقدية الدرج الفعلية لأنها حركات غير نقدية.
