@@ -792,25 +792,47 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
   const handleFinalSubmit = async () => {
     if (isSaving) return;
-    if (invoiceItems.length === 0) return alert('يرجى إضافة منتجات للفاتورة');
-    if (!customerInfo.phone) return alert('يرجى إدخال رقم الهاتف لمتابعة الطلب');
-    if (isDeliveryEnabled && !customerInfo.address.trim()) return alert('يرجى إدخال عنوان التوصيل');
+    setIsSaving(true);
+
+    if (invoiceItems.length === 0) {
+      alert('يرجى إضافة منتجات للفاتورة');
+      setIsSaving(false);
+      return;
+    }
+    if (!customerInfo.phone) {
+      alert('يرجى إدخال رقم الهاتف لمتابعة الطلب');
+      setIsSaving(false);
+      return;
+    }
+    if (isDeliveryEnabled && !customerInfo.address.trim()) {
+      alert('يرجى إدخال عنوان التوصيل');
+      setIsSaving(false);
+      return;
+    }
     if (order && order.status === 'completed' && !editReason.trim()) {
-      return alert('يرجى إدخال سبب تعديل الخصومات/الفاتورة للمتابعة المحاسبية');
+      alert('يرجى إدخال سبب تعديل الخصومات/الفاتورة للمتابعة المحاسبية');
+      setIsSaving(false);
+      return;
     }
 
     // Front-end validations for payments
     if (sumOfPayments > total + 0.01) {
-      return alert('خطأ: إجمالي المبالغ المدخلة يتجاوز إجمالي الفاتورة!');
+      alert('خطأ: إجمالي المبالغ المدخلة يتجاوز إجمالي الفاتورة!');
+      setIsSaving(false);
+      return;
     }
 
     if (outstanding > 0) {
       const normPhone = normalizePhone(customerInfo.phone);
       if (!customerInfo.name || customerInfo.name === 'عميل نقدي' || !normPhone) {
-        return alert('يرجى تحديد عميل حقيقي (اسم ورقم هاتف) لتسجيل المديونية المتبقية عليه بقيمة ' + outstanding + ' ج.م');
+        alert('يرجى تحديد عميل حقيقي (اسم ورقم هاتف) لتسجيل المديونية المتبقية عليه بقيمة ' + outstanding + ' ج.م');
+        setIsSaving(false);
+        return;
       }
       if (!dueDate) {
-        return alert('يرجى تحديد تاريخ استحقاق الدين');
+        alert('يرجى تحديد تاريخ استحقاق الدين');
+        setIsSaving(false);
+        return;
       }
     }
 
@@ -819,14 +841,20 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         const amt = parseFloat(paymentAmounts[m.id] || '0') || 0;
         if (amt > 0 && m.type === 'digital' && !paymentReferences[m.id]?.trim()) {
           const confirmNoRef = window.confirm(`تنبيه: لم تقم بإدخال رقم مرجع لعملية الدفع الرقمي (${m.name}). هل تريد المتابعة بدون مرجع؟`);
-          if (!confirmNoRef) return;
+          if (!confirmNoRef) {
+            setIsSaving(false);
+            return;
+          }
         }
       }
     } else {
       const activeMethod = dbPaymentMethods.find(m => m.id === selectedSingleMethod);
       if (activeMethod && activeMethod.type === 'digital' && !singleReference.trim() && !isFullDebt) {
         const confirmNoRef = window.confirm(`تنبيه: لم تقم بإدخال رقم مرجع لعملية الدفع الرقمي (${activeMethod.name}). هل تريد المتابعة بدون مرجع؟`);
-        if (!confirmNoRef) return;
+        if (!confirmNoRef) {
+          setIsSaving(false);
+          return;
+        }
       }
     }
 
@@ -849,10 +877,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       }
     } catch (err: any) {
       alert(err.message);
+      setIsSaving(false);
       return;
     }
-    
-    setIsSaving(true);
     try {
       const normPhone = normalizePhone(customerInfo.phone);
       const existingUser = users.find(u => normalizePhone(u.phone) === normPhone);

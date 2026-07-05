@@ -23,6 +23,7 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, delivery
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   // التعبئة التلقائية عند التحميل أو عند تغير المستخدم المسجل
   useEffect(() => {
@@ -67,7 +68,9 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, delivery
   };
 
   const handleConfirmOrder = () => {
+    if (isSaving) return;
     if (validate()) {
+      setIsSaving(true);
       onPlaceOrder({
         ...formData,
         city: 'فاقوس',
@@ -195,13 +198,23 @@ const CheckoutView: React.FC<CheckoutViewProps> = ({ cart, currentUser, delivery
 
             <button 
               type="button"
+              disabled={isSaving}
               onClick={handleConfirmOrder}
-              className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95 flex items-center justify-center gap-3 group"
+              className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black text-xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95 flex items-center justify-center gap-3 group disabled:opacity-50 disabled:bg-slate-400 cursor-pointer"
             >
-              تأكيد الطلب الآن
-              <svg className="w-6 h-6 transition-transform group-hover:translate-x-[-4px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-              </svg>
+              {isSaving ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>جاري تأكيد الطلب...</span>
+                </>
+              ) : (
+                <>
+                  تأكيد الطلب الآن
+                  <svg className="w-6 h-6 transition-transform group-hover:translate-x-[-4px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                </>
+              )}
             </button>
           </div>
         </div>
