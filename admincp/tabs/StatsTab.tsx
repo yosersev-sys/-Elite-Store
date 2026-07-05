@@ -450,8 +450,24 @@ const StatsTab: React.FC<StatsTabProps> = ({
 
         {activeShift?.id ? (
           <div className="p-6">
-            {/* الصف الأول: 4 بطاقات رئيسية */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* الصف الأول: 5 بطاقات رئيسية */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {/* رصيد البداية */}
+              <div 
+                onClick={() => fetchShiftDetails('cash')} 
+                className="group relative bg-gradient-to-br from-sky-500 to-blue-600 p-5 rounded-2xl shadow-lg shadow-sky-100 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                <div className="absolute -left-3 -bottom-3 w-16 h-16 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-lg">🪙</span>
+                    <span className="text-[8px] font-black text-sky-100 bg-white/15 px-2 py-0.5 rounded-full">البداية</span>
+                  </div>
+                  <p className="text-[9px] font-bold text-sky-100 mb-0.5">رصيد البداية</p>
+                  <p className="text-xl font-black text-white tracking-tight">{(activeShift?.startingCash || 0).toLocaleString()} <span className="text-[10px] font-bold text-sky-100">ج.م</span></p>
+                </div>
+              </div>
+
               {/* مبيعات الوردية */}
               <div 
                 onClick={() => fetchShiftDetails('sales')} 
