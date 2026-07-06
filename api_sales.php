@@ -254,7 +254,7 @@ switch ($action) {
         break;
 
     case 'save_order':
-        $localUuid = $input['localUuid'] ?? null;
+        $localUuid = isset($input['localUuid']) && trim($input['localUuid']) !== '' ? $input['localUuid'] : null;
         
         // 1. Idempotency Check using localUuid
         if (!empty($localUuid)) {
