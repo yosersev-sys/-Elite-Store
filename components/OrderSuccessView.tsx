@@ -15,7 +15,8 @@ interface OrderSuccessViewProps {
 const safeDate = (val: any): Date => {
   if (!val) return new Date();
   const num = Number(val);
-  return isNaN(num) ? new Date(val) : new Date(num);
+  const dateObj = isNaN(num) ? new Date(val) : new Date(num);
+  return isNaN(dateObj.getTime()) ? new Date() : dateObj;
 };
 
 const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({ 

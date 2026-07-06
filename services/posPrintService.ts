@@ -173,7 +173,13 @@ export class POSPrintService {
         <div style="font-size: 9pt; line-height: 1.4;">
           <div class="flex-between">
             <span>التاريخ:</span>
-            <span>${new Date(order.createdAt).toLocaleString('ar-EG')}</span>
+            <span>${(() => {
+              const val = order.createdAt;
+              if (!val) return new Date().toLocaleString('ar-EG');
+              const num = Number(val);
+              const dateObj = isNaN(num) ? new Date(val) : new Date(num);
+              return (isNaN(dateObj.getTime()) ? new Date() : dateObj).toLocaleString('ar-EG');
+            })()}</span>
           </div>
           <div class="flex-between">
             <span>العميل:</span>
