@@ -14,7 +14,7 @@ const NewOrderPopup: React.FC<NewOrderPopupProps> = ({ orders, onClose, onView }
 
   // نعرض أحدث طلب وصل في القائمة
   const order = orders[0];
-  const isQuickInvoice = order.id.startsWith('INV-') || order.id.startsWith('OFF-');
+  const isQuickInvoice = order.id.startsWith('INV-') || order.id.startsWith('OFF-') || order.id.startsWith('OFFLINE-') || order.isOffline;
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-fadeIn">

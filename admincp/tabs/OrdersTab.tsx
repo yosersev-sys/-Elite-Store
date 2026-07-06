@@ -32,7 +32,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
   }, [initialFilter]);
 
   const handleReturnOrder = async (id: string) => {
-    const isInv = id.startsWith('INV-') || id.startsWith('OFF-');
+    const isInv = id.startsWith('INV-') || id.startsWith('OFF-') || id.startsWith('OFFLINE-');
     if (!confirm(isInv ? 'هل تريد استرجاع هذه الفاتورة وإلغاء مبيعاتها وإعادة الكميات للمخزن؟' : 'هل تريد استرجاع هذا الطلب وإلغاء مبيعاته وإعادة الكميات للمخزن؟')) return;
     setProcessingIds(prev => [...prev, id]);
     try {
@@ -45,7 +45,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
   };
 
   const handleUpdatePayment = async (id: string, paymentMethod: string) => {
-    const isInv = id.startsWith('INV-') || id.startsWith('OFF-');
+    const isInv = id.startsWith('INV-') || id.startsWith('OFF-') || id.startsWith('OFFLINE-');
     if (!confirm(isInv ? 'هل تريد تأكيد استلام النقدية وإتمام الفاتورة؟' : 'هل تريد تأكيد استلام النقدية وإتمام الطلب؟')) return;
     setProcessingIds(prev => [...prev, id]);
     try {
@@ -62,9 +62,9 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
 
     // Filter by mode (Cashier Invoices vs Store Orders)
     if (mode === 'invoices') {
-      result = result.filter(o => o.id.startsWith('INV-') || o.id.startsWith('OFF-'));
+      result = result.filter(o => o.id.startsWith('INV-') || o.id.startsWith('OFF-') || o.id.startsWith('OFFLINE-') || o.isOffline);
     } else if (mode === 'store-orders') {
-      result = result.filter(o => !o.id.startsWith('INV-') && !o.id.startsWith('OFF-'));
+      result = result.filter(o => !o.id.startsWith('INV-') && !o.id.startsWith('OFF-') && !o.id.startsWith('OFFLINE-') && !o.isOffline);
     }
 
     if (statusFilter !== 'all') {

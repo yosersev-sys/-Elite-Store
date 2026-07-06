@@ -318,7 +318,7 @@ const App: React.FC = () => {
           setOrders(prev => JSON.stringify(prev) === JSON.stringify(ords) ? prev : ords);
           
           if (ords.length > 0 && prevOrderIds.current.size > 0) {
-            const newOnes = ords.filter((o: Order) => !prevOrderIds.current.has(o.id) && !o.id.startsWith('INV-') && !o.id.startsWith('OFF-'));
+            const newOnes = ords.filter((o: Order) => !prevOrderIds.current.has(o.id) && !o.id.startsWith('INV-') && !o.id.startsWith('OFF-') && !o.id.startsWith('OFFLINE-') && !o.isOffline);
             if (newOnes.length > 0) {
               setNewOrdersForPopup(prev => [...prev, ...newOnes]);
               if (soundEnabled) {

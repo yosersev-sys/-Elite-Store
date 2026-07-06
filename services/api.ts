@@ -391,7 +391,7 @@ export const ApiService = {
     // Fallback: Save offline if enabled, else return false
     if (offlineEnabled) {
       // Offline restrictions: Verify this is a new cashier order and not an administrative operation
-      const isNewCashierOrder = order.id.startsWith('INV-') || order.id.startsWith('OFF-') || !order.id;
+      const isNewCashierOrder = order.id.startsWith('INV-') || order.id.startsWith('OFF-') || order.id.startsWith('OFFLINE-') || order.isOffline || !order.id;
       if (!isNewCashierOrder) {
         console.error("Administrative operations are disabled while offline.");
         return false;
