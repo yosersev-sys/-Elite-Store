@@ -333,13 +333,21 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                         {s.status === 'open' ? 'مفتوحة' : 'مغلقة'}
                       </span>
                     </td>
-                    <td className="py-4 px-2 text-slate-400">
-                      <div>{new Date(s.startTime).toLocaleString('ar-EG')}</div>
-                      {s.endTime && (
-                        <div className="text-[10px] text-slate-500 mt-0.5">
-                          {new Date(s.endTime).toLocaleString('ar-EG')}
+                    <td className="py-4 px-2">
+                      <div className="flex flex-col gap-1.5 text-[11px] font-bold">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                          <span className="text-slate-400 text-[10px] w-10">البدء:</span>
+                          <span className="text-slate-700 font-Cairo font-black">{new Date(s.startTime).toLocaleString('ar-EG')}</span>
                         </div>
-                      )}
+                        {s.endTime && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                            <span className="text-slate-400 text-[10px] w-10">النهاية:</span>
+                            <span className="text-slate-700 font-Cairo font-black">{new Date(s.endTime).toLocaleString('ar-EG')}</span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="py-4 px-2">{Number(s.startingCash).toFixed(2)} ج.م</td>
                     <td className="py-4 px-2">{s.status === 'open' ? 'نشط بالدرج' : `${Number(s.actualCash).toFixed(2)} ج.م`}</td>
