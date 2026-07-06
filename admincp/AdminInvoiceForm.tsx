@@ -414,7 +414,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     }
 
     addTimelineEvent(`تعديل كمية ${item.name} إلى ${newQty} ${item.unit} ✏️`, 'info');
-    setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, quantity: newQty } : x));
+    setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, quantity: newQty, amountInput: undefined } : x));
   };
 
   const setDirectQuantity = (id: string, selectedUnitId: string, value: string, bypassStockCheck = false) => {
@@ -451,7 +451,52 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     }
 
     addTimelineEvent(`تعديل كمية ${item.name} إلى ${newQty} ${item.unit} ✏️`, 'info');
-    setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, quantity: newQty } : x));
+    setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, quantity: newQty, amountInput: undefined } : x));
+  };
+
+  const setAmountDirect = (id: string, selectedUnitId: string, value: string) => {
+    const item = invoiceItems.find(x => x.id === id && x.selectedUnitId === selectedUnitId);
+    if (!item) return;
+
+    const val = parseFloat(value);
+    if (isNaN(val) || val <= 0) {
+      setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, amountInput: value } : x));
+      return;
+    }
+
+    const price = parseFloat(item.price || '0');
+    const itemDisc = item.discountValue ? (item.discountType === 'percent' ? (price * item.discountValue / 100) : item.discountValue) : 0;
+    const netUnitPrice = price - itemDisc;
+
+    if (netUnitPrice > 0) {
+      const calculatedQty = Number((val / netUnitPrice).toFixed(3));
+      const product = products.find(p => p.id === id);
+      if (!product) return;
+
+      const conversionFactor = item.conversionFactor || 1.00;
+      const totalRequiredBase = invoiceItems.reduce((acc, x) => {
+        if (x.id === id) {
+          const factor = x.conversionFactor || 1.00;
+          if (x.selectedUnitId === selectedUnitId) {
+            return acc + (calculatedQty * factor);
+          }
+          return acc + (x.quantity * factor);
+        }
+        return acc;
+      }, 0);
+
+      const availableInStock = order
+         ? product.stockQuantity + (order.items.reduce((acc, i) => i.id === id ? acc + (i.quantity * (i.conversionFactor || 1.00)) : acc, 0))
+         : product.stockQuantity;
+
+      if (totalRequiredBase > availableInStock) {
+        setInsufficientStockProduct({ product, requestedQty: Number((totalRequiredBase / conversionFactor).toFixed(3)) });
+        setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, amountInput: value } : x));
+        return;
+      }
+
+      setInvoiceItems(prev => prev.map(x => (x.id === id && x.selectedUnitId === selectedUnitId) ? { ...x, quantity: calculatedQty, amountInput: value } : x));
+    }
   };
 
   useEffect(() => {
@@ -1493,29 +1538,48 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                 </div>
                               </td>
                               <td className="px-4 md:px-8 py-3">
-                                <div className="flex items-center gap-1.5 md:gap-2">
-                                  <div className="flex items-center bg-slate-50 rounded-lg px-1 py-0.5 border border-slate-100">
-                                    <button disabled={isSaving} onClick={() => {
-                                      updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, -(item.unit === 'kg' ? 0.1 : 1));
-                                      addTimelineEvent(`تقليل كمية: ${item.name}`, 'info');
-                                    }} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">-</button>
-                                    <input 
-                                      disabled={isSaving}
-                                      type="number"
-                                      step={item.unit === 'kg' ? "0.001" : "1"}
-                                      value={item.quantity}
-                                      onChange={(e) => {
-                                        setDirectQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value);
-                                        addTimelineEvent(`تعديل كمية ${item.name} إلى ${e.target.value}`, 'info');
-                                      }}
-                                      className="bg-transparent font-black text-[11px] md:text-xs w-14 text-center outline-none disabled:opacity-50"
-                                    />
-                                    <button disabled={isSaving} onClick={() => {
-                                      updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, (item.unit === 'kg' ? 0.1 : 1));
-                                      addTimelineEvent(`زيادة كمية: ${item.name}`, 'info');
-                                    }} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">+</button>
+                                <div className="flex flex-col gap-1 items-start">
+                                  <div className="flex items-center gap-1.5 md:gap-2">
+                                    <div className="flex items-center bg-slate-50 rounded-lg px-1 py-0.5 border border-slate-100">
+                                      <button disabled={isSaving} onClick={() => {
+                                        updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, -(item.unit === 'kg' ? 0.1 : 1));
+                                        addTimelineEvent(`تقليل كمية: ${item.name}`, 'info');
+                                      }} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">-</button>
+                                      <input 
+                                        disabled={isSaving}
+                                        type="number"
+                                        step={item.unit === 'kg' ? "0.001" : "1"}
+                                        value={item.quantity}
+                                        onChange={(e) => {
+                                          setDirectQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value);
+                                          addTimelineEvent(`تعديل كمية ${item.name} إلى ${e.target.value}`, 'info');
+                                        }}
+                                        className="bg-transparent font-black text-[11px] md:text-xs w-14 text-center outline-none disabled:opacity-50"
+                                      />
+                                      <button disabled={isSaving} onClick={() => {
+                                        updateQuantity(item.id, item.selectedUnitId || `unit_${item.id}_base`, (item.unit === 'kg' ? 0.1 : 1));
+                                        addTimelineEvent(`زيادة كمية: ${item.name}`, 'info');
+                                      }} className="w-7 h-7 flex items-center justify-center hover:bg-white rounded-md text-emerald-600 font-black text-sm shadow-sm disabled:opacity-30">+</button>
+                                    </div>
+                                    <span className="text-[8px] font-bold text-slate-400">{item.unit || 'قطعة'}</span>
                                   </div>
-                                  <span className="text-[8px] font-bold text-slate-400">{item.unit || 'قطعة'}</span>
+                                  {item.unit === 'kg' && (
+                                    <div className="flex items-center gap-1 no-print">
+                                      <span className="text-[8px] font-black text-slate-400">بمبلغ:</span>
+                                      <input 
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        placeholder="ج.م"
+                                        disabled={isSaving}
+                                        value={item.amountInput !== undefined ? item.amountInput : ''}
+                                        onChange={(e) => {
+                                          setAmountDirect(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value);
+                                        }}
+                                        className="w-16 px-1.5 py-0.5 bg-white border border-slate-200 rounded-md outline-none text-[9px] font-black text-center text-slate-800 focus:ring-1 focus:ring-emerald-400"
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-4 md:px-8 py-3 font-bold text-slate-500 text-[11px] md:text-sm">{item.price}</td>
