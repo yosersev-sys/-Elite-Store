@@ -23,14 +23,23 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
   onEditOrder, onUpdateOrderPayment, onReturnOrder, mode,
   initialFilter, onNavigateToTab, onSyncOffline
 }) => {
-  const [orderPage, setOrderPage] = useState(1);
+  const [orderPage, setOrderPage] = useState(() => Number(localStorage.getItem('admin_orders_page')) || 1);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'cancelled'>('all');
   const ordersPerPage = 10;
   const [processingIds, setProcessingIds] = useState<string[]>([]);
 
+  const isFirstMount = React.useRef(true);
   React.useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
     setOrderPage(1);
   }, [initialFilter]);
+
+  React.useEffect(() => {
+    localStorage.setItem('admin_orders_page', String(orderPage));
+  }, [orderPage]);
 
   const handleReturnOrder = async (id: string) => {
     const isInv = id.startsWith('INV-') || id.startsWith('OFF-') || id.startsWith('OFFLINE-');

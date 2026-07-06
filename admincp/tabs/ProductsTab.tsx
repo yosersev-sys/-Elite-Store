@@ -303,7 +303,10 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
   onRefreshData
 }) => {
   const isManager = currentUser?.role === 'admin';
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => Number(localStorage.getItem('admin_products_page')) || 1);
+  useEffect(() => {
+    localStorage.setItem('admin_products_page', String(currentPage));
+  }, [currentPage]);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const itemsPerPage = 10;
   
@@ -345,9 +348,14 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
   const [executingBulk, setExecutingBulk] = useState(false);
 
   // Sync outside filter trigger
+  const isInitialFilterFirstMount = useRef(true);
   useEffect(() => {
     if (initialFilter) {
       setStockStatus(initialFilter);
+      if (isInitialFilterFirstMount.current) {
+        isInitialFilterFirstMount.current = false;
+        return;
+      }
       setCurrentPage(1);
     }
   }, [initialFilter]);
@@ -516,7 +524,12 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
   }, [filteredProducts, currentPage]);
 
   // Adjust page count if filter changes
+  const isFiltersFirstMount = useRef(true);
   useEffect(() => {
+    if (isFiltersFirstMount.current) {
+      isFiltersFirstMount.current = false;
+      return;
+    }
     setCurrentPage(1);
     setSelectedIds([]);
   }, [selectedCategory, selectedSupplier, stockStatus, profitStatus, adminSearch, sortBy]);
