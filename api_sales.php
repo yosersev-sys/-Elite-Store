@@ -673,6 +673,7 @@ switch ($action) {
             sendRes(['status' => 'success', 'id' => $orderId]);
         } catch (Exception $e) {
             $pdo->rollBack();
+            file_put_contents('debug_error.txt', "API_SALES.PHP EXCEPTION: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n\n", FILE_APPEND);
             sendErr('فشل في حفظ الفاتورة: ' . $e->getMessage(), 400, $e->getMessage());
         }
         break;

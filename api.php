@@ -4,8 +4,19 @@
  * هذا الملف هو الموزع الرئيسي - لا تضع فيه منطقاً برمجياً ثقيلاً.
  */
 session_start();
-error_reporting(0);
+error_reporting(E_ALL);
 ini_set('display_errors', 0);
+
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error !== NULL && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        file_put_contents('debug_error.txt', "FATAL SHUTDOWN ERROR: " . $error['message'] . " in " . $error['file'] . " on line " . $error['line'] . "\n\n", FILE_APPEND);
+    }
+});
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    file_put_contents('debug_error.txt', "PHP ERROR ($errno): $errstr in $errfile on line $errline\n\n", FILE_APPEND);
+    return false;
+});
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -167,5 +178,6 @@ try {
             break;
     }
 } catch (Exception $e) {
+    file_put_contents('debug_error.txt', "API.PHP EXCEPTION: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n\n", FILE_APPEND);
     sendErr('خطأ في استدعاء الموديول المختص', 500, $e->getMessage());
 }
