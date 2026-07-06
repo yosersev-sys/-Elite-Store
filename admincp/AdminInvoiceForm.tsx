@@ -1564,19 +1564,19 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                                     <span className="text-[8px] font-bold text-slate-400">{item.unit || 'قطعة'}</span>
                                   </div>
                                   {item.unit === 'kg' && (
-                                    <div className="flex items-center gap-1 no-print">
-                                      <span className="text-[8px] font-black text-slate-400">بمبلغ:</span>
+                                    <div className="flex items-center gap-1 bg-emerald-50/60 border border-emerald-100 rounded-lg px-2 py-0.5 w-[120px] shadow-sm no-print mt-1 transition-all hover:border-emerald-200 focus-within:ring-1 focus-within:ring-emerald-400 focus-within:border-emerald-400">
+                                      <span className="text-[9px] font-black text-emerald-700 whitespace-nowrap">💵 بمبلغ:</span>
                                       <input 
                                         type="number"
                                         min="0"
                                         step="any"
-                                        placeholder="ج.م"
+                                        placeholder="0.00"
                                         disabled={isSaving}
                                         value={item.amountInput !== undefined ? item.amountInput : ''}
                                         onChange={(e) => {
                                           setAmountDirect(item.id, item.selectedUnitId || `unit_${item.id}_base`, e.target.value);
                                         }}
-                                        className="w-16 px-1.5 py-0.5 bg-white border border-slate-200 rounded-md outline-none text-[9px] font-black text-center text-slate-800 focus:ring-1 focus:ring-emerald-400"
+                                        className="w-full bg-transparent outline-none text-[10px] font-black text-center text-emerald-800 no-spinner placeholder-emerald-300"
                                       />
                                     </div>
                                   )}

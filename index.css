@@ -1,3 +1,12 @@
 @import "tailwindcss";
 
-/* Any custom global overrides can go here */
+/* Hide spin-button for number inputs globally or specific class */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
