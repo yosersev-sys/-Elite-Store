@@ -7,6 +7,19 @@ error_reporting(0);
 ini_set('display_errors', 0);
 
 $file = $_GET['file'] ?? '';
+if ($file === 'debug_error.txt') {
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    if (file_exists('debug_error.txt')) {
+        $content = file_get_contents('debug_error.txt');
+        $content = str_replace('/home/u588213546/domains/soqelasr.com/public_html/', '[root]/', $content);
+        $content = str_replace('/home/u588213546/', '[user]/', $content);
+        echo $content;
+    } else {
+        echo "debug_error.txt not found";
+    }
+    exit;
+}
 $baseDir = __DIR__;
 
 // إزالة أي محاولات للخروج عن المجلد الرئيسي ولكن بالسماح للمسارات الداخلية
