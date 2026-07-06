@@ -11,7 +11,7 @@ Options -Indexes
     RewriteRule ^ - [L]
 
     # 2. السماح لملفات النظام بالعمل مباشرة دون توجيه
-    RewriteRule ^(load\.php|api\.php|config\.php|seed\.php|sw\.js) - [L]
+    RewriteRule ^(load\.php|api\.php|config\.php|seed\.php|sw\.js|diagnose\.php) - [L]
     
     # 2.5 توجيه خريطة الموقع إلى السكربت الديناميكي
     RewriteRule ^sitemap\.xml$ sitemap.php [L]
