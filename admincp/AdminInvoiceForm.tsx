@@ -271,18 +271,9 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   }, [order]);
 
   useEffect(() => {
-    const handleStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', handleStatus);
-    window.addEventListener('offline', handleStatus);
-    
     if (window.innerWidth > 768) {
       searchInputRef.current?.focus();
     }
-
-    return () => {
-      window.removeEventListener('online', handleStatus);
-      window.removeEventListener('offline', handleStatus);
-    };
   }, []);
 
   const filteredProducts = useMemo(() => {

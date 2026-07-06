@@ -64,15 +64,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     return (localStorage.getItem('admin_active_tab') as AdminTab) || 'stats';
   });
   
-  const [adminSearch, setAdminSearch] = useState('');
-  const [adminFilter, setAdminFilter] = useState<string>('all');
+  const [adminSearch, setAdminSearch] = useState(() => localStorage.getItem('admin_search') || '');
+  const [adminFilter, setAdminFilter] = useState<string>(() => localStorage.getItem('admin_filter') || 'all');
 
   const handleTabChange = (tab: AdminTab, searchVal?: string, filterVal?: string) => {
     setActiveTab(tab);
-    if (searchVal !== undefined) setAdminSearch(searchVal);
-    if (filterVal !== undefined) setAdminFilter(filterVal);
-    else setAdminFilter('all'); 
+    const s = searchVal !== undefined ? searchVal : '';
+    const f = filterVal !== undefined ? filterVal : 'all';
+    setAdminSearch(s);
+    setAdminFilter(f);
     localStorage.setItem('admin_active_tab', tab);
+    localStorage.setItem('admin_search', s);
+    localStorage.setItem('admin_filter', f);
   };
 
   const tabTitles: Record<AdminTab, string> = {
