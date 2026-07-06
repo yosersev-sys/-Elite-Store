@@ -15,12 +15,13 @@ interface OrdersTabProps {
   mode?: 'invoices' | 'store-orders';
   initialFilter?: string;
   onNavigateToTab?: (tab: any, search?: string, filter?: string) => void;
+  onSyncOffline?: () => void;
 }
 
 const OrdersTab: React.FC<OrdersTabProps> = ({ 
   orders, adminSearch, isLoading, setAdminSearch, onViewOrder, 
   onEditOrder, onUpdateOrderPayment, onReturnOrder, mode,
-  initialFilter, onNavigateToTab
+  initialFilter, onNavigateToTab, onSyncOffline
 }) => {
   const [orderPage, setOrderPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'cancelled'>('all');
@@ -309,6 +310,15 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                             {processingIds.includes(o.id) ? (
                               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                             ) : '✓'}
+                          </button>
+                        )}
+                        {o.isOffline && onSyncOffline && (
+                          <button 
+                            onClick={onSyncOffline} 
+                            className="p-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all shadow-sm animate-pulse" 
+                            title="فتح نافذة المزامنة"
+                          >
+                            📡
                           </button>
                         )}
                         <button onClick={() => WhatsAppService.sendInvoiceToCustomer(o, o.phone)} className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" title="إرسال واتساب">📱</button>

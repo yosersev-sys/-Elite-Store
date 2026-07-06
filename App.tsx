@@ -263,6 +263,9 @@ const App: React.FC = () => {
     };
 
     try {
+      if (isAdmin) {
+        ApiService.getOfflineQueueCount().then(setOfflineQueueCount).catch(() => {});
+      }
       if (!ordersOnly) {
         // 3. جلب البيانات الأساسية للمتجر من السيرفر بالتوازي مع تتبع التقدم
         const p1 = ApiService.getAdminPhone().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
