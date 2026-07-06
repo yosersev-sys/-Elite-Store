@@ -158,9 +158,14 @@ export class POSPrintService {
 
       const invoiceHtml = `
         <div class="text-center">
-          <div class="title">سوق العصر</div>
+          <div class="title font-Cairo font-black">سوق العصر</div>
           <div style="font-size: 9pt; color: #555;">فاقوس - أول سوق إلكتروني</div>
           <div class="bold" style="margin-top: 2mm;">رقم الفاتورة: ${order.id}</div>
+          ${order.isOffline ? `
+            <div style="font-size: 8pt; background: #fff8e1; border: 1px dashed #ffe082; color: #b78103; padding: 1.5mm; border-radius: 4px; margin-top: 2mm; font-weight: 900; line-height: 1.2;">
+              📡 إيصال مؤقت - فاتورة غير متزامنة أوفلاين
+            </div>
+          ` : ''}
         </div>
         
         <div class="divider"></div>

@@ -254,18 +254,82 @@ switch ($action) {
         break;
 
     case 'save_order':
+        $localUuid = $input['localUuid'] ?? null;
+        
+        // 1. Idempotency Check using localUuid
+        if (!empty($localUuid)) {
+            $checkLocalStmt = $pdo->prepare("SELECT id FROM orders WHERE localUuid = ?");
+            $checkLocalStmt->execute([$localUuid]);
+            $existingId = $checkLocalStmt->fetchColumn();
+            if ($existingId) {
+                sendRes([
+                    'status' => 'success',
+                    'message' => 'الطلب مسجل بالفعل في قاعدة البيانات',
+                    'id' => $existingId
+                ]);
+            }
+        }
+
+        // 2. Conflict Checks (Skip if force is true)
+        $force = !empty($input['force']);
+        if (!$force && !empty($input['items'])) {
+            $conflicts = [];
+            foreach ($input['items'] as $item) {
+                $pId = $item['id'];
+                $stmtCheck = $pdo->prepare("SELECT name, price, active FROM products WHERE id = ?");
+                $stmtCheck->execute([$pId]);
+                $dbProd = $stmtCheck->fetch();
+                
+                if (!$dbProd) {
+                    $conflicts[] = [
+                        'type' => 'PRODUCT_DELETED',
+                        'itemId' => $pId,
+                        'message' => "المنتج (" . ($item['name'] ?? $pId) . ") لم يعد موجوداً في النظام."
+                    ];
+                    continue;
+                }
+                
+                if (isset($dbProd['active']) && $dbProd['active'] == 0) {
+                    $conflicts[] = [
+                        'type' => 'PRODUCT_DISABLED',
+                        'itemId' => $pId,
+                        'message' => "المنتج (" . $dbProd['name'] . ") تم إيقافه في النظام."
+                    ];
+                }
+                
+                $offlinePrice = (float)$item['price'];
+                $dbPrice = (float)$dbProd['price'];
+                if (abs($offlinePrice - $dbPrice) > 0.01) {
+                    $conflicts[] = [
+                        'type' => 'PRICE_MISMATCH',
+                        'itemId' => $pId,
+                        'message' => "تغير سعر المنتج (" . $dbProd['name'] . ") من (" . $offlinePrice . " ج.م) إلى (" . $dbPrice . " ج.م)."
+                    ];
+                }
+            }
+            
+            if (count($conflicts) > 0) {
+                sendRes([
+                    'status' => 'conflict',
+                    'conflicts' => $conflicts
+                ]);
+            }
+        }
+
         // التحقق من وجود وردية مفتوحة لبدء البيع (فقط للفواتير الصادرة من الكاشير/الإدارة وليس لطلبات العملاء من المتجر)
         $activeShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
         
         $orderId = $input['id'] ?? '';
-        if (!empty($orderId)) {
+        if (empty($orderId) || strpos($orderId, 'OFF-') === 0 || strpos($orderId, 'OFFLINE-') === 0) {
+            $orderId = 'INV-' . date('ymd') . sprintf('%04d', rand(0, 9999));
+        } else {
             $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE id = ?");
             $checkStmt->execute([$orderId]);
             if ($checkStmt->fetchColumn() > 0) {
-                sendRes(['status' => 'success', 'message' => 'الطلب مسجل بالفعل في قاعدة البيانات']);
+                sendRes(['status' => 'success', 'message' => 'الطلب مسجل بالفعل في قاعدة البيانات', 'id' => $orderId]);
             }
         }
-        $isCashierInvoice = (strpos($orderId, 'INV-') === 0 || strpos($orderId, 'OFF-') === 0);
+        $isCashierInvoice = (strpos($orderId, 'INV-') === 0 || strpos($orderId, 'OFF-') === 0 || strpos($orderId, 'OFFLINE-') === 0);
         
         if ($isCashierInvoice && !$activeShift) {
             sendErr('يجب فتح وردية أولاً لتسجيل المبيعات.');
@@ -424,11 +488,12 @@ switch ($action) {
                 }
             }
 
-            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt, shiftId, confirmedAt, confirmedById, confirmedShiftId, paymentStatus, discount, discountType, discountValue, deliveryFee, totalItemDiscounts, subtotalBeforeDiscount, finalTotal, discountsMetadata, outstandingAmount) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt = $pdo->prepare("INSERT INTO orders (id, customerName, phone, city, address, subtotal, total, items, paymentMethod, status, userId, createdAt, shiftId, confirmedAt, confirmedById, confirmedShiftId, paymentStatus, discount, discountType, discountValue, deliveryFee, totalItemDiscounts, subtotalBeforeDiscount, finalTotal, discountsMetadata, outstandingAmount, localUuid) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
-                $input['id'], $input['customerName'], $phone, $input['city'] ?? 'سوق العصر', $input['address'],
+                $orderId, $input['customerName'], $phone, $input['city'] ?? 'سوق العصر', $input['address'],
                 $subtotalBeforeDiscount, $finalTotal, json_encode($input['items']),
-                $methodStrSummary, $input['status'], $userId, time() * 1000,
+                $methodStrSummary, $input['status'], $userId, 
+                isset($input['createdAt']) ? (float)$input['createdAt'] : time() * 1000,
                 $shiftId,
                 $input['status'] === 'completed' ? time() * 1000 : null,
                 $input['status'] === 'completed' ? ($_SESSION['user']['id'] ?? 'admin') : null,
@@ -442,7 +507,8 @@ switch ($action) {
                 $subtotalBeforeDiscount,
                 $finalTotal,
                 $input['discountsMetadata'] ?? null,
-                $outstandingAmount
+                $outstandingAmount,
+                $localUuid
             ]);
 
             // Save payments in order_payments table
@@ -450,7 +516,7 @@ switch ($action) {
                 if ((float)$pay['amount'] > 0) {
                     $stmtPay = $pdo->prepare("INSERT INTO order_payments (orderId, paymentMethodId, amount, reference, createdAt, createdBy) VALUES (?, ?, ?, ?, ?, ?)");
                     $stmtPay->execute([
-                        $input['id'],
+                        $orderId,
                         $pay['method'],
                         (float)$pay['amount'],
                         $pay['reference'] ?? null,
@@ -540,7 +606,7 @@ switch ($action) {
                                 'remainingStockAfter' => $newStock,
                                 'policyUsed' => $policy,
                                 'negativeLimit' => $negativeLimit,
-                                'orderId' => $input['id']
+                                'orderId' => $orderId
                             ], JSON_UNESCAPED_UNICODE),
                             time() * 1000
                         ]);
@@ -570,7 +636,7 @@ switch ($action) {
                 $stmtLedger = $pdo->prepare("INSERT INTO customer_ledger (userId, orderId, type, amount, balanceAfter, paymentMethod, shiftId, notes, createdAt, createdById, dueDate) VALUES (?, ?, 'SALE_ON_CREDIT', ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmtLedger->execute([
                     $userId,
-                    $input['id'],
+                    $orderId,
                     $outstandingAmount,
                     $balanceAfter,
                     'آجل (متبقي)',
@@ -584,7 +650,7 @@ switch ($action) {
                 recalculateCustomerLedger($pdo, $userId);
             }
             
-            updateOrderPaymentStatus($pdo, $input['id']);
+            updateOrderPaymentStatus($pdo, $orderId);
 
             // زيادة نقدية الدرج بالمدفوعات النقدية الفعلية فقط
             if ($input['status'] === 'completed' && $shiftId) {
@@ -604,7 +670,7 @@ switch ($action) {
             }
 
             $pdo->commit();
-            sendRes(['status' => 'success']);
+            sendRes(['status' => 'success', 'id' => $orderId]);
         } catch (Exception $e) {
             $pdo->rollBack();
             sendErr('فشل في حفظ الفاتورة: ' . $e->getMessage(), 400, $e->getMessage());

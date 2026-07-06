@@ -162,6 +162,11 @@ export interface Order {
   discountsMetadata?: string;
   outstandingAmount?: number;
   payments?: Payment[];
+  isOffline?: boolean;
+  localUuid?: string;
+  syncStatus?: 'pending' | 'syncing' | 'failed' | 'conflict' | 'synced';
+  syncError?: string;
+  lastSyncAttempt?: number;
 }
 
 export interface Shift {

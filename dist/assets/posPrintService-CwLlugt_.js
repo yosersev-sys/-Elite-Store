@@ -67,11 +67,11 @@ class y{static injectStyle(t,i){this.removeStyle(t);const e=document.createEleme
             margin: 0 auto !important;
           }
         }
-      `);const e=Number(t.total||0),c=Number(t.subtotalBeforeDiscount!==void 0?t.subtotalBeforeDiscount:t.subtotal||0),a=Number(t.totalItemDiscounts||0),o=Number(t.discount||0),r=Number(t.deliveryFee!==void 0?t.deliveryFee:Math.max(0,e-c)),d=a+o,m=(t.items||[]).map(n=>{const s=n.discountValue?n.discountType==="percent"?n.price*n.discountValue/100:n.discountValue:0,v=n.price-s,b=v*Number(n.quantity||0);return`
+      `);const e=Number(t.total||0),c=Number(t.subtotalBeforeDiscount!==void 0?t.subtotalBeforeDiscount:t.subtotal||0),a=Number(t.totalItemDiscounts||0),o=Number(t.discount||0),r=Number(t.deliveryFee!==void 0?t.deliveryFee:Math.max(0,e-c)),d=a+o,m=(t.items||[]).map(n=>{const s=n.discountValue?n.discountType==="percent"?n.price*n.discountValue/100:n.discountValue:0,v=n.price-s,f=v*Number(n.quantity||0);return`
           <div style="margin-bottom: 1.5mm;">
             <div class="flex-between bold">
               <span>${n.name}</span>
-              <span>${b.toFixed(2)}</span>
+              <span>${f.toFixed(2)}</span>
             </div>
             <div style="font-size: 9pt; color: #555;">
               ${n.quantity} ${n.unit==="kg"?"كجم":n.unit==="gram"?"جم":"ق"} × ${v.toFixed(2)}
@@ -92,9 +92,14 @@ class y{static injectStyle(t,i){this.removeStyle(t);const e=document.createEleme
           </div>
         `}const l=`
         <div class="text-center">
-          <div class="title">سوق العصر</div>
+          <div class="title font-Cairo font-black">سوق العصر</div>
           <div style="font-size: 9pt; color: #555;">فاقوس - أول سوق إلكتروني</div>
           <div class="bold" style="margin-top: 2mm;">رقم الفاتورة: ${t.id}</div>
+          ${t.isOffline?`
+            <div style="font-size: 8pt; background: #fff8e1; border: 1px dashed #ffe082; color: #b78103; padding: 1.5mm; border-radius: 4px; margin-top: 2mm; font-weight: 900; line-height: 1.2;">
+              📡 إيصال مؤقت - فاتورة غير متزامنة أوفلاين
+            </div>
+          `:""}
         </div>
         
         <div class="divider"></div>

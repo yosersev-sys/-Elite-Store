@@ -1,58 +1,20 @@
 import { Product, Category, Order, User, Supplier, Shift, DrawerTransaction, Expense, CustomerLedgerEntry, PaymentMethod } from '../types.ts';
+import { OfflineStorageService, OfflineQueueItem, SyncLog } from './offlineStorage.ts';
+import { SYNC_CONFIG } from './syncConfig.ts';
 
 const USER_CACHE_KEY = 'souq_user_profile';
 
-// IndexedDB Wrapper
-const IDB_NAME = 'SouqAlAsrDB';
-const IDB_VERSION = 1;
-
-const initDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('store')) {
-        db.createObjectStore('store');
-      }
-    };
-  });
-};
-
 const idbGet = async <T>(key: string): Promise<T | null> => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction('store', 'readonly');
-      const store = transaction.objectStore('store');
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result as T || null);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (e) {
-    console.error('IDB Get Error', e);
-    return null;
-  }
+  return OfflineStorageService.getCache<T>(key);
 };
 
 const idbSet = async (key: string, value: any): Promise<void> => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction('store', 'readwrite');
-      const store = transaction.objectStore('store');
-      const request = store.put(value, key);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  } catch (e) {
-    console.error('IDB Set Error', e);
-  }
+  await OfflineStorageService.setCache(key, value);
 };
 
 let useMockMode = false;
 let sessionExpiredAlerted = false;
+let isSyncCancelled = false;
 
 const safeFetch = async (action: string, options?: RequestInit, timeoutMs?: number) => {
   if (useMockMode) return null; 
@@ -136,9 +98,132 @@ const safeFetch = async (action: string, options?: RequestInit, timeoutMs?: numb
 };
 
 export const ApiService = {
-  // Sync Engine: Manges offline queue
-  async syncOfflineData(): Promise<{ success: boolean; syncedCount: number; remainingCount: number; errors: any[] }> {
-    return { success: true, syncedCount: 0, remainingCount: 0, errors: [] };
+  cancelSync() {
+    isSyncCancelled = true;
+  },
+
+  async syncOfflineOrder(localUuid: string, force: boolean = false): Promise<{ success: boolean; error?: string; status?: string }> {
+    const queueItem = await OfflineStorageService.getQueueItem(localUuid);
+    if (!queueItem || queueItem.syncStatus === 'synced') {
+      return { success: true };
+    }
+
+    queueItem.syncStatus = 'syncing';
+    await OfflineStorageService.saveQueueItem(queueItem);
+
+    // Create abort controller for request timeout (5 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SYNC_CONFIG.REQUEST_TIMEOUT_MS);
+
+    try {
+      const payload = {
+        ...queueItem.payload,
+        force,
+        localUuid: queueItem.localUuid
+      };
+
+      const response = await fetch('api.php?action=save_order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Server returned status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.status === 'success') {
+        // Mark as synced, update local ID mapping
+        queueItem.syncStatus = 'synced';
+        queueItem.syncError = undefined;
+        queueItem.lastSyncAttempt = Date.now();
+        queueItem.payload.id = result.id || queueItem.payload.id;
+        await OfflineStorageService.saveQueueItem(queueItem);
+        return { success: true };
+      } else if (result.status === 'conflict') {
+        queueItem.syncStatus = 'conflict';
+        queueItem.syncError = result.conflicts ? result.conflicts.map((c: any) => c.message).join(' | ') : (result.message || 'تعارض في البيانات');
+        queueItem.lastSyncAttempt = Date.now();
+        await OfflineStorageService.saveQueueItem(queueItem);
+        return { success: false, status: 'conflict', error: queueItem.syncError };
+      } else {
+        throw new Error(result.message || 'خطأ غير معروف من السيرفر');
+      }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      const errMsg = err.name === 'AbortError' ? 'انتهت مهلة الطلب (Timeout)' : (err.message || 'خطأ غير معروف في الاتصال');
+      queueItem.syncStatus = 'failed';
+      queueItem.syncError = errMsg;
+      queueItem.lastSyncAttempt = Date.now();
+      await OfflineStorageService.saveQueueItem(queueItem);
+      return { success: false, status: 'failed', error: errMsg };
+    }
+  },
+
+  // Sync Engine: Manages offline queue with Mutex and Batching
+  async syncOfflineData(onProgress?: (progress: { current: number; total: number; successCount: number; failedCount: number }) => void): Promise<{ success: boolean; syncedCount: number; remainingCount: number; errors: any[] }> {
+    isSyncCancelled = false;
+    const startTime = Date.now();
+    const queueItems = await OfflineStorageService.getQueueItems();
+    const unsyncedItems = queueItems.filter(item => item.syncStatus !== 'synced');
+    
+    // Limit to configuration batch size (50)
+    const itemsToSync = unsyncedItems.slice(0, SYNC_CONFIG.BATCH_SIZE);
+    const totalCount = itemsToSync.length;
+    
+    let syncedCount = 0;
+    let failedCount = 0;
+    const errors: any[] = [];
+    let requestsSentCount = 0;
+
+    for (let i = 0; i < totalCount; i++) {
+      if (isSyncCancelled) {
+        break;
+      }
+
+      const item = itemsToSync[i];
+      requestsSentCount++;
+
+      // Trigger progress update callback
+      if (onProgress) {
+        onProgress({ current: i + 1, total: totalCount, successCount: syncedCount, failedCount });
+      }
+
+      const res = await this.syncOfflineOrder(item.localUuid, false);
+      if (res.success) {
+        syncedCount++;
+      } else {
+        failedCount++;
+        errors.push({ localUuid: item.localUuid, error: res.error, status: res.status });
+      }
+    }
+
+    const remainingCount = (await OfflineStorageService.getPendingCount());
+    
+    // Save Sync log for auditing
+    const syncStatus = isSyncCancelled ? 'cancelled' : (failedCount === 0 ? 'success' : 'failed');
+    await OfflineStorageService.saveSyncLog({
+      id: 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      startTime,
+      endTime: Date.now(),
+      processedCount: totalCount,
+      requestsSentCount,
+      status: syncStatus as any,
+      details: errors.length > 0 ? JSON.stringify(errors) : 'تمت مزامنة كافة الفواتير بنجاح'
+    });
+
+    return { 
+      success: syncStatus !== 'failed', 
+      syncedCount, 
+      remainingCount, 
+      errors 
+    };
   },
 
   async getCurrentUser(): Promise<User | null> {
@@ -232,17 +317,101 @@ export const ApiService = {
   },
 
   async getOrders(): Promise<Order[]> {
+    let orders: Order[] = [];
     const result = await safeFetch('get_orders');
     if (result && Array.isArray(result)) {
+      orders = result;
       await idbSet('orders', result);
-      return result;
+    } else {
+      orders = (await idbGet<Order[]>('orders')) || [];
     }
-    return (await idbGet<Order[]>('orders')) || [];
+
+    // Merge offline orders from offline_queue that are not synced
+    const offlineItems = await OfflineStorageService.getQueueItems();
+    const unsyncedOfflineOrders = offlineItems
+      .filter(item => item.entity === 'orders' && item.syncStatus !== 'synced')
+      .map(item => {
+        const order: Order = {
+          ...item.payload,
+          isOffline: true,
+          localUuid: item.localUuid,
+          syncStatus: item.syncStatus,
+          syncError: item.syncError,
+          lastSyncAttempt: item.lastSyncAttempt
+        };
+        return order;
+      });
+
+    return [...unsyncedOfflineOrders, ...orders];
   },
 
   async saveOrder(order: Order): Promise<boolean> {
-    const result = await safeFetch('save_order', { method: 'POST', body: JSON.stringify(order) }, 1500);
-    return result?.status === 'success';
+    // 1. Offline Mode Switch check from localStorage
+    const offlineEnabled = localStorage.getItem('enable_offline_mode') !== 'false'; // default true
+    
+    // Generate immutable local UUID if not already present
+    if (!order.localUuid) {
+      order.localUuid = crypto.randomUUID();
+    }
+    
+    // Attempt online save first if navigator indicates online status
+    if (navigator.onLine) {
+      try {
+        const result = await safeFetch('save_order', { 
+          method: 'POST', 
+          body: JSON.stringify(order) 
+        }, SYNC_CONFIG.REQUEST_TIMEOUT_MS);
+        
+        if (result && result.status === 'success') {
+          order.id = result.id || order.id;
+          order.isOffline = false;
+          order.syncStatus = 'synced';
+          
+          if (offlineEnabled) {
+            await OfflineStorageService.saveQueueItem({
+              localUuid: order.localUuid,
+              entity: 'orders',
+              payload: order,
+              createdAt: order.createdAt || Date.now(),
+              syncStatus: 'synced',
+              lastSyncAttempt: Date.now()
+            });
+          }
+          return true;
+        } else if (result && result.status === 'conflict') {
+          // Conflicts found (price change, active status, etc.)
+          console.warn("Pricing/Product conflict during checkout: ", result.conflicts);
+          return false;
+        }
+      } catch (err) {
+        console.error("Network saveOrder failed, checking for offline fallback:", err);
+      }
+    }
+    
+    // Fallback: Save offline if enabled, else return false
+    if (offlineEnabled) {
+      // Offline restrictions: Verify this is a new cashier order and not an administrative operation
+      const isNewCashierOrder = order.id.startsWith('INV-') || order.id.startsWith('OFF-') || !order.id;
+      if (!isNewCashierOrder) {
+        console.error("Administrative operations are disabled while offline.");
+        return false;
+      }
+
+      order.id = order.id && !order.id.startsWith('INV-') ? order.id : 'OFFLINE-' + Date.now().toString().slice(-6);
+      order.isOffline = true;
+      order.syncStatus = 'pending';
+      
+      await OfflineStorageService.saveQueueItem({
+        localUuid: order.localUuid,
+        entity: 'orders',
+        payload: order,
+        createdAt: order.createdAt || Date.now(),
+        syncStatus: 'pending'
+      });
+      return true;
+    }
+    
+    return false;
   },
 
   async updateOrder(order: Order): Promise<boolean> {
@@ -426,7 +595,7 @@ export const ApiService = {
   
   // Public access to offline IDB queue count
   async getOfflineQueueCount(): Promise<number> {
-    return 0;
+    return OfflineStorageService.getPendingCount();
   },
 
   // Get entire cached state for instant PWA loading

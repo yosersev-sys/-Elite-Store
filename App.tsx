@@ -13,6 +13,9 @@ import Footer from './components/Footer.tsx';
 import { ApiService } from './services/api.ts';
 import { WhatsAppService } from './services/whatsappService.ts';
 import { AnalyticsTracker } from './services/analyticsTracker.ts';
+import { OfflineSyncManager } from './admincp/tabs/OfflineSyncManager.tsx';
+import { SYNC_CONFIG } from './services/syncConfig.ts';
+import { OfflineStorageService } from './services/offlineStorage.ts';
 
 // التحميل المتأخر (Lazy Loading) للمكونات الثانوية لتخفيف حجم حزمة الجافاسكريبت الأولية وتسريع فتح المتجر
 const AdminDashboard = React.lazy(() => import('./admincp/AdminDashboard.tsx'));
@@ -117,6 +120,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSyncManager, setShowSyncManager] = useState(false);
   const [newOrdersForPopup, setNewOrdersForPopup] = useState<Order[]>([]);
   const [productForBarcode, setProductForBarcode] = useState<Product | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -424,26 +428,86 @@ const App: React.FC = () => {
     verifySession();
   }, []);
 
-  // مراقبة شبكة الاتصال وتحديث حالة الاتصال بالإنترنت فقط دون مزامنة خلفية أو حفظ أوفلاين
+  // WARNING: DO NOT ENABLE AUTOMATIC OFFLINE INVOICES SYNCHRONIZATION!
+  // Automatic sync in the background has caused severe bandwidth exhaustion in past builds.
+  // All synchronization operations MUST remain manually triggered by the user via the "OfflineSyncManager".
+  // The following Ping mechanism is strictly for connection status tracking and UI status updates.
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      showNotification('أنت متصل الآن بالإنترنت', 'success');
+    if (!isAdmin) return;
+
+    let active = true;
+    let timerId: any = null;
+
+    const pingServer = async () => {
+      if (document.hidden) {
+        return; // Skip pings if tab is inactive
+      }
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), SYNC_CONFIG.REQUEST_TIMEOUT_MS);
+        
+        const res = await fetch('api.php?action=get_current_user', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (active) {
+          const wasOnline = isOnline;
+          setIsOnline(res.ok);
+          if (res.ok && !wasOnline) {
+            showNotification('تمت استعادة الاتصال بخادم المتجر بنجاح 📡', 'success');
+            ApiService.getOfflineQueueCount().then(setOfflineQueueCount);
+          }
+        }
+      } catch (err) {
+        if (active) {
+          setIsOnline(false);
+        }
+      }
     };
 
-    const handleOffline = () => {
+    const setupPing = () => {
+      if (timerId) clearInterval(timerId);
+      const interval = isOnline ? SYNC_CONFIG.PING_INTERVAL_ONLINE_MS : SYNC_CONFIG.PING_INTERVAL_OFFLINE_MS;
+      timerId = setInterval(pingServer, interval);
+    };
+
+    pingServer().then(() => {
+      if (active) setupPing();
+    });
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (timerId) {
+          clearInterval(timerId);
+          timerId = null;
+        }
+      } else {
+        pingServer().then(() => {
+          if (active) setupPing();
+        });
+      }
+    };
+
+    const handleOnlineEvent = () => {
+      pingServer();
+    };
+
+    const handleOfflineEvent = () => {
       setIsOnline(false);
       showNotification('تم قطع الاتصال بالإنترنت. يرجى التحقق من الشبكة.', 'error');
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnlineEvent);
+    window.addEventListener('offline', handleOfflineEvent);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      active = false;
+      if (timerId) clearInterval(timerId);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnlineEvent);
+      window.removeEventListener('offline', handleOfflineEvent);
     };
-  }, []);
+  }, [isAdmin, isOnline]);
 
   // مزامنة المنتج المحدد بناءً على الهاش في الرابط (لإتاحة مشاركة الروابط والنسخ)
   useEffect(() => {
@@ -594,7 +658,35 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <AdminInvoiceForm products={products} categories={categories} currentUser={currentUser} onRefreshData={() => loadData(true)} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} onSubmit={async (o) => { if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); const action = localStorage.getItem('post_submit_action') || 'print_and_open'; localStorage.removeItem('post_submit_action'); setPostSubmitAction(action as any); onNavigate('order-success'); } }} onCancel={() => onNavigate('store')} />;
+        return (
+          <AdminInvoiceForm 
+            products={products} 
+            users={users}
+            orders={orders}
+            categories={categories} 
+            currentUser={currentUser} 
+            onRefreshData={() => loadData(true)} 
+            initialCustomerName={currentUser?.name} 
+            initialPhone={currentUser?.phone} 
+            globalDeliveryFee={deliveryFee} 
+            isOnline={isOnline}
+            offlineQueueCount={offlineQueueCount}
+            onOpenSyncManager={() => setShowSyncManager(true)}
+            onSubmit={async (o) => { 
+              if (await ApiService.saveOrder(o)) { 
+                ApiService.getOfflineQueueCount().then(setOfflineQueueCount); 
+                setRecentCreatedOrderFlow(o); 
+                prevOrderIds.current.add(o.id); 
+                loadData(true); 
+                const action = localStorage.getItem('post_submit_action') || 'print_and_open'; 
+                localStorage.removeItem('post_submit_action'); 
+                setPostSubmitAction(action as any); 
+                onNavigate('order-success'); 
+              } 
+            }} 
+            onCancel={() => onNavigate('store')} 
+          />
+        );
       default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={(q) => {
         setSearchQuery(q);
         const count = products.filter(p => {
@@ -625,6 +717,15 @@ const App: React.FC = () => {
           {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
           {newOrdersForPopup.length > 0 && <NewOrderPopup orders={newOrdersForPopup} onClose={(id) => setNewOrdersForPopup(p => p.filter(o => o.id !== id))} onView={(o) => { setRecentCreatedOrderFlow(o); onNavigate('order-success'); }} />}
           {productForBarcode && <BarcodePrintPopup product={productForBarcode} onClose={() => { setProductForBarcode(null); onNavigate('admincp'); }} />}
+          {showSyncManager && (
+            <OfflineSyncManager 
+              currentUser={currentUser} 
+              onClose={() => setShowSyncManager(false)} 
+              onSyncComplete={() => {
+                loadData(true);
+              }} 
+            />
+          )}
           
           {view === 'admin-form' ? (
             <AdminProductForm product={selectedProduct} categories={categories} suppliers={suppliers} onSubmit={async (p) => {
@@ -712,27 +813,44 @@ const App: React.FC = () => {
                 </form>
               </div>
             ) : (
-              <AdminInvoiceForm products={products} users={users} orders={orders} categories={categories} currentUser={currentUser} onRefreshData={() => loadData(true)} initialCustomerName={currentUser?.name} initialPhone={currentUser?.phone} globalDeliveryFee={deliveryFee} order={editingOrder} onSubmit={async (o) => { const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); if (s) { setRecentCreatedOrderFlow(o); prevOrderIds.current.add(o.id); loadData(true); const action = localStorage.getItem('post_submit_action') || 'print_and_open'; localStorage.removeItem('post_submit_action'); setPostSubmitAction(action as any); onNavigate('order-success'); } }} onCancel={() => { setEditingOrder(null); onNavigate('admincp'); }} />
+              <AdminInvoiceForm 
+                products={products} 
+                users={users} 
+                orders={orders} 
+                categories={categories} 
+                currentUser={currentUser} 
+                onRefreshData={() => loadData(true)} 
+                initialCustomerName={currentUser?.name} 
+                initialPhone={currentUser?.phone} 
+                globalDeliveryFee={deliveryFee} 
+                order={editingOrder} 
+                isOnline={isOnline}
+                offlineQueueCount={offlineQueueCount}
+                onOpenSyncManager={() => setShowSyncManager(true)}
+                onSubmit={async (o) => { 
+                  const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); 
+                  if (s) { 
+                    setRecentCreatedOrderFlow(o); 
+                    prevOrderIds.current.add(o.id); 
+                    loadData(true); 
+                    const action = localStorage.getItem('post_submit_action') || 'print_and_open'; 
+                    localStorage.removeItem('post_submit_action'); 
+                    setPostSubmitAction(action as any); 
+                    onNavigate('order-success'); 
+                  } 
+                }} 
+                onCancel={() => { 
+                  setEditingOrder(null); 
+                  onNavigate('admincp'); 
+                }} 
+              />
             )
           ) : (
             <AdminDashboard 
               products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
               isOnline={isOnline} offlineQueueCount={offlineQueueCount} loadProgress={loadProgress} isSyncing={isSyncing}
               onPrintBarcode={(p) => setProductForBarcode(p)}
-              onSyncOffline={async () => {
-                showNotification('جاري المزامنة...', 'success');
-                const syncResult = await ApiService.syncOfflineData();
-                setOfflineQueueCount(syncResult.remainingCount);
-                if (syncResult.syncedCount > 0) {
-                  showNotification(`تم مزامنة ${syncResult.syncedCount} فاتورة بنجاح.`, 'success');
-                  loadData(true);
-                } else if (syncResult.remainingCount > 0) {
-                   const firstErr = syncResult.errors && syncResult.errors.length > 0 ? String(syncResult.errors[0]) : '';
-                   showNotification(`فشلت المزامنة: ${firstErr || 'تحقق من الاتصال'}`, 'error');
-                } else {
-                   showNotification('لا توجد فواتير معلقة.', 'success');
-                }
-              }}
+              onSyncOffline={() => setShowSyncManager(true)}
               onOpenAddForm={() => { setSelectedProduct(null); onNavigate('admin-form'); }}
               onOpenEditForm={(p) => { setSelectedProduct(p); onNavigate('admin-form'); }}
               onOpenInvoiceForm={() => { setEditingOrder(null); onNavigate('admin-invoice'); }}

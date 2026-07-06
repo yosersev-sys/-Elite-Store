@@ -33,6 +33,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
   const [isGeneratingSitemap, setIsGeneratingSitemap] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [deviceAction, setDeviceAction] = useState(() => localStorage.getItem('pos_device_default_action') || 'print_and_open');
+  const [offlineEnabled, setOfflineEnabled] = useState(() => localStorage.getItem('enable_offline_mode') !== 'false');
 
   // إعدادات المتجر (SEO وتواصل وشحن)
   const [storeSettings, setStoreSettings] = useState({
@@ -476,6 +477,31 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
                   onClick={() => {
                     setDeviceAction(item.id);
                     localStorage.setItem('pos_device_default_action', item.id);
+                  }}
+                  className={`p-6 rounded-2xl border-2 cursor-pointer transition-all ${active ? 'border-emerald-500 bg-emerald-50/20' : 'border-slate-100 hover:border-slate-200'}`}
+                >
+                  <p className="text-sm font-black text-slate-800">{item.label}</p>
+                  <p className="text-[10px] text-slate-400 font-bold mt-2 leading-relaxed">{item.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-6 border-t border-slate-100">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 block">ميزة العمل دون اتصال (Offline Mode)</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { id: 'enabled', value: true, label: '🟢 تفعيل العمل دون اتصال (أوفلاين)', desc: 'يسمح للكاشير بمواصلة حفظ الفواتير محلياً في المتصفح والطباعة عند انقطاع الإنترنت، لتتم مزامنتها يدوياً لاحقاً.' },
+              { id: 'disabled', value: false, label: '🔴 تعطيل العمل دون اتصال بالكامل', desc: 'يمنع المتصفح من حفظ أي فواتير محلياً ويشترط توفر اتصال شبكة نشط دائماً لإتمام مبيعات الكاشير.' }
+            ].map(item => {
+              const active = offlineEnabled === item.value;
+              return (
+                <div 
+                  key={item.id}
+                  onClick={() => {
+                    setOfflineEnabled(item.value);
+                    localStorage.setItem('enable_offline_mode', String(item.value));
                   }}
                   className={`p-6 rounded-2xl border-2 cursor-pointer transition-all ${active ? 'border-emerald-500 bg-emerald-50/20' : 'border-slate-100 hover:border-slate-200'}`}
                 >

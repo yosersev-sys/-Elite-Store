@@ -246,10 +246,43 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
               const isDebt = String(currentPayment).includes('آجل');
               const isCancelled = o.status === 'cancelled';
               
+              const getSyncStatusBadge = () => {
+                if (!o.isOffline) return null;
+                switch (o.syncStatus) {
+                  case 'synced':
+                    return <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-md text-[8px] font-black uppercase">تمت المزامنة ✓</span>;
+                  case 'syncing':
+                    return <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-[8px] font-black uppercase animate-pulse">جاري المزامنة 🔄</span>;
+                  case 'failed':
+                    return (
+                      <span 
+                        className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-100 rounded-md text-[8px] font-black uppercase cursor-help"
+                        title={o.syncError || 'خطأ غير معروف'}
+                      >
+                        فشل آخر محاولة ⚠️
+                      </span>
+                    );
+                  case 'conflict':
+                    return (
+                      <span 
+                        className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-md text-[8px] font-black uppercase cursor-help"
+                        title={o.syncError || 'تعارض في البيانات'}
+                      >
+                        وجود تعارض 🚫
+                      </span>
+                    );
+                  default:
+                    return <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-md text-[8px] font-black uppercase">بانتظار المزامنة ⏳</span>;
+                }
+              };
+
               return (
                 <tr key={o.id} className={`hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-40 grayscale' : ''}`}>
                   <td className="px-8 py-5">
-                     <p className="font-black text-slate-700">#{o.id} - {o.customerName}</p>
+                     <p className="font-black text-slate-700 flex items-center flex-wrap gap-1">
+                       #{o.id} - {o.customerName}
+                       {getSyncStatusBadge()}
+                     </p>
                      <p className="text-[10px] text-slate-400 font-bold">{new Date(o.createdAt).toLocaleString('ar-EG')} • {o.phone}</p>
                   </td>
                   <td className="px-8 py-5 font-black text-emerald-600">{(o.total || 0).toLocaleString()} ج.م</td>
@@ -268,10 +301,10 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                     <div className="flex justify-center gap-2">
                         {o.status === 'pending' && (
                           <button 
-                            disabled={processingIds.includes(o.id)}
+                            disabled={processingIds.includes(o.id) || o.isOffline}
                             onClick={() => handleUpdatePayment(o.id, o.paymentMethod)} 
                             className="p-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-sm font-black disabled:opacity-50 flex items-center justify-center min-w-[36px]" 
-                            title="تأكيد واستلام النقدية"
+                            title={o.isOffline ? "غير مسموح أوفلاين" : "تأكيد واستلام النقدية"}
                           >
                             {processingIds.includes(o.id) ? (
                               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -281,14 +314,21 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                         <button onClick={() => WhatsAppService.sendInvoiceToCustomer(o, o.phone)} className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" title="إرسال واتساب">📱</button>
                         <button onClick={() => onViewOrder(o)} className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm" title="عرض الفاتورة">🧾</button>
                         {!isCancelled && (
-                          <button onClick={() => onEditOrder(o)} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="تعديل الأصناف والحالة">✎</button>
+                          <button 
+                            disabled={o.isOffline}
+                            onClick={() => onEditOrder(o)} 
+                            className={`p-2.5 rounded-xl transition-all shadow-sm ${o.isOffline ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'}`}
+                            title={o.isOffline ? "غير مسموح أوفلاين" : "تعديل الأصناف والحالة"}
+                          >
+                            ✎
+                          </button>
                         )}
                         {!isCancelled && (
                           <button 
-                            disabled={processingIds.includes(o.id)}
+                            disabled={processingIds.includes(o.id) || o.isOffline}
                             onClick={() => handleReturnOrder(o.id)} 
-                            className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[36px]" 
-                            title="استرجاع الفاتورة"
+                            className={`p-2.5 rounded-xl transition-all shadow-sm ${o.isOffline ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white'}`}
+                            title={o.isOffline ? "غير مسموح أوفلاين" : "استرجاع الفاتورة"}
                           >
                             {processingIds.includes(o.id) ? (
                               <span className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>

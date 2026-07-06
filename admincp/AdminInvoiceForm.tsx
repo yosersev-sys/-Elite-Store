@@ -17,10 +17,14 @@ interface AdminInvoiceFormProps {
   initialCustomerName?: string;
   initialPhone?: string;
   order?: Order | null;
+  isOnline: boolean;
+  offlineQueueCount: number;
+  onOpenSyncManager?: () => void;
 }
 
 const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ 
-  products, users = [], orders = [], categories = [], currentUser = null, globalDeliveryFee, onSubmit, onCancel, onRefreshData, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null 
+  products, users = [], orders = [], categories = [], currentUser = null, globalDeliveryFee, onSubmit, onCancel, onRefreshData, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null,
+  isOnline, offlineQueueCount, onOpenSyncManager
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
   const [isDeliveryEnabled, setIsDeliveryEnabled] = useState<boolean>(false);
@@ -38,7 +42,6 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [showPreview, setShowPreview] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [showPhoneSuggestions, setShowPhoneSuggestions] = useState(false);
@@ -1369,6 +1372,15 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
             <span className="w-2 h-2 rounded-full bg-current"></span>
             <span className="text-[10px] font-black">{isOnline ? 'متصل' : 'أوفلاين'}</span>
           </div>
+          {offlineQueueCount > 0 && onOpenSyncManager && (
+            <button 
+              type="button" 
+              onClick={onOpenSyncManager}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-xl font-black text-[10px] shadow-md transition-all whitespace-nowrap animate-pulse flex items-center gap-1 cursor-pointer"
+            >
+              <span>📡 فواتير معلقة ({offlineQueueCount})</span>
+            </button>
+          )}
         </div>
         <button type="button" onClick={() => !isSaving && setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 px-4 py-1.5 md:px-8 md:py-3 rounded-xl font-black text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition text-[10px] md:text-xs">إلغاء</button>
       </div>
