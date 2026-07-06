@@ -176,7 +176,7 @@ try {
             sendRes(['status' => 'ok', 'message' => 'Action handled by default router']);
             break;
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     file_put_contents('debug_error.txt', "API.PHP EXCEPTION: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n\n", FILE_APPEND);
     sendErr('خطأ في استدعاء الموديول المختص', 500, $e->getMessage());
 }
