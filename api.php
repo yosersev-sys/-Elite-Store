@@ -161,8 +161,7 @@ try {
         case 'get_store_settings':
         case 'update_store_settings':
         case 'generate_sitemap':
-        case 'diagnose_db':
-            require_once 'diagnose.php';
+            require_once 'api_system.php';
             break;
 
         // --- موديول التحليلات وتتبع الزوار ---

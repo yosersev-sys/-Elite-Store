@@ -276,7 +276,7 @@ switch ($action) {
             $conflicts = [];
             foreach ($input['items'] as $item) {
                 $pId = $item['id'];
-                $stmtCheck = $pdo->prepare("SELECT name, price, active FROM products WHERE id = ?");
+                $stmtCheck = $pdo->prepare("SELECT p.name, p.price, pu.isActive FROM products p LEFT JOIN product_units pu ON p.id = pu.productId AND pu.isDefault = 1 WHERE p.id = ?");
                 $stmtCheck->execute([$pId]);
                 $dbProd = $stmtCheck->fetch();
                 
@@ -289,7 +289,7 @@ switch ($action) {
                     continue;
                 }
                 
-                if (isset($dbProd['active']) && $dbProd['active'] == 0) {
+                if (isset($dbProd['isActive']) && $dbProd['isActive'] == 0) {
                     $conflicts[] = [
                         'type' => 'PRODUCT_DISABLED',
                         'itemId' => $pId,
