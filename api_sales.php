@@ -303,7 +303,22 @@ switch ($action) {
                 }
                 
                 $offlinePrice = (float)$item['price'];
-                $dbPrice = (float)$dbProd['price'];
+                $selectedUnitId = $item['selectedUnitId'] ?? null;
+                $dbPrice = null;
+
+                if ($selectedUnitId) {
+                    $stmtUnitPrice = $pdo->prepare("SELECT salePrice FROM product_units WHERE id = ? AND productId = ? AND isActive = 1");
+                    $stmtUnitPrice->execute([$selectedUnitId, $pId]);
+                    $unitPrice = $stmtUnitPrice->fetchColumn();
+                    if ($unitPrice !== false) {
+                        $dbPrice = (float)$unitPrice;
+                    }
+                }
+
+                if ($dbPrice === null) {
+                    $dbPrice = (float)$dbProd['price'];
+                }
+
                 if (abs($offlinePrice - $dbPrice) > 0.01) {
                     $conflicts[] = [
                         'type' => 'PRICE_MISMATCH',
