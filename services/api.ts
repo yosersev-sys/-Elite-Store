@@ -80,6 +80,7 @@ const safeFetch = async (action: string, options?: RequestInit, timeoutMs?: numb
             window.dispatchEvent(new CustomEvent('souq-session-expired'));
           }
         }
+        (window as any)._last_api_error = data.message;
         return data; // Return parsed data so caller can read the backend message
       }
       if (response.status === 401) {
@@ -88,10 +89,14 @@ const safeFetch = async (action: string, options?: RequestInit, timeoutMs?: numb
           window.dispatchEvent(new CustomEvent('souq-session-expired'));
         }
       }
-      throw new Error(`HTTP ${response.status}`);
+      const httpErr = `HTTP ${response.status}`;
+      (window as any)._last_api_error = httpErr;
+      throw new Error(httpErr);
     }
     return data;
-  } catch (error) {
+  } catch (error: any) {
+    const errMsg = error.message || 'خطأ غير معروف في الاتصال بالخادم';
+    (window as any)._last_api_error = errMsg;
     console.warn(`API Network Error (${action}), switching to Local Fallback Mode.`);
     return null; // Signals fallback
   }

@@ -600,7 +600,7 @@ const App: React.FC = () => {
       case 'delivery-areas': return <DeliveryAreasView onNavigate={onNavigate} />;
       case 'cart': return <CartView cart={cart} deliveryFee={deliveryFee} onUpdateQuantity={(id, d) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: Math.max(0.1, i.quantity + d)} : i))} onSetQuantity={(id, q) => setCart(prev => prev.map(i => i.id === id ? {...i, quantity: q} : i))} onRemove={(id) => { const item = cart.find(x => x.id === id); setCart(p => { const updated = p.filter(x => x.id !== id); if (item) AnalyticsTracker.trackCartEvent('remove_from_cart', item, updated); return updated; }); }} onCheckout={() => { AnalyticsTracker.trackCartEvent('checkout_start', null, cart); onNavigate('checkout'); }} onContinueShopping={() => onNavigate('store')} />;
       case 'product-details': return selectedProduct ? <ProductDetailsView product={selectedProduct} categoryName={categories.find(c => c.id === selectedProduct.categoryId)?.name || 'عام'} onAddToCart={(p, q) => { setCart(prev => { const ex = prev.find(x => x.id === p.id); const updated = ex ? prev.map(x => x.id === p.id ? {...x, quantity: x.quantity + q} : x) : [...prev, {...p, quantity: q}]; AnalyticsTracker.trackCartEvent('add_to_cart', p, updated); return updated; }); setNotification({message: 'تمت الإضافة للسلة', type: 'success'}); onNavigate('cart'); }} onBack={() => onNavigate('store')} isFavorite={wishlist.includes(selectedProduct.id)} onToggleFavorite={(id) => { const isFav = wishlist.includes(id); AnalyticsTracker.trackFavorite(id, isFav ? 'remove' : 'add'); setWishlist(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); }} /> : <div className="p-20 text-center font-bold text-gray-500">جاري تحميل تفاصيل المنتج...</div>;
-       case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'pending', createdAt: Date.now(), userId: currentUser?.id, discount: 0, discountType: 'fixed', discountValue: 0, deliveryFee: deliveryFee, totalItemDiscounts: 0, subtotalBeforeDiscount: sub, finalTotal: sub + deliveryFee }; const currentCartCopy = [...cart]; if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); AnalyticsTracker.trackCartEvent('checkout_complete', null, currentCartCopy); setRecentCreatedOrderFlow(o); setCart([]); onNavigate('order-success'); loadData(true); } }} />;
+       case 'checkout': return <CheckoutView cart={cart} currentUser={currentUser} deliveryFee={deliveryFee} onBack={() => onNavigate('cart')} onPlaceOrder={async (d) => { const sub = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const o: Order = { id: 'ORD-' + Date.now().toString().slice(-6), customerName: d.fullName, phone: d.phone, city: 'فاقوس', address: d.address, items: cart, subtotal: sub, total: sub + deliveryFee, paymentMethod: 'عند الاستلام', status: 'pending', createdAt: Date.now(), userId: currentUser?.id, discount: 0, discountType: 'fixed', discountValue: 0, deliveryFee: deliveryFee, totalItemDiscounts: 0, subtotalBeforeDiscount: sub, finalTotal: sub + deliveryFee }; const currentCartCopy = [...cart]; if (await ApiService.saveOrder(o)) { ApiService.getOfflineQueueCount().then(setOfflineQueueCount); AnalyticsTracker.trackCartEvent('checkout_complete', null, currentCartCopy); setRecentCreatedOrderFlow(o); setCart([]); onNavigate('order-success'); loadData(true); } else { const lastError = (window as any)._last_api_error || 'فشلت عملية إتمام الطلب. يرجى المحاولة مرة أخرى.'; alert(lastError); } }} />;
       case 'order-success': return recentCreatedOrderFlow ? <OrderSuccessView order={recentCreatedOrderFlow} adminPhone={adminPhone} postSubmitAction={postSubmitAction} onResetPostSubmitAction={() => setPostSubmitAction(null)} onContinueShopping={() => { if (previousView === 'admincp') { onNavigate('admincp'); } else if (previousView === 'my-orders') { onNavigate('my-orders'); } else { onNavigate('store'); } }} /> : null;
       case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setRecentCreatedOrderFlow(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
       case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
@@ -694,7 +694,11 @@ const App: React.FC = () => {
                 localStorage.removeItem('post_submit_action'); 
                 setPostSubmitAction(action as any); 
                 onNavigate('order-success'); 
-              } 
+              } else {
+                const lastError = (window as any)._last_api_error || 'فشلت عملية حفظ الفاتورة. يرجى المحاولة مرة أخرى.';
+                alert(lastError);
+                throw new Error(lastError);
+              }
             }} 
             onCancel={() => onNavigate('store')} 
           />
@@ -849,7 +853,11 @@ const App: React.FC = () => {
                     localStorage.removeItem('post_submit_action'); 
                     setPostSubmitAction(action as any); 
                     onNavigate('order-success'); 
-                  } 
+                  } else {
+                    const lastError = (window as any)._last_api_error || 'فشلت عملية حفظ الفاتورة. يرجى المحاولة مرة أخرى.';
+                    alert(lastError);
+                    throw new Error(lastError);
+                  }
                 }} 
                 onCancel={() => { 
                   setEditingOrder(null); 
