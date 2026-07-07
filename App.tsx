@@ -696,7 +696,6 @@ const App: React.FC = () => {
                 onNavigate('order-success'); 
               } else {
                 const lastError = (window as any)._last_api_error || 'فشلت عملية حفظ الفاتورة. يرجى المحاولة مرة أخرى.';
-                alert(lastError);
                 throw new Error(lastError);
               }
             }} 
@@ -855,7 +854,6 @@ const App: React.FC = () => {
                     onNavigate('order-success'); 
                   } else {
                     const lastError = (window as any)._last_api_error || 'فشلت عملية حفظ الفاتورة. يرجى المحاولة مرة أخرى.';
-                    alert(lastError);
                     throw new Error(lastError);
                   }
                 }} 

@@ -997,9 +997,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
 
       localStorage.setItem('post_submit_action', submitAction);
       await onSubmit(newOrder);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Save error:", err);
-      alert('حدث خطأ أثناء حفظ الفاتورة');
+      setIsSaving(false);
+      const errMsg = err.message || 'حدث خطأ أثناء حفظ الفاتورة';
+      setTimeout(() => {
+        alert(errMsg);
+      }, 50);
     } finally {
       setIsSaving(false);
     }
