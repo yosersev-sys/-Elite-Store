@@ -259,10 +259,22 @@ const App: React.FC = () => {
     if (!isSilent) setIsLoading(true);
 
     let totalRequests = 0;
+    const isCashierUser = user?.role === 'admin' || user?.role === 'cashier';
+    const isAdminUser = user?.role === 'admin';
+    const needsAdminStats = (isTrulyInAdminMode || view === 'quick-invoice') && isCashierUser;
+
     if (ordersOnly) {
-      totalRequests = (isTrulyInAdminMode && user?.role === 'admin') ? 2 : 1;
+      totalRequests = needsAdminStats ? 2 : 1;
     } else {
-      totalRequests = (isTrulyInAdminMode && user?.role === 'admin') ? 8 : (view === 'my-orders' && user && user.role !== 'admin') ? 5 : 4;
+      totalRequests = 4;
+      if (needsAdminStats) {
+        totalRequests += 2; // orders, users
+        if (isAdminUser) {
+          totalRequests += 2; // adminSummary, suppliers
+        }
+      } else if (view === 'my-orders' && user && user.role !== 'admin') {
+        totalRequests += 1;
+      }
     }
 
     setLoadProgress(0);
@@ -273,7 +285,7 @@ const App: React.FC = () => {
     };
 
     try {
-      if (isAdmin) {
+      if (isCashierUser) {
         ApiService.getOfflineQueueCount().then(setOfflineQueueCount).catch(() => {});
       }
       if (!ordersOnly) {
@@ -295,7 +307,7 @@ const App: React.FC = () => {
         }
       }
 
-      if (user?.role === 'admin') {
+      if (isCashierUser) {
         try {
           const active = await ApiService.getActiveShift();
           setActiveShift(active);
@@ -305,8 +317,8 @@ const App: React.FC = () => {
       }
 
       // 4. جلب بيانات الإدارة من السيرفر بالتوازي مع تتبع التقدم
-      if (isTrulyInAdminMode && user?.role === 'admin') {
-        const p5 = ApiService.getAdminSummary().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+      if (needsAdminStats) {
+        const p5 = isAdminUser ? ApiService.getAdminSummary().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; }) : Promise.resolve(null);
         const p8 = ApiService.getOrders().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
         
         let p6 = Promise.resolve(null);
@@ -314,7 +326,9 @@ const App: React.FC = () => {
         
         if (!ordersOnly) {
           p6 = ApiService.getUsers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
-          p7 = ApiService.getSuppliers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+          if (isAdminUser) {
+            p7 = ApiService.getSuppliers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
+          }
         }
 
         const [sum, ords, usrs, sups] = await Promise.all([p5, p8, p6, p7]);
@@ -343,7 +357,7 @@ const App: React.FC = () => {
         }
       } 
       // 5. جلب طلبات العميل
-      else if (view === 'my-orders' && user && user.role !== 'admin') {
+      else if (view === 'my-orders' && user && !isAdminUser) {
         const myOrds = await ApiService.getOrders().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
         if (myOrds) {
           setOrders(prev => JSON.stringify(prev) === JSON.stringify(myOrds) ? prev : myOrds);
