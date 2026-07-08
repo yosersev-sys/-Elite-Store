@@ -592,6 +592,10 @@ const App: React.FC = () => {
     setCurrentUser(user); 
     setShowAuthModal(false); 
     loadData(false, user); 
+    if (user.role === 'cashier') {
+      window.location.hash = '#/quick-invoice';
+      setView('quick-invoice');
+    }
   };
   const handleLogout = () => { ApiService.logout(); setCurrentUser(null); setActiveShift(null); onNavigate('store'); };
 
@@ -724,8 +728,12 @@ const App: React.FC = () => {
     }
   };
 
-  // 1. حالة "نظام الإدارة" (تظهر بشكل قاطع إذا طلب الرابط ذلك)
   if (isTrulyInAdminMode) {
+    if (currentUser?.role === 'cashier') {
+      window.location.hash = '#/quick-invoice';
+      setView('quick-invoice');
+      return null;
+    }
     if (!isAdmin) {
       return (
         <React.Suspense fallback={<div className="flex justify-center p-8 text-gray-500">جاري التحميل...</div>}>

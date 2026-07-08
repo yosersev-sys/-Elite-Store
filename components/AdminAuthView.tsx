@@ -38,7 +38,7 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
     try {
       const res = await ApiService.login(phone, password);
       if (res && res.status === 'success' && res.user) {
-        if (res.user.role === 'admin') {
+        if (res.user.role === 'admin' || res.user.role === 'cashier') {
           // حفظ البيانات إذا تم اختيار "تذكرني"
           if (rememberMe) {
             localStorage.setItem('souq_admin_phone', phone);
@@ -49,7 +49,7 @@ const AdminAuthView: React.FC<AdminAuthViewProps> = ({ onSuccess, onClose }) => 
           }
           onSuccess(res.user);
         } else {
-          setError('عذراً، هذا الحساب لا يمتلك صلاحيات المدير.');
+          setError('عذراً، هذا الحساب لا يمتلك صلاحيات المدير أو الكاشير.');
           await ApiService.logout();
         }
       } else {
