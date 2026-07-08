@@ -54,7 +54,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentView, cartCount, onNavigat
         onClick={() => onNavigate('profile')} 
       />
 
-      {isAdmin && (
+      {isCashier && (
         <NavItem 
           active={currentView === 'admin'} 
           icon="⚙️" 

@@ -32,7 +32,7 @@ switch ($action) {
         break;
 
     case 'get_users':
-        if (!isAdmin()) sendErr('غير مصرح');
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
         sendRes($pdo->query("SELECT id, name, phone, role, createdAt, (SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE userId = users.id) AS balance FROM users ORDER BY createdAt DESC")->fetchAll());
         break;
 

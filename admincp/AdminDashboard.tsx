@@ -106,7 +106,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       suppliers: safeSuppliers
     };
 
-    switch (activeTab) {
+    const isCashier = props.currentUser?.role === 'cashier';
+    const allowedTabs: AdminTab[] = isCashier ? ['invoices', 'ledger', 'shifts', 'settings'] : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods'];
+    const currentTab = allowedTabs.includes(activeTab) ? activeTab : (isCashier ? 'invoices' : 'stats');
+
+    switch (currentTab) {
       case 'stats': return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
       case 'analytics': return <AnalyticsTab isOnline={props.isOnline} />;
       case 'products': return <ProductsTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} initialFilter={adminFilter} onPrintBarcode={props.onPrintBarcode} />;
@@ -154,23 +158,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         </div>
         
         <nav className="flex lg:flex-col flex-row gap-2 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-3 lg:pb-0 -mx-2 px-2 lg:mx-0 lg:px-0">
-          <AdminNavButton active={activeTab === 'stats'} onClick={() => handleTabChange('stats')} icon="📊" label="الإحصائيات" />
-          <AdminNavButton active={activeTab === 'products'} onClick={() => handleTabChange('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
-          <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
-          <AdminNavButton active={activeTab === 'invoices'} onClick={() => handleTabChange('invoices', '')} icon="🧾" label="الفواتير" />
-          <AdminNavButton active={activeTab === 'store-orders'} onClick={() => handleTabChange('store-orders', '')} icon="🛍️" label="طلبات المتجر" badge={pendingOrdersCount > 0 ? pendingOrdersCount : undefined} />
-          <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
-          <AdminNavButton active={activeTab === 'ledger'} onClick={() => handleTabChange('ledger')} icon="💸" label="كشوف الحسابات" />
-          <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
-          <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
           {props.currentUser?.role === 'admin' && (
-            <AdminNavButton active={activeTab === 'expenses'} onClick={() => handleTabChange('expenses')} icon="💸" label="المصروفات" />
+            <>
+              <AdminNavButton active={activeTab === 'stats'} onClick={() => handleTabChange('stats')} icon="📊" label="الإحصائيات" />
+              <AdminNavButton active={activeTab === 'products'} onClick={() => handleTabChange('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
+              <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
+            </>
+          )}
+          <AdminNavButton active={activeTab === 'invoices'} onClick={() => handleTabChange('invoices', '')} icon="🧾" label="الفواتير" />
+          {props.currentUser?.role === 'admin' && (
+            <AdminNavButton active={activeTab === 'store-orders'} onClick={() => handleTabChange('store-orders', '')} icon="🛍️" label="طلبات المتجر" badge={pendingOrdersCount > 0 ? pendingOrdersCount : undefined} />
           )}
           {props.currentUser?.role === 'admin' && (
-            <AdminNavButton active={activeTab === 'payment-methods'} onClick={() => handleTabChange('payment-methods')} icon="💳" label="وسائل الدفع" />
+            <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
+          )}
+          <AdminNavButton active={activeTab === 'ledger'} onClick={() => handleTabChange('ledger')} icon="💸" label="كشوف الحسابات" />
+          {props.currentUser?.role === 'admin' && (
+            <>
+              <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
+              <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
+              <AdminNavButton active={activeTab === 'expenses'} onClick={() => handleTabChange('expenses')} icon="💸" label="المصروفات" />
+              <AdminNavButton active={activeTab === 'payment-methods'} onClick={() => handleTabChange('payment-methods')} icon="💳" label="وسائل الدفع" />
+            </>
           )}
           <AdminNavButton active={activeTab === 'shifts'} onClick={() => handleTabChange('shifts')} icon="⏱️" label="الورديات" />
-          <AdminNavButton active={activeTab === 'analytics'} onClick={() => handleTabChange('analytics')} icon="📈" label="تحليلات الزوار" />
+          {props.currentUser?.role === 'admin' && (
+            <AdminNavButton active={activeTab === 'analytics'} onClick={() => handleTabChange('analytics')} icon="📈" label="تحليلات الزوار" />
+          )}
           <AdminNavButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon="🛠️" label="الإعدادات" />
         </nav>
 
@@ -197,31 +211,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
              <p className="text-slate-400 text-xs font-bold mt-1">نظام إدارة سوق العصر المتطور</p>
            </div>
            <div className="flex items-center gap-2.5 w-full md:w-auto">
-             <button 
-               type="button"
-               onClick={() => handleTabChange('store-orders', '')}
-               className={`relative p-3 rounded-xl font-black text-xs border transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                 pendingOrdersCount > 0 
-                   ? 'bg-rose-50 text-rose-600 border-rose-200 shadow-md animate-pulse hover:bg-rose-100' 
-                   : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
-               }`}
-               title={pendingOrdersCount > 0 ? `يوجد ${pendingOrdersCount} طلبات معلقة من المتجر` : 'لا توجد طلبات معلقة'}
-             >
-               <div className="relative flex items-center justify-center">
-                 <span className={`text-sm ${pendingOrdersCount > 0 ? 'animate-bounce block' : ''}`}>🔔</span>
+             {props.currentUser?.role === 'admin' && (
+               <button 
+                 type="button"
+                 onClick={() => handleTabChange('store-orders', '')}
+                 className={`relative p-3 rounded-xl font-black text-xs border transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                   pendingOrdersCount > 0 
+                     ? 'bg-rose-50 text-rose-600 border-rose-200 shadow-md animate-pulse hover:bg-rose-100' 
+                     : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
+                 }`}
+                 title={pendingOrdersCount > 0 ? `يوجد ${pendingOrdersCount} طلبات معلقة من المتجر` : 'لا توجد طلبات معلقة'}
+               >
+                 <div className="relative flex items-center justify-center">
+                   <span className={`text-sm ${pendingOrdersCount > 0 ? 'animate-bounce block' : ''}`}>🔔</span>
+                   {pendingOrdersCount > 0 && (
+                     <span className="absolute -top-1.5 -right-1.5 flex h-2.5 w-2.5">
+                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                     </span>
+                   )}
+                 </div>
                  {pendingOrdersCount > 0 && (
-                   <span className="absolute -top-1.5 -right-1.5 flex h-2.5 w-2.5">
-                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
-                   </span>
+                   <span className="font-Cairo font-bold hidden sm:inline">طلبات معلقة ({pendingOrdersCount})</span>
                  )}
-               </div>
-               {pendingOrdersCount > 0 && (
-                 <span className="font-Cairo font-bold hidden sm:inline">طلبات معلقة ({pendingOrdersCount})</span>
-               )}
-             </button>
+               </button>
+             )}
              <button onClick={props.onOpenInvoiceForm} className="flex-grow md:flex-initial bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">🧾 فاتورة</button>
-             <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">📦 صنف جديد</button>
+             {props.currentUser?.role === 'admin' && (
+               <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">📦 صنف جديد</button>
+             )}
            </div>
         </div>
 
