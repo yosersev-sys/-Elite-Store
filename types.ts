@@ -3,7 +3,7 @@ export interface User {
   id: string;
   name: string;
   phone: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'cashier';
   createdAt: number;
   balance?: number;
   permissions?: string[];

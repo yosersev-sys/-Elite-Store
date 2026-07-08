@@ -7,9 +7,10 @@ interface MobileNavProps {
   onNavigate: (view: View) => void;
   onCartClick: () => void;
   isAdmin: boolean;
+  isCashier: boolean;
 }
 
-const MobileNav: React.FC<MobileNavProps> = ({ currentView, cartCount, onNavigate, onCartClick, isAdmin }) => {
+const MobileNav: React.FC<MobileNavProps> = ({ currentView, cartCount, onNavigate, onCartClick, isAdmin, isCashier }) => {
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-2xl border-t border-slate-100 px-4 pt-3 flex items-center justify-between shadow-[0_-10px_40px_rgba(0,0,0,0.08)] pb-[max(env(safe-area-inset-bottom),1rem)]">
       <NavItem 
@@ -37,12 +38,14 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentView, cartCount, onNavigat
         )}
       </div>
 
-      <NavItem 
-        active={currentView === 'quick-invoice'} 
-        icon="🧾" 
-        label="فاتورة" 
-        onClick={() => onNavigate('quick-invoice')} 
-      />
+      {isCashier && (
+        <NavItem 
+          active={currentView === 'quick-invoice'} 
+          icon="🧾" 
+          label="فاتورة" 
+          onClick={() => onNavigate('quick-invoice')} 
+        />
+      )}
 
       <NavItem 
         active={currentView === 'profile'} 

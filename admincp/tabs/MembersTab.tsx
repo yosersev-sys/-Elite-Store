@@ -169,8 +169,9 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">صلاحية الحساب</label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl">
+                <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1.5 rounded-2xl">
                    <button onClick={() => setFormData({...formData, role: 'user'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'user' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>عميل عادي</button>
+                   <button onClick={() => setFormData({...formData, role: 'cashier'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'cashier' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}`}>كاشير</button>
                    <button onClick={() => setFormData({...formData, role: 'admin'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'admin' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400'}`}>مدير نظام</button>
                 </div>
               </div>
@@ -218,8 +219,14 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
                 <td className="px-8 py-5 font-bold text-slate-800">{u.name}</td>
                 <td className="px-8 py-5 font-black text-slate-500">{u.phone}</td>
                 <td className="px-8 py-5">
-                  <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${u.role === 'admin' ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
-                    {u.role === 'admin' ? 'مدير نظام ⚙️' : 'عميل متجر 👤'}
+                  <span className={`px-4 py-1.5 rounded-full text-[9px] font-black ${
+                    u.role === 'admin' 
+                      ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' 
+                      : u.role === 'cashier'
+                        ? 'bg-indigo-100 text-indigo-600 border border-indigo-200'
+                        : 'bg-slate-100 text-slate-400 border border-slate-200'
+                  }`}>
+                    {u.role === 'admin' ? 'مدير نظام ⚙️' : u.role === 'cashier' ? 'كاشير 🧾' : 'عميل متجر 👤'}
                   </span>
                 </td>
                 <td className="px-8 py-5">

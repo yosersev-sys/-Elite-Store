@@ -204,6 +204,7 @@ const App: React.FC = () => {
   const currentPath = window.location.pathname.toLowerCase();
   const isTrulyInAdminMode = currentHash.includes('admin') || currentHash.includes('cp') || currentPath.includes('admincp');
   const isAdmin = currentUser?.role === 'admin';
+  const isCashier = currentUser?.role === 'cashier' || currentUser?.role === 'admin';
 
   // مزامنة فورية للرابط عند التغيير (قبل الرندرة)
   useLayoutEffect(() => {
@@ -605,6 +606,13 @@ const App: React.FC = () => {
       case 'my-orders': return <MyOrdersView orders={orders} onViewDetails={(o) => {setRecentCreatedOrderFlow(o); onNavigate('order-success');}} onBack={() => onNavigate('store')} />;
       case 'profile': return currentUser ? <ProfileView currentUser={currentUser} onSuccess={handleLogout} onBack={() => onNavigate('store')} /> : null;
       case 'quick-invoice': 
+        if (!isCashier) {
+          return (
+            <div className="p-20 text-center font-black text-rose-500 text-sm">
+              عذراً، غير مصرح لك بدخول هذه الصفحة. هذه الصفحة مخصصة للموظفين والكاشير فقط. ⚠️
+            </div>
+          );
+        }
         if (isLoading) {
           return (
             <div className="flex flex-col items-center justify-center p-20 gap-4">
@@ -613,7 +621,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        if (isAdmin && !activeShift) {
+        if (isCashier && !activeShift) {
           return (
             <div className="flex items-center justify-center p-4 py-12">
               <form onSubmit={handleOpenShiftFromBlocker} className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6 animate-slideUp border border-slate-100">
@@ -952,9 +960,9 @@ const App: React.FC = () => {
 
         <Footer categories={categories} onNavigate={onNavigate} onCategorySelect={setSelectedCategoryId} />
         <FloatingCartButton count={cart.length} onClick={() => onNavigate('cart')} isVisible={true} />
-        <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigate} />
+        {isCashier && <FloatingQuickInvoiceButton currentView={view} onNavigate={onNavigate} />}
         {isAdmin && <FloatingAdminButton currentView={view} onNavigate={onNavigate} />}
-        <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigate} onCartClick={() => onNavigate('cart')} isAdmin={isAdmin} />
+        <MobileNav currentView={view} cartCount={cart.length} onNavigate={onNavigate} onCartClick={() => onNavigate('cart')} isAdmin={isAdmin} isCashier={isCashier} />
       </div>
     </PullToRefresh>
   );

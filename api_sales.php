@@ -233,7 +233,7 @@ if (!function_exists('updateOrderPaymentStatus')) {
 
 switch ($action) {
     case 'get_orders':
-        if (isAdmin()) {
+        if (isAdmin() || ($_SESSION['user']['role'] ?? '') === 'cashier') {
             $stmt = $pdo->query("SELECT o.*, u.name AS confirmedByName FROM orders o LEFT JOIN users u ON o.confirmedById = u.id ORDER BY o.createdAt DESC LIMIT 500");
         } else if (isset($_SESSION['user'])) {
             $stmt = $pdo->prepare("SELECT o.*, u.name AS confirmedByName FROM orders o LEFT JOIN users u ON o.confirmedById = u.id WHERE o.userId = ? OR o.phone = ? ORDER BY o.createdAt DESC LIMIT 50");
@@ -698,7 +698,7 @@ switch ($action) {
         break;
 
     case 'update_order':
-        if (!isAdmin()) sendErr('غير مصرح');
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
         
         // التحقق من الوردية النشطة قبل بدء المعاملة
         $activeShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
@@ -1185,7 +1185,7 @@ switch ($action) {
         break;
 
     case 'update_order_payment':
-        if (!isAdmin()) sendErr('غير مصرح');
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
         
         // التحقق من وجود وردية نشطة
         $activeShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
@@ -1290,7 +1290,7 @@ switch ($action) {
         break;
 
     case 'return_order':
-        if (!isAdmin()) sendErr('غير مصرح');
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
         
         // التحقق من وجود وردية نشطة مفتوحة حالياً لتسجيل المرتجع فيها
         $activeOpenShift = $pdo->query("SELECT id, currentCashBalance FROM shifts WHERE status = 'open'")->fetch();
@@ -1449,8 +1449,8 @@ switch ($action) {
             sendErr('معرف المستخدم مطلوب');
         }
         
-        // التحقق من الصلاحية: يجب أن يكون أدمن أو صاحب الحساب
-        if (!isAdmin() && ($_SESSION['user']['id'] ?? '') !== $userId) {
+        // التحقق من الصلاحية: يجب أن يكون أدمن أو كاشير أو صاحب الحساب
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier' && ($_SESSION['user']['id'] ?? '') !== $userId) {
             sendErr('غير مصرح');
         }
 
