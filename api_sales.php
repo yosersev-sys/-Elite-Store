@@ -1768,7 +1768,7 @@ switch ($action) {
         break;
 
     case 'get_payment_numbers_stats':
-        if (!isAdmin()) sendErr('غير مصرح');
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
         $startOfMonth = strtotime('first day of this month 00:00:00') * 1000;
         $stmt = $pdo->prepare("SELECT paymentMethodId, reference, SUM(amount) AS totalAmount, COUNT(*) AS usageCount FROM order_payments WHERE createdAt >= ? GROUP BY paymentMethodId, reference");
         $stmt->execute([$startOfMonth]);

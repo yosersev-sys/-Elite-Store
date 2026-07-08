@@ -107,7 +107,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     };
 
     const isCashier = props.currentUser?.role === 'cashier';
-    const allowedTabs: AdminTab[] = isCashier ? ['invoices', 'ledger', 'shifts', 'settings'] : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods'];
+    const allowedTabs: AdminTab[] = isCashier ? ['invoices', 'store-orders', 'ledger', 'shifts', 'settings'] : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods'];
     const currentTab = allowedTabs.includes(activeTab) ? activeTab : (isCashier ? 'invoices' : 'stats');
 
     switch (currentTab) {
@@ -166,9 +166,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             </>
           )}
           <AdminNavButton active={activeTab === 'invoices'} onClick={() => handleTabChange('invoices', '')} icon="🧾" label="الفواتير" />
-          {props.currentUser?.role === 'admin' && (
-            <AdminNavButton active={activeTab === 'store-orders'} onClick={() => handleTabChange('store-orders', '')} icon="🛍️" label="طلبات المتجر" badge={pendingOrdersCount > 0 ? pendingOrdersCount : undefined} />
-          )}
+          <AdminNavButton active={activeTab === 'store-orders'} onClick={() => handleTabChange('store-orders', '')} icon="🛍️" label="طلبات المتجر" badge={pendingOrdersCount > 0 ? pendingOrdersCount : undefined} />
           {props.currentUser?.role === 'admin' && (
             <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
           )}
@@ -211,7 +209,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
              <p className="text-slate-400 text-xs font-bold mt-1">نظام إدارة سوق العصر المتطور</p>
            </div>
            <div className="flex items-center gap-2.5 w-full md:w-auto">
-             {props.currentUser?.role === 'admin' && (
+             {(props.currentUser?.role === 'admin' || props.currentUser?.role === 'cashier') && (
                <button 
                  type="button"
                  onClick={() => handleTabChange('store-orders', '')}
