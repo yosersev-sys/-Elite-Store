@@ -322,7 +322,7 @@ const App: React.FC = () => {
 
       // 4. جلب بيانات الإدارة من السيرفر بالتوازي مع تتبع التقدم
       if (needsAdminStats) {
-        const p5 = isAdminUser ? ApiService.getAdminSummary().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; }) : Promise.resolve(null);
+        const p5 = isCashierUser ? ApiService.getAdminSummary().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; }) : Promise.resolve(null);
         const p8 = ApiService.getOrders().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
         
         let p6 = Promise.resolve(null);
@@ -330,7 +330,7 @@ const App: React.FC = () => {
         
         if (!ordersOnly) {
           p6 = ApiService.getUsers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
-          if (isAdminUser) {
+          if (isCashierUser) {
             p7 = ApiService.getSuppliers().then(r => { step(); return r; }).catch(err => { console.warn(err); step(); return null; });
           }
         }

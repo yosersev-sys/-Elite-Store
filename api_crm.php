@@ -4,7 +4,7 @@
  */
 if (!defined('DB_HOST')) exit;
 
-if (!isAdmin()) sendErr('غير مصرح');
+if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
 
 switch ($action) {
     case 'get_suppliers':

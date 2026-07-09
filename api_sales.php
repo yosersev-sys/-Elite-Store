@@ -1705,7 +1705,7 @@ switch ($action) {
         break;
 
     case 'add_payment_method':
-        if (!isAdmin()) sendErr('غير مصرح');
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
         $id = $input['id'] ?? '';
         $name = $input['name'] ?? '';
         $type = $input['type'] ?? 'digital';
@@ -1729,7 +1729,7 @@ switch ($action) {
         break;
 
     case 'update_payment_method':
-        if (!isAdmin()) sendErr('غير مصرح');
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
         $id = $input['id'] ?? '';
         $name = $input['name'] ?? '';
         $type = $input['type'] ?? 'digital';
@@ -1747,7 +1747,7 @@ switch ($action) {
         break;
 
     case 'delete_payment_method':
-        if (!isAdmin()) sendErr('غير مصرح');
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
         $id = $input['id'] ?? $_GET['id'] ?? '';
         
         if (empty($id)) {

@@ -108,7 +108,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     };
 
     const isCashier = props.currentUser?.role === 'cashier';
-    const allowedTabs: AdminTab[] = isCashier ? ['invoices', 'store-orders', 'ledger', 'shifts', 'settings'] : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods'];
+    const allowedTabs: AdminTab[] = isCashier 
+      ? ['invoices', 'store-orders', 'ledger', 'shifts', 'settings', 'expenses', 'suppliers', 'payment-methods'] 
+      : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods'];
     const currentTab = allowedTabs.includes(activeTab) ? activeTab : (isCashier ? 'invoices' : 'stats');
 
     switch (currentTab) {
@@ -172,14 +174,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             <AdminNavButton active={activeTab === 'members'} onClick={() => handleTabChange('members')} icon="👥" label="الأعضاء" />
           )}
           <AdminNavButton active={activeTab === 'ledger'} onClick={() => handleTabChange('ledger')} icon="💸" label="كشوف الحسابات" />
+          
+          {(props.currentUser?.role === 'admin' || props.currentUser?.role === 'cashier') && (
+            <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
+          )}
           {props.currentUser?.role === 'admin' && (
+            <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
+          )}
+          {(props.currentUser?.role === 'admin' || props.currentUser?.role === 'cashier') && (
             <>
-              <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
-              <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
               <AdminNavButton active={activeTab === 'expenses'} onClick={() => handleTabChange('expenses')} icon="💸" label="المصروفات" />
               <AdminNavButton active={activeTab === 'payment-methods'} onClick={() => handleTabChange('payment-methods')} icon="💳" label="وسائل الدفع" />
             </>
           )}
+          
           <AdminNavButton active={activeTab === 'shifts'} onClick={() => handleTabChange('shifts')} icon="⏱️" label="الورديات" />
           {props.currentUser?.role === 'admin' && (
             <AdminNavButton active={activeTab === 'analytics'} onClick={() => handleTabChange('analytics')} icon="📈" label="تحليلات الزوار" />

@@ -6,7 +6,7 @@ if (!defined('DB_HOST')) exit;
 
 switch ($action) {
     case 'get_admin_summary':
-        if (!isAdmin()) sendErr('غير مصرح');
+        if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
         
         $cashSales = (float)$pdo->query("SELECT SUM(total) FROM orders WHERE status = 'completed' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn();
         $cashReturns = (float)$pdo->query("SELECT SUM(total) FROM orders WHERE status = 'cancelled' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn();

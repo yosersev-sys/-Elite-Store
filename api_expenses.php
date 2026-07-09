@@ -5,8 +5,8 @@
 if (!defined('DB_HOST')) exit;
 
 // التحقق من صلاحيات المدير لإدارة المصروفات
-if (!isset($_SESSION['user']) || ($_SESSION['user']['role'] ?? '') !== 'admin') {
-    sendErr('غير مصرح لك بالقيام بهذه العملية (صلاحيات المدير فقط)', 403);
+if (!isset($_SESSION['user']) || (($_SESSION['user']['role'] ?? '') !== 'admin' && ($_SESSION['user']['role'] ?? '') !== 'cashier')) {
+    sendErr('غير مصرح لك بالقيام بهذه العملية', 403);
 }
 
 switch ($action) {
