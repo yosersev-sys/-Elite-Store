@@ -367,7 +367,7 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({
           onClick={onContinueShopping} 
           className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 py-4 rounded-2xl font-black text-sm hover:bg-slate-200 transition active:scale-95 shadow-sm sm:col-span-2 cursor-pointer"
         >
-          {order.id.startsWith('INV-') || order.id.startsWith('OFF-') || order.id.startsWith('OFFLINE-') ? 'العودة للصفحة السابقة' : 'العودة للمتجر'}
+          {order.id.startsWith('INV-') || order.id.startsWith('OFF-') || order.id.startsWith('OFFLINE-') ? 'العودة للوحة التحكم' : 'العودة للمتجر'}
         </button>
       </div>
     </div>
