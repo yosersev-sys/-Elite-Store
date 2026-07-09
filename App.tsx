@@ -418,7 +418,7 @@ const App: React.FC = () => {
 
     const intervalId = setInterval(() => {
       loadData(true, currentUser, true);
-    }, 10000); // تحديث صامت كل 10 ثوانٍ للطلبات والوردية والإحصائيات
+    }, 5000); // تحديث صامت كل 5 ثوانٍ للطلبات والوردية والإحصائيات
 
     return () => clearInterval(intervalId);
   }, [currentUser?.id, view, isOnline]);
