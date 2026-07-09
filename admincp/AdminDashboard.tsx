@@ -109,9 +109,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
     const isCashier = props.currentUser?.role === 'cashier';
     const allowedTabs: AdminTab[] = isCashier 
-      ? ['invoices', 'store-orders', 'ledger', 'shifts', 'settings', 'expenses', 'suppliers', 'payment-methods'] 
+      ? ['stats', 'invoices', 'store-orders', 'ledger', 'shifts', 'settings', 'expenses', 'suppliers', 'payment-methods'] 
       : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods'];
-    const currentTab = allowedTabs.includes(activeTab) ? activeTab : (isCashier ? 'invoices' : 'stats');
+    const currentTab = allowedTabs.includes(activeTab) ? activeTab : 'stats';
 
     switch (currentTab) {
       case 'stats': return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
@@ -126,12 +126,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'shifts': return <ShiftsTab activeShift={props.activeShift} onRefreshData={props.onRefreshData} />;
       case 'ledger': return <CustomerLedgerTab {...tabProps} onRefreshData={props.onRefreshData} />;
       case 'expenses':
-        if (props.currentUser?.role !== 'admin') {
+        if (props.currentUser?.role !== 'admin' && props.currentUser?.role !== 'cashier') {
           return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
         }
         return <ExpensesTab onRefreshData={props.onRefreshData} />;
       case 'payment-methods':
-        if (props.currentUser?.role !== 'admin') {
+        if (props.currentUser?.role !== 'admin' && props.currentUser?.role !== 'cashier') {
           return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
         }
         return <PaymentMethodsTab onRefreshData={props.onRefreshData} />;
