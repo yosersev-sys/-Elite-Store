@@ -156,7 +156,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
       try {
         const res = await ApiService.updateProfile(adminData);
         if (res.status === 'success') {
-          alert('تم تحديث بيانات المدير بنجاح. سيتم تسجيل الخروج الآن.');
+          alert(currentUser?.role === 'cashier' ? 'تم تحديث بيانات الكاشير بنجاح. سيتم تسجيل الخروج الآن.' : 'تم تحديث بيانات المدير بنجاح. سيتم تسجيل الخروج الآن.');
           onLogout();
         } else {
           alert(res.message || 'فشل التحديث');
@@ -514,44 +514,65 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ currentUser, onLogout }) => {
         </div>
       </section>
 
-      {/* حساب المدير */}
+      {/* حساب المدير / الموظف */}
       <section className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border-t-8 border-rose-500 space-y-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-bl-full pointer-events-none"></div>
         <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
           <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm">🔐</div>
           <div>
-            <h3 className="text-xl font-black text-slate-800">بيانات دخول المدير</h3>
-            <p className="text-slate-400 text-xs font-bold">تحديث رقم الموبايل وكلمة السر</p>
+            <h3 className="text-xl font-black text-slate-800">
+              {currentUser?.role === 'cashier' ? 'بيانات دخول الكاشير' : 'بيانات دخول المدير'}
+            </h3>
+            <p className="text-slate-400 text-xs font-bold">تحديث الاسم ورقم الموبايل وكلمة المرور</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">الاسم الشخصي</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 font-Cairo">الاسم الشخصي</label>
             <input 
               value={adminData.name}
               onChange={e => setAdminData({...adminData, name: e.target.value})}
-              className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-rose-500 rounded-2xl outline-none font-bold transition-all shadow-inner"
+              className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-rose-500 rounded-2xl outline-none font-bold transition-all shadow-inner font-Cairo"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم الموبايل</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 font-Cairo">رقم الموبايل</label>
             <input 
               type="tel"
               value={adminData.phone}
               onChange={e => setAdminData({...adminData, phone: e.target.value})}
-              className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-rose-500 rounded-2xl outline-none font-bold transition-all shadow-inner text-left"
+              className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-rose-500 rounded-2xl outline-none font-bold transition-all shadow-inner text-left font-Cairo"
               dir="ltr"
             />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 font-Cairo">كلمة المرور الجديدة (اتركها فارغة للحفاظ على الحالية)</label>
+            <div className="relative">
+              <input 
+                type={showPassword ? 'text' : 'password'}
+                value={adminData.password}
+                onChange={e => setAdminData({...adminData, password: e.target.value})}
+                placeholder="••••••••"
+                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-rose-500 rounded-2xl outline-none font-black text-base transition-all shadow-inner text-center font-Cairo"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none text-[10px] font-Cairo font-black"
+              >
+                {showPassword ? '🫣 إخفاء' : '👁️ إظهار'}
+              </button>
+            </div>
           </div>
         </div>
 
         <button 
           onClick={handleUpdateAdminProfile}
           disabled={isSaving}
-          className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50"
+          className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50 font-Cairo"
         >
-          تحديث بيانات المدير 🛡️
+          {currentUser?.role === 'cashier' ? 'تحديث بيانات الكاشير 🛡️' : 'تحديث بيانات المدير 🛡️'}
         </button>
       </section>
 
