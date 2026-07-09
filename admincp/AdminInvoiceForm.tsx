@@ -14,6 +14,7 @@ interface AdminInvoiceFormProps {
   onSubmit: (order: Order) => Promise<void> | void;
   onCancel: () => void;
   onRefreshData?: () => void;
+  onUpdateUserLocal?: (updatedUser: User) => void;
   initialCustomerName?: string;
   initialPhone?: string;
   order?: Order | null;
@@ -23,7 +24,7 @@ interface AdminInvoiceFormProps {
 }
 
 const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ 
-  products, users = [], orders = [], categories = [], currentUser = null, globalDeliveryFee, onSubmit, onCancel, onRefreshData, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null,
+  products, users = [], orders = [], categories = [], currentUser = null, globalDeliveryFee, onSubmit, onCancel, onRefreshData, onUpdateUserLocal, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null,
   isOnline, offlineQueueCount, onOpenSyncManager
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
@@ -928,12 +929,31 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           const updateName = window.confirm(`تنبيه: رقم الهاتف هذا مسجل باسم "${existingUser.name}". هل تريد تحديث الاسم المسجل في النظام ليكون "${newNameTrimmed}"؟`);
           if (updateName) {
             try {
-              await ApiService.adminUpdateUser({
-                id: existingUser.id,
-                name: newNameTrimmed,
-                phone: existingUser.phone,
-                role: existingUser.role
-              });
+              let res;
+              if (currentUser?.role === 'cashier') {
+                res = await ApiService.cashierUpdateCustomer({
+                  id: existingUser.id,
+                  name: newNameTrimmed,
+                  phone: existingUser.phone
+                });
+              } else {
+                res = await ApiService.adminUpdateUser({
+                  id: existingUser.id,
+                  name: newNameTrimmed,
+                  phone: existingUser.phone,
+                  role: existingUser.role
+                });
+              }
+
+              if (res && res.status === 'success') {
+                const updated = { ...existingUser, name: newNameTrimmed };
+                if (onUpdateUserLocal) {
+                  onUpdateUserLocal(updated);
+                } else {
+                  existingUser.name = newNameTrimmed;
+                  if (onRefreshData) onRefreshData();
+                }
+              }
             } catch (err) {
               console.error("Failed to update customer name profile", err);
             }

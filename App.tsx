@@ -138,6 +138,10 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | 'all'>('all');
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  const handleUpdateUserLocal = (updatedUser: User) => {
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
+  };
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -700,6 +704,7 @@ const App: React.FC = () => {
             categories={categories} 
             currentUser={currentUser} 
             onRefreshData={() => loadData(true)} 
+            onUpdateUserLocal={handleUpdateUserLocal}
             initialCustomerName={currentUser?.name} 
             initialPhone={currentUser?.phone} 
             globalDeliveryFee={deliveryFee} 
@@ -856,6 +861,7 @@ const App: React.FC = () => {
                 categories={categories} 
                 currentUser={currentUser} 
                 onRefreshData={() => loadData(true)} 
+                onUpdateUserLocal={handleUpdateUserLocal}
                 initialCustomerName={currentUser?.name} 
                 initialPhone={currentUser?.phone} 
                 globalDeliveryFee={deliveryFee} 
@@ -886,7 +892,7 @@ const App: React.FC = () => {
             )
           ) : (
             <AdminDashboard 
-              products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} isLoading={isLoading} adminSummary={adminSummary}
+              products={products} categories={categories} orders={orders} users={users} suppliers={suppliers} currentUser={currentUser} activeShift={activeShift} isLoading={isLoading} adminSummary={adminSummary}
               isOnline={isOnline} offlineQueueCount={offlineQueueCount} loadProgress={loadProgress} isSyncing={isSyncing}
               onPrintBarcode={(p) => setProductForBarcode(p)}
               onSyncOffline={() => setShowSyncManager(true)}

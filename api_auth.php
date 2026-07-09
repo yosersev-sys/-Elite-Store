@@ -79,6 +79,54 @@ switch ($action) {
         } else sendErr('فشل تحديث بيانات العضو');
         break;
 
+    case 'cashier_update_customer':
+        $currentUserRole = $_SESSION['user']['role'] ?? '';
+        if ($currentUserRole !== 'admin' && $currentUserRole !== 'cashier') {
+            sendErr('غير مصرح', 403);
+        }
+        
+        $id = $input['id'] ?? '';
+        $name = trim($input['name'] ?? '');
+        $phone = trim($input['phone'] ?? '');
+
+        if (empty($id) || empty($name) || empty($phone)) {
+            sendErr('يرجى ملء جميع الحقول المطلوبة.');
+        }
+
+        $stmtCheck = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmtCheck->execute([$id]);
+        $targetUser = $stmtCheck->fetch();
+
+        if (!$targetUser) {
+            sendErr('العميل غير موجود في النظام أو قد يكون محذوفاً.');
+        }
+
+        if ($targetUser['role'] !== 'user') {
+            sendErr('غير مصرح بتعديل الحسابات الإدارية أو الكاشير.');
+        }
+
+        // تحديث البيانات الأساسية فقط للعميل
+        $stmtUpdate = $pdo->prepare("UPDATE users SET name = ?, phone = ? WHERE id = ?");
+        $res = $stmtUpdate->execute([$name, $phone, $id]);
+
+        if ($res) {
+            $activeShift = $pdo->query("SELECT id FROM shifts WHERE status = 'open'")->fetch();
+            $shiftId = $activeShift ? $activeShift['id'] : null;
+            
+            $stmtLog = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'CASHIER_UPDATE_CUSTOMER', ?, ?)");
+            $stmtLog->execute([
+                $_SESSION['user']['id'],
+                $shiftId,
+                "قام الكاشير بتعديل بيانات العميل الأساسية من (الاسم: " . $targetUser['name'] . "، الهاتف: " . $targetUser['phone'] . ") إلى (الاسم: " . $name . "، الهاتف: " . $phone . ")",
+                time() * 1000
+            ]);
+
+            sendRes(['status' => 'success']);
+        } else {
+            sendErr('حدث خطأ أثناء تحديث بيانات العميل.');
+        }
+        break;
+
     case 'update_profile':
         if (!isset($_SESSION['user'])) sendErr('يجب تسجيل الدخول أولاً');
         $id = $_SESSION['user']['id'];

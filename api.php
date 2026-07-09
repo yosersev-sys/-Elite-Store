@@ -79,6 +79,7 @@ try {
         case 'get_users':
         case 'admin_add_user':
         case 'admin_update_user':
+        case 'cashier_update_customer':
         case 'update_profile':
         case 'delete_user':
             require_once 'api_auth.php';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Product, Category, Order, User, Supplier } from '../types';
+import { Product, Category, Order, User, Supplier, Shift } from '../types';
 import StatsTab from './tabs/StatsTab.tsx';
 import ProductsTab from './tabs/ProductsTab.tsx';
 import CategoriesTab from './tabs/CategoriesTab.tsx';
@@ -23,6 +23,7 @@ interface AdminDashboardProps {
   users: User[];
   suppliers: Supplier[];
   currentUser: User | null;
+  activeShift: Shift | null;
   isLoading: boolean;
   onOpenAddForm: () => void;
   onOpenEditForm: (product: Product) => void;
@@ -120,7 +121,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'members': return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'suppliers': return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
       case 'reports': return <ReportsTab orders={safeOrders} adminSummary={props.adminSummary} />;
-      case 'shifts': return <ShiftsTab onRefreshData={props.onRefreshData} />;
+      case 'shifts': return <ShiftsTab activeShift={props.activeShift} onRefreshData={props.onRefreshData} />;
       case 'ledger': return <CustomerLedgerTab {...tabProps} onRefreshData={props.onRefreshData} />;
       case 'expenses':
         if (props.currentUser?.role !== 'admin') {

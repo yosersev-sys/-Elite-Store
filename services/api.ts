@@ -501,6 +501,10 @@ export const ApiService = {
     return await safeFetch('admin_update_user', { method: 'POST', body: JSON.stringify(data) }) || { status: 'error' };
   },
 
+  async cashierUpdateCustomer(data: any): Promise<{status: string, message?: string}> {
+    return await safeFetch('cashier_update_customer', { method: 'POST', body: JSON.stringify(data) }) || { status: 'error' };
+  },
+
   async deleteUser(id: string): Promise<boolean> {
     const result = await safeFetch(`delete_user&id=${id}`, { method: 'DELETE' });
     return result?.status === 'success';

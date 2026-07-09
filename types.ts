@@ -190,6 +190,15 @@ export interface Shift {
   totalDeposits?: number;
   totalWithdrawals?: number;
   ledgerCashPayments?: number;
+  cashSales?: number;
+  cardSales?: number;
+  debtSales?: number;
+  cashReturns?: number;
+  shiftExpenses?: number;
+  orderCount?: number;
+  avgOrderValue?: number;
+  returnCount?: number;
+  servedCustomersCount?: number;
 }
 
 export interface DrawerTransaction {

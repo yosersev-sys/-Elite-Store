@@ -25,6 +25,10 @@ const StatsTab: React.FC<StatsTabProps> = ({
   const [activeShiftExpenses, setActiveShiftExpenses] = useState<number>(0);
 
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [showTxModal, setShowTxModal] = useState(false);
+  const [txType, setTxType] = useState<'deposit' | 'withdrawal'>('deposit');
+  const [txAmount, setTxAmount] = useState('');
+  const [txReason, setTxReason] = useState('');
   const [actualCash, setActualCash] = useState('');
   const [discrepancyReason, setDiscrepancyReason] = useState('');
   const [closeNotes, setCloseNotes] = useState('');
@@ -85,6 +89,37 @@ const StatsTab: React.FC<StatsTabProps> = ({
       }
     } catch (err) {
       alert('حدث خطأ فني أثناء إغلاق الوردية');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddTx = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = parseFloat(txAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('يرجى إدخال مبلغ حركة صحيح أكبر من الصفر');
+      return;
+    }
+    if (!txReason.trim()) {
+      alert('يرجى كتابة سبب الحركة');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const res = await ApiService.addDrawerTransaction(txType, amount, txReason.trim());
+      if (res.success) {
+        alert('تم تسجيل حركة الخزينة بنجاح.');
+        setShowTxModal(false);
+        setTxAmount('');
+        setTxReason('');
+        if (onRefreshData) await onRefreshData();
+      } else {
+        alert(res.message || 'فشلت الحركة');
+      }
+    } catch (e) {
+      alert('حدث خطأ فني أثناء إضافة الحركة');
     } finally {
       setIsSaving(false);
     }
@@ -436,6 +471,20 @@ const StatsTab: React.FC<StatsTabProps> = ({
           </div>
           {activeShift?.id && (
             <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  setTxType('deposit');
+                  setShowTxModal(true);
+                }}
+                className="text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl transition-all active:scale-95 cursor-pointer font-Cairo"
+              >➕ إيداع نقدية</button>
+              <button 
+                onClick={() => {
+                  setTxType('withdrawal');
+                  setShowTxModal(true);
+                }}
+                className="text-[10px] font-black text-amber-600 bg-amber-50 hover:bg-amber-100 px-4 py-2 rounded-xl transition-all active:scale-95 cursor-pointer font-Cairo"
+              >➖ سحب نقدية لشراء بضاعة</button>
               <button 
                 onClick={() => setShowCloseModal(true)}
                 className="text-[10px] font-black text-white bg-rose-600 hover:bg-rose-700 px-4 py-2 rounded-xl border border-rose-500/20 transition-all active:scale-95 cursor-pointer font-Cairo"
@@ -943,6 +992,63 @@ const StatsTab: React.FC<StatsTabProps> = ({
                   setActualCash('');
                   setDiscrepancyReason('');
                   setCloseNotes('');
+                }}
+                className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95 font-Cairo"
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* مودال حركة نقدية درج (سحب/إيداع) في صفحة الإحصائيات الرئيسية */}
+      {showTxModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowTxModal(false)}></div>
+          <form onSubmit={handleAddTx} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp space-y-4 font-Cairo text-right" dir="rtl">
+            <h3 className="text-2xl font-black text-slate-800 text-center">
+              {txType === 'deposit' ? 'إيداع نقدية بالدرج 📥' : 'سحب نقدية لشراء بضاعة 📤'}
+            </h3>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">القيمة (ج.م)</label>
+                <input
+                  required
+                  type="number"
+                  step="any"
+                  value={txAmount}
+                  onChange={(e) => setTxAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-black text-lg text-center"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 mr-2">السبب / البيان</label>
+                <input
+                  required
+                  type="text"
+                  value={txReason}
+                  onChange={(e) => setTxReason(e.target.value)}
+                  placeholder={txType === 'deposit' ? 'مثال: إيداع نقدية إضافية بالدرج' : 'مثال: شراء بضاعة جديدة للمحل'}
+                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <button
+                disabled={isSaving}
+                type="submit"
+                className="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg disabled:opacity-50 font-Cairo"
+              >
+                {isSaving ? 'جاري الحفظ...' : 'تسجيل الحركة'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTxModal(false);
+                  setTxAmount('');
+                  setTxReason('');
                 }}
                 className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95 font-Cairo"
               >

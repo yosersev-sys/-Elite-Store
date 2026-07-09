@@ -1769,9 +1769,37 @@ switch ($action) {
 
     case 'get_payment_numbers_stats':
         if (!isAdmin() && ($_SESSION['user']['role'] ?? '') !== 'cashier') sendErr('غير مصرح');
+        
         $startOfMonth = strtotime('first day of this month 00:00:00') * 1000;
-        $stmt = $pdo->prepare("SELECT paymentMethodId, reference, SUM(amount) AS totalAmount, COUNT(*) AS usageCount FROM order_payments WHERE createdAt >= ? GROUP BY paymentMethodId, reference");
-        $stmt->execute([$startOfMonth]);
+        
+        // جلب الأرقام والمحافظ المكوّنة في الإعدادات لتجنب تسريب أي بيانات غير رقمية أو غير مسموح بها
+        $settingVal = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'payment_numbers_json'")->fetchColumn();
+        $allowedRefs = [];
+        if ($settingVal) {
+            $numbers = json_decode($settingVal, true);
+            if (is_array($numbers)) {
+                foreach ($numbers as $num) {
+                    if (!empty($num['value'])) {
+                        $allowedRefs[] = trim($num['value']);
+                    }
+                }
+            }
+        }
+        
+        if (empty($allowedRefs)) {
+            sendRes([]);
+            break;
+        }
+        
+        // بناء الاستعلام بـ IN ديناميكياً
+        $inQuery = implode(',', array_fill(0, count($allowedRefs), '?'));
+        $stmt = $pdo->prepare("SELECT paymentMethodId, reference, SUM(amount) AS totalAmount, COUNT(*) AS usageCount 
+                               FROM order_payments 
+                               WHERE createdAt >= ? AND reference IN ($inQuery) 
+                               GROUP BY paymentMethodId, reference");
+        
+        $params = array_merge([$startOfMonth], $allowedRefs);
+        $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         sendRes($rows);
         break;

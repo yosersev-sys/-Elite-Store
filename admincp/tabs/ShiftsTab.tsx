@@ -4,12 +4,13 @@ import { ApiService } from '../../services/api';
 import { POSPrintService } from '../../services/posPrintService';
 
 interface ShiftsTabProps {
+  activeShift: Shift | null;
   onRefreshData?: () => void;
 }
 
-const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
+const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onRefreshData }) => {
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [activeShift, setActiveShift] = useState<Shift | null>(null);
+  const [activeShift, setActiveShift] = useState<Shift | null>(activeShiftProp);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -62,6 +63,10 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    setActiveShift(activeShiftProp);
+  }, [activeShiftProp]);
 
   useEffect(() => {
     loadShiftsData();
@@ -242,7 +247,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
                   }}
                   className="flex-grow md:flex-initial bg-amber-50 hover:bg-amber-100 text-amber-600 px-5 py-3 rounded-xl font-black text-xs active:scale-95 transition-all"
                 >
-                  ➖ سحب نقدية
+                  ➖ سحب نقدية لشراء بضاعة
                 </button>
                 <button
                   onClick={() => handleViewShiftDetails(activeShift.id)}
@@ -259,22 +264,67 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
                 <p className="text-slate-400 text-[10px] font-black uppercase mb-1">نقدية البداية</p>
-                <p className="text-2xl font-black text-slate-800">{Number(activeShift.startingCash).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+                <p className="text-2xl font-black text-slate-800">{Number(activeShift.startingCash || 0).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
               </div>
+
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
+                <p className="text-slate-400 text-[10px] font-black uppercase mb-1">المبيعات النقدية</p>
+                <p className="text-2xl font-black text-emerald-600">+{Number(activeShift.cashSales || 0).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
+                <p className="text-slate-400 text-[10px] font-black uppercase mb-1">تحصيل الحسابات</p>
+                <p className="text-2xl font-black text-emerald-600">+{Number(activeShift.ledgerCashPayments || 0).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
+                <p className="text-slate-400 text-[10px] font-black uppercase mb-1">المرتجع النقدي</p>
+                <p className="text-2xl font-black text-rose-500">-{Number(activeShift.cashReturns || 0).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
+                <p className="text-slate-400 text-[10px] font-black uppercase mb-1">إجمالي المصروفات</p>
+                <p className="text-2xl font-black text-rose-500">-{Number(activeShift.shiftExpenses || 0).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
+                <p className="text-slate-400 text-[10px] font-black uppercase mb-1">المبيعات البنكية (فيزا)</p>
+                <p className="text-2xl font-black text-indigo-600">{Number(activeShift.cardSales || 0).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
+                <p className="text-slate-400 text-[10px] font-black uppercase mb-1">المبيعات الآجلة (ديون)</p>
+                <p className="text-2xl font-black text-amber-600">{Number(activeShift.debtSales || 0).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+              </div>
+
               <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100/30">
-                <p className="text-emerald-600 text-[10px] font-black uppercase mb-1">الرصيد الفعلي المتوقع</p>
-                <p className="text-2xl font-black text-emerald-600">{Number(activeShift.currentCashBalance).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+                <p className="text-emerald-600 text-[10px] font-black uppercase mb-1">رصيد الدرج المتوقع</p>
+                <p className="text-2xl font-black text-emerald-600">{Number(activeShift.currentCashBalance || 0).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
               </div>
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
-                <p className="text-slate-400 text-[10px] font-black uppercase mb-1">المدخلات (الإيداعات)</p>
-                <p className="text-xl font-black text-indigo-600">نشطة بالدرج</p>
-              </div>
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100/50">
-                <p className="text-slate-400 text-[10px] font-black uppercase mb-1">تنبيه الدرج</p>
-                <p className="text-xs font-bold text-slate-500 leading-relaxed">الرصيد الحالي يحسب المبيعات النقدية والحركات اليدوية فورياً.</p>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <h4 className="text-xs font-black text-slate-400 uppercase mb-4 tracking-wider">مؤشرات تشغيل الوردية الحالية</h4>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-slate-50/70 p-5 rounded-2xl border border-slate-100/40">
+                  <p className="text-slate-400 text-[10px] font-bold mb-1">عدد الفواتير</p>
+                  <p className="text-xl font-black text-slate-700">{activeShift.orderCount || 0} فاتورة</p>
+                </div>
+                <div className="bg-slate-50/70 p-5 rounded-2xl border border-slate-100/40">
+                  <p className="text-slate-400 text-[10px] font-bold mb-1">متوسط قيمة الفاتورة</p>
+                  <p className="text-xl font-black text-slate-700">{Number(activeShift.avgOrderValue || 0).toFixed(2)} <span className="text-xs font-bold">ج.م</span></p>
+                </div>
+                <div className="bg-slate-50/70 p-5 rounded-2xl border border-slate-100/40">
+                  <p className="text-slate-400 text-[10px] font-bold mb-1">عدد المرتجعات</p>
+                  <p className="text-xl font-black text-slate-700">{activeShift.returnCount || 0} مرتجع</p>
+                </div>
+                <div className="bg-slate-50/70 p-5 rounded-2xl border border-slate-100/40">
+                  <p className="text-slate-400 text-[10px] font-bold mb-1">العملاء الذين تمت خدمتهم</p>
+                  <p className="text-xl font-black text-slate-700">{activeShift.servedCustomersCount || 0} عميل</p>
+                </div>
               </div>
             </div>
           </div>
@@ -385,7 +435,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ onRefreshData }) => {
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowTxModal(false)}></div>
           <form onSubmit={handleAddTx} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp space-y-4">
             <h3 className="text-2xl font-black text-slate-800 text-center">
-              {txType === 'deposit' ? 'إيداع نقدية بالدرج 📥' : 'سحب نقدية من الدرج 📤'}
+              {txType === 'deposit' ? 'إيداع نقدية بالدرج 📥' : 'سحب نقدية لشراء بضاعة 📤'}
             </h3>
             <div className="space-y-4">
               <div className="space-y-2">

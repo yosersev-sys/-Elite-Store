@@ -14,6 +14,123 @@ try {
     // تجاهل أي خطأ مؤقت لتفادي التوقف
 }
 
+function calculateShiftStats($pdo, $shiftId) {
+    $shiftQuery = $pdo->prepare("SELECT * FROM shifts WHERE id = ?");
+    $shiftQuery->execute([$shiftId]);
+    $shift = $shiftQuery->fetch(PDO::FETCH_ASSOC);
+    if (!$shift) return null;
+
+    $startingCash = (float)$shift['startingCash'];
+
+    // 1. حساب مبيعات الوردية والمؤشرات الإضافية
+    $cashSales = 0.0;
+    $cardSales = 0.0;
+    $debtSales = 0.0;
+    $completedTotalAmount = 0.0;
+    $servedCustomers = [];
+
+    $stmtOrders = $pdo->prepare("SELECT total, paymentMethod, outstandingAmount, status, userId FROM orders WHERE confirmedShiftId = ?");
+    $stmtOrders->execute([$shiftId]);
+    $ordersList = $stmtOrders->fetchAll(PDO::FETCH_ASSOC);
+
+    $orderCount = 0;
+    $returnCount = 0;
+
+    foreach ($ordersList as $o) {
+        if ($o['status'] === 'completed') {
+            $orderCount++;
+            $total = (float)$o['total'];
+            $outstanding = (float)($o['outstandingAmount'] ?? 0);
+            $completedTotalAmount += $total;
+
+            if (!empty($o['userId'])) {
+                $servedCustomers[$o['userId']] = true;
+            }
+
+            $paymentMethod = $o['paymentMethod'] ?? 'نقدي';
+            $isCash = (strpos($paymentMethod, 'نقدي') !== false || strpos($paymentMethod, 'عند الاستلام') !== false || strpos(strtolower($paymentMethod), 'cash') !== false);
+            $isDebt = (strpos($paymentMethod, 'آجل') !== false);
+
+            if ($isCash) {
+                $cashSales += ($total - $outstanding);
+            } else if ($isDebt) {
+                $debtSales += $total;
+            } else {
+                $cardSales += $total;
+            }
+        }
+    }
+
+    // 2. المرتجعات النقدية
+    $cashReturns = 0.0;
+    $stmtCancelled = $pdo->prepare("SELECT total, paymentMethod, outstandingAmount, status FROM orders WHERE returnShiftId = ?");
+    $stmtCancelled->execute([$shiftId]);
+    $cancelledOrdersList = $stmtCancelled->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($cancelledOrdersList as $o) {
+        if ($o['status'] === 'cancelled') {
+            $returnCount++;
+            $total = (float)$o['total'];
+            $outstanding = (float)($o['outstandingAmount'] ?? 0);
+            $paymentMethod = $o['paymentMethod'] ?? 'نقدي';
+            $isCash = (strpos($paymentMethod, 'نقدي') !== false || strpos($paymentMethod, 'عند الاستلام') !== false || strpos(strtolower($paymentMethod), 'cash') !== false);
+            if ($isCash) {
+                $cashReturns += ($total - $outstanding);
+            }
+        }
+    }
+
+    // 3. الإيداعات والسحوبات اليدوية
+    $deposits = 0.0;
+    $withdrawals = 0.0;
+    $stmtTxs = $pdo->prepare("SELECT type, amount FROM drawer_transactions WHERE shiftId = ?");
+    $stmtTxs->execute([$shiftId]);
+    foreach ($stmtTxs->fetchAll() as $t) {
+        if ($t['type'] === 'deposit') {
+            $deposits += (float)$t['amount'];
+        } else if ($t['type'] === 'withdrawal') {
+            $withdrawals += (float)$t['amount'];
+        }
+    }
+
+    // 4. تحصيلات العملاء النقدية
+    $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn());
+
+    // 5. المصروفات
+    $stmtExpenses = $pdo->prepare("SELECT IFNULL(SUM(amount), 0) FROM expenses WHERE shiftId = ? AND status = 'active'");
+    $stmtExpenses->execute([$shiftId]);
+    $shiftExpenses = (float)$stmtExpenses->fetchColumn();
+
+    // 6. الرصيد المتوقع للدرج بالمعادلة الموحدة
+    $expectedCashBalance = $startingCash + $cashSales + $ledgerCashPayments - $cashReturns - $shiftExpenses + $deposits - $withdrawals;
+
+    // تحديث رصيد الدرج في قاعدة البيانات لضمان التطابق ومصدر الحقيقة
+    if (abs((float)$shift['currentCashBalance'] - $expectedCashBalance) > 0.01) {
+        $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$expectedCashBalance, $shiftId]);
+        $shift['currentCashBalance'] = $expectedCashBalance;
+    }
+
+    $avgOrderValue = $orderCount > 0 ? ($completedTotalAmount / $orderCount) : 0.0;
+    $servedCustomersCount = count($servedCustomers);
+
+    return [
+        'startingCash' => round($startingCash, 2),
+        'cashSales' => round($cashSales, 2),
+        'cardSales' => round($cardSales, 2),
+        'debtSales' => round($debtSales, 2),
+        'cashReturns' => round($cashReturns, 2),
+        'totalDeposits' => round($deposits, 2),
+        'totalWithdrawals' => round($withdrawals, 2),
+        'ledgerCashPayments' => round($ledgerCashPayments, 2),
+        'shiftExpenses' => round($shiftExpenses, 2),
+        'currentCashBalance' => round($expectedCashBalance, 2),
+        'orderCount' => $orderCount,
+        'avgOrderValue' => round($avgOrderValue, 2),
+        'returnCount' => $returnCount,
+        'servedCustomersCount' => $servedCustomersCount
+    ];
+}
+
 // التحقق من تسجيل الدخول العام لكافة حركات الورديات
 if (!isset($_SESSION['user'])) {
     sendErr('يجب تسجيل الدخول أولاً', 401);
@@ -21,58 +138,12 @@ if (!isset($_SESSION['user'])) {
 
 switch ($action) {
     case 'get_active_shift':
-        $shift = $pdo->query("SELECT s.*, u.name as openedByName FROM shifts s LEFT JOIN users u ON s.openedById = u.id WHERE s.status = 'open'")->fetch();
+        $shift = $pdo->query("SELECT s.*, u.name as openedByName FROM shifts s LEFT JOIN users u ON s.openedById = u.id WHERE s.status = 'open'")->fetch(PDO::FETCH_ASSOC);
         if ($shift) {
-            $shiftId = (int)$shift['id'];
-            $shift['startingCash'] = (float)$shift['startingCash'];
-            $shift['expectedCash'] = (float)$shift['expectedCash'];
-            $shift['actualCash'] = (float)$shift['actualCash'];
-            $shift['currentCashBalance'] = (float)$shift['currentCashBalance'];
-            $shift['difference'] = (float)$shift['difference'];
-
-            // Recalculate cash balance dynamically to fix any mismatches
-            $completedCash = 0.0;
-            $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod, outstandingAmount FROM orders WHERE confirmedShiftId = ?");
-            $stmtCompleted->execute([$shiftId]);
-            foreach ($stmtCompleted->fetchAll() as $o) {
-                if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false || strpos(strtolower($o['paymentMethod']), 'cash') !== false) {
-                    $completedCash += (float)$o['total'] - (float)($o['outstandingAmount'] ?? 0);
-                }
+            $stats = calculateShiftStats($pdo, (int)$shift['id']);
+            if ($stats) {
+                $shift = array_merge($shift, $stats);
             }
-
-            $cancelledCash = 0.0;
-            $stmtCancelled = $pdo->prepare("SELECT total, paymentMethod, outstandingAmount FROM orders WHERE returnShiftId = ? AND status = 'cancelled'");
-            $stmtCancelled->execute([$shiftId]);
-            foreach ($stmtCancelled->fetchAll() as $o) {
-                if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false || strpos(strtolower($o['paymentMethod']), 'cash') !== false) {
-                    $cancelledCash += (float)$o['total'] - (float)($o['outstandingAmount'] ?? 0);
-                }
-            }
-
-            $deposits = 0.0;
-            $withdrawals = 0.0;
-            $stmtTxs = $pdo->prepare("SELECT type, amount FROM drawer_transactions WHERE shiftId = ?");
-            $stmtTxs->execute([$shiftId]);
-            foreach ($stmtTxs->fetchAll() as $t) {
-                if ($t['type'] === 'deposit') {
-                    $deposits += (float)$t['amount'];
-                } elseif ($t['type'] === 'withdrawal') {
-                    $withdrawals += (float)$t['amount'];
-                }
-            }
-
-            $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn());
-
-            $correctCash = (float)$shift['startingCash'] + $completedCash - $cancelledCash + $deposits - $withdrawals + $ledgerCashPayments;
-            if (abs((float)$shift['currentCashBalance'] - $correctCash) > 0.01) {
-                $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$correctCash, $shiftId]);
-                $shift['currentCashBalance'] = $correctCash;
-            }
-
-            $shift['totalDeposits'] = $deposits;
-            $shift['totalWithdrawals'] = $withdrawals;
-            $shift['ledgerCashPayments'] = $ledgerCashPayments;
-
             sendRes($shift);
         } else {
             sendRes(['status' => 'no_active_shift']);
@@ -339,81 +410,39 @@ switch ($action) {
 
         $shift = $pdo->prepare("SELECT s.*, u1.name as openedByName, u2.name as closedByName FROM shifts s LEFT JOIN users u1 ON s.openedById = u1.id LEFT JOIN users u2 ON s.closedById = u2.id WHERE s.id = ?");
         $shift->execute([$shiftId]);
-        $sData = $shift->fetch();
+        $sData = $shift->fetch(PDO::FETCH_ASSOC);
 
         if (!$sData) {
             sendErr('الوردية المطلوبة غير موجودة.');
         }
 
-        $sData['startingCash'] = (float)$sData['startingCash'];
-        $sData['expectedCash'] = (float)$sData['expectedCash'];
-        $sData['actualCash'] = (float)$sData['actualCash'];
-        $sData['currentCashBalance'] = (float)$sData['currentCashBalance'];
-        $sData['difference'] = (float)$sData['difference'];
-
-        // Recalculate cash balance dynamically on load to fix any mismatches (e.g. from old returned orders)
-        $completedCash = 0.0;
-        $stmtCompleted = $pdo->prepare("SELECT total, paymentMethod, outstandingAmount FROM orders WHERE confirmedShiftId = ?");
-        $stmtCompleted->execute([$shiftId]);
-        foreach ($stmtCompleted->fetchAll() as $o) {
-            if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false || strpos(strtolower($o['paymentMethod']), 'cash') !== false) {
-                $completedCash += (float)$o['total'] - (float)($o['outstandingAmount'] ?? 0);
-            }
+        $stats = calculateShiftStats($pdo, $shiftId);
+        if ($stats) {
+            $sData = array_merge($sData, $stats);
         }
-
-        $cancelledCash = 0.0;
-        $stmtCancelled = $pdo->prepare("SELECT total, paymentMethod, outstandingAmount FROM orders WHERE returnShiftId = ? AND status = 'cancelled'");
-        $stmtCancelled->execute([$shiftId]);
-        foreach ($stmtCancelled->fetchAll() as $o) {
-            if (strpos($o['paymentMethod'], 'نقدي') !== false || strpos($o['paymentMethod'], 'عند الاستلام') !== false || strpos(strtolower($o['paymentMethod']), 'cash') !== false) {
-                $cancelledCash += (float)$o['total'] - (float)($o['outstandingAmount'] ?? 0);
-            }
-        }
-
-        $deposits = 0.0;
-        $withdrawals = 0.0;
-        $stmtTxs = $pdo->prepare("SELECT type, amount FROM drawer_transactions WHERE shiftId = ?");
-        $stmtTxs->execute([$shiftId]);
-        foreach ($stmtTxs->fetchAll() as $t) {
-            if ($t['type'] === 'deposit') {
-                $deposits += (float)$t['amount'];
-            } elseif ($t['type'] === 'withdrawal') {
-                $withdrawals += (float)$t['amount'];
-            }
-        }
-
-        $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn());
-
-        $correctCash = (float)$sData['startingCash'] + $completedCash - $cancelledCash + $deposits - $withdrawals + $ledgerCashPayments;
-        if (abs((float)$sData['currentCashBalance'] - $correctCash) > 0.01) {
-            $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$correctCash, $shiftId]);
-            $sData['currentCashBalance'] = $correctCash;
-        }
-
-        $sData['ledgerCashPayments'] = $ledgerCashPayments;
 
         // جلب حركات الخزينة
         $txs = $pdo->prepare("SELECT t.*, u.name as userName FROM drawer_transactions t LEFT JOIN users u ON t.userId = u.id WHERE t.shiftId = ? ORDER BY t.createdAt DESC");
         $txs->execute([$shiftId]);
-        $txsList = $txs->fetchAll();
+        $txsList = $txs->fetchAll(PDO::FETCH_ASSOC);
         foreach ($txsList as &$tx) {
-            $tx['amount'] = (float)$tx['amount'];
+            $tx['amount'] = round((float)$tx['amount'], 2);
         }
 
         // جلب فواتير الوردية
         $orders = $pdo->prepare("SELECT * FROM orders WHERE confirmedShiftId = ? OR returnShiftId = ? ORDER BY createdAt DESC");
         $orders->execute([$shiftId, $shiftId]);
-        $ordersList = $orders->fetchAll();
+        $ordersList = $orders->fetchAll(PDO::FETCH_ASSOC);
         foreach ($ordersList as &$o) {
             $o['items'] = json_decode($o['items'], true) ?: [];
-            $o['total'] = (float)$o['total'];
-            $o['subtotal'] = (float)$o['subtotal'];
+            $o['total'] = round((float)$o['total'], 2);
+            $o['subtotal'] = round((float)$o['subtotal'], 2);
         }
 
         // جلب سجل التدقيق
         $logs = $pdo->prepare("SELECT l.*, u.name as userName FROM audit_logs l LEFT JOIN users u ON l.userId = u.id WHERE l.shiftId = ? ORDER BY l.createdAt DESC");
         $logs->execute([$shiftId]);
-        $logsList = $logs->fetchAll();
+        $logsList = $logs->fetchAll(PDO::FETCH_ASSOC);
 
         sendRes([
             'shift' => $sData,
