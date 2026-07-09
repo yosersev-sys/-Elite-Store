@@ -411,6 +411,18 @@ const App: React.FC = () => {
     loadData(); 
   }, [currentUser?.id, view, isTrulyInAdminMode]);
 
+  // التحديث التلقائي الدوري للطلبات والوردية ولوحة التحكم للموظفين/المدير لضمان التزامن الفوري
+  useEffect(() => {
+    const isEmployee = currentUser?.role === 'admin' || currentUser?.role === 'cashier';
+    if (!isEmployee || view !== 'admincp' || !isOnline) return;
+
+    const intervalId = setInterval(() => {
+      loadData(true, currentUser, true);
+    }, 5000); // تحديث صامت كل 5 ثوانٍ للطلبات والوردية والإحصائيات
+
+    return () => clearInterval(intervalId);
+  }, [currentUser?.id, view, isOnline]);
+
   const loadDataRef = useRef(loadData);
   useEffect(() => {
     loadDataRef.current = loadData;
