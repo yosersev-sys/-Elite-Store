@@ -28,6 +28,7 @@ function calculateShiftStats($pdo, $shiftId) {
     $debtSales = 0.0;
     $completedTotalAmount = 0.0;
     $servedCustomers = [];
+    $grossCashSales = 0.0; // لعدم الخصم المزدوج للمرتجعات في الدرج
 
     $stmtOrders = $pdo->prepare("SELECT total, paymentMethod, outstandingAmount, status, userId FROM orders WHERE confirmedShiftId = ?");
     $stmtOrders->execute([$shiftId]);
@@ -37,19 +38,24 @@ function calculateShiftStats($pdo, $shiftId) {
     $returnCount = 0;
 
     foreach ($ordersList as $o) {
+        $total = (float)$o['total'];
+        $outstanding = (float)($o['outstandingAmount'] ?? 0);
+        $paymentMethod = $o['paymentMethod'] ?? 'نقدي';
+        $isCash = (strpos($paymentMethod, 'نقدي') !== false || strpos($paymentMethod, 'عند الاستلام') !== false || strpos(strtolower($paymentMethod), 'cash') !== false);
+        $isDebt = (strpos($paymentMethod, 'آجل') !== false);
+
+        // حساب إجمالي النقدية الواردة للمبيعات التي بدأت في هذه الوردية (حتى الملغاة منها لاحقاً لمنع الخصم المزدوج)
+        if ($isCash) {
+            $grossCashSales += ($total - $outstanding);
+        }
+
         if ($o['status'] === 'completed') {
             $orderCount++;
-            $total = (float)$o['total'];
-            $outstanding = (float)($o['outstandingAmount'] ?? 0);
             $completedTotalAmount += $total;
 
             if (!empty($o['userId'])) {
                 $servedCustomers[$o['userId']] = true;
             }
-
-            $paymentMethod = $o['paymentMethod'] ?? 'نقدي';
-            $isCash = (strpos($paymentMethod, 'نقدي') !== false || strpos($paymentMethod, 'عند الاستلام') !== false || strpos(strtolower($paymentMethod), 'cash') !== false);
-            $isDebt = (strpos($paymentMethod, 'آجل') !== false);
 
             if ($isCash) {
                 $cashSales += ($total - $outstanding);
@@ -102,7 +108,7 @@ function calculateShiftStats($pdo, $shiftId) {
     $shiftExpenses = (float)$stmtExpenses->fetchColumn();
 
     // 6. الرصيد المتوقع للدرج بالمعادلة الموحدة
-    $expectedCashBalance = $startingCash + $cashSales + $ledgerCashPayments - $cashReturns - $shiftExpenses + $deposits - $withdrawals;
+    $expectedCashBalance = $startingCash + $grossCashSales + $ledgerCashPayments - $cashReturns - $shiftExpenses + $deposits - $withdrawals;
 
     // تحديث رصيد الدرج في قاعدة البيانات لضمان التطابق ومصدر الحقيقة
     if (abs((float)$shift['currentCashBalance'] - $expectedCashBalance) > 0.01) {
