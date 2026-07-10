@@ -234,7 +234,17 @@ const ProductRow = React.memo<{
             </div>
           </td>
           <td className="px-6 py-4 font-black text-slate-900 text-xs md:text-sm">
-            {(stock * cost).toLocaleString()} <small className="text-[9px] text-slate-400">ج.م</small>
+            {(() => {
+              let defaultFactor = 1;
+              if (product.units && product.units.length > 0) {
+                const defUnit = product.units.find(u => u.isDefault === 1 && Number(u.isActive) !== 0);
+                if (defUnit) {
+                  defaultFactor = Number(defUnit.conversionFactor || 1);
+                }
+              }
+              const defaultQty = stock / defaultFactor;
+              return (defaultQty * cost).toLocaleString();
+            })()} <small className="text-[9px] text-slate-400">ج.م</small>
           </td>
         </>
       ) : (
@@ -393,8 +403,18 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
       const price = Number(p.price || 0);
       const reorder = p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5;
 
-      purchaseVal += cost * stock;
-      saleVal += price * stock;
+      // معامل تحويل العبوة الافتراضية
+      let defaultFactor = 1;
+      if (p.units && p.units.length > 0) {
+        const defUnit = p.units.find(u => u.isDefault === 1 && Number(u.isActive) !== 0);
+        if (defUnit) {
+          defaultFactor = Number(defUnit.conversionFactor || 1);
+        }
+      }
+
+      const defaultQty = stock / defaultFactor;
+      purchaseVal += cost * defaultQty;
+      saleVal += price * defaultQty;
 
       if (stock <= 0) outOfStockCount++;
       else if (stock < reorder) lowStockCount++;
@@ -878,7 +898,17 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
       const stock = Number(p.stockQuantity || 0);
       const cost = Number(p.wholesalePrice || 0);
       const price = Number(p.price || 0);
-      const isHugeValue = (stock * cost) > 500000 || (stock * price) > 500000;
+
+      let defaultFactor = 1;
+      if (p.units && p.units.length > 0) {
+        const defUnit = p.units.find(u => u.isDefault === 1 && Number(u.isActive) !== 0);
+        if (defUnit) {
+          defaultFactor = Number(defUnit.conversionFactor || 1);
+        }
+      }
+      const defaultQty = stock / defaultFactor;
+
+      const isHugeValue = (defaultQty * cost) > 500000 || (defaultQty * price) > 500000;
       const isHugeStock = stock > 10000 && p.unit !== 'gram';
       return isHugeValue || isHugeStock;
     });
@@ -1009,7 +1039,17 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
                       <span className="text-rose-600 font-bold"> — خطأ إدخال محتمل! قيمة مخزون شاذة جداً</span>
                     </p>
                     <p className="text-[10px] text-slate-500 font-bold mt-0.5">
-                      الكمية: {Number(p.stockQuantity).toLocaleString()} · سعر البيع: {Number(p.price).toLocaleString()} ج.م · القيمة الكلية للمنتج: {Number(p.stockQuantity * (p.wholesalePrice || p.price)).toLocaleString()} ج.م
+                      {(() => {
+                        let defaultFactor = 1;
+                        if (p.units && p.units.length > 0) {
+                          const defUnit = p.units.find(u => u.isDefault === 1 && Number(u.isActive) !== 0);
+                          if (defUnit) {
+                            defaultFactor = Number(defUnit.conversionFactor || 1);
+                          }
+                        }
+                        const defaultQty = Number(p.stockQuantity || 0) / defaultFactor;
+                        return `الكمية: ${Number(p.stockQuantity).toLocaleString()} · سعر البيع: ${Number(p.price).toLocaleString()} ج.م · القيمة الكلية للمنتج: ${Number(defaultQty * (p.wholesalePrice || p.price)).toLocaleString()} ج.م`;
+                      })()}
                     </p>
                   </div>
                   <button 
