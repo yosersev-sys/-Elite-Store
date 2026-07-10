@@ -484,6 +484,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
       result = result.filter(p => {
         const stock = Number(p.stockQuantity || 0);
         const reorder = p.reorderLevel !== undefined ? Number(p.reorderLevel) : 5;
+        if (stockStatus === 'in_stock') return stock > 0;
         if (stockStatus === 'low_stock') return stock > 0 && stock < reorder;
         if (stockStatus === 'out_of_stock') return stock <= 0;
         if (stockStatus === 'stagnant') return (statsSummary[p.id] || 0) === 0;
@@ -920,7 +921,10 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
       {/* 1. Dashboard KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Products */}
-        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+        <div 
+          onClick={() => { setStockStatus('all'); setProfitStatus('all'); setSelectedCategory('all'); setSelectedSupplier('all'); setCurrentPage(1); }}
+          className={`p-5 rounded-[2rem] border-2 flex items-center gap-4 cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all ${stockStatus === 'all' && profitStatus === 'all' && selectedCategory === 'all' && selectedSupplier === 'all' ? 'bg-indigo-50/10 border-indigo-500/80 shadow-inner' : 'bg-white border-slate-100 shadow-sm'}`}
+        >
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 text-xl font-bold shrink-0">📦</div>
           <div className="min-w-0">
             <span className="text-[10px] text-slate-400 font-black tracking-widest block uppercase">إجمالي المنتجات</span>
@@ -929,7 +933,10 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
         </div>
 
         {/* Total Cost Value (Managers only) */}
-        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+        <div 
+          onClick={() => { setStockStatus('in_stock'); setCurrentPage(1); }}
+          className={`p-5 rounded-[2rem] border-2 flex items-center gap-4 cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all ${stockStatus === 'in_stock' ? 'bg-rose-50/10 border-rose-500/80 shadow-inner' : 'bg-white border-slate-100 shadow-sm'}`}
+        >
           <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 text-xl font-bold shrink-0">📉</div>
           <div className="min-w-0">
             <span className="text-[10px] text-slate-400 font-black tracking-widest block uppercase">قيمة المخزن (تكلفة)</span>
@@ -940,7 +947,10 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
         </div>
 
         {/* Expected Sales Value (Managers only) */}
-        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+        <div 
+          onClick={() => { setStockStatus('in_stock'); setCurrentPage(1); }}
+          className={`p-5 rounded-[2rem] border-2 flex items-center gap-4 cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all ${stockStatus === 'in_stock' ? 'bg-emerald-50/10 border-emerald-500/80 shadow-inner' : 'bg-white border-slate-100 shadow-sm'}`}
+        >
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl font-bold shrink-0">📈</div>
           <div className="min-w-0">
             <span className="text-[10px] text-slate-400 font-black tracking-widest block uppercase">قيمة البيع المتوقعة</span>
@@ -951,7 +961,10 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
         </div>
 
         {/* Expected Profit (Managers only) */}
-        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+        <div 
+          onClick={() => { setStockStatus('in_stock'); setCurrentPage(1); }}
+          className={`p-5 rounded-[2rem] border-2 flex items-center gap-4 cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all ${stockStatus === 'in_stock' ? 'bg-amber-50/10 border-amber-500/80 shadow-inner' : 'bg-white border-slate-100 shadow-sm'}`}
+        >
           <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 text-xl font-bold shrink-0">💰</div>
           <div className="min-w-0">
             <span className="text-[10px] text-slate-400 font-black tracking-widest block uppercase">الربح المتوقع للمدير</span>
@@ -964,7 +977,10 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Low Stock count */}
-        <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3">
+        <div 
+          onClick={() => { setStockStatus('low_stock'); setCurrentPage(1); }}
+          className={`p-4 rounded-3xl border-2 flex items-center gap-3 cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all ${stockStatus === 'low_stock' ? 'bg-amber-50/10 border-amber-500/80 shadow-inner' : 'bg-white border-slate-100 shadow-sm'}`}
+        >
           <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 text-lg shrink-0">⚠️</div>
           <div>
             <span className="text-[9px] text-slate-400 font-black uppercase">أصناف منخفضة</span>
@@ -973,7 +989,10 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
         </div>
 
         {/* Out of Stock count */}
-        <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3">
+        <div 
+          onClick={() => { setStockStatus('out_of_stock'); setCurrentPage(1); }}
+          className={`p-4 rounded-3xl border-2 flex items-center gap-3 cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all ${stockStatus === 'out_of_stock' ? 'bg-rose-50/10 border-rose-500/80 shadow-inner' : 'bg-white border-slate-100 shadow-sm'}`}
+        >
           <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 text-lg shrink-0">🚨</div>
           <div>
             <span className="text-[9px] text-slate-400 font-black uppercase">أصناف نفدت</span>
@@ -982,7 +1001,10 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
         </div>
 
         {/* Stagnant count */}
-        <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3">
+        <div 
+          onClick={() => { setStockStatus('stagnant'); setCurrentPage(1); }}
+          className={`p-4 rounded-3xl border-2 flex items-center gap-3 cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all ${stockStatus === 'stagnant' ? 'bg-slate-50/20 border-slate-400/80 shadow-inner' : 'bg-white border-slate-100 shadow-sm'}`}
+        >
           <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 text-lg shrink-0">💤</div>
           <div>
             <span className="text-[9px] text-slate-400 font-black uppercase">أصناف راكدة</span>
@@ -991,7 +1013,10 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
         </div>
 
         {/* Average Inventory Turnover */}
-        <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-3">
+        <div 
+          onClick={() => { setStockStatus('fast_moving'); setCurrentPage(1); }}
+          className={`p-4 rounded-3xl border-2 flex items-center gap-3 cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all ${stockStatus === 'fast_moving' ? 'bg-indigo-50/10 border-indigo-500/80 shadow-inner' : 'bg-white border-slate-100 shadow-sm'}`}
+        >
           <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 text-lg shrink-0">⚡</div>
           <div>
             <span className="text-[9px] text-slate-400 font-black uppercase">حالة حركة المخزون</span>
@@ -1133,6 +1158,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
               className="bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-600 outline-none"
             >
               <option value="all">حالة الكمية (الكل)</option>
+              <option value="in_stock">متوفر بالمخزن (أكبر من 0)</option>
               <option value="low_stock">نواقص (أقل من الحد الأدنى)</option>
               <option value="out_of_stock">نفد بالكامل (0 قطع)</option>
               <option value="stagnant">راكد (بدون مبيعات 30 يوم)</option>
