@@ -592,25 +592,29 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
         const snap = parseSnapshot(selectedShiftDetails.shift.snapshotData);
         // في حال كانت الوردية مفتوحة، نقوم بحساب الأرقام بشكل فوري من الطلبات الحالية
         const cashSalesVal = snap ? snap.cashSales : selectedShiftDetails.orders.reduce((sum, o) => {
-          if (o.status === 'completed' && (o.paymentMethod.includes('نقدي') || o.paymentMethod.includes('عند الاستلام'))) {
+          const method = o.paymentMethod || '';
+          if (o.status === 'completed' && (method.includes('نقدي') || method.includes('عند الاستلام'))) {
             return sum + o.total;
           }
           return sum;
         }, 0);
         const cashReturnsVal = snap ? snap.cashReturns : selectedShiftDetails.orders.reduce((sum, o) => {
-          if (o.status === 'cancelled' && (o.paymentMethod.includes('نقدي') || o.paymentMethod.includes('عند الاستلام'))) {
+          const method = o.paymentMethod || '';
+          if (o.status === 'cancelled' && (method.includes('نقدي') || method.includes('عند الاستلام'))) {
             return sum + o.total;
           }
           return sum;
         }, 0);
         const cardSalesVal = snap ? snap.cardSales : selectedShiftDetails.orders.reduce((sum, o) => {
-          if (o.status === 'completed' && !o.paymentMethod.includes('نقدي') && !o.paymentMethod.includes('عند الاستلام') && !o.paymentMethod.includes('آجل')) {
+          const method = o.paymentMethod || '';
+          if (o.status === 'completed' && !method.includes('نقدي') && !method.includes('عند الاستلام') && !method.includes('آجل')) {
             return sum + o.total;
           }
           return sum;
         }, 0);
         const debtSalesVal = snap ? snap.debtSales : selectedShiftDetails.orders.reduce((sum, o) => {
-          if (o.status === 'completed' && o.paymentMethod.includes('آجل')) {
+          const method = o.paymentMethod || '';
+          if (o.status === 'completed' && method.includes('آجل')) {
             return sum + o.total;
           }
           return sum;
@@ -709,25 +713,29 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                         const snap = parseSnapshot(selectedShiftDetails.shift.snapshotData);
                         // في حال كانت الوردية مفتوحة، نقوم بحساب الأرقام بشكل فوري من الطلبات الحالية
                         const cashSalesVal = snap ? snap.cashSales : selectedShiftDetails.orders.reduce((sum, o) => {
-                          if (o.status === 'completed' && (o.paymentMethod.includes('نقدي') || o.paymentMethod.includes('عند الاستلام'))) {
+                          const method = o.paymentMethod || '';
+                          if (o.status === 'completed' && (method.includes('نقدي') || method.includes('عند الاستلام'))) {
                             return sum + o.total;
                           }
                           return sum;
                         }, 0);
                         const cashReturnsVal = snap ? snap.cashReturns : selectedShiftDetails.orders.reduce((sum, o) => {
-                          if (o.status === 'cancelled' && (o.paymentMethod.includes('نقدي') || o.paymentMethod.includes('عند الاستلام'))) {
+                          const method = o.paymentMethod || '';
+                          if (o.status === 'cancelled' && (method.includes('نقدي') || method.includes('عند الاستلام'))) {
                             return sum + o.total;
                           }
                           return sum;
                         }, 0);
                         const cardSalesVal = snap ? snap.cardSales : selectedShiftDetails.orders.reduce((sum, o) => {
-                          if (o.status === 'completed' && !o.paymentMethod.includes('نقدي') && !o.paymentMethod.includes('عند الاستلام') && !o.paymentMethod.includes('آجل')) {
+                          const method = o.paymentMethod || '';
+                          if (o.status === 'completed' && !method.includes('نقدي') && !method.includes('عند الاستلام') && !method.includes('آجل')) {
                             return sum + o.total;
                           }
                           return sum;
                         }, 0);
                         const debtSalesVal = snap ? snap.debtSales : selectedShiftDetails.orders.reduce((sum, o) => {
-                          if (o.status === 'completed' && o.paymentMethod.includes('آجل')) {
+                          const method = o.paymentMethod || '';
+                          if (o.status === 'completed' && method.includes('آجل')) {
                             return sum + o.total;
                           }
                           return sum;
