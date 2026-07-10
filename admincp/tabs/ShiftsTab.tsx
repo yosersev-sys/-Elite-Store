@@ -580,13 +580,16 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
         const completedOrders = selectedShiftDetails.orders.filter(o => o.status === 'completed');
         const cancelledOrders = selectedShiftDetails.orders.filter(o => o.status === 'cancelled');
         const netProfit = completedOrders.reduce((sum, order) => {
-          return sum + order.items.reduce((itemSum, item) => {
+          const items = Array.isArray(order.items) ? order.items : [];
+          return sum + items.reduce((itemSum, item) => {
+            if (!item) return itemSum;
             const wholesale = item.actualWholesalePrice ?? item.wholesalePrice ?? 0;
-            return itemSum + (item.price - wholesale) * item.quantity;
+            return itemSum + ((item.price || 0) - wholesale) * (item.quantity || 0);
           }, 0);
         }, 0);
         const totalItemsSold = completedOrders.reduce((sum, order) => {
-          return sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0);
+          const items = Array.isArray(order.items) ? order.items : [];
+          return sum + items.reduce((itemSum, item) => itemSum + (item ? (item.quantity || 0) : 0), 0);
         }, 0);
 
         const snap = parseSnapshot(selectedShiftDetails.shift.snapshotData);
@@ -594,33 +597,33 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
         const cashSalesVal = snap ? snap.cashSales : selectedShiftDetails.orders.reduce((sum, o) => {
           const method = o.paymentMethod || '';
           if (o.status === 'completed' && (method.includes('نقدي') || method.includes('عند الاستلام'))) {
-            return sum + o.total;
+            return sum + (o.total || 0);
           }
           return sum;
         }, 0);
         const cashReturnsVal = snap ? snap.cashReturns : selectedShiftDetails.orders.reduce((sum, o) => {
           const method = o.paymentMethod || '';
           if (o.status === 'cancelled' && (method.includes('نقدي') || method.includes('عند الاستلام'))) {
-            return sum + o.total;
+            return sum + (o.total || 0);
           }
           return sum;
         }, 0);
         const cardSalesVal = snap ? snap.cardSales : selectedShiftDetails.orders.reduce((sum, o) => {
           const method = o.paymentMethod || '';
           if (o.status === 'completed' && !method.includes('نقدي') && !method.includes('عند الاستلام') && !method.includes('آجل')) {
-            return sum + o.total;
+            return sum + (o.total || 0);
           }
           return sum;
         }, 0);
         const debtSalesVal = snap ? snap.debtSales : selectedShiftDetails.orders.reduce((sum, o) => {
           const method = o.paymentMethod || '';
           if (o.status === 'completed' && method.includes('آجل')) {
-            return sum + o.total;
+            return sum + (o.total || 0);
           }
           return sum;
         }, 0);
-        const depVal = snap ? snap.totalDeposits : selectedShiftDetails.transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
-        const witVal = snap ? snap.totalWithdrawals : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + t.amount, 0);
+        const depVal = snap ? snap.totalDeposits : selectedShiftDetails.transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + (t.amount || 0), 0);
+        const witVal = snap ? snap.totalWithdrawals : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + (t.amount || 0), 0);
         const ledgerCashVal = snap ? (snap.ledgerCashPayments || 0) : (selectedShiftDetails.shift.ledgerCashPayments || 0);
 
         const handlePrintDetails = () => {
@@ -629,17 +632,19 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
 
         const productStats: Record<string, { name: string; quantity: number; unit: string; totalSales: number; totalProfit: number }> = {};
         completedOrders.forEach(order => {
-          order.items.forEach(item => {
+          const items = Array.isArray(order.items) ? order.items : [];
+          items.forEach(item => {
+            if (!item || !item.id) return;
             const key = item.id;
-            const qty = item.quantity;
-            const wholesale = item.actualWholesalePrice ?? item.wholesalePrice ?? 0;
-            const profit = (item.price - wholesale) * qty;
-            const sales = item.price * qty;
+            const qty = Number(item.quantity || 0);
+            const wholesale = Number(item.actualWholesalePrice ?? item.wholesalePrice ?? 0);
+            const profit = (Number(item.price || 0) - wholesale) * qty;
+            const sales = Number(item.price || 0) * qty;
             if (!productStats[key]) {
               productStats[key] = {
-                name: item.name,
+                name: item.name || 'منتج غير معروف',
                 quantity: 0,
-                unit: item.unit,
+                unit: item.unit || 'وحدة',
                 totalSales: 0,
                 totalProfit: 0
               };
