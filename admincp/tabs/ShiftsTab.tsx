@@ -711,7 +711,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="bg-slate-50 p-5 rounded-2xl border">
                         <p className="text-[10px] text-slate-400 font-bold mb-1">رصيد البداية</p>
-                        <p className="text-base font-black text-slate-800">{selectedShiftDetails.shift.startingCash.toFixed(2)} ج.م</p>
+                        <p className="text-base font-black text-slate-800">{Number(selectedShiftDetails.shift.startingCash || 0).toFixed(2)} ج.م</p>
                       </div>
                       {/* قراءة بيانات الـ Snapshot */}
                       {(() => {
@@ -752,49 +752,49 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                           <>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
                               <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات النقدية</p>
-                              <p className="text-base font-black text-emerald-600">{cashSalesVal.toFixed(2)} ج.م</p>
+                              <p className="text-base font-black text-emerald-600">{Number(cashSalesVal || 0).toFixed(2)} ج.م</p>
                             </div>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
                               <p className="text-[10px] text-slate-400 font-bold mb-1">المرتجع النقدي</p>
-                              <p className="text-base font-black text-rose-500">{cashReturnsVal.toFixed(2)} ج.م</p>
+                              <p className="text-base font-black text-rose-500">{Number(cashReturnsVal || 0).toFixed(2)} ج.م</p>
                             </div>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
                               <p className="text-[10px] text-slate-400 font-bold mb-1">تحصيل ديون نقدية</p>
-                              <p className="text-base font-black text-emerald-600">{ledgerCashVal.toFixed(2)} ج.م</p>
+                              <p className="text-base font-black text-emerald-600">{Number(ledgerCashVal || 0).toFixed(2)} ج.م</p>
                             </div>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
                               <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات البنكية</p>
-                              <p className="text-base font-black text-indigo-600">{cardSalesVal.toFixed(2)} ج.م</p>
+                              <p className="text-base font-black text-indigo-600">{Number(cardSalesVal || 0).toFixed(2)} ج.م</p>
                             </div>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
                               <p className="text-[10px] text-slate-400 font-bold mb-1">المبيعات الآجلة</p>
-                              <p className="text-base font-black text-amber-600">{debtSalesVal.toFixed(2)} ج.م</p>
+                              <p className="text-base font-black text-amber-600">{Number(debtSalesVal || 0).toFixed(2)} ج.م</p>
                             </div>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
                               <p className="text-[10px] text-slate-400 font-bold mb-1">إجمالي الإيداعات</p>
-                              <p className="text-base font-black text-emerald-600">{depVal.toFixed(2)} ج.م</p>
+                              <p className="text-base font-black text-emerald-600">{Number(depVal || 0).toFixed(2)} ج.م</p>
                             </div>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
                               <p className="text-[10px] text-slate-400 font-bold mb-1">إجمالي السحوبات</p>
-                              <p className="text-base font-black text-rose-600">{witVal.toFixed(2)} ج.م</p>
+                              <p className="text-base font-black text-rose-600">{Number(witVal || 0).toFixed(2)} ج.م</p>
                             </div>
                           </>
                         );
                       })()}
                       <div className="bg-slate-50 p-5 rounded-2xl border">
                         <p className="text-[10px] text-slate-400 font-bold mb-1">الرصيد المتوقع بالدرج</p>
-                        <p className="text-base font-black text-slate-800">{(selectedShiftDetails.shift.status === 'open' ? selectedShiftDetails.shift.currentCashBalance : (selectedShiftDetails.shift.expectedCash || 0)).toFixed(2)} ج.م</p>
+                        <p className="text-base font-black text-slate-800">{Number(selectedShiftDetails.shift.status === 'open' ? selectedShiftDetails.shift.currentCashBalance : (selectedShiftDetails.shift.expectedCash || 0)).toFixed(2)} ج.م</p>
                       </div>
                       <div className="bg-slate-900 text-white p-5 rounded-2xl border">
                         <p className="text-[10px] text-slate-300 font-bold mb-1">{selectedShiftDetails.shift.status === 'open' ? 'الرصيد الفعلي المتوقع' : 'الرصيد الفعلي (المجرود)'}</p>
-                        <p className="text-base font-black text-emerald-400">{(selectedShiftDetails.shift.status === 'open' ? selectedShiftDetails.shift.currentCashBalance : selectedShiftDetails.shift.actualCash).toFixed(2)} ج.م</p>
+                        <p className="text-base font-black text-emerald-400">{Number(selectedShiftDetails.shift.status === 'open' ? selectedShiftDetails.shift.currentCashBalance : selectedShiftDetails.shift.actualCash || 0).toFixed(2)} ج.م</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-emerald-500 text-white p-5 rounded-2xl border border-emerald-600 shadow-md">
                         <p className="text-[10px] text-emerald-100 font-bold mb-1">صافي أرباح الوردية</p>
-                        <p className="text-xl font-black">{netProfit.toFixed(2)} ج.م</p>
+                        <p className="text-xl font-black">{Number(netProfit || 0).toFixed(2)} ج.م</p>
                       </div>
                       <div className="bg-slate-50 p-5 rounded-2xl border">
                         <p className="text-[10px] text-slate-400 font-bold mb-1">عدد الفواتير الصادرة</p>
@@ -814,16 +814,16 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                       <div className="text-[11px] font-bold text-slate-500 space-y-2 leading-relaxed">
                         <p>
                           💵 <strong>معادلة نقدية الدرج المفترضة:</strong><br />
-                          رصيد البداية ({selectedShiftDetails.shift.startingCash.toFixed(2)} ج.م) 
-                          {" + "} مبيعات نقدية ({(cashSalesVal + cashReturnsVal).toFixed(2)} ج.م) 
-                          {" - "} مرتجع نقدي ({cashReturnsVal.toFixed(2)} ج.م) 
-                          {" + "} تحصيل ديون نقدية ({ledgerCashVal.toFixed(2)} ج.م)
-                          {" + "} إيداعات ({depVal.toFixed(2)} ج.m) 
-                          {" - "} سحوبات ({witVal.toFixed(2)} ج.م) 
-                          {" = "} <span className="text-emerald-600 font-black">{(selectedShiftDetails.shift.startingCash + cashSalesVal + ledgerCashVal + depVal - witVal).toFixed(2)} ج.م</span>.
+                          رصيد البداية ({Number(selectedShiftDetails.shift.startingCash || 0).toFixed(2)} ج.م) 
+                          {" + "} مبيعات نقدية ({Number(cashSalesVal || 0).toFixed(2)} ج.م) 
+                          {" - "} مرتجع نقدي ({Number(cashReturnsVal || 0).toFixed(2)} ج.م) 
+                          {" + "} تحصيل ديون نقدية ({Number(ledgerCashVal || 0).toFixed(2)} ج.م)
+                          {" + "} إيداعات ({Number(depVal || 0).toFixed(2)} ج.م) 
+                          {" - "} سحوبات ({Number(witVal || 0).toFixed(2)} ج.م) 
+                          {" = "} <span className="text-emerald-600 font-black">{Number(Number(selectedShiftDetails.shift.startingCash || 0) + Number(cashSalesVal || 0) + Number(ledgerCashVal || 0) + Number(depVal || 0) - Number(witVal || 0)).toFixed(2)} ج.م</span>.
                         </p>
                         <p className="text-[10px] text-slate-400">
-                          * تنبيه: المبيعات البنكية/الرقمية ({cardSalesVal.toFixed(2)} ج.م) والمبيعات الآجلة ({debtSalesVal.toFixed(2)} ج.م) لا تدخل في حساب نقدية الدرج الفعلية لأنها حركات غير نقدية.
+                          * تنبيه: المبيعات البنكية/الرقمية ({Number(cardSalesVal || 0).toFixed(2)} ج.م) والمبيعات الآجلة ({Number(debtSalesVal || 0).toFixed(2)} ج.م) لا تدخل في حساب نقدية الدرج الفعلية لأنها حركات غير نقدية.
                         </p>
                       </div>
                     </div>
@@ -899,7 +899,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                                   <span className="bg-slate-100 px-2 py-0.5 rounded text-[9px]">{o.paymentMethod}</span>
                                 </td>
                                 <td className="py-3 px-4 text-slate-400">{new Date(o.createdAt).toLocaleTimeString('ar-EG')}</td>
-                                <td className="py-3 px-4 font-black">{o.total.toFixed(2)} ج.م</td>
+                                <td className="py-3 px-4 font-black">{Number(o.total || 0).toFixed(2)} ج.م</td>
                                 <td className="py-3 px-4 text-center">
                                   <span className={`px-2 py-0.5 rounded text-[8px] font-black ${o.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : o.status === 'cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
                                     {o.status === 'completed' ? 'مكتمل' : o.status === 'cancelled' ? 'مرتجع/ملغى' : 'معلق'}
@@ -933,7 +933,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                                   </span>
                                   <span className="text-slate-500 mr-2">{t.reason}</span>
                                 </div>
-                                <span className="font-black">{t.amount.toFixed(2)} ج.م</span>
+                                <span className="font-black">{Number(t.amount || 0).toFixed(2)} ج.م</span>
                               </div>
                             ))
                           )}
@@ -953,7 +953,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                                   <span className="px-2 py-0.5 rounded text-[8px] bg-rose-100 text-rose-700">مرتجع نقدي</span>
                                   <span className="text-slate-500 mr-2">{t.reason}</span>
                                 </div>
-                                <span className="font-black text-rose-600">-{t.amount.toFixed(2)} ج.م</span>
+                                <span className="font-black text-rose-600">-{Number(t.amount || 0).toFixed(2)} ج.م</span>
                               </div>
                             ))
                           )}
