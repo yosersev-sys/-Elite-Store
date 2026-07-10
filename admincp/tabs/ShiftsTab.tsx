@@ -816,10 +816,10 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                     </div>
 
                     {/* عجز / زيادة */}
-                    {selectedShiftDetails.shift.status === 'closed' && selectedShiftDetails.shift.difference !== 0 && (
+                    {selectedShiftDetails.shift.status === 'closed' && selectedShiftDetails.shift.difference !== null && selectedShiftDetails.shift.difference !== undefined && Number(selectedShiftDetails.shift.difference) !== 0 && (
                       <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs font-bold text-rose-700 flex justify-between">
-                        <span>فرق الجرد: {selectedShiftDetails.shift.difference.toFixed(2)} ج.م</span>
-                        <span>سبب الفرق: {selectedShiftDetails.shift.discrepancyReason}</span>
+                        <span>فرق الجرد: {Number(selectedShiftDetails.shift.difference).toFixed(2)} ج.م</span>
+                        <span>سبب الفرق: {selectedShiftDetails.shift.discrepancyReason || 'غير محدد'}</span>
                       </div>
                     )}
                   </div>
@@ -1081,16 +1081,16 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
               </div>
               <div className="flex-between font-bold" style={{ marginTop: '1mm' }}>
                 <span>النقدية المتوقعة بالدرج:</span>
-                <span>{selectedShiftDetails.shift.expectedCash.toLocaleString()} ج.م</span>
+                <span>{Number(selectedShiftDetails.shift.expectedCash || selectedShiftDetails.shift.currentCashBalance || 0).toLocaleString()} ج.م</span>
               </div>
               <div className="flex-between font-bold" style={{ fontSize: '11pt' }}>
                 <span>الرصيد الفعلي (المجرود):</span>
-                <span>{(selectedShiftDetails.shift.status === 'open' ? selectedShiftDetails.shift.currentCashBalance : selectedShiftDetails.shift.actualCash).toLocaleString()} ج.م</span>
+                <span>{Number(selectedShiftDetails.shift.status === 'open' ? selectedShiftDetails.shift.currentCashBalance : selectedShiftDetails.shift.actualCash || 0).toLocaleString()} ج.م</span>
               </div>
-              {selectedShiftDetails.shift.difference !== 0 && (
+              {selectedShiftDetails.shift.status === 'closed' && selectedShiftDetails.shift.difference !== null && selectedShiftDetails.shift.difference !== undefined && Number(selectedShiftDetails.shift.difference) !== 0 && (
                 <div className="flex-between font-bold text-rose-600">
                   <span>فرق الجرد (عجز/زيادة):</span>
-                  <span>{selectedShiftDetails.shift.difference.toLocaleString()} ج.م</span>
+                  <span>{Number(selectedShiftDetails.shift.difference).toLocaleString()} ج.م</span>
                 </div>
               )}
               
