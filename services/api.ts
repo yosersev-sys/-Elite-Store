@@ -316,9 +316,12 @@ export const ApiService = {
     return result?.status === 'success';
   },
 
-  async deleteCategory(id: string): Promise<boolean> {
+  async deleteCategory(id: string): Promise<{ success: boolean; message?: string }> {
     const result = await safeFetch(`delete_category&id=${id}`, { method: 'DELETE' });
-    return result?.status === 'success';
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل حذف القسم من السيرفر' };
   },
 
   async getOrders(): Promise<Order[]> {
@@ -469,9 +472,12 @@ export const ApiService = {
     return { success: false, message: result?.message || 'فشل تحديث المنتج. قد يكون هناك مشكلة في الصلاحيات أو حجم الصور.' };
   },
 
-  async deleteProduct(id: string): Promise<boolean> {
+  async deleteProduct(id: string): Promise<{ success: boolean; message?: string }> {
     const result = await safeFetch(`delete_product&id=${id}`, { method: 'DELETE' });
-    return result?.status === 'success';
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل حذف المنتج من السيرفر' };
   },
 
   async getAllImages(): Promise<{url: string, productName: string}[]> {

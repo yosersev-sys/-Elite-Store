@@ -914,16 +914,24 @@ const App: React.FC = () => {
               onEditOrder={(o) => { setEditingOrder(o); onNavigate('admin-invoice'); }}
               onDeleteProduct={async (id) => {
                 setProducts(prev => prev.filter(p => p.id !== id));
-                const ok = await ApiService.deleteProduct(id);
-                if (!ok) showNotification('فشل حذف المنتج من السيرفر', 'error');
+                const res = await ApiService.deleteProduct(id);
+                if (!res.success) {
+                  showNotification(res.message || 'فشل حذف المنتج من السيرفر', 'error');
+                } else {
+                  showNotification('تم حذف المنتج بنجاح', 'success');
+                }
                 loadData(true);
               }}
               onAddCategory={async (c) => { if(await ApiService.addCategory(c)) loadData(true); }}
               onUpdateCategory={async (c) => { if(await ApiService.updateCategory(c)) loadData(true); }}
               onDeleteCategory={async (id) => {
                 setCategories(prev => prev.filter(c => c.id !== id));
-                const ok = await ApiService.deleteCategory(id);
-                if (!ok) showNotification('فشل حذف القسم من السيرفر', 'error');
+                const res = await ApiService.deleteCategory(id);
+                if (!res.success) {
+                  showNotification(res.message || 'فشل حذف القسم من السيرفر', 'error');
+                } else {
+                  showNotification('تم حذف القسم بنجاح', 'success');
+                }
                 loadData(true);
               }}
               onViewOrder={(o) => { setRecentCreatedOrderFlow(o); onNavigate('order-success'); }}
