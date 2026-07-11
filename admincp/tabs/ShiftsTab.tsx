@@ -775,7 +775,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                               <p className="text-base font-black text-emerald-600">{Number(depVal || 0).toFixed(2)} ج.م</p>
                             </div>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
-                              <p className="text-[10px] text-slate-400 font-bold mb-1">سحب لشراء بضاعة</p>
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">سحب نقدية لشراء بضاعة</p>
                               <p className="text-base font-black text-rose-600">{Number(witVal || 0).toFixed(2)} ج.م</p>
                             </div>
                           </>

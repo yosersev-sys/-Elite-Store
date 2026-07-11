@@ -777,7 +777,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                   {" - "} مرتجع نقدي ({(shiftStats.cashReturns || 0).toFixed(2)} ج.م) 
                   {" + "} تحصيل ديون نقدية ({((activeShift as any)?.ledgerCashPayments || 0).toFixed(2)} ج.م)
                   {" + "} إيداعات ({((activeShift as any)?.totalDeposits || 0).toFixed(2)} ج.م) 
-                  {" - "} سحب لشراء بضاعة ({((activeShift as any)?.totalWithdrawals || 0).toFixed(2)} ج.م) 
+                  {" - "} سحب نقدية لشراء بضاعة ({((activeShift as any)?.totalWithdrawals || 0).toFixed(2)} ج.م) 
                   {" = "} <span className="text-emerald-600 font-black">{(Number(activeShift?.currentCashBalance || 0)).toFixed(2)} ج.م</span>.
                 </p>
                 <p className="text-[10px] text-slate-400">
