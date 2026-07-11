@@ -30,6 +30,10 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
       alert('لا يمكنك حذف حسابك الحالي ⚠️');
       return;
     }
+    if (currentUser?.role === 'cashier' && user.role !== 'user') {
+      alert('غير مصرح لك بحذف هذا العضو ⚠️');
+      return;
+    }
     if (confirm(`هل أنت متأكد من حذف العضو "${user.name}" نهائياً؟`)) {
       setDeletingIds(prev => [...prev, user.id]);
       try {
@@ -74,9 +78,14 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
     if (!formData.name || !formData.phone || !formData.password) return alert('يرجى ملء كافة الحقول');
     if (!/^01[0125][0-9]{8}$/.test(formData.phone)) return alert('رقم موبايل غير صحيح');
 
+    const payload = {
+      ...formData,
+      role: currentUser?.role === 'cashier' ? 'user' : formData.role
+    };
+
     setIsSaving(true);
     try {
-      const res = await ApiService.adminAddUser(formData);
+      const res = await ApiService.adminAddUser(payload);
       if (res.status === 'success') {
         alert('تم إضافة العضو بنجاح ✨');
         setIsAddModalOpen(false);
@@ -96,6 +105,8 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
     if (!editingUser) return;
     if (!formData.name || !formData.phone) return alert('الاسم والموبايل مطلوبان');
 
+    const finalRole = currentUser?.role === 'cashier' ? 'user' : formData.role;
+
     setIsSaving(true);
     try {
       const res = await ApiService.adminUpdateUser({
@@ -103,7 +114,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
         name: formData.name,
         phone: formData.phone,
         password: formData.password || undefined,
-        role: formData.role
+        role: finalRole
       });
 
       if (res.status === 'success') {
@@ -121,6 +132,10 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
   };
 
   const openEditModal = (user: User) => {
+    if (currentUser?.role === 'cashier' && user.role !== 'user') {
+      alert('غير مصرح لك بتعديل بيانات هذا العضو ⚠️');
+      return;
+    }
     setEditingUser(user);
     setFormData({
       name: user.name,
@@ -183,14 +198,23 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
                   </button>
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase mr-2">صلاحية الحساب</label>
-                <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1.5 rounded-2xl">
-                   <button onClick={() => setFormData({...formData, role: 'user'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'user' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>عميل عادي</button>
-                   <button onClick={() => setFormData({...formData, role: 'cashier'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'cashier' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}`}>كاشير</button>
-                   <button onClick={() => setFormData({...formData, role: 'admin'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'admin' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400'}`}>مدير نظام</button>
+              {currentUser?.role === 'admin' ? (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2">صلاحية الحساب</label>
+                  <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1.5 rounded-2xl">
+                     <button onClick={() => setFormData({...formData, role: 'user'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'user' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}>عميل عادي</button>
+                     <button onClick={() => setFormData({...formData, role: 'cashier'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'cashier' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400'}`}>كاشير</button>
+                     <button onClick={() => setFormData({...formData, role: 'admin'})} className={`py-2.5 rounded-xl font-black text-xs transition-all ${formData.role === 'admin' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400'}`}>مدير نظام</button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mr-2">صلاحية الحساب</label>
+                  <div className="px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl text-xs font-black text-slate-500">
+                    عميل متجر 👤 (صلاحية افتراضية)
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button disabled={isSaving} onClick={isAddModalOpen ? handleAddUser : handleUpdateUser} className={`flex-grow py-4 rounded-2xl font-black text-white shadow-xl transition-all ${isAddModalOpen ? 'bg-emerald-600' : 'bg-indigo-600'}`}>
