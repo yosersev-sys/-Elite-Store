@@ -240,6 +240,22 @@ export class POSPrintService {
         <div class="divider"></div>
         <div class="text-center" style="font-size: 9pt;">
           ${paymentsHtml}
+          ${(order.confirmedByName || order.confirmedShiftId) ? `
+            <div style="font-size: 8pt; color: #555; line-height: 1.4; border: 1px dashed #ccc; padding: 1.5mm; border-radius: 4px; margin-top: 2mm; margin-bottom: 2mm; text-align: right;">
+              ${order.confirmedByName ? `
+                <div class="flex-between">
+                  <span>الكاشير:</span>
+                  <span>${order.confirmedByName}</span>
+                </div>
+              ` : ''}
+              ${order.confirmedShiftId ? `
+                <div class="flex-between">
+                  <span>الوردية:</span>
+                  <span>#${order.confirmedShiftId} ${(order as any).shiftName ? `(${(order as any).shiftName})` : ''}</span>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
           <div style="margin-top: 3mm;" class="bold">شكراً لزيارتكم!</div>
           <div class="store-link">soqelasr.com</div>
           <div class="qr-container">

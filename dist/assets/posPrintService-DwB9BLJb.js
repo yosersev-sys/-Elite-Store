@@ -168,6 +168,22 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
         <div class="divider"></div>
         <div class="text-center" style="font-size: 9pt;">
           ${l}
+          ${t.confirmedByName||t.confirmedShiftId?`
+            <div style="font-size: 8pt; color: #555; line-height: 1.4; border: 1px dashed #ccc; padding: 1.5mm; border-radius: 4px; margin-top: 2mm; margin-bottom: 2mm; text-align: right;">
+              ${t.confirmedByName?`
+                <div class="flex-between">
+                  <span>الكاشير:</span>
+                  <span>${t.confirmedByName}</span>
+                </div>
+              `:""}
+              ${t.confirmedShiftId?`
+                <div class="flex-between">
+                  <span>الوردية:</span>
+                  <span>#${t.confirmedShiftId} ${t.shiftName?`(${t.shiftName})`:""}</span>
+                </div>
+              `:""}
+            </div>
+          `:""}
           <div style="margin-top: 3mm;" class="bold">شكراً لزيارتكم!</div>
           <div class="store-link">soqelasr.com</div>
           <div class="qr-container">

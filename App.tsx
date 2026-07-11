@@ -882,6 +882,15 @@ const App: React.FC = () => {
                 offlineQueueCount={offlineQueueCount}
                 onOpenSyncManager={() => setShowSyncManager(true)}
                 onSubmit={async (o) => { 
+                  if (activeShift) {
+                    o.confirmedShiftId = activeShift.id;
+                    (o as any).shiftName = activeShift.shiftName;
+                  }
+                  if (currentUser) {
+                    o.confirmedByName = currentUser.name;
+                  }
+                  o.confirmedAt = o.confirmedAt || Date.now();
+
                   const s = editingOrder ? await ApiService.updateOrder(o) : await ApiService.saveOrder(o); 
                   if (s) { 
                     setRecentCreatedOrderFlow(o); 

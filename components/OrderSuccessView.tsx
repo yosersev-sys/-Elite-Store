@@ -296,24 +296,30 @@ const OrderSuccessView: React.FC<OrderSuccessViewProps> = ({
             )}
           </div>
           
-          {order.status === 'completed' && order.confirmedAt && (
+          {(order.confirmedByName || order.confirmedShiftId || (order.status === 'completed' && order.confirmedAt)) && (
             <div className="mt-3 pt-2 border-t border-dashed border-gray-200 space-y-1 text-[9px] text-gray-500 font-bold">
-              <div className="flex justify-between">
-                <span>تاريخ الإنشاء:</span>
-                <span>{safeDate(order.createdAt).toLocaleString('ar-EG')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>تاريخ التأكيد:</span>
-                <span>{safeDate(order.confirmedAt).toLocaleString('ar-EG')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>الموظف المؤكّد:</span>
-                <span>{order.confirmedByName || 'الكاشير'}</span>
-              </div>
+              {order.createdAt && (
+                <div className="flex justify-between">
+                  <span>تاريخ الإنشاء:</span>
+                  <span>{safeDate(order.createdAt).toLocaleString('ar-EG')}</span>
+                </div>
+              )}
+              {order.confirmedAt && (
+                <div className="flex justify-between">
+                  <span>تاريخ التأكيد:</span>
+                  <span>{safeDate(order.confirmedAt).toLocaleString('ar-EG')}</span>
+                </div>
+              )}
+              {order.confirmedByName && (
+                <div className="flex justify-between">
+                  <span>الموظف المؤكّد:</span>
+                  <span>{order.confirmedByName}</span>
+                </div>
+              )}
               {order.confirmedShiftId && (
                 <div className="flex justify-between">
                   <span>الوردية:</span>
-                  <span>#{order.confirmedShiftId}</span>
+                  <span>#{order.confirmedShiftId} {(order as any).shiftName ? `(${(order as any).shiftName})` : ''}</span>
                 </div>
               )}
             </div>
