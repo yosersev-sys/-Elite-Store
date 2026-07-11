@@ -11,7 +11,11 @@ interface BestSellersProps {
 }
 
 const BestSellers: React.FC<BestSellersProps> = ({ products, onAddToCart, onViewProduct, wishlist, onToggleFavorite }) => {
-  const topSellers = [...products]
+  const topSellers = products
+    .filter(p => {
+      const defUnit = p.units?.find(u => u.isDefault === 1);
+      return defUnit ? Number(defUnit.isActive) !== 0 : true;
+    })
     .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
     .slice(0, 4);
 

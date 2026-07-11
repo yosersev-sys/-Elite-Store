@@ -57,7 +57,11 @@ const CategoryPageView: React.FC<CategoryPageViewProps> = ({
   }, [category.id]);
 
   const categoryProducts = useMemo(() => {
-    let result = products.filter(p => p.categoryId === category.id);
+    let result = products.filter(p => {
+      const defUnit = p.units?.find(u => u.isDefault === 1);
+      const isActive = defUnit ? Number(defUnit.isActive) !== 0 : true;
+      return isActive && p.categoryId === category.id;
+    });
     if (sortBy === 'price-low') return [...result].sort((a, b) => a.price - b.price);
     if (sortBy === 'price-high') return [...result].sort((a, b) => b.price - a.price);
     return [...result].sort((a, b) => b.createdAt - a.createdAt);
