@@ -79,6 +79,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     localStorage.setItem('admin_filter', f);
   };
 
+  const handleLogoutClick = () => {
+    if (confirm('هل أنت متأكد من تسجيل الخروج من النظام؟ 🚪')) {
+      props.onLogout();
+    }
+  };
+
   const tabTitles: Record<AdminTab, string> = {
     stats: 'احصائيات عامة',
     analytics: 'تحليلات الزوار',
@@ -249,6 +255,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
              {props.currentUser?.role === 'admin' && (
                <button onClick={props.onOpenAddForm} className="flex-grow md:flex-initial bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl">📦 صنف جديد</button>
              )}
+             <button onClick={handleLogoutClick} className="flex-grow md:flex-initial bg-rose-600 hover:bg-rose-700 text-white px-6 py-3 rounded-xl font-black text-xs shadow-xl flex items-center justify-center gap-1">
+                <span>🚪</span> تسجيل خروج
+              </button>
            </div>
         </div>
 
