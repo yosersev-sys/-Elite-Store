@@ -325,7 +325,7 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
             <span>${Number(a.totalDeposits).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: red;">
-            <span>سحوبات يدوية (-):</span>
+            <span>سحب نقدية لشراء بضاعة (-):</span>
             <span>${Number(a.totalWithdrawals).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between bold" style="margin-top: 1mm;">

@@ -583,7 +583,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
             </div>
 
              {/* تفاصيل طرق الدفع والمصروفات بالوردية */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mt-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-4 mt-4">
               {/* إجمالي نقدي */}
               <div 
                 onClick={() => fetchShiftDetails('cash')} 
@@ -696,6 +696,22 @@ const StatsTab: React.FC<StatsTabProps> = ({
                 </div>
               </div>
 
+              {/* سحب نقدية لشراء بضاعة */}
+              <div 
+                onClick={() => fetchShiftDetails('cash')} 
+                className="group relative bg-gradient-to-br from-amber-600 to-orange-700 p-4 rounded-2xl shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                <div className="absolute -left-2 -bottom-2 w-12 h-12 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base">📦</span>
+                    <span className="text-[7px] font-black text-amber-100 bg-white/15 px-2 py-0.5 rounded-full">سحب بضاعة</span>
+                  </div>
+                  <p className="text-[8px] font-bold text-amber-100 mb-0.5">سحب نقدية لشراء بضاعة</p>
+                  <p className="text-lg font-black text-white tracking-tight">{(activeShift?.totalWithdrawals || 0).toLocaleString()} <span className="text-[9px] font-bold text-amber-100">ج.م</span></p>
+                </div>
+              </div>
+
               {/* مصروفات الوردية */}
               <div 
                 onClick={() => fetchShiftDetails('expenses')} 
@@ -761,7 +777,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                   {" - "} مرتجع نقدي ({(shiftStats.cashReturns || 0).toFixed(2)} ج.م) 
                   {" + "} تحصيل ديون نقدية ({((activeShift as any)?.ledgerCashPayments || 0).toFixed(2)} ج.م)
                   {" + "} إيداعات ({((activeShift as any)?.totalDeposits || 0).toFixed(2)} ج.م) 
-                  {" - "} سحوبات ({((activeShift as any)?.totalWithdrawals || 0).toFixed(2)} ج.م) 
+                  {" - "} سحب لشراء بضاعة ({((activeShift as any)?.totalWithdrawals || 0).toFixed(2)} ج.م) 
                   {" = "} <span className="text-emerald-600 font-black">{(Number(activeShift?.currentCashBalance || 0)).toFixed(2)} ج.م</span>.
                 </p>
                 <p className="text-[10px] text-slate-400">
@@ -1164,7 +1180,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                         <span>{depVal.toFixed(2)} ج.م</span>
                       </div>
                       <div className="flex justify-between text-rose-600">
-                        <span>إجمالي السحوبات (-):</span>
+                        <span>سحب نقدية لشراء بضاعة (-):</span>
                         <span>{witVal.toFixed(2)} ج.م</span>
                       </div>
                       <div className="flex justify-between border-t border-slate-200 pt-2 text-slate-800">

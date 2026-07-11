@@ -468,7 +468,7 @@ export class POSPrintService {
             <span>${Number(snap.totalDeposits).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: red;">
-            <span>سحوبات يدوية (-):</span>
+            <span>سحب نقدية لشراء بضاعة (-):</span>
             <span>${Number(snap.totalWithdrawals).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between bold" style="margin-top: 1mm;">

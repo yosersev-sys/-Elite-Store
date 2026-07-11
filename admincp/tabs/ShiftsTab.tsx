@@ -775,7 +775,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                               <p className="text-base font-black text-emerald-600">{Number(depVal || 0).toFixed(2)} ج.م</p>
                             </div>
                             <div className="bg-slate-50 p-5 rounded-2xl border">
-                              <p className="text-[10px] text-slate-400 font-bold mb-1">إجمالي السحوبات</p>
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">سحب لشراء بضاعة</p>
                               <p className="text-base font-black text-rose-600">{Number(witVal || 0).toFixed(2)} ج.م</p>
                             </div>
                           </>
@@ -1281,7 +1281,7 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                         <span>{depVal.toFixed(2)} ج.م</span>
                       </div>
                       <div className="flex justify-between text-rose-600">
-                        <span>إجمالي السحوبات (-):</span>
+                        <span>سحب نقدية لشراء بضاعة (-):</span>
                         <span>{witVal.toFixed(2)} ج.م</span>
                       </div>
                       <div className="flex justify-between border-t border-slate-200 pt-2 text-slate-800">
