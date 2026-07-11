@@ -42,6 +42,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const handleBackToDashboard = () => {
+    if (invoiceItems.length > 0) {
+      setShowCancelConfirm(true);
+    } else {
+      onCancel();
+    }
+  };
   const [showScanner, setShowScanner] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -1282,11 +1289,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => !isSaving && setShowCancelConfirm(false)}></div>
           <div className="relative bg-white w-full max-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
             <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
-            <h3 className="text-2xl font-black text-slate-800 mb-2">{order ? 'تجاهل التعديلات؟' : 'إلغاء الفاتورة؟'}</h3>
-            <p className="text-slate-500 font-bold text-sm mb-8">سيتم مسح جميع الأصناف التي قمت بإضافتها حالياً.</p>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">{order ? 'تجاهل التعديلات والرجوع؟' : 'الرجوع للوحة التحكم؟'}</h3>
+            <p className="text-slate-500 font-bold text-sm mb-8">سيتم مسح جميع الأصناف التي قمت بتعديلها أو إضافتها للفاتورة حالياً.</p>
             <div className="flex gap-3">
-              <button disabled={isSaving} onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg">نعم، {order ? 'خروج' : 'إلغاء'}</button>
-              <button disabled={isSaving} onClick={() => setShowCancelConfirm(false)} className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95">تراجع</button>
+              <button disabled={isSaving} onClick={onCancel} className="flex-grow bg-rose-500 text-white py-4 rounded-2xl font-black text-sm active:scale-95 shadow-lg">نعم، خروج للوحة التحكم</button>
+              <button disabled={isSaving} onClick={() => setShowCancelConfirm(false)} className="flex-grow bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm active:scale-95">تراجع ومتابعة العمل</button>
             </div>
           </div>
         </div>
@@ -1453,7 +1460,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
             </button>
           )}
         </div>
-        <button type="button" onClick={() => !isSaving && setShowCancelConfirm(true)} className="bg-white border-2 border-slate-100 px-4 py-1.5 md:px-8 md:py-3 rounded-xl font-black text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition text-[10px] md:text-xs">إلغاء</button>
+        <button 
+          type="button" 
+          onClick={handleBackToDashboard} 
+          className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black text-xs md:text-sm transition-all active:scale-95 flex items-center gap-1.5 border border-slate-200 shadow-sm"
+        >
+          <span>↩️</span> العودة للوحة التحكم
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 items-start">
