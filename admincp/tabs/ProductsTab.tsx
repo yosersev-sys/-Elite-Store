@@ -269,23 +269,27 @@ const ProductRow = React.memo<{
           >
             🏷️
           </button>
-          <button 
-            onClick={() => onOpenEdit(product)} 
-            className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm shrink-0"
-            title="تعديل المنتج"
-          >
-            ✎
-          </button>
-          <button 
-            disabled={isDeleting}
-            onClick={() => onDelete(product.id)} 
-            className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[32px] shrink-0"
-            title="حذف المنتج"
-          >
-            {isDeleting ? (
-              <span className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
-            ) : '🗑'}
-          </button>
+          {isManager && (
+            <>
+              <button 
+                onClick={() => onOpenEdit(product)} 
+                className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm shrink-0"
+                title="تعديل المنتج"
+              >
+                ✎
+              </button>
+              <button 
+                disabled={isDeleting}
+                onClick={() => onDelete(product.id)} 
+                className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[32px] shrink-0"
+                title="حذف المنتج"
+              >
+                {isDeleting ? (
+                  <span className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                ) : '🗑'}
+              </button>
+            </>
+          )}
         </div>
       </td>
     </tr>

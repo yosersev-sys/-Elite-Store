@@ -109,7 +109,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
     const isCashier = props.currentUser?.role === 'cashier';
     const allowedTabs: AdminTab[] = isCashier 
-      ? ['stats', 'invoices', 'store-orders', 'ledger', 'shifts', 'settings', 'expenses', 'suppliers', 'payment-methods'] 
+      ? ['stats', 'products', 'invoices', 'store-orders', 'ledger', 'shifts', 'settings', 'expenses', 'suppliers', 'payment-methods'] 
       : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods'];
     const currentTab = allowedTabs.includes(activeTab) ? activeTab : 'stats';
 
@@ -164,11 +164,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           {(props.currentUser?.role === 'admin' || props.currentUser?.role === 'cashier') && (
             <AdminNavButton active={activeTab === 'stats'} onClick={() => handleTabChange('stats')} icon="📊" label="الإحصائيات" />
           )}
+          {(props.currentUser?.role === 'admin' || props.currentUser?.role === 'cashier') && (
+            <AdminNavButton active={activeTab === 'products'} onClick={() => handleTabChange('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
+          )}
           {props.currentUser?.role === 'admin' && (
-            <>
-              <AdminNavButton active={activeTab === 'products'} onClick={() => handleTabChange('products')} icon="📦" label="المخزن" badge={lowStockCount > 0 ? lowStockCount : undefined} />
-              <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
-            </>
+            <AdminNavButton active={activeTab === 'categories'} onClick={() => handleTabChange('categories')} icon="🏷️" label="الأقسام" />
           )}
           <AdminNavButton active={activeTab === 'invoices'} onClick={() => handleTabChange('invoices', '')} icon="🧾" label="الفواتير" />
           <AdminNavButton active={activeTab === 'store-orders'} onClick={() => handleTabChange('store-orders', '')} icon="🛍️" label="طلبات المتجر" badge={pendingOrdersCount > 0 ? pendingOrdersCount : undefined} />
