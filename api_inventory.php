@@ -56,7 +56,7 @@ function getFormattedProduct($pdo, $productId) {
     $p['wholesalePrice'] = (float)$p['wholesalePrice'];
     $p['reorderLevel'] = (float)$p['reorderLevel'];
 
-    $unitsStmt = $pdo->prepare("SELECT * FROM product_units WHERE productId = ? AND isActive = 1");
+    $unitsStmt = $pdo->prepare("SELECT * FROM product_units WHERE productId = ?");
     $unitsStmt->execute([$productId]);
     $units = $unitsStmt->fetchAll();
     $p['units'] = [];
@@ -206,7 +206,7 @@ function deleteImageFile($path) {
 switch ($action) {
     case 'get_products':
         $prods = $pdo->query("SELECT * FROM products ORDER BY createdAt DESC")->fetchAll();
-        $unitsStmt = $pdo->prepare("SELECT * FROM product_units WHERE productId = ? AND isActive = 1");
+        $unitsStmt = $pdo->prepare("SELECT * FROM product_units WHERE productId = ?");
         
         foreach ($prods as &$p) {
             $p['images'] = json_decode($p['images'] ?? '[]', true) ?: [];

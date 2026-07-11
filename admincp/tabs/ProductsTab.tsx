@@ -98,9 +98,14 @@ const ProductRow = React.memo<{
     marginBadge = { bg: 'bg-blue-50 text-blue-600', label: 'متوسط' };
   }
 
+  const defUnitForActive = product.units?.find(u => u.isDefault === 1);
+  const isProductActive = defUnitForActive ? Number(defUnitForActive.isActive) !== 0 : true;
+
   // Stock status badge
   let stockBadge = { bg: 'bg-emerald-50 text-emerald-700', text: 'متوفر' };
-  if (isOut) {
+  if (!isProductActive) {
+    stockBadge = { bg: 'bg-slate-100 text-slate-500', text: 'معطل' };
+  } else if (isOut) {
     stockBadge = { bg: 'bg-rose-100 text-rose-700 animate-pulse', text: 'نفد' };
   } else if (isLow) {
     stockBadge = { bg: 'bg-amber-100 text-amber-700', text: 'منخفض' };
@@ -110,7 +115,8 @@ const ProductRow = React.memo<{
   const maxBar = Math.max(reorder * 2, 10);
   const progressWidth = Math.min(100, (stock / maxBar) * 100);
   let progressColor = 'bg-emerald-500';
-  if (isOut) progressColor = 'bg-rose-500';
+  if (!isProductActive) progressColor = 'bg-slate-300';
+  else if (isOut) progressColor = 'bg-rose-500';
   else if (isLow) progressColor = 'bg-amber-500';
 
   const categoryName = categories.find(c => c.id === product.categoryId)?.name || 'عام';
@@ -127,7 +133,7 @@ const ProductRow = React.memo<{
   };
 
   return (
-    <tr className={`hover:bg-slate-50/50 transition-colors group cursor-pointer ${isSelected ? 'bg-slate-50' : ''}`} onClick={() => onOpenDetails(product)}>
+    <tr className={`hover:bg-slate-50/50 transition-colors group cursor-pointer ${isSelected ? 'bg-slate-50' : ''} ${isProductActive ? '' : 'opacity-65 bg-slate-50/30'}`} onClick={() => onOpenDetails(product)}>
       {/* Checkbox Column */}
       <td className="px-6 py-4 text-center shrink-0" onClick={e => e.stopPropagation()}>
         <input 
@@ -143,13 +149,13 @@ const ProductRow = React.memo<{
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-100 shadow-sm shrink-0 bg-slate-50 flex items-center justify-center">
             {product.images && product.images[0] ? (
-              <img src={product.images[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+              <img src={product.images[0]} className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isProductActive ? '' : 'grayscale'}`} alt="" />
             ) : (
               <span className="text-xl text-slate-300">📦</span>
             )}
           </div>
           <div className="min-w-0">
-            <p className="font-black text-slate-700 truncate max-w-[200px] text-xs md:text-sm">{product.name}</p>
+            <p className={`font-black truncate max-w-[200px] text-xs md:text-sm ${isProductActive ? 'text-slate-700' : 'text-slate-400 line-through decoration-slate-400/80 decoration-2'}`}>{product.name}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-[9px] text-slate-400 font-bold uppercase">ID: {product.id.slice(-6)}</span>
               {product.barcode && (

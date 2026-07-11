@@ -281,10 +281,14 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
     
-    return products.filter(p => 
-      p.name.toLowerCase().includes(q) || 
-      (p.barcode && String(p.barcode).includes(q))
-    ).slice(0, 8);
+    return products.filter(p => {
+      const defUnit = p.units?.find(u => u.isDefault === 1);
+      const isActive = defUnit ? Number(defUnit.isActive) !== 0 : true;
+      if (!isActive) return false;
+
+      return p.name.toLowerCase().includes(q) || 
+             (p.barcode && String(p.barcode).includes(q));
+    }).slice(0, 8);
   }, [products, searchQuery]);
 
   const triggerQuickAdd = (barcode: string) => {
@@ -326,6 +330,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   };
 
   const addItemToInvoice = (product: Product, selectedUnit: any = null, bypassStockCheck = false) => {
+    const defUnit = product.units?.find(u => u.isDefault === 1);
+    const isProductActive = defUnit ? Number(defUnit.isActive) !== 0 : true;
+    if (!isProductActive) {
+      alert("عذراً، هذا المنتج معطل ولا يمكن بيعه.");
+      return;
+    }
+
     const unitName = selectedUnit ? selectedUnit.unitName : (product.unit || 'قطعة');
     const conversionFactor = selectedUnit ? selectedUnit.conversionFactor : 1.00;
     const salePrice = selectedUnit ? selectedUnit.salePrice : product.price;

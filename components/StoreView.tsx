@@ -76,6 +76,10 @@ const StoreView: React.FC<StoreViewProps> = ({
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
+      const defUnit = p.units?.find(u => u.isDefault === 1);
+      const isActive = defUnit ? Number(defUnit.isActive) !== 0 : true;
+      if (!isActive) return false;
+
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            p.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategoryId === 'all' || p.categoryId === selectedCategoryId;
