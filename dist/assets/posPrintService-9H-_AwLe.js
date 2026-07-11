@@ -1,4 +1,4 @@
-class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createElement("style");e.id=t,e.innerHTML=n,document.head.appendChild(e)}static removeStyle(t){const n=document.getElementById(t);n&&n.remove()}static injectContainer(t,n){this.removeContainer(t);const e=document.createElement("div");return e.id=t,e.innerHTML=n,document.body.appendChild(e),e}static removeContainer(t){const n=document.getElementById(t);n&&n.remove()}static async printInvoice(t){try{this.injectStyle("pos-invoice-print-style",`
+class w{static injectStyle(t,a){this.removeStyle(t);const e=document.createElement("style");e.id=t,e.innerHTML=a,document.head.appendChild(e)}static removeStyle(t){const a=document.getElementById(t);a&&a.remove()}static injectContainer(t,a){this.removeContainer(t);const e=document.createElement("div");return e.id=t,e.innerHTML=a,document.body.appendChild(e),e}static removeContainer(t){const a=document.getElementById(t);a&&a.remove()}static async printInvoice(t){try{this.injectStyle("pos-invoice-print-style",`
         @media print {
           body > :not(#pos-invoice-print-container) {
             display: none !important;
@@ -67,30 +67,30 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
             margin: 0 auto !important;
           }
         }
-      `);const e=Number(t.total||0),m=Number(t.subtotalBeforeDiscount!==void 0?t.subtotalBeforeDiscount:t.subtotal||0),a=Number(t.totalItemDiscounts||0),o=Number(t.discount||0),d=Number(t.deliveryFee!==void 0?t.deliveryFee:Math.max(0,e-m)),p=a+o,v=(t.items||[]).map(i=>{const s=i.discountValue?i.discountType==="percent"?i.price*i.discountValue/100:i.discountValue:0,r=i.price-s,f=r*Number(i.quantity||0);return`
+      `);const e=Number(t.total||0),y=Number(t.subtotalBeforeDiscount!==void 0?t.subtotalBeforeDiscount:t.subtotal||0),o=Number(t.totalItemDiscounts||0),r=Number(t.discount||0),c=Number(t.deliveryFee!==void 0?t.deliveryFee:Math.max(0,e-y)),m=o+r,f=(t.items||[]).map(n=>{const i=n.discountValue?n.discountType==="percent"?n.price*n.discountValue/100:n.discountValue:0,s=n.price-i,d=s*Number(n.quantity||0);return`
           <div style="margin-bottom: 1.5mm;">
             <div class="flex-between bold">
-              <span>${i.name}</span>
-              <span>${f.toFixed(2)}</span>
+              <span>${n.name}</span>
+              <span>${d.toFixed(2)}</span>
             </div>
             <div style="font-size: 9pt; color: #555;">
-              ${i.quantity} ${i.unit==="kg"?"كجم":i.unit==="gram"?"جم":"ق"} × ${r.toFixed(2)}
-              ${s>0?` <span style="text-decoration: line-through; margin-right: 1mm;">(${Number(i.price).toFixed(2)})</span>`:""}
+              ${n.quantity} ${n.unit==="kg"?"كجم":n.unit==="gram"?"جم":"ق"} × ${s.toFixed(2)}
+              ${i>0?` <span style="text-decoration: line-through; margin-right: 1mm;">(${Number(n.price).toFixed(2)})</span>`:""}
             </div>
           </div>
           <div class="thin-divider"></div>
-        `}).join("");let l=`<div>طريقة الدفع: ${t.paymentMethod}</div>`;if(t.payments&&t.payments.length>0){const i=t.payments.map(s=>`
+        `}).join("");let v=`<div>طريقة الدفع: ${t.paymentMethod}</div>`;if(t.payments&&t.payments.length>0){const n=t.payments.map(i=>`
             <div class="flex-between" style="font-size: 9pt;">
-              <span>${s.method==="cash"?"💵 نقدي (كاش)":s.method==="vodafone"?"📱 فودافون كاش":s.method==="instapay"?"💸 انستا باي":s.method==="visa"?"💳 فيزا":s.method}</span>
-              <span>${(Number(s.amount)||0).toFixed(2)} ج.م</span>
+              <span>${i.method==="cash"?"💵 نقدي (كاش)":i.method==="vodafone"?"📱 فودافون كاش":i.method==="instapay"?"💸 انستا باي":i.method==="visa"?"💳 فيزا":i.method}</span>
+              <span>${(Number(i.amount)||0).toFixed(2)} ج.م</span>
             </div>
-            ${s.reference?`<div style="font-size: 8pt; color: #555; text-align: left;">مرجع: ${s.reference}</div>`:""}
-          `).join("");l+=`
+            ${i.reference?`<div style="font-size: 8pt; color: #555; text-align: left;">مرجع: ${i.reference}</div>`:""}
+          `).join("");v+=`
           <div style="margin-top: 1.5mm; padding: 2mm; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
             <div class="text-center bold" style="font-size: 8pt; border-bottom: 1px solid #eee; padding-bottom: 1mm; margin-bottom: 1.5mm;">تفاصيل المدفوعات المستلمة</div>
-            ${i}
+            ${n}
           </div>
-        `}const c=`
+        `}const u=`
         <div class="text-center">
           <div class="title font-Cairo font-black">سوق العصر</div>
           <div style="font-size: 9pt; color: #555;">فاقوس - أول سوق إلكتروني</div>
@@ -107,7 +107,7 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
         <div style="font-size: 9pt; line-height: 1.4;">
           <div class="flex-between">
             <span>التاريخ:</span>
-            <span>${(()=>{const i=t.createdAt;if(!i)return new Date().toLocaleString("ar-EG");const s=Number(i),r=isNaN(s)?new Date(i):new Date(s);return(isNaN(r.getTime())?new Date:r).toLocaleString("ar-EG")})()}</span>
+            <span>${(()=>{const n=t.createdAt;if(!n)return new Date().toLocaleString("ar-EG");const i=Number(n),s=isNaN(i)?new Date(n):new Date(i);return(isNaN(s.getTime())?new Date:s).toLocaleString("ar-EG")})()}</span>
           </div>
           <div class="flex-between">
             <span>العميل:</span>
@@ -128,29 +128,29 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
         <div class="text-center bold" style="font-size: 9pt; margin-bottom: 2mm;">الأصناف والمبيعات</div>
         <div class="thin-divider"></div>
         
-        ${v}
+        ${f}
         
         <div style="line-height: 1.4; margin-top: 2mm;">
           <div class="flex-between">
             <span>المجموع الفرعي:</span>
-            <span>${m.toFixed(2)}</span>
+            <span>${y.toFixed(2)}</span>
           </div>
-          ${a>0?`
-            <div class="flex-between" style="color: #d32f2f;">
-              <span>خصومات المنتجات:</span>
-              <span>-${a.toFixed(2)}</span>
-            </div>
-          `:""}
           ${o>0?`
             <div class="flex-between" style="color: #d32f2f;">
-              <span>خصم الفاتورة:</span>
+              <span>خصومات المنتجات:</span>
               <span>-${o.toFixed(2)}</span>
             </div>
           `:""}
-          ${d>0?`
+          ${r>0?`
+            <div class="flex-between" style="color: #d32f2f;">
+              <span>خصم الفاتورة:</span>
+              <span>-${r.toFixed(2)}</span>
+            </div>
+          `:""}
+          ${c>0?`
             <div class="flex-between">
               <span>رسوم التوصيل 🚚:</span>
-              <span>+${d.toFixed(2)}</span>
+              <span>+${c.toFixed(2)}</span>
             </div>
           `:""}
           <div class="divider"></div>
@@ -158,16 +158,16 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
             <span>الإجمالي الصافي:</span>
             <span>${e.toFixed(2)} ج.م</span>
           </div>
-          ${p>0?`
+          ${m>0?`
             <div class="text-center bold" style="font-size: 9pt; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 4px; padding: 1.5mm; margin-top: 2mm;">
-              💰 إجمالي التوفير: ${p.toFixed(2)} ج.م
+              💰 إجمالي التوفير: ${m.toFixed(2)} ج.م
             </div>
           `:""}
         </div>
         
         <div class="divider"></div>
         <div class="text-center" style="font-size: 9pt;">
-          ${l}
+          ${v}
           ${t.confirmedByName||t.confirmedShiftId?`
             <div style="font-size: 8pt; color: #555; line-height: 1.4; border: 1px dashed #ccc; padding: 1.5mm; border-radius: 4px; margin-top: 2mm; margin-bottom: 2mm; text-align: right;">
               ${t.confirmedByName?`
@@ -191,7 +191,7 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
           </div>
           <div style="font-size: 7pt; color: #888; margin-top: 1mm;">امسح الكود لزيارة موقعنا 🌐</div>
         </div>
-      `;return this.injectContainer("pos-invoice-print-container",c),window.print(),setTimeout(()=>{this.removeStyle("pos-invoice-print-style"),this.removeContainer("pos-invoice-print-container")},1e3),!0}catch(n){return console.error("Invoice Print Error:",n),!1}}static async openDrawer(){try{return this.injectStyle("pos-drawer-print-style",`
+      `;return this.injectContainer("pos-invoice-print-container",u),window.print(),setTimeout(()=>{this.removeStyle("pos-invoice-print-style"),this.removeContainer("pos-invoice-print-container")},1e3),!0}catch(a){return console.error("Invoice Print Error:",a),!1}}static async openDrawer(){try{return this.injectStyle("pos-drawer-print-style",`
         @media print {
           body > :not(#pos-drawer-kick-container) {
             display: none !important;
@@ -250,7 +250,23 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
             font-weight: bold !important;
           }
         }
-      `);const e=t.shift,a=(c=>{try{return c?JSON.parse(c):null}catch{return null}})(e.snapshotData)||{cashSales:0,cashReturns:0,cardSales:0,debtSales:0,totalDeposits:0,totalWithdrawals:0,ledgerCashPayments:0,ordersCount:0,returnsCount:0},o=Number(t.totalSales||0),d=Number(t.cost||0),p=Number(t.totalExp||0),v=o-d-p,l=`
+      `);const e=t.shift,o=(i=>{try{return i?JSON.parse(i):null}catch{return null}})(e.snapshotData)||{cashSales:0,cashReturns:0,cardSales:0,debtSales:0,totalDeposits:0,totalWithdrawals:0,ledgerCashPayments:0,ordersCount:0,returnsCount:0};let r=o.products;if(!r||!Array.isArray(r)||r.length===0){const i={};(t.orders||[]).filter(d=>d.status==="completed").forEach(d=>{(Array.isArray(d.items)?d.items:[]).forEach(p=>{if(!p||!p.id)return;const l=p.id,g=Number(p.quantity||0),h=p.unit||"piece";i[l]||(i[l]={id:l,name:p.name||"منتج غير معروف",qtySold:0,unit:h,qtyBefore:"-",qtyAfter:"-"}),i[l].qtySold+=g})}),r=Object.values(i).sort((d,b)=>b.qtySold-d.qtySold)}let c="";r&&r.length>0&&(c=`
+          <div class="divider"></div>
+          <div class="text-center bold" style="margin: 2mm 0 1mm;">المنتجات المباعة وحركة المخزن</div>
+          <div class="divider"></div>
+          <div style="margin-top: 1mm;">
+            ${r.map(s=>{const d=s.unit==="kg"?"كجم":s.unit==="gram"?"جم":"ق",b=typeof s.qtyBefore=="number"?s.qtyBefore.toFixed(2).replace(/\.00$/,""):s.qtyBefore,p=typeof s.qtyAfter=="number"?s.qtyAfter.toFixed(2).replace(/\.00$/,""):s.qtyAfter,l=typeof s.qtySold=="number"?s.qtySold.toFixed(2).replace(/\.00$/,""):s.qtySold;return`
+            <div style="margin-bottom: 1.5mm; font-size: 9pt;">
+              <div class="bold">${s.name}</div>
+              <div class="flex-between" style="color: #444; font-size: 8.5pt;">
+                <span>المباع: ${l} ${d}</span>
+                <span>الكمية: ${b} ➔ ${p}</span>
+              </div>
+            </div>
+            <div style="border-bottom: 1px dotted #ccc; margin: 1mm 0;"></div>
+          `}).join("")}
+          </div>
+        `);const m=Number(t.totalSales||0),f=Number(t.cost||0),v=Number(t.totalExp||0),u=m-f-v,n=`
         <div class="text-center">
           <h2 class="bold" style="font-size: 12pt;">تقرير تسليم خزينة الوردية</h2>
           <p style="font-size: 9pt; color: #555;">سوق العصر - فاقوس</p>
@@ -295,23 +311,23 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
         <div style="font-size: 9pt;">
           <div class="flex-between">
             <span>عدد الفواتير الصادرة:</span>
-            <span>${a.ordersCount} فاتورة</span>
+            <span>${o.ordersCount} فاتورة</span>
           </div>
           <div class="flex-between">
             <span>إجمالي المبيعات:</span>
-            <span class="bold">${o.toLocaleString()} ج.م</span>
+            <span class="bold">${m.toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between">
             <span>تكلفة البضاعة:</span>
-            <span>${d.toLocaleString()} ج.م</span>
+            <span>${f.toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between">
             <span>المصروفات:</span>
-            <span>${p.toLocaleString()} ج.م</span>
+            <span>${v.toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between bold" style="font-size: 11pt; margin-top: 1mm;">
             <span>صافي ربح الوردية:</span>
-            <span>${v.toLocaleString()} ج.م</span>
+            <span>${u.toLocaleString()} ج.م</span>
           </div>
         </div>
 
@@ -326,23 +342,23 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
           </div>
           <div class="flex-between" style="color: green;">
             <span>المبيعات النقدية (+):</span>
-            <span>${Number(a.cashSales).toLocaleString()} ج.م</span>
+            <span>${Number(o.cashSales).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: red;">
             <span>المرتجع النقدية (-):</span>
-            <span>${Number(a.cashReturns).toLocaleString()} ج.م</span>
+            <span>${Number(o.cashReturns).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: green;">
             <span>تحصيلات ديون (+):</span>
-            <span>${Number(a.ledgerCashPayments).toLocaleString()} ج.م</span>
+            <span>${Number(o.ledgerCashPayments).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: green;">
             <span>إيداعات يدوية (+):</span>
-            <span>${Number(a.totalDeposits).toLocaleString()} ج.م</span>
+            <span>${Number(o.totalDeposits).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: red;">
             <span>سحب نقدية لشراء بضاعة (-):</span>
-            <span>${Number(a.totalWithdrawals).toLocaleString()} ج.م</span>
+            <span>${Number(o.totalWithdrawals).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between bold" style="margin-top: 1mm;">
             <span>الرصيد الدفتري المتوقع:</span>
@@ -376,6 +392,8 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
           </div>
         `:""}
 
+        ${c}
+
         <div style="margin-top: 6mm;" class="divider"></div>
         <div class="flex-between" style="font-size: 8pt; text-align: center;">
           <div style="width: 45%;">
@@ -390,4 +408,4 @@ class y{static injectStyle(t,n){this.removeStyle(t);const e=document.createEleme
 
         <div class="divider"></div>
         <p class="text-center" style="font-size: 8pt;">طُبع بواسطة نظام سوق العصر للمبيعات</p>
-      `;return this.injectContainer("pos-shift-print-container",l),window.print(),setTimeout(()=>{this.removeStyle("pos-shift-print-style"),this.removeContainer("pos-shift-print-container")},1e3),!0}catch(n){return console.error("Shift Print Error:",n),!1}}}export{y as P};
+      `;return this.injectContainer("pos-shift-print-container",n),window.print(),setTimeout(()=>{this.removeStyle("pos-shift-print-style"),this.removeContainer("pos-shift-print-container")},1e3),!0}catch(a){return console.error("Shift Print Error:",a),!1}}}export{w as P};

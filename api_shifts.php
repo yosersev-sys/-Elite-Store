@@ -354,6 +354,60 @@ switch ($action) {
         }
 
         // 6. تجميد البيانات في الـ Snapshot لحماية البيانات التاريخية
+        // جلب المنتجات المباعة في هذه الوردية لحساب الكميات قبل وبعد
+        $stmtShiftOrders = $pdo->prepare("SELECT items FROM orders WHERE confirmedShiftId = ? AND status = 'completed'");
+        $stmtShiftOrders->execute([$shiftId]);
+        $shiftOrders = $stmtShiftOrders->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmtProds = $pdo->query("SELECT id, name, stockQuantity, unit FROM products");
+        $productsMap = [];
+        while ($p = $stmtProds->fetch(PDO::FETCH_ASSOC)) {
+            $productsMap[$p['id']] = $p;
+        }
+
+        $soldMap = [];
+        foreach ($shiftOrders as $order) {
+            $items = json_decode($order['items'], true) ?: [];
+            foreach ($items as $item) {
+                $prodId = $item['id'] ?? null;
+                if (!$prodId) continue;
+                $qty = (float)($item['quantity'] ?? 0);
+                $unit = $item['unit'] ?? 'piece';
+                if (!isset($soldMap[$prodId])) {
+                    $soldMap[$prodId] = [
+                        'id' => $prodId,
+                        'name' => $item['name'] ?? 'منتج غير معروف',
+                        'qtySold' => 0,
+                        'unit' => $unit
+                    ];
+                }
+                $soldMap[$prodId]['qtySold'] += $qty;
+            }
+        }
+
+        $productsSnapshot = [];
+        foreach ($soldMap as $prodId => $soldItem) {
+            $currentStock = isset($productsMap[$prodId]) ? (float)$productsMap[$prodId]['stockQuantity'] : 0.0;
+            $qtyBefore = $currentStock + $soldItem['qtySold'];
+            $qtyAfter = $currentStock;
+            
+            $productsSnapshot[] = [
+                'id' => $prodId,
+                'name' => $soldItem['name'],
+                'qtySold' => $soldItem['qtySold'],
+                'unit' => $soldItem['unit'],
+                'qtyBefore' => $qtyBefore,
+                'qtyAfter' => $qtyAfter
+            ];
+        }
+
+        usort($productsSnapshot, function($a, $b) {
+            if ($a['qtySold'] == $b['qtySold']) {
+                return 0;
+            }
+            return ($a['qtySold'] < $b['qtySold']) ? 1 : -1;
+        });
+
         $snapshot = [
             'cashSales' => $cashSales,
             'cashReturns' => $cashReturns,
@@ -363,7 +417,8 @@ switch ($action) {
             'totalWithdrawals' => $totalWithdrawals,
             'ledgerCashPayments' => $ledgerCashPayments,
             'ordersCount' => $ordersCount,
-            'returnsCount' => $returnsCount
+            'returnsCount' => $returnsCount,
+            'products' => $productsSnapshot
         ];
 
         $userId = $_SESSION['user']['id'];

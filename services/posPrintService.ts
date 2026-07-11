@@ -388,6 +388,63 @@ export class POSPrintService {
         returnsCount: 0
       };
 
+      // Extract products from snapshot or fallback to calculating them from orders
+      let productsList = (snap as any).products;
+      if (!productsList || !Array.isArray(productsList) || productsList.length === 0) {
+        const productStats: Record<string, { id: string; name: string; qtySold: number; unit: string; qtyBefore: any; qtyAfter: any }> = {};
+        const completedOrders = (shiftDetails.orders || []).filter((o: any) => o.status === 'completed');
+        completedOrders.forEach((order: any) => {
+          const items = Array.isArray(order.items) ? order.items : [];
+          items.forEach((item: any) => {
+            if (!item || !item.id) return;
+            const key = item.id;
+            const qty = Number(item.quantity || 0);
+            const unit = item.unit || 'piece';
+            if (!productStats[key]) {
+              productStats[key] = {
+                id: key,
+                name: item.name || 'منتج غير معروف',
+                qtySold: 0,
+                unit: unit,
+                qtyBefore: '-',
+                qtyAfter: '-'
+              };
+            }
+            productStats[key].qtySold += qty;
+          });
+        });
+        productsList = Object.values(productStats).sort((a, b) => b.qtySold - a.qtySold);
+      }
+
+      let productsHtml = '';
+      if (productsList && productsList.length > 0) {
+        const rows = productsList.map((p: any) => {
+          const formattedUnit = p.unit === 'kg' ? 'كجم' : p.unit === 'gram' ? 'جم' : 'ق';
+          const qtyBeforeStr = typeof p.qtyBefore === 'number' ? p.qtyBefore.toFixed(2).replace(/\.00$/, '') : p.qtyBefore;
+          const qtyAfterStr = typeof p.qtyAfter === 'number' ? p.qtyAfter.toFixed(2).replace(/\.00$/, '') : p.qtyAfter;
+          const qtySoldStr = typeof p.qtySold === 'number' ? p.qtySold.toFixed(2).replace(/\.00$/, '') : p.qtySold;
+          return `
+            <div style="margin-bottom: 1.5mm; font-size: 9pt;">
+              <div class="bold">${p.name}</div>
+              <div class="flex-between" style="color: #444; font-size: 8.5pt;">
+                <span>المباع: ${qtySoldStr} ${formattedUnit}</span>
+                <span>الكمية: ${qtyBeforeStr} ➔ ${qtyAfterStr}</span>
+              </div>
+            </div>
+            <div style="border-bottom: 1px dotted #ccc; margin: 1mm 0;"></div>
+          `;
+        }).join('');
+
+        productsHtml = `
+          <div class="divider"></div>
+          <div class="text-center bold" style="margin: 2mm 0 1mm;">المنتجات المباعة وحركة المخزن</div>
+          <div class="divider"></div>
+          <div style="margin-top: 1mm;">
+            ${rows}
+          </div>
+        `;
+      }
+
       const totalSales = Number(shiftDetails.totalSales || 0);
       const cost = Number(shiftDetails.cost || 0);
       const totalExp = Number(shiftDetails.totalExp || 0);
@@ -518,6 +575,8 @@ export class POSPrintService {
             <span class="bold">ملاحظات الوردية:</span> ${shift.notes}
           </div>
         ` : ''}
+
+        ${productsHtml}
 
         <div style="margin-top: 6mm;" class="divider"></div>
         <div class="flex-between" style="font-size: 8pt; text-align: center;">
