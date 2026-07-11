@@ -19,6 +19,7 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [deletingIds, setDeletingIds] = useState<string[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleDeleteClick = async (user: User) => {
     if (user.id === 'admin_root') {
@@ -165,7 +166,22 @@ const MembersTab: React.FC<MembersTabProps> = ({ users, currentUser, adminSearch
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">{isAddModalOpen ? 'كلمة المرور' : 'تغيير كلمة المرور (اختياري)'}</label>
-                <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold" placeholder="••••••••" />
+                <div className="relative">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    value={formData.password} 
+                    onChange={e => setFormData({...formData, password: e.target.value})} 
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold" 
+                    placeholder="••••••••" 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors"
+                  >
+                    {showPassword ? '👁️' : '🙈'}
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase mr-2">صلاحية الحساب</label>
