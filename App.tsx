@@ -738,7 +738,7 @@ const App: React.FC = () => {
                 throw new Error(lastError);
               }
             }} 
-            onCancel={() => onNavigate('store')} 
+            onCancel={() => onNavigate('admincp')} 
           />
         );
       default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={(q) => {
