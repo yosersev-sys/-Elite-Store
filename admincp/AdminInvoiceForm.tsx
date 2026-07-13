@@ -287,15 +287,60 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
-    
-    return products.filter(p => {
-      const defUnit = p.units?.find(u => u.isDefault === 1);
-      const isActive = defUnit ? Number(defUnit.isActive) !== 0 : true;
-      if (!isActive) return false;
 
-      return p.name.toLowerCase().includes(q) || 
-             (p.barcode && String(p.barcode).includes(q));
-    }).slice(0, 8);
+    const items: Array<{
+      product: Product;
+      unit: any;
+      key: string;
+      displayName: string;
+      displayPrice: number;
+      displayBarcode: string;
+      displayStock: string;
+    }> = [];
+
+    products.forEach(p => {
+      const activeUnits = p.units ? p.units.filter(u => Number(u.isActive) !== 0) : [];
+      
+      if (activeUnits.length > 0) {
+        activeUnits.forEach(u => {
+          const matchName = p.name.toLowerCase().includes(q);
+          const matchBarcode = u.barcode && String(u.barcode).toLowerCase().includes(q);
+          const matchUnitName = u.unitName.toLowerCase().includes(q);
+
+          if (matchName || matchBarcode || matchUnitName) {
+            const factor = u.conversionFactor || 1;
+            const availableQty = Math.floor(p.stockQuantity / factor);
+            
+            items.push({
+              product: p,
+              unit: u,
+              key: `${p.id}_unit_${u.id}`,
+              displayName: `${p.name} (${u.unitName})`,
+              displayPrice: u.salePrice,
+              displayBarcode: u.barcode || '',
+              displayStock: `المتاح: ${availableQty} ${u.unitName}`,
+            });
+          }
+        });
+      } else {
+        const matchName = p.name.toLowerCase().includes(q);
+        const matchBarcode = p.barcode && String(p.barcode).toLowerCase().includes(q);
+
+        if (matchName || matchBarcode) {
+          items.push({
+            product: p,
+            unit: null,
+            key: `${p.id}_base`,
+            displayName: p.name,
+            displayPrice: p.price,
+            displayBarcode: p.barcode || '',
+            displayStock: `المتاح: ${p.stockQuantity} ${p.unit || 'قطعة'}`,
+          });
+        }
+      }
+    });
+
+    return items.slice(0, 8);
   }, [products, searchQuery]);
 
   const triggerQuickAdd = (barcode: string) => {
@@ -1504,21 +1549,21 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                
                {searchQuery.trim() && filteredProducts.length > 0 && !isSaving && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-[1.5rem] shadow-2xl z-50 overflow-hidden animate-slideUp">
-                    {filteredProducts.map(p => (
+                    {filteredProducts.map(item => (
                       <button 
-                        key={p.id}
-                        onClick={() => { addItemToInvoice(p); setSearchQuery(''); }}
+                        key={item.key}
+                        onClick={() => { addItemToInvoice(item.product, item.unit); setSearchQuery(''); }}
                         className="w-full px-4 md:px-8 py-3 md:py-5 flex items-center justify-between hover:bg-emerald-50 transition-colors border-b last:border-none"
                       >
                         <div className="flex items-center gap-3 text-right">
                            <div className="w-10 h-10 md:w-14 md:h-14 rounded-lg md:rounded-2xl overflow-hidden border border-slate-100 shrink-0">
-                              <img src={p.images[0]} className="w-full h-full object-cover" />
+                              <img src={item.product.images[0]} className="w-full h-full object-cover" />
                            </div>
                            <div>
-                              <p className="font-black text-slate-800 text-[11px] md:text-base">{p.name}</p>
+                              <p className="font-black text-slate-800 text-[11px] md:text-base">{item.displayName}</p>
                               <p className="text-[8px] md:text-[10px] font-black text-emerald-600">
-                                {p.price} ج.م
-                                <span className="text-slate-400 font-bold mr-2">| المتاح: {p.stockQuantity} {p.unit === 'piece' ? 'قطعة' : p.unit === 'kg' ? 'كجم' : p.unit === 'gram' ? 'جرام' : p.unit === 'carton' ? 'كرتونة' : p.unit === 'box' ? 'علبة' : p.unit === 'bottle' ? 'زجاجة' : p.unit === 'liter' ? 'لتر' : p.unit === 'meter' ? 'متر' : 'قطعة'}</span>
+                                {item.displayPrice} ج.م
+                                <span className="text-slate-400 font-bold mr-2">| {item.displayStock}</span>
                               </p>
                            </div>
                         </div>
@@ -1526,7 +1571,7 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
                       </button>
                     ))}
                   </div>
-               )}
+                )}
             </div>
 
             <div className="space-y-3">
