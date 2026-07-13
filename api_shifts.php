@@ -86,11 +86,22 @@ function calculateShiftStats($pdo, $shiftId) {
         }
     }
 
-    // 3. الإيداعات والسحوبات اليدوية
+    // 3. الإيداعات والسحوبات اليدوية (باستثناء حركات المصروفات المسجلة)
     $deposits = 0.0;
     $withdrawals = 0.0;
-    $stmtTxs = $pdo->prepare("SELECT type, amount FROM drawer_transactions WHERE shiftId = ?");
-    $stmtTxs->execute([$shiftId]);
+    $stmtTxs = $pdo->prepare("
+        SELECT type, amount 
+        FROM drawer_transactions 
+        WHERE shiftId = ? 
+          AND id NOT IN (
+              SELECT drawerTransactionId 
+              FROM expenses 
+              WHERE shiftId = ? 
+                AND status = 'active' 
+                AND drawerTransactionId IS NOT NULL
+          )
+    ");
+    $stmtTxs->execute([$shiftId, $shiftId]);
     foreach ($stmtTxs->fetchAll() as $t) {
         if ($t['type'] === 'deposit') {
             $deposits += (float)$t['amount'];
@@ -102,13 +113,18 @@ function calculateShiftStats($pdo, $shiftId) {
     // 4. تحصيلات العملاء النقدية
     $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn());
 
-    // 5. المصروفات
+    // 5. المصروفات (الكلية لعرضها بالتقرير)
     $stmtExpenses = $pdo->prepare("SELECT IFNULL(SUM(amount), 0) FROM expenses WHERE shiftId = ? AND status = 'active'");
     $stmtExpenses->execute([$shiftId]);
     $shiftExpenses = (float)$stmtExpenses->fetchColumn();
 
+    // 5.5 مصروفات الدرج النقدية فقط (لخصمها من رصيد الدرج)
+    $stmtDrawerExpenses = $pdo->prepare("SELECT IFNULL(SUM(amount), 0) FROM expenses WHERE shiftId = ? AND status = 'active' AND paymentSource = 'drawer'");
+    $stmtDrawerExpenses->execute([$shiftId]);
+    $drawerExpenses = (float)$stmtDrawerExpenses->fetchColumn();
+
     // 6. الرصيد المتوقع للدرج بالمعادلة الموحدة
-    $expectedCashBalance = $startingCash + $grossCashSales + $ledgerCashPayments - $cashReturns - $shiftExpenses + $deposits - $withdrawals;
+    $expectedCashBalance = $startingCash + $grossCashSales + $ledgerCashPayments - $cashReturns - $drawerExpenses + $deposits - $withdrawals;
 
     // تحديث رصيد الدرج في قاعدة البيانات لضمان التطابق ومصدر الحقيقة
     if (abs((float)$shift['currentCashBalance'] - $expectedCashBalance) > 0.01) {
@@ -129,6 +145,7 @@ function calculateShiftStats($pdo, $shiftId) {
         'totalWithdrawals' => round($withdrawals, 2),
         'ledgerCashPayments' => round($ledgerCashPayments, 2),
         'shiftExpenses' => round($shiftExpenses, 2),
+        'drawerExpenses' => round($drawerExpenses, 2),
         'currentCashBalance' => round($expectedCashBalance, 2),
         'orderCount' => $orderCount,
         'avgOrderValue' => round($avgOrderValue, 2),
@@ -323,9 +340,21 @@ switch ($action) {
             }
         }
 
-        // 2. حساب حركات الدرج اليدوية
-        $txQuery = $pdo->prepare("SELECT type, SUM(amount) as total_amount FROM drawer_transactions WHERE shiftId = ? GROUP BY type");
-        $txQuery->execute([$shiftId]);
+        // 2. حساب حركات الدرج اليدوية (باستثناء حركات المصروفات المسجلة)
+        $txQuery = $pdo->prepare("
+            SELECT type, SUM(amount) as total_amount 
+            FROM drawer_transactions 
+            WHERE shiftId = ? 
+              AND id NOT IN (
+                  SELECT drawerTransactionId 
+                  FROM expenses 
+                  WHERE shiftId = ? 
+                    AND status = 'active' 
+                    AND drawerTransactionId IS NOT NULL
+              )
+            GROUP BY type
+        ");
+        $txQuery->execute([$shiftId, $shiftId]);
         $txTotals = $txQuery->fetchAll();
 
         $totalDeposits = 0.0;
@@ -341,8 +370,13 @@ switch ($action) {
         // 2.5 حساب تحصيلات ديون العملاء النقدية خلال هذه الوردية
         $ledgerCashPayments = abs((float)$pdo->query("SELECT IFNULL(SUM(amount), 0) FROM customer_ledger WHERE shiftId = {$shiftId} AND type = 'PAYMENT' AND (paymentMethod LIKE '%نقدي%' OR paymentMethod LIKE '%عند الاستلام%')")->fetchColumn());
 
+        // 2.7 حساب مصروفات الدرج النشطة للوردية
+        $stmtDrawerExpenses = $pdo->prepare("SELECT IFNULL(SUM(amount), 0) FROM expenses WHERE shiftId = ? AND status = 'active' AND paymentSource = 'drawer'");
+        $stmtDrawerExpenses->execute([$shiftId]);
+        $drawerExpenses = (float)$stmtDrawerExpenses->fetchColumn();
+
         // 3. حساب الرصيد المتوقع بالمعادلة المحاسبية الشاملة (مطابق للرصيد الدفتري المسجل بالدرج)
-        $expectedCash = (float)$active['startingCash'] + $cashSales - $cashReturns + $totalDeposits - $totalWithdrawals + $ledgerCashPayments;
+        $expectedCash = (float)$active['startingCash'] + $cashSales - $cashReturns + $totalDeposits - $totalWithdrawals + $ledgerCashPayments - $drawerExpenses;
 
         // 4. احتساب الفرق
         $difference = round($actualCash - $expectedCash, 2);
@@ -416,6 +450,7 @@ switch ($action) {
             'totalDeposits' => $totalDeposits,
             'totalWithdrawals' => $totalWithdrawals,
             'ledgerCashPayments' => $ledgerCashPayments,
+            'drawerExpenses' => $drawerExpenses,
             'ordersCount' => $ordersCount,
             'returnsCount' => $returnsCount,
             'products' => $productsSnapshot

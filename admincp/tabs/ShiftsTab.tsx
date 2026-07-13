@@ -746,7 +746,8 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                           return sum;
                         }, 0);
                         const depVal = snap ? snap.totalDeposits : selectedShiftDetails.transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
-                        const witVal = snap ? snap.totalWithdrawals : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + t.amount, 0);
+                        const witVal = snap ? snap.totalWithdrawals : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal' && !(t.reason || '').startsWith('مصروفات')).reduce((sum, t) => sum + t.amount, 0);
+                        const drawerExpVal = snap ? (snap.drawerExpenses ?? 0) : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal' && (t.reason || '').startsWith('مصروفات')).reduce((sum, t) => sum + t.amount, 0);
 
                         return (
                           <>
@@ -777,6 +778,10 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                             <div className="bg-slate-50 p-5 rounded-2xl border">
                               <p className="text-[10px] text-slate-400 font-bold mb-1">سحب نقدية لشراء بضاعة</p>
                               <p className="text-base font-black text-rose-600">{Number(witVal || 0).toFixed(2)} ج.م</p>
+                            </div>
+                            <div className="bg-slate-50 p-5 rounded-2xl border">
+                              <p className="text-[10px] text-slate-400 font-bold mb-1">مصروفات الوردية</p>
+                              <p className="text-base font-black text-rose-600">{Number(drawerExpVal || 0).toFixed(2)} ج.م</p>
                             </div>
                           </>
                         );
@@ -819,8 +824,9 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
                           {" - "} مرتجع نقدي ({Number(cashReturnsVal || 0).toFixed(2)} ج.م) 
                           {" + "} تحصيل ديون نقدية ({Number(ledgerCashVal || 0).toFixed(2)} ج.م)
                           {" + "} إيداعات ({Number(depVal || 0).toFixed(2)} ج.م) 
-                          {" - "} سحوبات ({Number(witVal || 0).toFixed(2)} ج.م) 
-                          {" = "} <span className="text-emerald-600 font-black">{Number(Number(selectedShiftDetails.shift.startingCash || 0) + Number(cashSalesVal || 0) + Number(ledgerCashVal || 0) + Number(depVal || 0) - Number(witVal || 0)).toFixed(2)} ج.م</span>.
+                          {" - "} سحب نقدية لشراء بضاعة ({Number(witVal || 0).toFixed(2)} ج.م) 
+                          {" - "} مصروفات الوردية ({Number(drawerExpVal || 0).toFixed(2)} ج.م) 
+                          {" = "} <span className="text-emerald-600 font-black">{Number(Number(selectedShiftDetails.shift.startingCash || 0) + Number(cashSalesVal || 0) + Number(ledgerCashVal || 0) + Number(depVal || 0) - Number(witVal || 0) - Number(drawerExpVal || 0)).toFixed(2)} ج.م</span>.
                         </p>
                         <p className="text-[10px] text-slate-400">
                           * تنبيه: المبيعات البنكية/الرقمية ({Number(cardSalesVal || 0).toFixed(2)} ج.م) والمبيعات الآجلة ({Number(debtSalesVal || 0).toFixed(2)} ج.م) لا تدخل في حساب نقدية الدرج الفعلية لأنها حركات غير نقدية.
