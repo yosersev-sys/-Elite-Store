@@ -623,7 +623,8 @@ const ShiftsTab: React.FC<ShiftsTabProps> = ({ activeShift: activeShiftProp, onR
           return sum;
         }, 0);
         const depVal = snap ? snap.totalDeposits : selectedShiftDetails.transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + (t.amount || 0), 0);
-        const witVal = snap ? snap.totalWithdrawals : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + (t.amount || 0), 0);
+        const witVal = snap ? snap.totalWithdrawals : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal' && !(t.reason || '').startsWith('مصروفات')).reduce((sum, t) => sum + (t.amount || 0), 0);
+        const drawerExpVal = snap ? (snap.drawerExpenses ?? 0) : selectedShiftDetails.transactions.filter(t => t.type === 'withdrawal' && (t.reason || '').startsWith('مصروفات')).reduce((sum, t) => sum + (t.amount || 0), 0);
         const ledgerCashVal = snap ? (snap.ledgerCashPayments || 0) : (selectedShiftDetails.shift.ledgerCashPayments || 0);
 
         const handlePrintDetails = () => {
