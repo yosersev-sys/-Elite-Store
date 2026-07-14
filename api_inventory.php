@@ -426,7 +426,26 @@ switch ($action) {
             }
             
             $incomingUnitIds = [];
+            if (!empty($input['units']) && is_array($input['units'])) {
+                foreach ($input['units'] as $u) {
+                    if (!empty($u['id'])) {
+                        $incomingUnitIds[] = $u['id'];
+                    }
+                }
+            }
             
+            // 1. Delete/deactivate removed units FIRST to free up their barcodes
+            foreach ($existingUnits as $eu) {
+                if (!in_array($eu['id'], $incomingUnitIds)) {
+                    if (isUnitUsedInDB($pdo, $eu['id'])) {
+                        $pdo->prepare("UPDATE product_units SET isActive = 0 WHERE id = ?")->execute([$eu['id']]);
+                    } else {
+                        $pdo->prepare("DELETE FROM product_units WHERE id = ?")->execute([$eu['id']]);
+                    }
+                }
+            }
+            
+            // 2. Now insert or update the incoming units
             if (!empty($input['units']) && is_array($input['units'])) {
                 $insertUnit = $pdo->prepare("INSERT INTO product_units (id, productId, unitName, barcode, purchasePrice, salePrice, conversionFactor, isDefault, isActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $updateUnitWithFactor = $pdo->prepare("UPDATE product_units SET unitName=?, barcode=?, purchasePrice=?, salePrice=?, conversionFactor=?, isDefault=?, isActive=? WHERE id=?");
@@ -436,7 +455,6 @@ switch ($action) {
                     $uId = $u['id'] ?? '';
                     $uBarcode = !empty($u['barcode']) ? trim($u['barcode']) : null;
                     if (!empty($uId) && isset($existingUnitsMap[$uId])) {
-                        $incomingUnitIds[] = $uId;
                         $oldUnit = $existingUnitsMap[$uId];
                         
                         $factorChanged = (abs((float)$oldUnit['conversionFactor'] - (float)$u['conversionFactor']) > 0.0001);
@@ -468,7 +486,6 @@ switch ($action) {
                         }
                     } else {
                         $newUId = 'unit_' . time() . '_' . rand(100, 999);
-                        $incomingUnitIds[] = $newUId;
                         $insertUnit->execute([
                             $newUId,
                             $productId,
@@ -480,16 +497,6 @@ switch ($action) {
                             $u['isDefault'] ? 1 : 0,
                             $u['isActive'] ? 1 : 0
                         ]);
-                    }
-                }
-            }
-            
-            foreach ($existingUnits as $eu) {
-                if (!in_array($eu['id'], $incomingUnitIds)) {
-                    if (isUnitUsedInDB($pdo, $eu['id'])) {
-                        $pdo->prepare("UPDATE product_units SET isActive = 0 WHERE id = ?")->execute([$eu['id']]);
-                    } else {
-                        $pdo->prepare("DELETE FROM product_units WHERE id = ?")->execute([$eu['id']]);
                     }
                 }
             }
