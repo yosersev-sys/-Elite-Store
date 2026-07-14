@@ -287,6 +287,11 @@ try {
         }
     } catch (PDOException $e) {}
 
+    // تنظيف الوحدات اليتيمة لضمان عدم حجز الباركودات لمنتجات محذوفة سابقاً
+    try {
+        $pdo->exec("DELETE FROM product_units WHERE productId NOT IN (SELECT id FROM products)");
+    } catch (PDOException $e) {}
+
     // إنشاء جداول التحليلات وتتبع الزوار
     $pdo->exec("CREATE TABLE IF NOT EXISTS analytics_events (
         id INT AUTO_INCREMENT,
