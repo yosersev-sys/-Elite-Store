@@ -90,6 +90,8 @@ try {
         case 'add_product':
         case 'update_product':
         case 'delete_product':
+        case 'restore_product':
+        case 'delete_product_permanently':
         case 'get_categories':
         case 'add_category':
         case 'update_category':

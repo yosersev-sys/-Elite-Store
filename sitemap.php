@@ -43,7 +43,7 @@ try {
 
 // 4. Active Products (dynamic)
 try {
-    $products = $pdo->query("SELECT id, createdAt FROM products WHERE isArchived = 0 ORDER BY createdAt DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $products = $pdo->query("SELECT id, createdAt FROM products WHERE isArchived = 0 AND isDeleted = 0 ORDER BY createdAt DESC")->fetchAll(PDO::FETCH_ASSOC);
     foreach ($products as $prod) {
         $lastmod = '';
         if ($prod['createdAt']) {

@@ -55,7 +55,10 @@ const ProductRow = React.memo<{
   onDelete: (id: string) => void;
   turnoverLabel: string;
   turnoverColor: string;
-}>(({ product, categories, suppliers, isManager, isSelected, isDeleting, onToggleSelect, onOpenDetails, onPrintBarcode, onOpenEdit, onDelete, turnoverLabel, turnoverColor }) => {
+  showTrash?: boolean;
+  onRestore?: (id: string) => void;
+  onDeletePermanently?: (id: string) => void;
+}>(({ product, categories, suppliers, isManager, isSelected, isDeleting, onToggleSelect, onOpenDetails, onPrintBarcode, onOpenEdit, onDelete, turnoverLabel, turnoverColor, showTrash, onRestore, onDeletePermanently }) => {
   const stock = Number(product.stockQuantity || 0);
   const reorder = product.reorderLevel !== undefined ? Number(product.reorderLevel) : 5;
   const isOut = stock <= 0;
@@ -262,32 +265,58 @@ const ProductRow = React.memo<{
       {/* Actions */}
       <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
         <div className="flex justify-center gap-1.5">
-          <button 
-            onClick={() => onPrintBarcode(product)} 
-            className="p-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm shrink-0"
-            title="طباعة الباركود"
-          >
-            🏷️
-          </button>
-          {isManager && (
+          {showTrash ? (
             <>
               <button 
-                onClick={() => onOpenEdit(product)} 
-                className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm shrink-0"
-                title="تعديل المنتج"
+                onClick={() => onRestore?.(product.id)} 
+                className="px-3 py-2 text-xs font-black text-emerald-600 bg-emerald-50 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm shrink-0 flex items-center gap-1"
+                title="استعادة المنتج"
               >
-                ✎
+                ♻️ استعادة
               </button>
+              {isManager && (
+                <button 
+                  disabled={isDeleting}
+                  onClick={() => onDeletePermanently?.(product.id)} 
+                  className="px-3 py-2 text-xs font-black text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm disabled:opacity-50 shrink-0 flex items-center justify-center min-w-[32px] gap-1"
+                  title="حذف نهائي"
+                >
+                  {isDeleting ? (
+                    <span className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                  ) : '❌ حذف نهائي'}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
               <button 
-                disabled={isDeleting}
-                onClick={() => onDelete(product.id)} 
-                className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[32px] shrink-0"
-                title="حذف المنتج"
+                onClick={() => onPrintBarcode(product)} 
+                className="p-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm shrink-0"
+                title="طباعة الباركود"
               >
-                {isDeleting ? (
-                  <span className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
-                ) : '🗑'}
+                🏷️
               </button>
+              {isManager && (
+                <>
+                  <button 
+                    onClick={() => onOpenEdit(product)} 
+                    className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm shrink-0"
+                    title="تعديل المنتج"
+                  >
+                    ✎
+                  </button>
+                  <button 
+                    disabled={isDeleting}
+                    onClick={() => onDelete(product.id)} 
+                    className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[32px] shrink-0"
+                    title="حذف المنتج"
+                  >
+                    {isDeleting ? (
+                      <span className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                    ) : '🗑'}
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
@@ -328,6 +357,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
     localStorage.setItem('admin_products_page', String(currentPage));
   }, [currentPage]);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
   const itemsPerPage = 10;
   
   // Selection states
@@ -398,7 +428,8 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
 
   // Dynamic calculations for all product statistics
   const stats = useMemo(() => {
-    let totalItems = products.length;
+    const activeProducts = products.filter(p => Number(p.isDeleted) !== 1);
+    let totalItems = activeProducts.length;
     let purchaseVal = 0;
     let saleVal = 0;
     let lowStockCount = 0;
@@ -407,7 +438,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
 
     const turnoverMap: Record<string, { rate: number; label: string; color: string }> = {};
 
-    products.forEach(p => {
+    activeProducts.forEach(p => {
       const stock = Number(p.stockQuantity || 0);
       const cost = Number(p.wholesalePrice || 0);
       const price = Number(p.price || 0);
@@ -468,7 +499,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
   // Apply search, filters & sort
   const filteredProducts = useMemo(() => {
     const q = adminSearch.toLowerCase().trim();
-    let result = [...products];
+    let result = products.filter(p => showTrash ? Number(p.isDeleted) === 1 : Number(p.isDeleted) !== 1);
 
     // Text search
     if (q) {
@@ -545,7 +576,7 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
     });
 
     return result;
-  }, [products, adminSearch, selectedCategory, selectedSupplier, stockStatus, profitStatus, sortBy, statsSummary, stats.turnoverMap]);
+  }, [products, showTrash, adminSearch, selectedCategory, selectedSupplier, stockStatus, profitStatus, sortBy, statsSummary, stats.turnoverMap]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -565,9 +596,9 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
     setSelectedIds([]);
   }, [selectedCategory, selectedSupplier, stockStatus, profitStatus, adminSearch, sortBy]);
 
-  // Handle single deletion
+  // Handle single deletion (Soft Delete)
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المنتج نهائياً من المخزن؟')) return;
+    if (!confirm('هل أنت متأكد من نقل هذا المنتج إلى سلة المحذوفات؟')) return;
     setDeletingIds(prev => [...prev, id]);
     try {
       await onDeleteProduct(id);
@@ -577,6 +608,86 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
       console.error(err);
     } finally {
       setDeletingIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  // Handle product restoration
+  const handleRestoreProduct = async (id: string) => {
+    if (!confirm('هل أنت متأكد من استعادة هذا المنتج إلى المخزن؟')) return;
+    try {
+      const res = await ApiService.restoreProduct(id);
+      if (res.success) {
+        setSelectedIds(prev => prev.filter(x => x !== id));
+        if (onRefreshData) onRefreshData();
+      } else {
+        alert(res.message || 'فشلت استعادة المنتج');
+      }
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
+  // Handle permanent deletion
+  const handleDeleteProductPermanently = async (id: string) => {
+    if (!confirm('تنبيه هام: سيتم حذف هذا المنتج وجميع بياناته نهائياً ولا يمكن التراجع عن هذه الخطوة. هل تريد الاستمرار؟')) return;
+    setDeletingIds(prev => [...prev, id]);
+    try {
+      const res = await ApiService.deleteProductPermanently(id);
+      if (res.success) {
+        setSelectedIds(prev => prev.filter(x => x !== id));
+        if (onRefreshData) onRefreshData();
+      } else {
+        alert(res.message || 'فشل حذف المنتج نهائياً');
+      }
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setDeletingIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  // Bulk restore from trash
+  const handleBulkRestore = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`هل أنت متأكد من استعادة ${selectedIds.length} منتجات محددة إلى المخزن؟`)) return;
+    try {
+      let succeeded = 0;
+      for (const id of selectedIds) {
+        const res = await ApiService.restoreProduct(id);
+        if (res.success) succeeded++;
+      }
+      setSelectedIds([]);
+      if (onRefreshData) onRefreshData();
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
+  // Bulk delete permanently from database
+  const handleBulkDeletePermanently = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`تنبيه هام جداً: سيتم حذف ${selectedIds.length} منتجات محددة نهائياً من قاعدة البيانات ولا يمكن استرجاعها. هل أنت متأكد؟`)) return;
+    setExecutingBulk(true);
+    try {
+      let succeeded = 0;
+      let failed = 0;
+      for (const id of selectedIds) {
+        const res = await ApiService.deleteProductPermanently(id);
+        if (res.success) {
+          succeeded++;
+        } else {
+          failed++;
+        }
+      }
+      if (failed > 0) {
+        alert(`تم حذف ${succeeded} منتجات بنجاح، وفشل حذف ${failed} منتج (قد تكون مرتبطة بمبيعات).`);
+      }
+      setSelectedIds([]);
+      if (onRefreshData) onRefreshData();
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setExecutingBulk(false);
     }
   };
 
@@ -1136,6 +1247,27 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
 
       {/* 3. Advanced Filtering and Actions */}
       <div className="bg-white p-5 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-4">
+        {/* Tabs Bar */}
+        <div className="flex border-b border-slate-100 pb-2 mb-2 gap-4">
+          <button
+            onClick={() => { setShowTrash(false); setCurrentPage(1); setSelectedIds([]); }}
+            className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${!showTrash ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            📦 قائمة المنتجات بالمخزن
+          </button>
+          <button
+            onClick={() => { setShowTrash(true); setCurrentPage(1); setSelectedIds([]); }}
+            className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 relative ${showTrash ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            🗑️ سلة المحذوفات
+            {products.filter(p => Number(p.isDeleted) === 1).length > 0 && (
+              <span className="absolute -top-1 -left-1 px-1.5 py-0.5 bg-rose-500 text-white text-[8px] font-black rounded-full min-w-[18px] text-center">
+                {products.filter(p => Number(p.isDeleted) === 1).length}
+              </span>
+            )}
+          </button>
+        </div>
+
         <div className="flex flex-col xl:flex-row xl:items-center gap-4 justify-between">
           
           {/* Quick Filters */}
@@ -1234,58 +1366,79 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
           </div>
           
           <div className="flex flex-wrap gap-2">
-            {isManager && (
+            {showTrash ? (
               <>
                 <button 
-                  onClick={() => setShowBulkPriceModal(true)} 
-                  className="bg-slate-800 text-slate-200 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-all"
+                  onClick={handleBulkRestore} 
+                  className="bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-emerald-700 transition-all"
                 >
-                  💵 تعديل الأسعار
+                  ♻️ استعادة المحددة
+                </button>
+                {isManager && (
+                  <button 
+                    onClick={handleBulkDeletePermanently} 
+                    className="bg-rose-600 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-rose-700 transition-all"
+                  >
+                    ❌ حذف نهائي للمحددة
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {isManager && (
+                  <>
+                    <button 
+                      onClick={() => setShowBulkPriceModal(true)} 
+                      className="bg-slate-800 text-slate-200 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-all"
+                    >
+                      💵 تعديل الأسعار
+                    </button>
+                    <button 
+                      onClick={() => setShowBulkReorderModal(true)} 
+                      className="bg-slate-800 text-slate-200 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-all"
+                    >
+                      ⚠️ حد الطلب
+                    </button>
+                    <button 
+                      onClick={() => setShowBulkCatModal(true)} 
+                      className="bg-slate-800 text-slate-200 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-all"
+                    >
+                      📁 نقل القسم
+                    </button>
+                    <button 
+                      onClick={() => setShowBulkSupplierModal(true)} 
+                      className="bg-slate-800 text-slate-200 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-all"
+                    >
+                      👤 تغيير المورد
+                    </button>
+                    <button 
+                      onClick={() => handleBulkToggleActive(0)} 
+                      className="bg-rose-950/80 text-rose-300 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-rose-900 transition-all"
+                    >
+                      🚫 تعطيل
+                    </button>
+                    <button 
+                      onClick={() => handleBulkToggleActive(1)} 
+                      className="bg-emerald-950/80 text-emerald-300 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-emerald-900 transition-all"
+                    >
+                      🟢 تفعيل
+                    </button>
+                  </>
+                )}
+                <button 
+                  onClick={handleBulkPrintBarcode} 
+                  className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-700 transition-all"
+                >
+                  🏷️ طباعة باركود
                 </button>
                 <button 
-                  onClick={() => setShowBulkReorderModal(true)} 
-                  className="bg-slate-800 text-slate-200 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-all"
+                  onClick={handleBulkExport} 
+                  className="bg-slate-700 text-slate-100 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-650 transition-all"
                 >
-                  ⚠️ حد الطلب
-                </button>
-                <button 
-                  onClick={() => setShowBulkCatModal(true)} 
-                  className="bg-slate-800 text-slate-200 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-all"
-                >
-                  📁 نقل القسم
-                </button>
-                <button 
-                  onClick={() => setShowBulkSupplierModal(true)} 
-                  className="bg-slate-800 text-slate-200 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-700 transition-all"
-                >
-                  👤 تغيير المورد
-                </button>
-                <button 
-                  onClick={() => handleBulkToggleActive(0)} 
-                  className="bg-rose-950/80 text-rose-300 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-rose-900 transition-all"
-                >
-                  🚫 تعطيل
-                </button>
-                <button 
-                  onClick={() => handleBulkToggleActive(1)} 
-                  className="bg-emerald-950/80 text-emerald-300 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-emerald-900 transition-all"
-                >
-                  🟢 تفعيل
+                  📥 تصدير Excel
                 </button>
               </>
             )}
-            <button 
-              onClick={handleBulkPrintBarcode} 
-              className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-700 transition-all"
-            >
-              🏷️ طباعة باركود
-            </button>
-            <button 
-              onClick={handleBulkExport} 
-              className="bg-slate-700 text-slate-100 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-slate-650 transition-all"
-            >
-              📥 تصدير Excel
-            </button>
             <button 
               onClick={() => setSelectedIds([])} 
               className="text-slate-400 hover:text-white px-2 text-[10px] font-black"
@@ -1344,6 +1497,9 @@ const ProductsTab: React.FC<ProductsTabProps> = ({
                     onDelete={handleDeleteProduct}
                     turnoverLabel={turnData.label}
                     turnoverColor={turnData.color}
+                    showTrash={showTrash}
+                    onRestore={handleRestoreProduct}
+                    onDeletePermanently={handleDeleteProductPermanently}
                   />
                 );
               })

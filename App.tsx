@@ -394,7 +394,7 @@ const App: React.FC = () => {
 
       setAdminSummary((prevSummary: any) => {
         if (!prevSummary) return prevSummary;
-        const lowStock = newProducts.filter(x => Number(x.stockQuantity || 0) < (x.reorderLevel !== undefined ? Number(x.reorderLevel) : 5)).length;
+        const lowStock = newProducts.filter(x => Number(x.isDeleted) !== 1 && Number(x.stockQuantity || 0) < (x.reorderLevel !== undefined ? Number(x.reorderLevel) : 5)).length;
         const updated = {
           ...prevSummary,
           low_stock_count: lowStock
@@ -710,7 +710,7 @@ const App: React.FC = () => {
         }
         return (
           <AdminInvoiceForm 
-            products={products} 
+            products={products.filter(p => Number(p.isDeleted) !== 1)} 
             users={users}
             orders={orders}
             categories={categories} 
@@ -741,9 +741,9 @@ const App: React.FC = () => {
             onCancel={() => onNavigate('admincp')} 
           />
         );
-      default: return <StoreView products={products} categories={categories} searchQuery={searchQuery} onSearch={(q) => {
+      default: return <StoreView products={products.filter(p => Number(p.isDeleted) !== 1)} categories={categories} searchQuery={searchQuery} onSearch={(q) => {
         setSearchQuery(q);
-        const count = products.filter(p => {
+        const count = products.filter(p => Number(p.isDeleted) !== 1).filter(p => {
           if (!p) return false;
           const name = p.name ? String(p.name).toLowerCase() : '';
           const id = p.id ? String(p.id).toLowerCase() : '';
@@ -867,7 +867,7 @@ const App: React.FC = () => {
               </div>
             ) : (
               <AdminInvoiceForm 
-                products={products} 
+                products={products.filter(p => Number(p.isDeleted) !== 1)} 
                 users={users} 
                 orders={orders} 
                 categories={categories} 
@@ -989,7 +989,7 @@ const App: React.FC = () => {
           onNavigate={onNavigate} onLoginClick={() => setShowAuthModal(true)} onLogout={handleLogout}
           onSearch={(q) => {
             setSearchQuery(q);
-            const count = products.filter(p => {
+            const count = products.filter(p => Number(p.isDeleted) !== 1).filter(p => {
               if (!p) return false;
               const name = p.name ? String(p.name).toLowerCase() : '';
               const id = p.id ? String(p.id).toLowerCase() : '';

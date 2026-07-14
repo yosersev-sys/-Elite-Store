@@ -83,7 +83,7 @@ if ($is_delivery_page) {
 // 2. Product details page metadata & pre-render
 elseif ($is_product_page && $product_id) {
     try {
-        $stmt = $pdo->prepare("SELECT name, description, price, image FROM products WHERE id = ? AND isArchived = 0");
+        $stmt = $pdo->prepare("SELECT name, description, price, image FROM products WHERE id = ? AND isArchived = 0 AND isDeleted = 0");
         $stmt->execute([$product_id]);
         $prod = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($prod) {

@@ -512,11 +512,43 @@ switch ($action) {
         if (!isAdmin()) sendErr('غير مصرح');
         $productId = $_GET['id'] ?? '';
         
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("UPDATE products SET isDeleted = 1 WHERE id = ?");
+            $stmt->execute([$productId]);
+            $pdo->commit();
+            sendRes(['status' => 'success']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            sendErr('فشل حذف المنتج: ' . $e->getMessage());
+        }
+        break;
+
+    case 'restore_product':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $productId = $_GET['id'] ?? '';
+        
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("UPDATE products SET isDeleted = 0 WHERE id = ?");
+            $stmt->execute([$productId]);
+            $pdo->commit();
+            sendRes(['status' => 'success']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            sendErr('فشل استعادة المنتج: ' . $e->getMessage());
+        }
+        break;
+
+    case 'delete_product_permanently':
+        if (!isAdmin()) sendErr('غير مصرح');
+        $productId = $_GET['id'] ?? '';
+        
         $units = $pdo->prepare("SELECT id FROM product_units WHERE productId = ?");
         $units->execute([$productId]);
         foreach ($units->fetchAll() as $u) {
             if (isUnitUsedInDB($pdo, $u['id'])) {
-                sendErr('عذراً، لا يمكن حذف هذا المنتج لوجود مبيعات مرتبطة بأحد وحداته.');
+                sendErr('عذراً، لا يمكن حذف هذا المنتج نهائياً لوجود مبيعات مرتبطة بأحد وحداته.');
             }
         }
         
@@ -542,7 +574,7 @@ switch ($action) {
             sendRes(['status' => 'success']);
         } catch (Exception $e) {
             $pdo->rollBack();
-            sendErr('فشل حذف المنتج: ' . $e->getMessage());
+            sendErr('فشل حذف المنتج نهائياً: ' . $e->getMessage());
         }
         break;
 

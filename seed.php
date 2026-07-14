@@ -33,7 +33,8 @@ try {
         createdAt BIGINT, 
         salesCount INT DEFAULT 0, 
         seoSettings LONGTEXT,
-        batches LONGTEXT
+        batches LONGTEXT,
+        isDeleted TINYINT(1) DEFAULT 0
     )");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS product_units (
@@ -276,6 +277,13 @@ try {
         $q = $pdo->query("SHOW COLUMNS FROM products LIKE 'reorderLevel'");
         if (!$q->fetch()) {
             $pdo->exec("ALTER TABLE products ADD COLUMN reorderLevel DECIMAL(10,2) DEFAULT 5.00");
+        }
+    } catch (PDOException $e) {}
+
+    try {
+        $q = $pdo->query("SHOW COLUMNS FROM products LIKE 'isDeleted'");
+        if (!$q->fetch()) {
+            $pdo->exec("ALTER TABLE products ADD COLUMN isDeleted TINYINT(1) DEFAULT 0");
         }
     } catch (PDOException $e) {}
 

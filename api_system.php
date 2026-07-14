@@ -18,7 +18,7 @@ switch ($action) {
             'credit_sales' => (float)$pdo->query("SELECT SUM(total) FROM orders WHERE status = 'completed' AND paymentMethod LIKE '%آجل%'")->fetchColumn(),
             'collected_cash' => $cashSales - $cashReturns + $collectedLedgerCash,
             'total_supplier_debt' => (float)$pdo->query("SELECT SUM(balance) FROM suppliers")->fetchColumn(),
-            'low_stock_count' => (int)$pdo->query("SELECT COUNT(*) FROM products WHERE stockQuantity < 5")->fetchColumn(),
+            'low_stock_count' => (int)$pdo->query("SELECT COUNT(*) FROM products WHERE stockQuantity < 5 AND isDeleted = 0")->fetchColumn(),
             'new_orders_count' => (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE createdAt > " . ((time()-86400)*1000))->fetchColumn()
         ];
         sendRes($res);

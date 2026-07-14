@@ -480,6 +480,22 @@ export const ApiService = {
     return { success: false, message: result?.message || 'فشل حذف المنتج من السيرفر' };
   },
 
+  async restoreProduct(id: string): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch(`restore_product&id=${id}`, { method: 'POST' });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل استعادة المنتج' };
+  },
+
+  async deleteProductPermanently(id: string): Promise<{ success: boolean; message?: string }> {
+    const result = await safeFetch(`delete_product_permanently&id=${id}`, { method: 'DELETE' });
+    if (result?.status === 'success') {
+      return { success: true };
+    }
+    return { success: false, message: result?.message || 'فشل حذف المنتج نهائياً' };
+  },
+
   async getAllImages(): Promise<{url: string, productName: string}[]> {
     const result = await safeFetch('get_all_images');
     return Array.isArray(result) ? result : [];
