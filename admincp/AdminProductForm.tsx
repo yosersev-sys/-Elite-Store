@@ -879,17 +879,11 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         type="button" 
                         onClick={() => {
                           if (unit.id !== '' && product !== null) {
-                            if (!window.confirm("هذه وحدة محفوظة مسبقاً، قد يؤدي حذفها المباشر لخلل بالتقارير. هل ترغب في تعطيلها بدلاً من الحذف؟")) {
+                            if (!window.confirm("هل أنت متأكد من حذف هذه العبوة/الوحدة؟ سيقوم النظام بحذفها نهائياً إذا لم تكن مرتبطة بمبيعات سابقة، أو تعطيلها لحماية تقاريرك المالية.")) {
                               return;
                             }
-                            setFormData(prev => {
-                              const updated = [...prev.units];
-                              updated[index].isActive = 0;
-                              return { ...prev, units: updated };
-                            });
-                          } else {
-                            setFormData(prev => ({ ...prev, units: prev.units.filter((_, i) => i !== index) }));
                           }
+                          setFormData(prev => ({ ...prev, units: prev.units.filter((_, i) => i !== index) }));
                         }}
                         className="bg-rose-500 text-white w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 active:scale-95 transition-all border border-rose-600 cursor-pointer"
                         title="حذف الوحدة"
