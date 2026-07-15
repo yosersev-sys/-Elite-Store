@@ -438,7 +438,7 @@ switch ($action) {
             foreach ($existingUnits as $eu) {
                 if (!in_array($eu['id'], $incomingUnitIds)) {
                     if (isUnitUsedInDB($pdo, $eu['id'])) {
-                        $pdo->prepare("UPDATE product_units SET isActive = 0 WHERE id = ?")->execute([$eu['id']]);
+                        $pdo->prepare("UPDATE product_units SET isActive = 0, barcode = NULL WHERE id = ?")->execute([$eu['id']]);
                     } else {
                         $pdo->prepare("DELETE FROM product_units WHERE id = ?")->execute([$eu['id']]);
                     }
@@ -453,7 +453,8 @@ switch ($action) {
                 
                 foreach ($input['units'] as $u) {
                     $uId = $u['id'] ?? '';
-                    $uBarcode = !empty($u['barcode']) ? trim($u['barcode']) : null;
+                    $isActiveVal = isset($u['isActive']) ? ($u['isActive'] ? 1 : 0) : 1;
+                    $uBarcode = (!empty($u['barcode']) && $isActiveVal == 1) ? trim($u['barcode']) : null;
                     if (!empty($uId) && isset($existingUnitsMap[$uId])) {
                         $oldUnit = $existingUnitsMap[$uId];
                         
