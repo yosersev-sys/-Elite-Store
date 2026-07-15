@@ -817,7 +817,6 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
                         required
                         type="number"
                         min="1"
-                        disabled={unit.id !== '' && product !== null}
                         value={unit.conversionFactor || ''}
                         onChange={e => setFormData(prev => {
                           const updated = [...prev.units];
