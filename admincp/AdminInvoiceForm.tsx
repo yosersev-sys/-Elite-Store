@@ -301,43 +301,39 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     products.forEach(p => {
       const activeUnits = p.units ? p.units.filter(u => Number(u.isActive) !== 0) : [];
       
-      if (activeUnits.length > 0) {
-        activeUnits.forEach(u => {
-          const matchName = p.name.toLowerCase().includes(q);
-          const matchBarcode = u.barcode && String(u.barcode).toLowerCase().includes(q);
-          const matchUnitName = u.unitName.toLowerCase().includes(q);
+      const baseUnit = {
+        id: `unit_${p.id}_base`,
+        unitName: p.unit === 'piece' ? 'قطعة' : (p.unit || 'قطعة'),
+        conversionFactor: 1.00,
+        salePrice: p.price,
+        purchasePrice: p.wholesalePrice,
+        barcode: p.barcode,
+        isDefault: 1,
+        isActive: 1
+      };
 
-          if (matchName || matchBarcode || matchUnitName) {
-            const factor = u.conversionFactor || 1;
-            const availableQty = Math.floor(p.stockQuantity / factor);
-            
-            items.push({
-              product: p,
-              unit: u,
-              key: `${p.id}_unit_${u.id}`,
-              displayName: `${p.name} (${u.unitName})`,
-              displayPrice: u.salePrice,
-              displayBarcode: u.barcode || '',
-              displayStock: `المتاح: ${availableQty} ${u.unitName}`,
-            });
-          }
-        });
-      } else {
+      const allUnits = [baseUnit, ...activeUnits];
+
+      allUnits.forEach(u => {
         const matchName = p.name.toLowerCase().includes(q);
-        const matchBarcode = p.barcode && String(p.barcode).toLowerCase().includes(q);
+        const matchBarcode = u.barcode && String(u.barcode).toLowerCase().includes(q);
+        const matchUnitName = u.unitName.toLowerCase().includes(q);
 
-        if (matchName || matchBarcode) {
+        if (matchName || matchBarcode || matchUnitName) {
+          const factor = u.conversionFactor || 1;
+          const availableQty = Math.floor(p.stockQuantity / factor);
+          
           items.push({
             product: p,
-            unit: null,
-            key: `${p.id}_base`,
-            displayName: p.name,
-            displayPrice: p.price,
-            displayBarcode: p.barcode || '',
-            displayStock: `المتاح: ${p.stockQuantity} ${p.unit || 'قطعة'}`,
+            unit: u,
+            key: `${p.id}_unit_${u.id}`,
+            displayName: `${p.name} (${u.unitName})`,
+            displayPrice: u.salePrice,
+            displayBarcode: u.barcode || '',
+            displayStock: `المتاح: ${availableQty} ${u.unitName}`,
           });
         }
-      }
+      });
     });
 
     return items.slice(0, 8);
