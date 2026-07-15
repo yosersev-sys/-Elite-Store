@@ -368,7 +368,8 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   const findUnitByBarcode = (q: string) => {
     for (const p of products) {
       if (p.barcode && String(p.barcode) === q) {
-        return { product: p, unit: null };
+        const defUnit = p.units?.find(u => u.isDefault === 1);
+        return { product: p, unit: defUnit || null };
       }
       if (p.units) {
         for (const u of p.units) {
@@ -389,11 +390,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       return;
     }
 
-    const unitName = selectedUnit ? selectedUnit.unitName : (product.unit || 'قطعة');
-    const conversionFactor = selectedUnit ? selectedUnit.conversionFactor : 1.00;
-    const salePrice = selectedUnit ? selectedUnit.salePrice : product.price;
-    const purchasePrice = selectedUnit ? selectedUnit.purchasePrice : product.wholesalePrice;
-    const unitId = selectedUnit ? selectedUnit.id : `unit_${product.id}_base`;
+    const activeUnit = selectedUnit || defUnit;
+
+    const unitName = activeUnit ? activeUnit.unitName : (product.unit === 'piece' ? 'قطعة' : (product.unit || 'قطعة'));
+    const conversionFactor = activeUnit ? activeUnit.conversionFactor : 1.00;
+    const salePrice = activeUnit ? activeUnit.salePrice : product.price;
+    const purchasePrice = activeUnit ? activeUnit.purchasePrice : product.wholesalePrice;
+    const unitId = activeUnit ? activeUnit.id : `unit_${product.id}_base`;
 
     const existing = invoiceItems.find(item => item.id === product.id && item.selectedUnitId === unitId);
     const step = product.unit === 'kg' ? 0.1 : 1;
