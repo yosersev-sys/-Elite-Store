@@ -459,9 +459,6 @@ switch ($action) {
                         $oldUnit = $existingUnitsMap[$uId];
                         
                         $factorChanged = (abs((float)$oldUnit['conversionFactor'] - (float)$u['conversionFactor']) > 0.0001);
-                        if ($factorChanged && isUnitUsedInDB($pdo, $uId)) {
-                            throw new Exception("عذراً، يمنع تعديل معامل التحويل لوحدة مستخدمة سابقاً في حركات مبيعات/مخزون ({$oldUnit['unitName']}). يرجى إنشاء وحدة جديدة بدلاً منها.");
-                        }
                         
                         if ($factorChanged) {
                             $updateUnitWithFactor->execute([
