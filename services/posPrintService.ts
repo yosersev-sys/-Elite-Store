@@ -376,23 +376,34 @@ export class POSPrintService {
         }
       };
 
-      const snap = parsedSnapshot(shift.snapshotData) || {
-        cashSales: 0,
-        cashReturns: 0,
-        cardSales: 0,
-        debtSales: 0,
-        totalDeposits: 0,
-        totalWithdrawals: 0,
-        ledgerCashPayments: 0,
-        ordersCount: 0,
-        returnsCount: 0
-      };
+      const snap = parsedSnapshot(shift.snapshotData) || {};
+
+      const completedOrders = (shiftDetails.orders || []).filter((o: any) => o.status === 'completed');
+      const totalSales = completedOrders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
+      const ordersCount = completedOrders.length;
+
+      let cost = 0;
+      completedOrders.forEach((o: any) => {
+        const items = Array.isArray(o.items) ? o.items : [];
+        items.forEach((item: any) => {
+          cost += (Number(item.actualWholesalePrice ?? item.wholesalePrice ?? 0)) * Number(item.quantity || 0);
+        });
+      });
+
+      const cashSales = typeof shift.cashSales === 'number' ? shift.cashSales : (snap.cashSales ?? 0);
+      const cashReturns = typeof shift.cashReturns === 'number' ? shift.cashReturns : (snap.cashReturns ?? 0);
+      const cardSales = typeof shift.cardSales === 'number' ? shift.cardSales : (snap.cardSales ?? 0);
+      const debtSales = typeof shift.debtSales === 'number' ? shift.debtSales : (snap.debtSales ?? 0);
+      const totalDeposits = typeof shift.totalDeposits === 'number' ? shift.totalDeposits : (snap.totalDeposits ?? 0);
+      const totalWithdrawals = typeof shift.totalWithdrawals === 'number' ? shift.totalWithdrawals : (snap.totalWithdrawals ?? 0);
+      const ledgerCashPayments = typeof shift.ledgerCashPayments === 'number' ? shift.ledgerCashPayments : (snap.ledgerCashPayments ?? 0);
+      const totalExp = typeof shift.shiftExpenses === 'number' ? shift.shiftExpenses : (snap.shiftExpenses ?? snap.totalExp ?? 0);
+      const netProfit = totalSales - cost - totalExp;
 
       // Extract products from snapshot or fallback to calculating them from orders
       let productsList = (snap as any).products;
       if (!productsList || !Array.isArray(productsList) || productsList.length === 0) {
         const productStats: Record<string, { id: string; name: string; qtySold: number; unit: string; qtyBefore: any; qtyAfter: any }> = {};
-        const completedOrders = (shiftDetails.orders || []).filter((o: any) => o.status === 'completed');
         completedOrders.forEach((order: any) => {
           const items = Array.isArray(order.items) ? order.items : [];
           items.forEach((item: any) => {
@@ -445,11 +456,6 @@ export class POSPrintService {
         `;
       }
 
-      const totalSales = Number(shiftDetails.totalSales || 0);
-      const cost = Number(shiftDetails.cost || 0);
-      const totalExp = Number(shiftDetails.totalExp || 0);
-      const netProfit = totalSales - cost - totalExp;
-
       const shiftHtml = `
         <div class="text-center">
           <h2 class="bold" style="font-size: 12pt;">تقرير تسليم خزينة الوردية</h2>
@@ -495,7 +501,7 @@ export class POSPrintService {
         <div style="font-size: 9pt;">
           <div class="flex-between">
             <span>عدد الفواتير الصادرة:</span>
-            <span>${snap.ordersCount} فاتورة</span>
+            <span>${ordersCount} فاتورة</span>
           </div>
           <div class="flex-between">
             <span>إجمالي المبيعات:</span>
@@ -526,23 +532,23 @@ export class POSPrintService {
           </div>
           <div class="flex-between" style="color: green;">
             <span>المبيعات النقدية (+):</span>
-            <span>${Number(snap.cashSales).toLocaleString()} ج.م</span>
+            <span>${Number(cashSales).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: red;">
             <span>المرتجع النقدية (-):</span>
-            <span>${Number(snap.cashReturns).toLocaleString()} ج.م</span>
+            <span>${Number(cashReturns).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: green;">
             <span>تحصيلات ديون (+):</span>
-            <span>${Number(snap.ledgerCashPayments).toLocaleString()} ج.م</span>
+            <span>${Number(ledgerCashPayments).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: green;">
             <span>إيداعات يدوية (+):</span>
-            <span>${Number(snap.totalDeposits).toLocaleString()} ج.م</span>
+            <span>${Number(totalDeposits).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between" style="color: red;">
             <span>سحب نقدية لشراء بضاعة (-):</span>
-            <span>${Number(snap.totalWithdrawals).toLocaleString()} ج.م</span>
+            <span>${Number(totalWithdrawals).toLocaleString()} ج.م</span>
           </div>
           <div class="flex-between bold" style="margin-top: 1mm;">
             <span>الرصيد الدفتري المتوقع:</span>
