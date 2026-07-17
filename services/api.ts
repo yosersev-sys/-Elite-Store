@@ -750,6 +750,14 @@ export const ApiService = {
     return result;
   },
 
+  async getDrawerTransactions(): Promise<DrawerTransaction[]> {
+    const result = await safeFetch('get_drawer_transactions');
+    if (result && (result as any).status === 'error') {
+      return [];
+    }
+    return Array.isArray(result) ? result : [];
+  },
+
   async getExpenses(filters?: { month?: number; year?: number; category?: string; paymentSource?: string; status?: string }): Promise<Expense[]> {
     let query = 'get_expenses';
     if (filters) {

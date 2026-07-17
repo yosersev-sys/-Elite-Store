@@ -936,7 +936,7 @@ switch ($action) {
 
                 // إدراج حركة درج نقدية للمرتجع إذا كان هناك مبلغ نقدي تم دفعه مسبقاً
                 if ($oldCashAmount > 0) {
-                    $txStmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId) VALUES (?, 'withdrawal_refund', ?, ?, ?, ?)");
+                    $txStmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId, category) VALUES (?, 'withdrawal_refund', ?, ?, ?, ?, 'refund')");
                     $txStmt->execute([
                         $returnShiftId,
                         $oldCashAmount,
@@ -1372,13 +1372,14 @@ switch ($action) {
                         $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $activeOpenShift['id']]);
                         
                         // إدراج حركة سحب تلقائية للمرتجع النقدي
-                        $txStmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId) VALUES (?, 'withdrawal_refund', ?, ?, ?, ?)");
+                        $txStmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId, category, balanceAfter) VALUES (?, 'withdrawal_refund', ?, ?, ?, ?, 'refund', ?)");
                         $txStmt->execute([
                             $activeOpenShift['id'],
                             $cashRefundAmount,
                             "مرتجع نقدي للفاتورة #{$id}: {$reason}",
                             $now,
-                            $currentUserId
+                            $currentUserId,
+                            $newBalance
                         ]);
                     }
 

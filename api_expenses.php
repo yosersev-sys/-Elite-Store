@@ -52,19 +52,21 @@ switch ($action) {
 
             $shiftId = $activeShift['id'];
 
+            $newBalance = $currentBalance - $amount;
+
             // 1. تسجيل حركة سحب بالدرج
-            $stmtTx = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId) VALUES (?, 'withdrawal', ?, ?, ?, ?)");
+            $stmtTx = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId, category, balanceAfter) VALUES (?, 'withdrawal', ?, ?, ?, ?, 'expense', ?)");
             $stmtTx->execute([
                 $shiftId,
                 $amount,
                 "مصروفات: {$title} (#{$category})",
                 $now,
-                $userId
+                $userId,
+                $newBalance
             ]);
             $drawerTransactionId = $pdo->lastInsertId();
 
             // 2. تحديث رصيد الدرج بالوردية
-            $newBalance = $currentBalance - $amount;
             $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $shiftId]);
         }
 

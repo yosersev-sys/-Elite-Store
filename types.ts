@@ -204,11 +204,15 @@ export interface Shift {
 export interface DrawerTransaction {
   id: number;
   shiftId: number;
-  type: 'deposit' | 'withdrawal';
+  type: 'deposit' | 'withdrawal' | 'withdrawal_refund';
   amount: number;
   reason: string;
   createdAt: number;
   userId: string;
+  category?: 'purchase' | 'expense' | 'deposit' | 'refund' | 'general';
+  balanceAfter?: number;
+  userName?: string;
+  shiftName?: string;
 }
 
 export interface Expense {

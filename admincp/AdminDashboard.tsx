@@ -14,6 +14,7 @@ import ExpensesTab from './tabs/ExpensesTab.tsx';
 import CustomerLedgerTab from './tabs/CustomerLedgerTab.tsx';
 import PaymentMethodsTab from './tabs/PaymentMethodsTab.tsx';
 import AnalyticsTab from './tabs/AnalyticsTab.tsx';
+import PurchasesTab from './tabs/PurchasesTab.tsx';
 
 
 interface AdminDashboardProps {
@@ -51,7 +52,7 @@ interface AdminDashboardProps {
   isSyncing?: boolean;
 }
 
-export type AdminTab = 'stats' | 'analytics' | 'products' | 'categories' | 'invoices' | 'store-orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods';
+export type AdminTab = 'stats' | 'analytics' | 'products' | 'categories' | 'invoices' | 'store-orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods' | 'purchases';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   // صمامات أمان نهائية لضمان وجود مصفوفات دائماً قبل العرض
@@ -100,7 +101,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     'api-keys': 'مفاتيح API',
     expenses: 'المصروفات والتكاليف',
     ledger: 'كشوف حسابات العملاء',
-    'payment-methods': 'وسائل الدفع'
+    'payment-methods': 'وسائل الدفع',
+    purchases: 'سجل المشتريات النقدية'
   };
 
   const renderTabContent = () => {
@@ -115,8 +117,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
     const isCashier = props.currentUser?.role === 'cashier';
     const allowedTabs: AdminTab[] = isCashier 
-      ? ['stats', 'products', 'invoices', 'store-orders', 'members', 'ledger', 'shifts', 'settings', 'expenses', 'suppliers', 'payment-methods'] 
-      : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods'];
+      ? ['stats', 'products', 'invoices', 'store-orders', 'members', 'ledger', 'shifts', 'settings', 'expenses', 'suppliers', 'payment-methods', 'purchases'] 
+      : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods', 'purchases'];
     const currentTab = allowedTabs.includes(activeTab) ? activeTab : 'stats';
 
     switch (currentTab) {
@@ -136,6 +138,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
         }
         return <ExpensesTab onRefreshData={props.onRefreshData} />;
+      case 'purchases':
+        return <PurchasesTab currentUser={props.currentUser} onRefreshData={props.onRefreshData} />;
       case 'payment-methods':
         if (props.currentUser?.role !== 'admin' && props.currentUser?.role !== 'cashier') {
           return <StatsTab {...tabProps} isLoading={props.isLoading} onNavigateToTab={handleTabChange} />;
@@ -192,6 +196,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           {(props.currentUser?.role === 'admin' || props.currentUser?.role === 'cashier') && (
             <>
               <AdminNavButton active={activeTab === 'expenses'} onClick={() => handleTabChange('expenses')} icon="💸" label="المصروفات" />
+              <AdminNavButton active={activeTab === 'purchases'} onClick={() => handleTabChange('purchases')} icon="🛒" label="المشتريات النقدية" />
               <AdminNavButton active={activeTab === 'payment-methods'} onClick={() => handleTabChange('payment-methods')} icon="💳" label="وسائل الدفع" />
             </>
           )}

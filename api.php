@@ -136,6 +136,7 @@ try {
         case 'open_shift':
         case 'close_shift':
         case 'add_drawer_transaction':
+        case 'get_drawer_transactions':
         case 'get_shifts':
         case 'get_shift_details':
             require_once 'api_shifts.php';

@@ -245,12 +245,14 @@ switch ($action) {
         $userId = $_SESSION['user']['id'];
         $now = time() * 1000;
 
+        $newBalance = ($type === 'deposit') ? ($currentBalance + $amount) : ($currentBalance - $amount);
+        $categoryVal = ($type === 'withdrawal') ? 'purchase' : 'deposit';
+
         // إدراج الحركة
-        $stmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$active['id'], $type, $amount, $reason, $now, $userId]);
+        $stmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId, category, balanceAfter) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$active['id'], $type, $amount, $reason, $now, $userId, $categoryVal, $newBalance]);
 
         // تحديث الرصيد التراكمي للدرج في الوردية
-        $newBalance = ($type === 'deposit') ? ($currentBalance + $amount) : ($currentBalance - $amount);
         $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $active['id']]);
 
         // تسجيل في سجل التدقيق
@@ -496,6 +498,45 @@ switch ($action) {
             $s['difference'] = (float)$s['difference'];
         }
         sendRes($shifts);
+        break;
+
+    case 'get_drawer_transactions':
+        $role = $_SESSION['user']['role'] ?? '';
+        $userId = $_SESSION['user']['id'] ?? '';
+        
+        // سياسة الصلاحيات: إذا تم تفعيلها (true)، يرى الكاشير فقط عملياته الخاصة. إذا تم تعطيلها (false)، يرى الجميع كل شيء.
+        $restrictCashierToOwnTransactions = true;
+        
+        if ($role === 'cashier' && $restrictCashierToOwnTransactions) {
+            $stmt = $pdo->prepare("
+                SELECT t.*, u.name as userName, s.shiftName, s.status as shiftStatus
+                FROM drawer_transactions t
+                LEFT JOIN users u ON t.userId = u.id
+                LEFT JOIN shifts s ON t.shiftId = s.id
+                WHERE t.category = 'purchase' AND t.userId = ?
+                ORDER BY t.createdAt DESC
+            ");
+            $stmt->execute([$userId]);
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT t.*, u.name as userName, s.shiftName, s.status as shiftStatus
+                FROM drawer_transactions t
+                LEFT JOIN users u ON t.userId = u.id
+                LEFT JOIN shifts s ON t.shiftId = s.id
+                WHERE t.category = 'purchase'
+                ORDER BY t.createdAt DESC
+            ");
+            $stmt->execute([]);
+        }
+        
+        $txs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($txs as &$tx) {
+            $tx['amount'] = round((float)$tx['amount'], 2);
+            if (isset($tx['balanceAfter']) && $tx['balanceAfter'] !== null) {
+                $tx['balanceAfter'] = round((float)$tx['balanceAfter'], 2);
+            }
+        }
+        sendRes($txs);
         break;
 
     case 'get_shift_details':
