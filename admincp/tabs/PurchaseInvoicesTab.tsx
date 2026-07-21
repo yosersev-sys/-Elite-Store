@@ -150,23 +150,27 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
       const normName = normalizeArabic(p.name);
       const normBarcode = p.barcode ? normalizeArabic(String(p.barcode)) : '';
 
-      let score = 0;
-      if (normBarcode && (normBarcode === normQ || normBarcode.startsWith(normQ))) {
-        score += 1000;
-      } else if (normBarcode && normBarcode.includes(normQ)) {
-        score += 500;
+      const matchesBarcode = normBarcode && normBarcode.includes(normQ);
+      const matchesName = normName && normName.includes(normQ);
+
+      if (normQ.length >= 2 && !matchesBarcode && !matchesName) {
+        return;
       }
 
-      if (normName === normQ) {
-        score += 800;
-      } else if (normName.startsWith(normQ)) {
-        score += 600;
-      } else {
-        const words = normName.split(/\s+/);
-        if (words.some(w => w.startsWith(normQ))) {
-          score += 400;
-        } else if (normName.includes(normQ)) {
-          score += 200;
+      let score = 0;
+      if (normBarcode) {
+        if (normBarcode === normQ) score += 10000;
+        else if (normBarcode.startsWith(normQ)) score += 5000;
+        else if (normBarcode.includes(normQ)) score += 2000;
+      }
+
+      if (normName) {
+        if (normName === normQ) score += 3000;
+        else if (normName.startsWith(normQ)) score += 2000;
+        else {
+          const words = normName.split(/\s+/);
+          if (words.some(w => w.startsWith(normQ))) score += 1000;
+          else if (normName.includes(normQ)) score += 500;
         }
       }
 

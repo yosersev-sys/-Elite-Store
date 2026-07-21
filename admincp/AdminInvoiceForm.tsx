@@ -339,33 +339,38 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         const normBarcode = u.barcode ? normalizeArabic(String(u.barcode)) : '';
         const normUnitName = u.unitName ? normalizeArabic(u.unitName) : '';
 
-        let score = 0;
+        // Strict Filter:
+        // If query has 2 or more characters, item MUST contain the query in name or barcode
+        const matchesBarcode = normBarcode && normBarcode.includes(normQ);
+        const matchesName = normName && normName.includes(normQ);
 
-        // 1. Exact or prefix match on barcode
-        if (normBarcode && (normBarcode === normQ || normBarcode.startsWith(normQ))) {
-          score += 1000;
-        } else if (normBarcode && normBarcode.includes(normQ)) {
-          score += 500;
+        if (normQ.length >= 2 && !matchesBarcode && !matchesName) {
+          return; // Skip completely if query >= 2 chars and doesn't contain query!
         }
 
-        // 2. Exact, prefix, word boundary or infix match on product name
-        if (normName === normQ) {
-          score += 800;
-        } else if (normName.startsWith(normQ)) {
-          score += 600;
-        } else {
-          const words = normName.split(/\s+/);
-          const wordMatch = words.some(w => w.startsWith(normQ));
-          if (wordMatch) {
-            score += 400;
-          } else if (normName.includes(normQ)) {
-            score += 200;
+        let score = 0;
+
+        // 1. Barcode Matching
+        if (normBarcode) {
+          if (normBarcode === normQ) score += 10000;
+          else if (normBarcode.startsWith(normQ)) score += 5000;
+          else if (normBarcode.includes(normQ)) score += 2000;
+        }
+
+        // 2. Name Matching
+        if (normName) {
+          if (normName === normQ) score += 3000;
+          else if (normName.startsWith(normQ)) score += 2000;
+          else {
+            const words = normName.split(/\s+/);
+            if (words.some(w => w.startsWith(normQ))) score += 1000;
+            else if (normName.includes(normQ)) score += 500;
           }
         }
 
-        // 3. Match on Unit Name (only if barcode or name matched, or small bonus)
+        // 3. Unit Name match bonus
         if (score > 0 && normUnitName && normUnitName === normQ) {
-          score += 20;
+          score += 50;
         }
 
         if (score > 0) {
