@@ -131,6 +131,13 @@ try {
             require_once 'api_crm.php';
             break;
 
+        // --- موديول فواتير الشراء الحسابي ---
+        case 'get_purchase_invoices':
+        case 'add_purchase_invoice':
+        case 'add_invoice_payment':
+            require_once 'api_purchases.php';
+            break;
+
         // --- موديول الورديات والدرج النقدية ---
         case 'get_active_shift':
         case 'open_shift':

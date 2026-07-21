@@ -1,4 +1,4 @@
-import { Product, Category, Order, User, Supplier, Shift, DrawerTransaction, Expense, CustomerLedgerEntry, PaymentMethod } from '../types.ts';
+import { Product, Category, Order, User, Supplier, Shift, DrawerTransaction, Expense, CustomerLedgerEntry, PaymentMethod, PurchaseInvoice } from '../types.ts';
 import { OfflineStorageService, OfflineQueueItem, SyncLog } from './offlineStorage.ts';
 import { SYNC_CONFIG } from './syncConfig.ts';
 
@@ -756,6 +756,52 @@ export const ApiService = {
       return [];
     }
     return Array.isArray(result) ? result : [];
+  },
+
+  async getPurchaseInvoices(supplierId?: string): Promise<PurchaseInvoice[]> {
+    let query = 'get_purchase_invoices';
+    if (supplierId) {
+      query += `&supplierId=${encodeURIComponent(supplierId)}`;
+    }
+    const result = await safeFetch(query);
+    if (result && (result as any).status === 'error') {
+      return [];
+    }
+    return Array.isArray(result) ? result : [];
+  },
+
+  async addPurchaseInvoice(payload: Partial<PurchaseInvoice>): Promise<{ success: boolean; message?: string; invoiceId?: number; invoiceNumber?: string }> {
+    try {
+      const response = await fetch('api.php?action=add_purchase_invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        return { success: true, invoiceId: data.invoiceId, invoiceNumber: data.invoiceNumber };
+      }
+      return { success: false, message: data.message || 'فشل حفظ فاتورة الشراء' };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'خطأ بالاتصال بالسيرفر' };
+    }
+  },
+
+  async addInvoicePayment(invoiceId: number, amount: number, walletType: string = 'drawer', notes?: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await fetch('api.php?action=add_invoice_payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId, amount, walletType, notes })
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        return { success: true };
+      }
+      return { success: false, message: data.message || 'فشل تسديد الدفعة' };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'خطأ بالاتصال بالسيرفر' };
+    }
   },
 
   async getExpenses(filters?: { month?: number; year?: number; category?: string; paymentSource?: string; status?: string }): Promise<Expense[]> {

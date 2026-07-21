@@ -31,6 +31,52 @@ export interface SupplierPayment {
   paymentSource?: 'drawer' | 'external';
 }
 
+export interface PurchaseInvoiceItem {
+  id?: number;
+  invoiceId?: number;
+  productId?: string;
+  productName: string;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  updateStock?: boolean;
+}
+
+export interface SupplierPaymentRecord {
+  id?: number;
+  supplierId: string;
+  invoiceId?: number;
+  amount: number;
+  type?: 'payment' | 'debt_addition';
+  walletType?: 'drawer' | 'main_safe' | 'bank' | 'wallet';
+  notes?: string;
+  shiftId?: number;
+  userId?: number;
+  userName?: string;
+  createdAt: number;
+}
+
+export interface PurchaseInvoice {
+  id: number;
+  invoiceNumber?: string;
+  supplierId: string;
+  supplierName?: string;
+  supplierPhone?: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: 'draft' | 'confirmed' | 'cancelled';
+  invoiceImagePath?: string;
+  notes?: string;
+  shiftId?: number;
+  userId?: number;
+  userName?: string;
+  createdAt: number;
+  updatedAt?: number;
+  items?: PurchaseInvoiceItem[];
+  payments?: SupplierPaymentRecord[];
+}
+
 export interface Supplier {
   id: string;
   name: string;

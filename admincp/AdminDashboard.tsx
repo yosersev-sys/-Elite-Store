@@ -15,6 +15,7 @@ import CustomerLedgerTab from './tabs/CustomerLedgerTab.tsx';
 import PaymentMethodsTab from './tabs/PaymentMethodsTab.tsx';
 import AnalyticsTab from './tabs/AnalyticsTab.tsx';
 import PurchasesTab from './tabs/PurchasesTab.tsx';
+import PurchaseInvoicesTab from './tabs/PurchaseInvoicesTab.tsx';
 
 
 interface AdminDashboardProps {
@@ -52,7 +53,7 @@ interface AdminDashboardProps {
   isSyncing?: boolean;
 }
 
-export type AdminTab = 'stats' | 'analytics' | 'products' | 'categories' | 'invoices' | 'store-orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods' | 'purchases';
+export type AdminTab = 'stats' | 'analytics' | 'products' | 'categories' | 'invoices' | 'store-orders' | 'members' | 'suppliers' | 'reports' | 'shifts' | 'settings' | 'api-keys' | 'expenses' | 'ledger' | 'payment-methods' | 'purchases' | 'purchase-invoices';
 
 const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   // صمامات أمان نهائية لضمان وجود مصفوفات دائماً قبل العرض
@@ -102,7 +103,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     expenses: 'المصروفات والتكاليف',
     ledger: 'كشوف حسابات العملاء',
     'payment-methods': 'وسائل الدفع',
-    purchases: 'سجل المشتريات النقدية'
+    purchases: 'سجل المشتريات النقدية',
+    'purchase-invoices': 'فواتير الشراء'
   };
 
   const renderTabContent = () => {
@@ -117,8 +119,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
     const isCashier = props.currentUser?.role === 'cashier';
     const allowedTabs: AdminTab[] = isCashier 
-      ? ['stats', 'products', 'invoices', 'store-orders', 'members', 'ledger', 'shifts', 'settings', 'expenses', 'suppliers', 'payment-methods', 'purchases'] 
-      : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods', 'purchases'];
+      ? ['stats', 'products', 'invoices', 'store-orders', 'members', 'ledger', 'shifts', 'settings', 'expenses', 'suppliers', 'payment-methods', 'purchases', 'purchase-invoices'] 
+      : ['stats', 'analytics', 'products', 'categories', 'invoices', 'store-orders', 'members', 'suppliers', 'reports', 'shifts', 'settings', 'api-keys', 'expenses', 'ledger', 'payment-methods', 'purchases', 'purchase-invoices'];
     const currentTab = allowedTabs.includes(activeTab) ? activeTab : 'stats';
 
     switch (currentTab) {
@@ -130,6 +132,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
       case 'store-orders': return <OrdersTab {...tabProps} mode="store-orders" adminSearch={adminSearch} setAdminSearch={setAdminSearch} isLoading={props.isLoading} initialFilter={adminFilter} onNavigateToTab={handleTabChange} />;
       case 'members': return <MembersTab {...tabProps} adminSearch={adminSearch} setAdminSearch={setAdminSearch} onRefreshData={props.onRefreshData} isLoading={props.isLoading} />;
       case 'suppliers': return <SuppliersTab isLoading={props.isLoading} suppliersData={safeSuppliers} onRefresh={props.onRefreshData} initialFilter={adminFilter as any} />;
+      case 'purchase-invoices': return <PurchaseInvoicesTab currentUser={props.currentUser} suppliersData={safeSuppliers} productsData={safeProducts} onRefreshData={props.onRefreshData} />;
       case 'reports': return <ReportsTab orders={safeOrders} adminSummary={props.adminSummary} />;
       case 'shifts': return <ShiftsTab activeShift={props.activeShift} onRefreshData={props.onRefreshData} />;
       case 'ledger': return <CustomerLedgerTab {...tabProps} onRefreshData={props.onRefreshData} />;
@@ -188,7 +191,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
           <AdminNavButton active={activeTab === 'ledger'} onClick={() => handleTabChange('ledger')} icon="💸" label="كشوف الحسابات" />
           
           {(props.currentUser?.role === 'admin' || props.currentUser?.role === 'cashier') && (
-            <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
+            <>
+              <AdminNavButton active={activeTab === 'suppliers'} onClick={() => handleTabChange('suppliers')} icon="🚛" label="الموردين" />
+              <AdminNavButton active={activeTab === 'purchase-invoices'} onClick={() => handleTabChange('purchase-invoices')} icon="🧾" label="فواتير الشراء" />
+            </>
           )}
           {props.currentUser?.role === 'admin' && (
             <AdminNavButton active={activeTab === 'reports'} onClick={() => handleTabChange('reports')} icon="📈" label="الأرباح" />
