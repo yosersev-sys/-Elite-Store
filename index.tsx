@@ -28,6 +28,32 @@
   window.Date = SafeDate as any;
 })();
 
+// Polyfill to protect React DOM reconciliation against Google Translate & browser extension DOM mutations
+(function() {
+  if (typeof window !== 'undefined' && typeof Node !== 'undefined') {
+    const originalRemoveChild = Node.prototype.removeChild;
+    Node.prototype.removeChild = function <T extends Node>(child: T): T {
+      if (child && child.parentNode !== this) {
+        if (child.parentNode) {
+          return child.parentNode.removeChild(child);
+        }
+        return child;
+      }
+      return originalRemoveChild.call(this, child);
+    };
+
+    const originalInsertBefore = Node.prototype.insertBefore;
+    Node.prototype.insertBefore = function <T extends Node>(newNode: T, referenceNode: Node | null): T {
+      if (referenceNode && referenceNode.parentNode !== this) {
+        if (referenceNode.parentNode) {
+          return referenceNode.parentNode.insertBefore(newNode, referenceNode);
+        }
+      }
+      return originalInsertBefore.call(this, newNode, referenceNode);
+    };
+  }
+})();
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
