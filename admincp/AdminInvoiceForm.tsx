@@ -339,13 +339,13 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         const normBarcode = u.barcode ? normalizeArabic(String(u.barcode)) : '';
         const normUnitName = u.unitName ? normalizeArabic(u.unitName) : '';
 
-        // Strict Filter:
-        // If query has 2 or more characters, item MUST contain the query in name or barcode
+        // Absolute Strict Filter:
+        // Item MUST contain the query in name or barcode
         const matchesBarcode = normBarcode && normBarcode.includes(normQ);
         const matchesName = normName && normName.includes(normQ);
 
-        if (normQ.length >= 2 && !matchesBarcode && !matchesName) {
-          return; // Skip completely if query >= 2 chars and doesn't contain query!
+        if (!matchesBarcode && !matchesName) {
+          return; // Skip completely if item does not contain the searched text!
         }
 
         let score = 0;

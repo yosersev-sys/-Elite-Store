@@ -153,7 +153,7 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
       const matchesBarcode = normBarcode && normBarcode.includes(normQ);
       const matchesName = normName && normName.includes(normQ);
 
-      if (normQ.length >= 2 && !matchesBarcode && !matchesName) {
+      if (!matchesBarcode && !matchesName) {
         return;
       }
 
