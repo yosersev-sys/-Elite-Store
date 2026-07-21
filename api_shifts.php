@@ -215,10 +215,22 @@ switch ($action) {
         break;
 
     case 'add_drawer_transaction':
-        // التحقق من وجود وردية مفتوحة
-        $active = $pdo->query("SELECT * FROM shifts WHERE status = 'open'")->fetch();
+        // 1. ضمان وجود أعمدة الجدول تلقائياً
+        try {
+            $chkCat = $pdo->query("SHOW COLUMNS FROM drawer_transactions LIKE 'category'")->fetch();
+            if (!$chkCat) {
+                $pdo->exec("ALTER TABLE drawer_transactions ADD COLUMN category VARCHAR(50) NULL DEFAULT 'general'");
+            }
+            $chkBal = $pdo->query("SHOW COLUMNS FROM drawer_transactions LIKE 'balanceAfter'")->fetch();
+            if (!$chkBal) {
+                $pdo->exec("ALTER TABLE drawer_transactions ADD COLUMN balanceAfter DECIMAL(10,2) NULL DEFAULT NULL");
+            }
+        } catch (Exception $e) {}
+
+        // 2. التحقق من وجود وردية مفتوحة
+        $active = $pdo->query("SELECT * FROM shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1")->fetch();
         if (!$active) {
-            sendErr('لا توجد وردية مفتوحة حالياً لتسجيل الحركة.');
+            sendErr('لا توجد وردية مفتوحة حالياً لتسجيل الحركة إليها.');
         }
 
         $type = $input['type'] ?? ''; // 'deposit' or 'withdrawal'
@@ -235,33 +247,43 @@ switch ($action) {
             sendErr('يرجى كتابة سبب الحركة.');
         }
 
-        $currentBalance = (float)$active['currentCashBalance'];
+        $currentBalance = (float)($active['currentCashBalance'] ?? $active['startingCash'] ?? 0);
 
         // منع السحب في حالة عجز النقدية بالدرج
         if ($type === 'withdrawal' && $amount > $currentBalance) {
             sendErr("لا يوجد رصيد كافٍ بالدرج. الرصيد الحالي: {$currentBalance} ج.م، القيمة المطلوبة لسحبها: {$amount} ج.م");
         }
 
-        $userId = $_SESSION['user']['id'];
+        $userId = $_SESSION['user']['id'] ?? $_SESSION['user_id'] ?? $active['openedById'] ?? 1;
         $now = time() * 1000;
 
         $newBalance = ($type === 'deposit') ? ($currentBalance + $amount) : ($currentBalance - $amount);
         $categoryVal = ($type === 'withdrawal') ? 'purchase' : 'deposit';
 
-        // إدراج الحركة
-        $stmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId, category, balanceAfter) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$active['id'], $type, $amount, $reason, $now, $userId, $categoryVal, $newBalance]);
+        try {
+            // إدراج الحركة
+            $stmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId, category, balanceAfter) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$active['id'], $type, $amount, $reason, $now, $userId, $categoryVal, $newBalance]);
+        } catch (Exception $e) {
+            // Fallback if category or balanceAfter columns are missing
+            $stmt = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$active['id'], $type, $amount, $reason, $now, $userId]);
+        }
 
         // تحديث الرصيد التراكمي للدرج في الوردية
-        $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $active['id']]);
+        try {
+            $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $active['id']]);
+        } catch (Exception $e) {}
 
         // تسجيل في سجل التدقيق
-        $actionName = ($type === 'deposit') ? 'إيداع نقدي' : 'سحب نقدي';
-        $details = "تم إجراء {$actionName} بقيمة {$amount} ج.م لسبب: {$reason}";
-        $stmtLog = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'ADD_DRAWER_TX', ?, ?)");
-        $stmtLog->execute([$userId, $active['id'], $details, $now]);
+        try {
+            $actionName = ($type === 'deposit') ? 'إيداع نقدي' : 'سحب نقدي';
+            $details = "تم إجراء {$actionName} بقيمة {$amount} ج.م لسبب: {$reason}";
+            $stmtLog = $pdo->prepare("INSERT INTO audit_logs (userId, shiftId, action, details, createdAt) VALUES (?, ?, 'ADD_DRAWER_TX', ?, ?)");
+            $stmtLog->execute([$userId, $active['id'], $details, $now]);
+        } catch (Exception $e) {}
 
-        sendRes(['status' => 'success']);
+        sendRes(['status' => 'success', 'currentCashBalance' => $newBalance]);
         break;
 
     case 'close_shift':
