@@ -84,36 +84,53 @@ switch ($action) {
             sendErr('المورد المحدد غير موجود في قاعدة البيانات.');
         }
 
+        $discountAmount = max(0, (float)($input['discountAmount'] ?? 0));
+        $freightAmount = max(0, (float)($input['freightAmount'] ?? 0));
+
         // Calculate total amount
-        $totalAmount = 0;
+        $itemsTotal = 0;
         $processedItems = [];
 
         if (is_array($items) && count($items) > 0) {
             foreach ($items as $item) {
                 $pName = trim($item['productName'] ?? '');
                 $pId = trim($item['productId'] ?? '');
+                $uName = trim($item['unitName'] ?? 'قطعة');
+                $barcode = trim($item['barcode'] ?? '');
                 $qty = max(0.01, (float)($item['quantity'] ?? 1));
                 $cost = max(0, (float)($item['unitCost'] ?? 0));
+                $factor = max(0.01, (float)($item['conversionFactor'] ?? 1));
+                $newSale = isset($item['newSalePrice']) && $item['newSalePrice'] !== null ? max(0, (float)$item['newSalePrice']) : null;
+                $lastCost = isset($item['lastCostPrice']) && $item['lastCostPrice'] !== null ? max(0, (float)$item['lastCostPrice']) : null;
                 $upStock = isset($item['updateStock']) ? ($item['updateStock'] ? 1 : 0) : 1;
                 $itemTotal = round($qty * $cost, 2);
 
                 if (!empty($pName)) {
-                    $totalAmount += $itemTotal;
+                    $itemsTotal += $itemTotal;
                     $processedItems[] = [
                         'productId' => !empty($pId) ? $pId : null,
                         'productName' => $pName,
+                        'unitName' => $uName,
+                        'barcode' => $barcode,
                         'quantity' => $qty,
                         'unitCost' => $cost,
                         'totalCost' => $itemTotal,
+                        'conversionFactor' => $factor,
+                        'newSalePrice' => $newSale,
+                        'lastCostPrice' => $lastCost,
                         'updateStock' => $upStock
                     ];
                 }
             }
         }
 
-        // Direct total specified if no line items
-        if (count($processedItems) === 0 && isset($input['totalAmount'])) {
+        // Net Total calculation: (Items Total - Discount + Freight)
+        if (count($processedItems) > 0) {
+            $totalAmount = round(max(0, $itemsTotal - $discountAmount + $freightAmount), 2);
+        } else if (isset($input['totalAmount'])) {
             $totalAmount = max(0, (float)$input['totalAmount']);
+        } else {
+            $totalAmount = 0;
         }
 
         if ($totalAmount <= 0) {
@@ -167,8 +184,8 @@ switch ($action) {
         try {
             // 1. Insert Invoice Header
             $stmtInv = $pdo->prepare("
-                INSERT INTO purchase_invoices (invoiceNumber, supplierId, totalAmount, paidAmount, remainingAmount, status, invoiceImagePath, notes, shiftId, userId, createdAt, updatedAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO purchase_invoices (invoiceNumber, supplierId, totalAmount, paidAmount, remainingAmount, discountAmount, freightAmount, status, invoiceImagePath, notes, shiftId, userId, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmtInv->execute([
                 $invoiceNumber,
@@ -176,6 +193,8 @@ switch ($action) {
                 $totalAmount,
                 $paidAmount,
                 $remainingAmount,
+                $discountAmount,
+                $freightAmount,
                 $status,
                 $invoiceImagePath,
                 $notes,
@@ -195,17 +214,22 @@ switch ($action) {
 
             // 2. Insert Items
             $stmtItem = $pdo->prepare("
-                INSERT INTO purchase_invoice_items (invoiceId, productId, productName, quantity, unitCost, totalCost, updateStock)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO purchase_invoice_items (invoiceId, productId, productName, unitName, barcode, quantity, unitCost, totalCost, conversionFactor, newSalePrice, lastCostPrice, updateStock)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             foreach ($processedItems as $it) {
                 $stmtItem->execute([
                     $invoiceId,
                     $it['productId'],
                     $it['productName'],
+                    $it['unitName'],
+                    $it['barcode'],
                     $it['quantity'],
                     $it['unitCost'],
                     $it['totalCost'],
+                    $it['conversionFactor'],
+                    $it['newSalePrice'],
+                    $it['lastCostPrice'],
                     $it['updateStock']
                 ]);
             }
@@ -265,17 +289,30 @@ switch ($action) {
 
                 foreach ($processedItems as $it) {
                     if ($it['updateStock'] && !empty($it['productId'])) {
-                        // Increase Product Stock
+                        $factor = max(0.01, (float)($it['conversionFactor'] ?? 1));
+                        $basePiecesAdded = round($it['quantity'] * $factor, 2);
+
+                        // Increase Product Stock (by base pieces)
                         $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ? WHERE id = ?")
-                            ->execute([$it['quantity'], $it['productId']]);
+                            ->execute([$basePiecesAdded, $it['productId']]);
+
+                        // Update Wholesale Cost Price & optionally Retail Sale Price if provided
+                        $baseUnitCost = round($it['unitCost'] / $factor, 2);
+                        if (!empty($it['newSalePrice']) && $it['newSalePrice'] > 0) {
+                            $pdo->prepare("UPDATE products SET wholesalePrice = ?, price = ? WHERE id = ?")
+                                ->execute([$baseUnitCost, $it['newSalePrice'], $it['productId']]);
+                        } else {
+                            $pdo->prepare("UPDATE products SET wholesalePrice = ? WHERE id = ?")
+                                ->execute([$baseUnitCost, $it['productId']]);
+                        }
 
                         // Record Movement
                         $stmtMov->execute([
                             $it['productId'],
-                            $it['quantity'],
+                            $basePiecesAdded,
                             $it['unitCost'],
                             (string)$invoiceId,
-                            "إضافة مخزن عبر فاتورة شراء #{$invoiceNumber}",
+                            "إضافة مخزن ({$it['quantity']} {$it['unitName']}) عبر فاتورة شراء #{$invoiceNumber}",
                             $userId,
                             $now
                         ]);

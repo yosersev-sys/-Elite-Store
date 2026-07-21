@@ -34,6 +34,8 @@ try {
             totalAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
             paidAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
             remainingAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            discountAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            freightAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
             status VARCHAR(20) NOT NULL DEFAULT 'draft',
             invoiceImagePath VARCHAR(255) NULL,
             notes TEXT NULL,
@@ -47,6 +49,18 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    // Add discountAmount and freightAmount if missing
+    try {
+        $chkDis = $pdo->query("SHOW COLUMNS FROM purchase_invoices LIKE 'discountAmount'")->fetch();
+        if (!$chkDis) {
+            $pdo->exec("ALTER TABLE purchase_invoices ADD COLUMN discountAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+        }
+        $chkFre = $pdo->query("SHOW COLUMNS FROM purchase_invoices LIKE 'freightAmount'")->fetch();
+        if (!$chkFre) {
+            $pdo->exec("ALTER TABLE purchase_invoices ADD COLUMN freightAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+        }
+    } catch (Exception $e) {}
+
     // 3. Table: purchase_invoice_items
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS purchase_invoice_items (
@@ -54,14 +68,30 @@ try {
             invoiceId INT NOT NULL,
             productId VARCHAR(100) NULL,
             productName VARCHAR(255) NOT NULL,
+            unitName VARCHAR(100) NULL,
+            barcode VARCHAR(100) NULL,
             quantity DECIMAL(10,2) NOT NULL DEFAULT 1.00,
             unitCost DECIMAL(10,2) NOT NULL DEFAULT 0.00,
             totalCost DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            conversionFactor DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+            newSalePrice DECIMAL(10,2) NULL,
+            lastCostPrice DECIMAL(10,2) NULL,
             updateStock TINYINT(1) NOT NULL DEFAULT 1,
             INDEX idx_item_invoice (invoiceId),
             INDEX idx_item_product (productId)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+
+    // Add item snapshot columns if missing
+    try {
+        $cols = ['unitName' => 'VARCHAR(100) NULL', 'barcode' => 'VARCHAR(100) NULL', 'conversionFactor' => 'DECIMAL(10,2) NOT NULL DEFAULT 1.00', 'newSalePrice' => 'DECIMAL(10,2) NULL', 'lastCostPrice' => 'DECIMAL(10,2) NULL'];
+        foreach ($cols as $colName => $colDef) {
+            $chkCol = $pdo->query("SHOW COLUMNS FROM purchase_invoice_items LIKE '$colName'")->fetch();
+            if (!$chkCol) {
+                $pdo->exec("ALTER TABLE purchase_invoice_items ADD COLUMN $colName $colDef");
+            }
+        }
+    } catch (Exception $e) {}
 
     // 4. Table: supplier_payments
     $pdo->exec("

@@ -36,9 +36,14 @@ export interface PurchaseInvoiceItem {
   invoiceId?: number;
   productId?: string;
   productName: string;
+  unitName?: string;
+  barcode?: string;
   quantity: number;
   unitCost: number;
   totalCost: number;
+  conversionFactor?: number;
+  newSalePrice?: number;
+  lastCostPrice?: number;
   updateStock?: boolean;
 }
 
@@ -65,6 +70,8 @@ export interface PurchaseInvoice {
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;
+  discountAmount?: number;
+  freightAmount?: number;
   status: 'draft' | 'confirmed' | 'cancelled';
   invoiceImagePath?: string;
   notes?: string;
