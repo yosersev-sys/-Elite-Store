@@ -24,8 +24,8 @@ interface AdminInvoiceFormProps {
 }
 
 const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({ 
-  products, users = [], orders = [], categories = [], currentUser = null, globalDeliveryFee, onSubmit, onCancel, onRefreshData, onUpdateUserLocal, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null,
-  isOnline, offlineQueueCount, onOpenSyncManager
+  products = [], users = [], orders = [], categories = [], currentUser = null, globalDeliveryFee = 0, onSubmit, onCancel, onRefreshData, onUpdateUserLocal, initialCustomerName = 'عميل نقدي', initialPhone = '', order = null,
+  isOnline = true, offlineQueueCount = 0, onOpenSyncManager
 }) => {
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
   const [isDeliveryEnabled, setIsDeliveryEnabled] = useState<boolean>(false);

@@ -867,10 +867,10 @@ const App: React.FC = () => {
               </div>
             ) : (
               <AdminInvoiceForm 
-                products={products.filter(p => Number(p.isDeleted) !== 1)} 
-                users={users} 
-                orders={orders} 
-                categories={categories} 
+                products={(products || []).filter(p => p && Number(p.isDeleted) !== 1)} 
+                users={users || []} 
+                orders={orders || []} 
+                categories={categories || []} 
                 currentUser={currentUser} 
                 onRefreshData={() => loadData(true)} 
                 onUpdateUserLocal={handleUpdateUserLocal}

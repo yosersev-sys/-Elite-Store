@@ -57,25 +57,34 @@ class ErrorBoundary extends Component<Props, State> {
             </p>
             <div className="space-y-3">
               <button 
-                onClick={() => window.location.reload()}
-                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all"
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                  window.location.reload();
+                }}
+                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all cursor-pointer"
               >
                 إعادة تحميل الصفحة 🔄
               </button>
               <button 
                 onClick={() => {
-                  localStorage.clear();
+                  window.location.hash = '';
+                  this.setState({ hasError: false, error: null });
                   window.location.href = 'index.php';
                 }}
-                className="w-full bg-rose-50 text-rose-600 py-3 rounded-2xl font-black text-xs"
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-2xl font-black text-xs cursor-pointer"
               >
-                مسح التخزين المؤقت والعودة للرئيسية
+                العودة للصفحة الرئيسية
               </button>
             </div>
-            {process.env.NODE_ENV === 'development' && (
-              <pre className="mt-6 p-4 bg-slate-900 text-rose-400 text-[10px] text-left rounded-xl overflow-auto max-h-32">
-                {error?.toString()}
-              </pre>
+
+            {error && (
+              <details className="mt-6 text-right">
+                <summary className="text-[10px] font-bold text-slate-400 cursor-pointer hover:text-slate-600">عرض تفاصيل الخطأ الفني 🛠️</summary>
+                <pre className="mt-2 p-3 bg-slate-900 text-rose-400 text-[10px] text-left rounded-xl overflow-auto max-h-36 dir-ltr">
+                  {error.toString()}
+                  {error.stack && `\n\nStack:\n${error.stack}`}
+                </pre>
+              </details>
             )}
           </div>
         </div>
