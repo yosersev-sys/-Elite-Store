@@ -328,7 +328,12 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
         isActive: 1
       };
 
-      const allUnits = [baseUnit, ...activeUnits];
+      const allUnits: any[] = [baseUnit];
+      activeUnits.forEach(u => {
+        if (!allUnits.some(c => c.unitName.trim().toLowerCase() === u.unitName.trim().toLowerCase())) {
+          allUnits.push(u);
+        }
+      });
 
       allUnits.forEach(u => {
         const normBarcode = u.barcode ? normalizeArabic(String(u.barcode)) : '';

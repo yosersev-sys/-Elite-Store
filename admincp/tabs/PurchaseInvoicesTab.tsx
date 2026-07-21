@@ -179,21 +179,37 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
     return suggestions.slice(0, 8).map(s => s.product);
   }, [products, itemSearchQuery]);
 
+  // Deduplicated Product Units Helper
+  const getProductAvailableUnits = (prod: Product | null) => {
+    if (!prod) return [];
+    const baseUnitName = prod.unit === 'piece' ? 'قطعة' : (prod.unit || 'قطعة');
+    const baseUnit = {
+      id: `unit_${prod.id}_base`,
+      unitName: baseUnitName,
+      conversionFactor: 1.00,
+      salePrice: prod.price,
+      purchasePrice: prod.wholesalePrice || 0,
+      barcode: prod.barcode || '',
+      isDefault: 1,
+      isActive: 1
+    };
+
+    const activeUnits = (prod.units || []).filter(u => Number(u.isActive) !== 0);
+    const combined: any[] = [baseUnit];
+    activeUnits.forEach(u => {
+      if (!combined.some(c => c.unitName.trim().toLowerCase() === u.unitName.trim().toLowerCase())) {
+        combined.push(u);
+      }
+    });
+    return combined;
+  };
+
   // Selecting a Product from Search
   const handleSelectProduct = (prod: Product) => {
     setSelectedProduct(prod);
     setItemSearchQuery(prod.name);
 
-    // Default base unit
-    const defaultUnit = {
-      unitName: prod.unit === 'piece' ? 'قطعة' : (prod.unit || 'قطعة'),
-      conversionFactor: 1.00,
-      salePrice: prod.price,
-      purchasePrice: prod.wholesalePrice || 0
-    };
-
-    const activeUnits = prod.units ? prod.units.filter(u => Number(u.isActive) !== 0) : [];
-    const allUnits = [defaultUnit, ...activeUnits];
+    const allUnits = getProductAvailableUnits(prod);
     
     setSelectedUnitObj(allUnits[0]);
     setItemUnitCost(String(allUnits[0].purchasePrice || prod.wholesalePrice || 0));
@@ -207,14 +223,7 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
   // Unit Dropdown Change
   const handleUnitChange = (unitName: string) => {
     if (!selectedProduct) return;
-    const baseUnit = {
-      unitName: selectedProduct.unit === 'piece' ? 'قطعة' : (selectedProduct.unit || 'قطعة'),
-      conversionFactor: 1.00,
-      salePrice: selectedProduct.price,
-      purchasePrice: selectedProduct.wholesalePrice || 0
-    };
-    const activeUnits = selectedProduct.units ? selectedProduct.units.filter(u => Number(u.isActive) !== 0) : [];
-    const allUnits = [baseUnit, ...activeUnits];
+    const allUnits = getProductAvailableUnits(selectedProduct);
 
     const found = allUnits.find(u => u.unitName === unitName) || allUnits[0];
     setSelectedUnitObj(found);
@@ -746,12 +755,9 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
                         onChange={e => handleUnitChange(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl font-bold text-xs text-white outline-none cursor-pointer"
                       >
-                        {(() => {
-                          const baseU = { unitName: selectedProduct.unit === 'piece' ? 'قطعة' : (selectedProduct.unit || 'قطعة') };
-                          const activeU = selectedProduct.units ? selectedProduct.units.filter(u => Number(u.isActive) !== 0) : [];
-                          const allU = [baseU, ...activeU];
-                          return allU.map((u, i) => (<option key={i} value={u.unitName}>{u.unitName}</option>));
-                        })()}
+                        {getProductAvailableUnits(selectedProduct).map((u, i) => (
+                          <option key={i} value={u.unitName}>{u.unitName}</option>
+                        ))}
                       </select>
                     </div>
 
