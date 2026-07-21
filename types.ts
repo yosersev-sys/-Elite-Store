@@ -28,6 +28,7 @@ export interface SupplierPayment {
   amount: number;
   date: number;
   notes?: string;
+  paymentSource?: 'drawer' | 'external';
 }
 
 export interface Supplier {

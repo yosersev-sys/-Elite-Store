@@ -20,6 +20,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentSource, setPaymentSource] = useState<'drawer' | 'external'>('drawer');
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false); // حالة نافذة زيادة المديونية
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -154,14 +155,32 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
     if (isSaving) return;
     if (!activeSupplierForPayment || !paymentAmount) return;
     const amount = parseFloat(paymentAmount);
-    if (isNaN(amount) || amount <= 0) return alert('أدخل مبلغ صحيح');
+    if (isNaN(amount) || amount <= 0) return alert('أدخل مبلغ صحيح أكثر من الصفر');
 
     setIsSaving(true);
     try {
+      // 1. إذا كان الدفع من درج الوردية الحالية، نخصمه كحركة سحب نقدي
+      if (paymentSource === 'drawer') {
+        const drawerRes = await ApiService.addDrawerTransaction(
+          'withdrawal',
+          amount,
+          `سداد مديونية للمورد: ${activeSupplierForPayment.name}`
+        );
+
+        if (!drawerRes.success) {
+          alert(drawerRes.message || 'فشل سحب المبلغ من درج الخزينة بالوردية الحالية');
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // 2. تسجيل حركة السداد في حساب المورد
+      const sourceLabel = paymentSource === 'drawer' ? 'خصم من درج الوردية' : 'دفع من خارج الدرج';
       const newPayment: SupplierPayment = {
         amount: -amount, // سداد (ينقص المديونية)
         date: Date.now(),
-        notes: 'سداد دفعة نقدية'
+        notes: `سداد دفعة نقدية (${sourceLabel})`,
+        paymentSource: paymentSource
       };
       
       const updatedSupplier = {
@@ -183,6 +202,7 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
         else await fetchSuppliers();
         setIsPaymentModalOpen(false);
         setPaymentAmount('');
+        setPaymentSource('drawer');
       } else {
         alert(`فشل تسجيل الدفعة: ${result.message}\n${result.debug || ''}`);
       }
@@ -346,12 +366,12 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
                   title="زيادة مديونية"
                  >➕</button>
 
-                 <button 
-                  disabled={isSaving}
-                  onClick={() => { if(!isSaving) { setActiveSupplierForPayment(s); setIsPaymentModalOpen(true); } }}
-                  className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" 
-                  title="دفع مبلغ (سداد)"
-                 >💸</button>
+                  <button 
+                   disabled={isSaving}
+                   onClick={() => { if(!isSaving) { setActiveSupplierForPayment(s); setPaymentSource('drawer'); setPaymentAmount(''); setIsPaymentModalOpen(true); } }}
+                   className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm" 
+                   title="دفع مبلغ (سداد)"
+                  >💸</button>
 
                  <button 
                   disabled={isSaving}
@@ -453,37 +473,98 @@ const SuppliersTab: React.FC<SuppliersTabProps> = ({ isLoading: globalLoading, s
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
             onClick={() => !isSaving && setIsPaymentModalOpen(false)}
           ></div>
-          <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden">
+          <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp overflow-hidden">
              {isSaving && (
                <div className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center gap-4 animate-fadeIn">
-                 <div className="w-12 h-12 border-4 border-emerald-50 border-t-transparent rounded-full animate-spin"></div>
+                 <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                  <p className="font-black text-slate-800 text-sm">جاري تسجيل الدفعة وتحديث الحساب...</p>
                </div>
              )}
 
              <h3 className="text-xl font-black text-slate-800 mb-6 text-center">تسجيل سداد لـ {activeSupplierForPayment.name}</h3>
-             <div className="space-y-4">
-                <div className="bg-rose-50 p-4 rounded-2xl text-center mb-6">
-                   <p className="text-[10px] font-black text-rose-400 uppercase">المديونية الحالية</p>
-                   <p className="text-2xl font-black text-rose-600">{activeSupplierForPayment.balance.toLocaleString()} ج.م</p>
+             <div className="space-y-4 text-right" dir="rtl">
+                <div className="bg-rose-50 p-4 rounded-2xl text-center border border-rose-100">
+                   <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">المديونية الحالية</p>
+                   <p className="text-2xl font-black text-rose-600 mt-1">{activeSupplierForPayment.balance.toLocaleString()} ج.م</p>
                 </div>
-                <input 
-                  disabled={isSaving}
-                  type="number" 
-                  value={paymentAmount}
-                  onChange={e => setPaymentAmount(e.target.value)}
-                  placeholder="أدخل المبلغ المدفوع..."
-                  className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none font-black text-center text-lg shadow-inner transition-all disabled:opacity-50"
-                />
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 mr-2 block">المبلغ المدفوع (ج.م)</label>
+                  <input 
+                    disabled={isSaving}
+                    type="number" 
+                    step="any"
+                    value={paymentAmount}
+                    onChange={e => setPaymentAmount(e.target.value)}
+                    placeholder="أدخل المبلغ المدفوع..."
+                    className="w-full px-6 py-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none font-black text-center text-xl shadow-inner transition-all disabled:opacity-50"
+                  />
+                </div>
+
+                {/* مصدر سداد المبلغ */}
+                <div className="space-y-2 pt-2">
+                  <label className="text-xs font-bold text-slate-600 mr-2 block">مصدر دفع وسداد المبلغ:</label>
+                  
+                  <div className="grid grid-cols-1 gap-2.5">
+                    <label 
+                      onClick={() => !isSaving && setPaymentSource('drawer')}
+                      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                        paymentSource === 'drawer' 
+                          ? 'border-emerald-500 bg-emerald-50/60 text-emerald-900 shadow-sm' 
+                          : 'border-slate-100 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">🏧</span>
+                        <div className="text-right">
+                          <p className="font-black text-xs">خصم من درج الوردية الحالية</p>
+                          <p className="text-[10px] font-bold text-slate-400">سحب المبلغ من رصيد الخزينة بالوردية</p>
+                        </div>
+                      </div>
+                      <input 
+                        type="radio" 
+                        name="paymentSource" 
+                        checked={paymentSource === 'drawer'} 
+                        onChange={() => setPaymentSource('drawer')}
+                        className="accent-emerald-600 w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+
+                    <label 
+                      onClick={() => !isSaving && setPaymentSource('external')}
+                      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                        paymentSource === 'external' 
+                          ? 'border-indigo-500 bg-indigo-50/60 text-indigo-900 shadow-sm' 
+                          : 'border-slate-100 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">💳</span>
+                        <div className="text-right">
+                          <p className="font-black text-xs">دفع من خارج درج النقدية</p>
+                          <p className="text-[10px] font-bold text-slate-400">تسجيل سداد دون تأثير على رصيد الخزينة</p>
+                        </div>
+                      </div>
+                      <input 
+                        type="radio" 
+                        name="paymentSource" 
+                        checked={paymentSource === 'external'} 
+                        onChange={() => setPaymentSource('external')}
+                        className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                </div>
+
                 <button 
                   onClick={handleQuickPayment}
                   disabled={isSaving || !paymentAmount}
-                  className={`w-full text-white py-5 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 ${isSaving ? 'bg-slate-400' : 'bg-slate-900 hover:bg-emerald-600'}`}
+                  className={`w-full text-white py-5 rounded-2xl font-black text-sm active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3 mt-4 cursor-pointer ${isSaving ? 'bg-slate-400' : 'bg-slate-900 hover:bg-emerald-600'}`}
                 >
                    <span>تأكيد سداد المبلغ ✅</span>
                 </button>
                 {!isSaving && (
-                  <button onClick={() => setIsPaymentModalOpen(false)} className="w-full text-slate-400 font-bold text-xs py-2 hover:text-slate-600">إلغاء</button>
+                  <button onClick={() => setIsPaymentModalOpen(false)} className="w-full text-slate-400 font-bold text-xs py-2 hover:text-slate-600 cursor-pointer">إلغاء</button>
                 )}
              </div>
           </div>
