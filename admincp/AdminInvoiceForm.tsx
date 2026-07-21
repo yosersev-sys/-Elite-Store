@@ -165,6 +165,17 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
     return cleaned;
   };
 
+  const normalizeArabic = (text: any): string => {
+    if (text === null || text === undefined) return '';
+    return String(text)
+      .toLowerCase()
+      .replace(/[\u064B-\u0652\u0640]/g, '')
+      .replace(/[أإآآ]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .trim();
+  };
+
   const formatTimeAgo = (timestamp: number) => {
     if (!timestamp) return '';
     const diffMs = Date.now() - timestamp;
@@ -285,8 +296,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
   }, []);
 
   const filteredProducts = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
+    const rawQ = searchQuery.trim();
+    if (!rawQ) return [];
+
+    const normQ = normalizeArabic(rawQ);
+    if (!normQ) return [];
 
     const items: Array<{
       product: Product;
@@ -296,9 +310,11 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       displayPrice: number;
       displayBarcode: string;
       displayStock: string;
+      score: number;
     }> = [];
 
     products.forEach(p => {
+      const normName = normalizeArabic(p.name);
       const activeUnits = p.units ? p.units.filter(u => Number(u.isActive) !== 0) : [];
       
       const baseUnit = {
@@ -315,11 +331,39 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       const allUnits = [baseUnit, ...activeUnits];
 
       allUnits.forEach(u => {
-        const matchName = p.name.toLowerCase().includes(q);
-        const matchBarcode = u.barcode && String(u.barcode).toLowerCase().includes(q);
-        const matchUnitName = u.unitName.toLowerCase().includes(q);
+        const normBarcode = u.barcode ? normalizeArabic(String(u.barcode)) : '';
+        const normUnitName = u.unitName ? normalizeArabic(u.unitName) : '';
 
-        if (matchName || matchBarcode || matchUnitName) {
+        let score = 0;
+
+        // 1. Exact or prefix match on barcode
+        if (normBarcode && (normBarcode === normQ || normBarcode.startsWith(normQ))) {
+          score += 1000;
+        } else if (normBarcode && normBarcode.includes(normQ)) {
+          score += 500;
+        }
+
+        // 2. Exact, prefix, word boundary or infix match on product name
+        if (normName === normQ) {
+          score += 800;
+        } else if (normName.startsWith(normQ)) {
+          score += 600;
+        } else {
+          const words = normName.split(/\s+/);
+          const wordMatch = words.some(w => w.startsWith(normQ));
+          if (wordMatch) {
+            score += 400;
+          } else if (normName.includes(normQ)) {
+            score += 200;
+          }
+        }
+
+        // 3. Match on Unit Name (only if barcode or name matched, or small bonus)
+        if (score > 0 && normUnitName && normUnitName === normQ) {
+          score += 20;
+        }
+
+        if (score > 0) {
           const factor = u.conversionFactor || 1;
           const availableQty = Math.floor(p.stockQuantity / factor);
           
@@ -331,12 +375,16 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
             displayPrice: u.salePrice,
             displayBarcode: u.barcode || '',
             displayStock: `المتاح: ${availableQty} ${u.unitName}`,
+            score: score
           });
         }
       });
     });
 
-    return items.slice(0, 8);
+    // Sort by highest relevance score first
+    items.sort((a, b) => b.score - a.score);
+
+    return items.slice(0, 10);
   }, [products, searchQuery]);
 
   const triggerQuickAdd = (barcode: string) => {
