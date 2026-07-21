@@ -17,21 +17,20 @@ import { OfflineSyncManager } from './admincp/tabs/OfflineSyncManager.tsx';
 import { SYNC_CONFIG } from './services/syncConfig.ts';
 import { OfflineStorageService } from './services/offlineStorage.ts';
 
-// التحميل المتأخر (Lazy Loading) للمكونات الثانوية لتخفيف حجم حزمة الجافاسكريبت الأولية وتسريع فتح المتجر
-const AdminDashboard = React.lazy(() => import('./admincp/AdminDashboard.tsx'));
-const AdminProductForm = React.lazy(() => import('./admincp/AdminProductForm.tsx'));
-const AdminInvoiceForm = React.lazy(() => import('./admincp/AdminInvoiceForm.tsx'));
-const CartView = React.lazy(() => import('./components/CartView.tsx'));
-const ProductDetailsView = React.lazy(() => import('./components/ProductDetailsView.tsx'));
-const CheckoutView = React.lazy(() => import('./components/CheckoutView.tsx'));
-const OrderSuccessView = React.lazy(() => import('./components/OrderSuccessView.tsx'));
-const AuthView = React.lazy(() => import('./components/AuthView.tsx'));
-const AdminAuthView = React.lazy(() => import('./components/AdminAuthView.tsx'));
-const MyOrdersView = React.lazy(() => import('./components/MyOrdersView.tsx'));
-const ProfileView = React.lazy(() => import('./components/ProfileView.tsx'));
-const NewOrderPopup = React.lazy(() => import('./components/NewOrderPopup.tsx'));
-const BarcodePrintPopup = React.lazy(() => import('./components/BarcodePrintPopup.tsx'));
-const DeliveryAreasView = React.lazy(() => import('./components/DeliveryAreasView.tsx'));
+import AdminDashboard from './admincp/AdminDashboard.tsx';
+import AdminProductForm from './admincp/AdminProductForm.tsx';
+import AdminInvoiceForm from './admincp/AdminInvoiceForm.tsx';
+import CartView from './components/CartView.tsx';
+import ProductDetailsView from './components/ProductDetailsView.tsx';
+import CheckoutView from './components/CheckoutView.tsx';
+import OrderSuccessView from './components/OrderSuccessView.tsx';
+import AuthView from './components/AuthView.tsx';
+import AdminAuthView from './components/AdminAuthView.tsx';
+import MyOrdersView from './components/MyOrdersView.tsx';
+import ProfileView from './components/ProfileView.tsx';
+import NewOrderPopup from './components/NewOrderPopup.tsx';
+import BarcodePrintPopup from './components/BarcodePrintPopup.tsx';
+import DeliveryAreasView from './components/DeliveryAreasView.tsx';
 
 const openCashDrawer = () => {
   const style = document.createElement('style');
