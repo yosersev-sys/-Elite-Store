@@ -391,10 +391,20 @@ const AdminInvoiceForm: React.FC<AdminInvoiceFormProps> = ({
       });
     });
 
-    // Sort by highest relevance score first
+    // Sort by highest relevance score first and deduplicate per product ID (highest scoring unit only)
     items.sort((a, b) => b.score - a.score);
 
-    return items.slice(0, 10);
+    const uniqueItems: typeof items = [];
+    const seenProductIds = new Set<string>();
+
+    for (const item of items) {
+      if (!seenProductIds.has(item.product.id)) {
+        seenProductIds.add(item.product.id);
+        uniqueItems.push(item);
+      }
+    }
+
+    return uniqueItems.slice(0, 10);
   }, [products, searchQuery]);
 
   const triggerQuickAdd = (barcode: string) => {

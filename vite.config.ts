@@ -22,11 +22,12 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
+        emptyOutDir: true,
         rollupOptions: {
           output: {
-            entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
-            chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
-            assetFileNames: `assets/[name]-[hash]-${Date.now()}[extname]`
+            entryFileNames: `assets/[name]-[hash].js`,
+            chunkFileNames: `assets/[name]-[hash].js`,
+            assetFileNames: `assets/[name]-[hash][extname]`
           }
         }
       }
