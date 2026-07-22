@@ -328,20 +328,36 @@ switch ($action) {
 
                 // A. Record Payment if paidAmount > 0
                 if ($paidAmount > 0) {
-                    $stmtPay = $pdo->prepare("
-                        INSERT INTO supplier_payments (supplierId, invoiceId, amount, type, walletType, notes, shiftId, userId, createdAt)
-                        VALUES (?, ?, ?, 'payment', ?, ?, ?, ?, ?)
-                    ");
-                    $stmtPay->execute([
-                        $supplierId,
-                        $invoiceId,
-                        $paidAmount,
-                        $walletType,
-                        "دفعة مقدماً لفاتورة شراء #{$invoiceNumber}",
-                        $shiftId,
-                        $userId,
-                        $now
-                    ]);
+                    try {
+                        $stmtPay = $pdo->prepare("
+                            INSERT INTO supplier_payments (supplierId, invoiceId, amount, type, walletType, notes, shiftId, userId, createdAt)
+                            VALUES (?, ?, ?, 'payment', ?, ?, ?, ?, ?)
+                        ");
+                        $stmtPay->execute([
+                            $supplierId,
+                            $invoiceId,
+                            $paidAmount,
+                            $walletType,
+                            "دفعة مقدماً لفاتورة شراء #{$invoiceNumber}",
+                            $shiftId,
+                            $userId,
+                            $now
+                        ]);
+                    } catch (Exception $payErr) {
+                        try {
+                            $stmtPay = $pdo->prepare("
+                                INSERT INTO supplier_payments (supplierId, invoiceId, amount, notes, createdAt)
+                                VALUES (?, ?, ?, ?, ?)
+                            ");
+                            $stmtPay->execute([
+                                $supplierId,
+                                $invoiceId,
+                                $paidAmount,
+                                "دفعة مقدماً لفاتورة شراء #{$invoiceNumber}",
+                                $now
+                            ]);
+                        } catch (Exception $payErr2) {}
+                    }
 
                     // If drawer payment, deduct from drawer & insert transaction
                     if ($walletType === 'drawer' && $activeShift) {

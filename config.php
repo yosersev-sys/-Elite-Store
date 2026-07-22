@@ -35,9 +35,10 @@ try {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// الترقية والتسوية الذاتية التلقائية لقواعد البيانات لجميع الجداول
+// الترقية والتسوية الذاتية التلقائية لقواعد البيانات لجميع الجداول والأعمدة
 // ═══════════════════════════════════════════════════════════════════
 try {
+    // 1. Table: purchase_invoices
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS purchase_invoices (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -61,6 +62,30 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    $purCols = [
+        'invoiceNumber' => 'VARCHAR(100) NULL',
+        'supplierId' => 'VARCHAR(100) NOT NULL',
+        'totalAmount' => 'DECIMAL(10,2) NOT NULL DEFAULT 0.00',
+        'paidAmount' => 'DECIMAL(10,2) NOT NULL DEFAULT 0.00',
+        'remainingAmount' => 'DECIMAL(10,2) NOT NULL DEFAULT 0.00',
+        'discountAmount' => 'DECIMAL(10,2) NOT NULL DEFAULT 0.00',
+        'freightAmount' => 'DECIMAL(10,2) NOT NULL DEFAULT 0.00',
+        'status' => "VARCHAR(20) NOT NULL DEFAULT 'draft'",
+        'invoiceImagePath' => 'VARCHAR(255) NULL',
+        'notes' => 'TEXT NULL',
+        'shiftId' => 'INT NULL',
+        'userId' => 'VARCHAR(100) NULL',
+        'createdAt' => 'BIGINT NOT NULL DEFAULT 0',
+        'updatedAt' => 'BIGINT NOT NULL DEFAULT 0'
+    ];
+    foreach ($purCols as $col => $def) {
+        $chk = $pdo->query("SHOW COLUMNS FROM purchase_invoices LIKE '$col'")->fetch();
+        if (!$chk) {
+            $pdo->exec("ALTER TABLE purchase_invoices ADD COLUMN $col $def");
+        }
+    }
+
+    // 2. Table: purchase_invoice_items
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS purchase_invoice_items (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -81,21 +106,68 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    $itemCols = [
+        'invoiceId' => 'INT NOT NULL',
+        'productId' => 'VARCHAR(100) NULL',
+        'productName' => 'VARCHAR(255) NOT NULL',
+        'unitName' => 'VARCHAR(100) NULL',
+        'barcode' => 'VARCHAR(100) NULL',
+        'quantity' => 'DECIMAL(10,2) NOT NULL DEFAULT 1.00',
+        'unitCost' => 'DECIMAL(10,2) NOT NULL DEFAULT 0.00',
+        'totalCost' => 'DECIMAL(10,2) NOT NULL DEFAULT 0.00',
+        'conversionFactor' => 'DECIMAL(10,2) NOT NULL DEFAULT 1.00',
+        'newSalePrice' => 'DECIMAL(10,2) NULL',
+        'lastCostPrice' => 'DECIMAL(10,2) NULL',
+        'updateStock' => 'TINYINT(1) NOT NULL DEFAULT 1'
+    ];
+    foreach ($itemCols as $col => $def) {
+        $chk = $pdo->query("SHOW COLUMNS FROM purchase_invoice_items LIKE '$col'")->fetch();
+        if (!$chk) {
+            $pdo->exec("ALTER TABLE purchase_invoice_items ADD COLUMN $col $def");
+        }
+    }
+
+    // 3. Table: supplier_payments
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS supplier_payments (
             id INT AUTO_INCREMENT PRIMARY KEY,
             supplierId VARCHAR(100) NOT NULL,
+            invoiceId INT NULL,
             amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            type VARCHAR(20) NOT NULL DEFAULT 'payment',
+            walletType VARCHAR(50) NOT NULL DEFAULT 'drawer',
             paymentMethod VARCHAR(50) NOT NULL DEFAULT 'cash',
             referenceNumber VARCHAR(100) NULL,
             notes TEXT NULL,
-            invoiceId INT NULL,
-            createdAt BIGINT NOT NULL,
+            shiftId INT NULL,
             userId VARCHAR(100) NULL,
-            INDEX idx_pay_supplier (supplierId)
+            createdAt BIGINT NOT NULL DEFAULT 0,
+            INDEX idx_pay_supplier (supplierId),
+            INDEX idx_pay_invoice (invoiceId)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    $payCols = [
+        'supplierId' => 'VARCHAR(100) NOT NULL',
+        'invoiceId' => 'INT NULL',
+        'amount' => 'DECIMAL(10,2) NOT NULL DEFAULT 0.00',
+        'type' => "VARCHAR(20) NOT NULL DEFAULT 'payment'",
+        'walletType' => "VARCHAR(50) NOT NULL DEFAULT 'drawer'",
+        'paymentMethod' => "VARCHAR(50) NOT NULL DEFAULT 'cash'",
+        'referenceNumber' => 'VARCHAR(100) NULL',
+        'notes' => 'TEXT NULL',
+        'shiftId' => 'INT NULL',
+        'userId' => 'VARCHAR(100) NULL',
+        'createdAt' => 'BIGINT NOT NULL DEFAULT 0'
+    ];
+    foreach ($payCols as $col => $def) {
+        $chk = $pdo->query("SHOW COLUMNS FROM supplier_payments LIKE '$col'")->fetch();
+        if (!$chk) {
+            $pdo->exec("ALTER TABLE supplier_payments ADD COLUMN $col $def");
+        }
+    }
+
+    // 4. Table: expenses
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS expenses (
             id INT AUTO_INCREMENT PRIMARY KEY,
