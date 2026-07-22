@@ -73,6 +73,8 @@ export interface PurchaseInvoice {
   discountAmount?: number;
   freightAmount?: number;
   status: 'draft' | 'confirmed' | 'cancelled';
+  walletType?: 'drawer' | 'main_safe' | 'bank' | 'wallet';
+  invoiceImage?: string;
   invoiceImagePath?: string;
   notes?: string;
   shiftId?: number;

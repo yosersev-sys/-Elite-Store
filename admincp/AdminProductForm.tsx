@@ -292,17 +292,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
     const finalPrice = parseFloat(formData.price);
     const finalStock = parseFloat(formData.stockQuantity);
 
-    if (formData.images.length === 0) return alert('يرجى إضافة صورة واحدة على الأقل للمنتج');
     if (!formData.categoryId) return alert('يرجى اختيار قسم للمنتج');
     if (isNaN(finalPrice) || finalPrice <= 0) return alert('يرجى تحديد سعر بيع صحيح');
     if (!formData.name.trim()) return alert('يرجى إدخال اسم المنتج');
+
+    const finalImages = formData.images.length > 0 ? formData.images : ['/assets/images/placeholder.png'];
 
     setIsSubmitting(true);
     try {
       const productData: Product = {
         id: product ? product.id : Date.now().toString(),
         name: formData.name.trim(),
-        description: formData.description.trim(),
+        description: formData.description.trim() || formData.name.trim(),
         price: finalPrice,
         wholesalePrice: parseFloat(formData.wholesalePrice) || 0,
         categoryId: formData.categoryId,
@@ -312,7 +313,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
         unit: formData.unit,
         sizes: formData.sizes ? formData.sizes.split(',').map(s => s.trim()).filter(s => s !== '') : undefined,
         colors: formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(c => c !== '') : undefined,
-        images: formData.images,
+        images: finalImages,
         batches: formData.batches,
         createdAt: product ? product.createdAt : Date.now(),
         salesCount: product ? product.salesCount : 0,
@@ -359,7 +360,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
       )}
 
       {showCancelConfirm && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[4500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowCancelConfirm(false)}></div>
           <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 text-center animate-slideUp">
             <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">⚠️</div>
@@ -374,7 +375,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
       )}
 
       {showLibrary && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[4500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setShowLibrary(false)}></div>
           <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl p-8 max-h-[85vh] overflow-hidden flex flex-col">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -899,8 +900,8 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
 
         <section className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-50 space-y-10">
            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-500 mr-2">وصف المنتج</label>
-              <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-8 bg-slate-50 rounded-[2rem] outline-none min-h-[180px] focus:ring-2 focus:ring-indigo-400 shadow-inner" />
+              <label className="text-sm font-bold text-slate-500 mr-2">وصف المنتج (اختياري)</label>
+              <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-8 bg-slate-50 rounded-[2rem] outline-none min-h-[180px] focus:ring-2 focus:ring-indigo-400 shadow-inner" placeholder="أدخل وصف تفصيلي للمنتج..." />
            </div>
            <div className="pt-10 border-t border-slate-50">
               <div className="space-y-4 max-w-xl">
@@ -920,7 +921,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
 
       {/* مودال إضافة قسم جديد */}
       {showAddCategoryModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[4500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => !isSavingCategory && setShowAddCategoryModal(false)}></div>
           <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp">
             <h3 className="text-2xl font-black text-slate-800 mb-6 text-center">إضافة قسم جديد 🏷️</h3>
@@ -960,7 +961,7 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
 
       {/* مودال إضافة مورد جديد */}
       {showAddSupplierModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[4500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => !isSavingSupplier && setShowAddSupplierModal(false)}></div>
           <div className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-slideUp max-h-[90vh] overflow-y-auto no-scrollbar">
             <h3 className="text-2xl font-black text-slate-800 mb-6 text-center">إضافة مورد جديد 🚛</h3>

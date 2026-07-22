@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PurchaseInvoice, PurchaseInvoiceItem, Supplier, Product, User, Category } from '../../types';
 import { ApiService } from '../../services/api';
+import AdminProductForm from '../AdminProductForm';
 
 interface PurchaseInvoicesTabProps {
   currentUser: User | null;
@@ -367,35 +368,20 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
     });
   }, [invoices, statusFilter, supplierFilter, searchQuery]);
 
-  // Handle Quick Add Product Submit
-  const handleQuickAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickAddForm.name.trim()) return alert('يرجى كتابة اسم المنتج.');
-    if (!quickAddForm.categoryId) return alert('يرجى اختيار القسم.');
-    const price = parseFloat(quickAddForm.price);
-    if (isNaN(price) || price <= 0) return alert('أدخل سعر بيع صحيح أكثر من الصفر.');
-
+  // Handle Full Product Form Submit from Purchase Invoice Page
+  const handleProductFormSubmit = async (productData: Product) => {
     setIsSubmittingQuickAdd(true);
     try {
-      const payload = {
-        id: 'prod_' + Date.now().toString().slice(-8),
-        name: quickAddForm.name.trim(),
-        description: quickAddForm.name.trim(),
-        price: price,
-        wholesalePrice: parseFloat(quickAddForm.wholesalePrice) || 0,
-        categoryId: quickAddForm.categoryId,
-        stockQuantity: parseFloat(quickAddForm.stockQuantity) || 0,
-        unit: quickAddForm.unit,
-        barcode: quickAddForm.barcode.trim(),
-        images: ['/assets/images/placeholder.png']
-      };
-
-      const result = await ApiService.addProduct(payload as any);
+      const result = await ApiService.addProduct(productData);
       if (result.success || result.status === 'barcode_exists') {
-        const addedProd: Product = (result.product || payload) as any;
-        setProducts(prev => [...prev, addedProd]);
+        const addedProd: Product = (result.product || productData) as any;
+        setProducts(prev => {
+          const exists = prev.some(p => p.id === addedProd.id);
+          return exists ? prev.map(p => p.id === addedProd.id ? addedProd : p) : [...prev, addedProd];
+        });
         handleSelectProduct(addedProd);
         setIsQuickAddModalOpen(false);
+        if (onRefreshData) onRefreshData();
         alert('تم إضافة المنتج الجديد للسيستم وتمريره للفاتورة بنجاح ✅');
       } else {
         alert(result.message || 'فشل إضافة المنتج.');
@@ -958,45 +944,34 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
         </div>
       )}
 
-      {/* 5. QUICK ADD NEW PRODUCT MODAL */}
+      {/* 5. ADD NEW PRODUCT MODAL (Full Original Product Form) */}
       {isQuickAddModalOpen && (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isSubmittingQuickAdd && setIsQuickAddModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl p-6 md:p-8 animate-slideUp overflow-hidden">
-            <h3 className="text-xl font-black text-slate-800 mb-4 text-center">إضافة منتج جديد للسيستم ➕</h3>
-            <form onSubmit={handleQuickAddSubmit} className="space-y-4 text-right">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">اسم المنتج</label>
-                <input required type="text" value={quickAddForm.name} onChange={e => setQuickAddForm({...quickAddForm, name: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-bold text-xs outline-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="relative bg-slate-100 w-full max-w-5xl rounded-[2.5rem] sm:rounded-[3rem] shadow-2xl p-3 sm:p-6 md:p-8 animate-slideUp max-h-[92vh] overflow-y-auto no-scrollbar my-auto">
+            <div className="flex justify-between items-center mb-6 px-6 py-4 bg-white rounded-3xl shadow-sm border border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-xl">➕</div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1">القسم</label>
-                  <select required value={quickAddForm.categoryId} onChange={e => setQuickAddForm({...quickAddForm, categoryId: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-bold text-xs outline-none">
-                    <option value="">اختر القسم...</option>
-                    {categories.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1">الباركود</label>
-                  <input type="text" value={quickAddForm.barcode} onChange={e => setQuickAddForm({...quickAddForm, barcode: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-bold text-xs outline-none" />
+                  <h3 className="text-lg md:text-xl font-black text-slate-800">إضافة منتج جديد للسيستم</h3>
+                  <p className="text-[10px] text-slate-400 font-bold">سيتم حفظ المنتج بالمخزن وإضافته فوراً لفاتورة الشراء الحالية</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1">سعر الشراء (التكلفة)</label>
-                  <input type="number" step="any" value={quickAddForm.wholesalePrice} onChange={e => setQuickAddForm({...quickAddForm, wholesalePrice: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-bold text-xs text-center outline-none" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1">سعر البيع للمستهلك</label>
-                  <input required type="number" step="any" value={quickAddForm.price} onChange={e => setQuickAddForm({...quickAddForm, price: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border rounded-xl font-bold text-xs text-center outline-none" />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button disabled={isSubmittingQuickAdd} type="submit" className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs">حفظ وإضافة بالفاتورة 💾</button>
-                <button type="button" onClick={() => setIsQuickAddModalOpen(false)} className="py-3 px-4 bg-slate-100 text-slate-600 rounded-xl font-black text-xs">إلغاء</button>
-              </div>
-            </form>
+              <button
+                type="button"
+                onClick={() => setIsQuickAddModalOpen(false)}
+                className="w-10 h-10 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl flex items-center justify-center font-black transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <AdminProductForm
+              product={null}
+              categories={categories}
+              suppliers={suppliers}
+              onCancel={() => setIsQuickAddModalOpen(false)}
+              onRefreshData={onRefreshData}
+              onSubmit={handleProductFormSubmit}
+            />
           </div>
         </div>
       )}
