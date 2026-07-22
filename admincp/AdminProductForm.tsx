@@ -4,6 +4,7 @@ import { Product, Category, SeoSettings, StockBatch, Supplier, ProductUnit } fro
 import BarcodeScanner from '../components/BarcodeScanner';
 import { ApiService } from '../services/api';
 import BarcodePrintPopup from '../components/BarcodePrintPopup';
+import SearchableSupplierSelect from '../components/SearchableSupplierSelect';
 
 interface AdminProductFormProps {
   product: Product | null;
@@ -475,12 +476,18 @@ const AdminProductForm: React.FC<AdminProductFormProps> = ({
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-500 mr-2">المورد (اختياري)</label>
-              <div className="flex gap-2">
-                <select value={formData.supplierId} onChange={e => setFormData({...formData, supplierId: e.target.value})} className="flex-grow px-6 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-400 font-bold shadow-inner">
-                  <option value="">-- بدون مورد --</option>
-                  {localSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                <button type="button" onClick={() => setShowAddSupplierModal(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-2xl shadow-lg font-black text-xs shrink-0 active:scale-95 transition-all">إضافة مورد +</button>
+              <div className="flex gap-2 items-center">
+                <SearchableSupplierSelect
+                  suppliers={localSuppliers}
+                  value={formData.supplierId}
+                  onChange={val => setFormData({ ...formData, supplierId: val })}
+                  placeholder="-- بدون مورد --"
+                  allowAll={true}
+                  allLabel="-- بدون مورد --"
+                  className="flex-grow"
+                  inputBgClass="bg-slate-50 py-3.5 px-6 rounded-2xl"
+                />
+                <button type="button" onClick={() => setShowAddSupplierModal(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3.5 rounded-2xl shadow-lg font-black text-xs shrink-0 active:scale-95 transition-all">إضافة مورد +</button>
               </div>
             </div>
             <div className="space-y-2">

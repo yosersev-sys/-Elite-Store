@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PurchaseInvoice, PurchaseInvoiceItem, Supplier, Product, User, Category } from '../../types';
 import { ApiService } from '../../services/api';
 import AdminProductForm from '../AdminProductForm';
+import SearchableSupplierSelect from '../../components/SearchableSupplierSelect';
 
 interface PurchaseInvoicesTabProps {
   currentUser: User | null;
@@ -589,10 +590,15 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <select value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none cursor-pointer">
-            <option value="">جميع الموردين</option>
-            {suppliers.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
-          </select>
+          <SearchableSupplierSelect
+            suppliers={suppliers}
+            value={supplierFilter}
+            onChange={val => setSupplierFilter(val)}
+            allowAll={true}
+            allLabel="جميع الموردين"
+            className="w-full md:w-56"
+            inputBgClass="bg-slate-50"
+          />
           <div className="relative w-full md:w-72">
             <input type="text" placeholder="بحث برقم الفاتورة أو الصنف..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 text-xs outline-none font-bold pr-10" />
             <span className="absolute right-3.5 top-3 text-slate-300">🔍</span>
@@ -692,10 +698,15 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 block mb-1">المورد المستلم منه (مطلوب)</label>
-                  <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs outline-none">
-                    <option value="">اختر المورد...</option>
-                    {suppliers.map(s => (<option key={s.id} value={s.id}>{s.name} ({s.companyName || 'فرد'})</option>))}
-                  </select>
+                  <SearchableSupplierSelect
+                    suppliers={suppliers}
+                    value={selectedSupplierId}
+                    onChange={val => setSelectedSupplierId(val)}
+                    placeholder="اختر المورد..."
+                    allowAll={false}
+                    className="w-full"
+                    inputBgClass="bg-white"
+                  />
                 </div>
 
                 <div>
