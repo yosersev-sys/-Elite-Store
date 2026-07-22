@@ -787,6 +787,23 @@ export const ApiService = {
     }
   },
 
+  async updatePurchaseInvoice(payload: Partial<PurchaseInvoice>): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await fetch('api.php?action=update_purchase_invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        return { success: true };
+      }
+      return { success: false, message: data.message || 'فشل تعديل فاتورة الشراء' };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'خطأ بالاتصال بالسيرفر' };
+    }
+  },
+
   async addInvoicePayment(invoiceId: number, amount: number, walletType: string = 'drawer', notes?: string): Promise<{ success: boolean; message?: string }> {
     try {
       const response = await fetch('api.php?action=add_invoice_payment', {

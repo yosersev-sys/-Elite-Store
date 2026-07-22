@@ -469,6 +469,299 @@ switch ($action) {
         }
         break;
 
+    case 'update_purchase_invoice':
+        $invoiceId = (int)($input['id'] ?? 0);
+        $supplierId = trim($input['supplierId'] ?? '');
+        $invoiceNumber = trim($input['invoiceNumber'] ?? '');
+        $notes = trim($input['notes'] ?? '');
+        $status = trim($input['status'] ?? 'confirmed'); // 'draft' or 'confirmed'
+        $walletType = trim($input['walletType'] ?? 'drawer');
+        $paidAmount = max(0, (float)($input['paidAmount'] ?? 0));
+        $rawImageBase64 = trim($input['invoiceImage'] ?? '');
+        $items = $input['items'] ?? [];
+
+        if ($invoiceId <= 0) {
+            sendErr('معرف الفاتورة المطلوب تعديلها غير صالح.');
+        }
+
+        if (empty($supplierId)) {
+            sendErr('يرجى اختيار المورد.');
+        }
+
+        // Verify Existing Invoice
+        $stmtOld = $pdo->prepare("SELECT * FROM purchase_invoices WHERE id = ?");
+        $stmtOld->execute([$invoiceId]);
+        $oldInv = $stmtOld->fetch(PDO::FETCH_ASSOC);
+        if (!$oldInv) {
+            sendErr('فاتورة الشراء غير موجودة.');
+        }
+
+        // Verify Supplier
+        $supStmt = $pdo->prepare("SELECT * FROM suppliers WHERE id = ?");
+        $supStmt->execute([$supplierId]);
+        $supplier = $supStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$supplier) {
+            sendErr('المورد المحدد غير موجود في قاعدة البيانات.');
+        }
+
+        $discountAmount = max(0, (float)($input['discountAmount'] ?? 0));
+        $freightAmount = max(0, (float)($input['freightAmount'] ?? 0));
+
+        // Calculate total amount
+        $itemsTotal = 0;
+        $processedItems = [];
+
+        if (is_array($items) && count($items) > 0) {
+            foreach ($items as $item) {
+                $pName = trim($item['productName'] ?? '');
+                $pId = trim($item['productId'] ?? '');
+                $uName = trim($item['unitName'] ?? 'قطعة');
+                $barcode = trim($item['barcode'] ?? '');
+                $qty = max(0.01, (float)($item['quantity'] ?? 1));
+                $cost = max(0, (float)($item['unitCost'] ?? 0));
+                $factor = max(0.01, (float)($item['conversionFactor'] ?? 1));
+                $newSale = isset($item['newSalePrice']) && $item['newSalePrice'] !== null ? max(0, (float)$item['newSalePrice']) : null;
+                $lastCost = isset($item['lastCostPrice']) && $item['lastCostPrice'] !== null ? max(0, (float)$item['lastCostPrice']) : null;
+                $upStock = isset($item['updateStock']) ? ($item['updateStock'] ? 1 : 0) : 1;
+                $itemTotal = round($qty * $cost, 2);
+
+                if (!empty($pName)) {
+                    $itemsTotal += $itemTotal;
+                    $processedItems[] = [
+                        'productId' => !empty($pId) ? $pId : null,
+                        'productName' => $pName,
+                        'unitName' => $uName,
+                        'barcode' => $barcode,
+                        'quantity' => $qty,
+                        'unitCost' => $cost,
+                        'totalCost' => $itemTotal,
+                        'conversionFactor' => $factor,
+                        'newSalePrice' => $newSale,
+                        'lastCostPrice' => $lastCost,
+                        'updateStock' => $upStock
+                    ];
+                }
+            }
+        }
+
+        if (count($processedItems) > 0) {
+            $totalAmount = round(max(0, $itemsTotal - $discountAmount + $freightAmount), 2);
+        } else if (isset($input['totalAmount'])) {
+            $totalAmount = max(0, (float)$input['totalAmount']);
+        } else {
+            $totalAmount = 0;
+        }
+
+        if ($totalAmount <= 0) {
+            sendErr('يجب إدخال إجمالي فاتورة صحيح أكبر من الصفر.');
+        }
+
+        if ($paidAmount > $totalAmount) {
+            sendErr('المبلغ المدفوع كاش لا يمكن أن يتجاوز إجمالي الفاتورة.');
+        }
+
+        $remainingAmount = round($totalAmount - $paidAmount, 2);
+
+        // Handle Image Upload
+        $invoiceImagePath = $oldInv['invoiceImagePath'];
+        if (!empty($rawImageBase64) && strpos($rawImageBase64, 'data:image') === 0) {
+            if (preg_match('/^data:image\/(\w+);base64,/', $rawImageBase64, $type)) {
+                $data = substr($rawImageBase64, strpos($rawImageBase64, ',') + 1);
+                $ext = strtolower($type[1]);
+                if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
+                    $data = base64_decode($data);
+                    if ($data !== false) {
+                        $filename = 'inv_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
+                        $uploadPath = __DIR__ . '/uploads/invoices/' . $filename;
+                        if (file_put_contents($uploadPath, $data)) {
+                            $invoiceImagePath = 'uploads/invoices/' . $filename;
+                        }
+                    }
+                }
+            }
+        } elseif (!empty($rawImageBase64) && strpos($rawImageBase64, 'uploads/') === 0) {
+            $invoiceImagePath = $rawImageBase64;
+        }
+
+        $activeShift = $pdo->query("SELECT * FROM shifts WHERE status = 'open'")->fetch();
+        $shiftId = $activeShift ? (int)$activeShift['id'] : null;
+
+        $pdo->beginTransaction();
+
+        try {
+            // REVERSE OLD CONFIRMED EFFECTS IF OLD STATUS WAS 'confirmed'
+            if ($oldInv['status'] === 'confirmed') {
+                // 1. Reverse Supplier Debt Balance
+                $oldRemaining = (float)$oldInv['remainingAmount'];
+                if ($oldRemaining > 0) {
+                    $pdo->prepare("UPDATE suppliers SET balance = GREATEST(0, balance - ?) WHERE id = ?")
+                        ->execute([$oldRemaining, $oldInv['supplierId']]);
+                }
+
+                // 2. Reverse Stock & Batches of Old Items
+                $oldItemsStmt = $pdo->prepare("SELECT * FROM purchase_invoice_items WHERE invoiceId = ?");
+                $oldItemsStmt->execute([$invoiceId]);
+                $oldItems = $oldItemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                foreach ($oldItems as $oldIt) {
+                    if ($oldIt['updateStock'] && !empty($oldIt['productId'])) {
+                        $oldFactor = max(0.01, (float)($oldIt['conversionFactor'] ?? 1));
+                        $oldBasePieces = round($oldIt['quantity'] * $oldFactor, 2);
+
+                        // Deduct Stock
+                        $pdo->prepare("UPDATE products SET stockQuantity = GREATEST(0, stockQuantity - ?) WHERE id = ?")
+                            ->execute([$oldBasePieces, $oldIt['productId']]);
+
+                        // Filter out batches matching this invoiceId prefix
+                        try {
+                            $stmtGetB = $pdo->prepare("SELECT batches FROM products WHERE id = ?");
+                            $stmtGetB->execute([$oldIt['productId']]);
+                            $prodBRow = $stmtGetB->fetch(PDO::FETCH_ASSOC);
+                            if ($prodBRow && !empty($prodBRow['batches'])) {
+                                $decodedB = json_decode($prodBRow['batches'], true);
+                                if (is_array($decodedB)) {
+                                    $filteredBatches = array_values(array_filter($decodedB, function($b) use ($invoiceId) {
+                                        return strpos($b['id'] ?? '', 'batch_pur_' . $invoiceId . '_') !== 0;
+                                    }));
+                                    $pdo->prepare("UPDATE products SET batches = ? WHERE id = ?")
+                                        ->execute([json_encode($filteredBatches), $oldIt['productId']]);
+                                }
+                            }
+                        } catch (Exception $btcErr) {}
+                    }
+                }
+            }
+
+            // UPDATE INVOICE HEADER
+            $stmtUpdInv = $pdo->prepare("
+                UPDATE purchase_invoices 
+                SET invoiceNumber = ?, supplierId = ?, totalAmount = ?, paidAmount = ?, remainingAmount = ?, discountAmount = ?, freightAmount = ?, status = ?, invoiceImagePath = ?, notes = ?, updatedAt = ?
+                WHERE id = ?
+            ");
+            $stmtUpdInv->execute([
+                $invoiceNumber,
+                $supplierId,
+                $totalAmount,
+                $paidAmount,
+                $remainingAmount,
+                $discountAmount,
+                $freightAmount,
+                $status,
+                $invoiceImagePath,
+                $notes,
+                $now,
+                $invoiceId
+            ]);
+
+            // DELETE OLD ITEMS & RE-INSERT NEW ITEMS
+            $pdo->prepare("DELETE FROM purchase_invoice_items WHERE invoiceId = ?")->execute([$invoiceId]);
+
+            $stmtItem = $pdo->prepare("
+                INSERT INTO purchase_invoice_items (invoiceId, productId, productName, unitName, barcode, quantity, unitCost, totalCost, conversionFactor, newSalePrice, lastCostPrice, updateStock)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            foreach ($processedItems as $it) {
+                $stmtItem->execute([
+                    $invoiceId,
+                    $it['productId'],
+                    $it['productName'],
+                    $it['unitName'],
+                    $it['barcode'],
+                    $it['quantity'],
+                    $it['unitCost'],
+                    $it['totalCost'],
+                    $it['conversionFactor'],
+                    $it['newSalePrice'],
+                    $it['lastCostPrice'],
+                    $it['updateStock']
+                ]);
+            }
+
+            // APPLY NEW CONFIRMED EFFECTS IF NEW STATUS IS 'confirmed'
+            if ($status === 'confirmed') {
+                // Update Supplier Debt Balance
+                if ($remainingAmount > 0) {
+                    $pdo->prepare("UPDATE suppliers SET balance = balance + ? WHERE id = ?")
+                        ->execute([$remainingAmount, $supplierId]);
+                }
+
+                // Update Products Stock, Prices, Movements, and Batches
+                $stmtMov = $pdo->prepare("
+                    INSERT INTO inventory_movements (productId, type, quantity, unitCost, referenceType, referenceId, notes, userId, createdAt)
+                    VALUES (?, 'purchase', ?, ?, 'purchase_invoice', ?, ?, ?, ?)
+                ");
+
+                foreach ($processedItems as $it) {
+                    if ($it['updateStock'] && !empty($it['productId'])) {
+                        $factor = max(0.01, (float)($it['conversionFactor'] ?? 1));
+                        $basePiecesAdded = round($it['quantity'] * $factor, 2);
+
+                        // Increase Product Stock
+                        $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ? WHERE id = ?")
+                            ->execute([$basePiecesAdded, $it['productId']]);
+
+                        // Update Wholesale & Sale Prices
+                        $baseUnitCost = round($it['unitCost'] / $factor, 2);
+                        if (!empty($it['newSalePrice']) && $it['newSalePrice'] > 0) {
+                            $pdo->prepare("UPDATE products SET wholesalePrice = ?, price = ? WHERE id = ?")
+                                ->execute([$baseUnitCost, $it['newSalePrice'], $it['productId']]);
+                        } else {
+                            $pdo->prepare("UPDATE products SET wholesalePrice = ? WHERE id = ?")
+                                ->execute([$baseUnitCost, $it['productId']]);
+                        }
+
+                        // Add new batch
+                        try {
+                            $stmtGetB = $pdo->prepare("SELECT batches FROM products WHERE id = ?");
+                            $stmtGetB->execute([$it['productId']]);
+                            $prodBRow = $stmtGetB->fetch(PDO::FETCH_ASSOC);
+
+                            $existingBatches = [];
+                            if ($prodBRow && !empty($prodBRow['batches'])) {
+                                $decodedB = json_decode($prodBRow['batches'], true);
+                                if (is_array($decodedB)) {
+                                    $existingBatches = $decodedB;
+                                }
+                            }
+
+                            $newBatch = [
+                                'id' => 'batch_pur_' . $invoiceId . '_' . time() . '_' . rand(100, 999),
+                                'quantity' => (float)$basePiecesAdded,
+                                'wholesalePrice' => (float)$baseUnitCost,
+                                'createdAt' => (float)$now
+                            ];
+
+                            $existingBatches[] = $newBatch;
+
+                            $pdo->prepare("UPDATE products SET batches = ? WHERE id = ?")
+                                ->execute([json_encode($existingBatches), $it['productId']]);
+                        } catch (Exception $btcErr) {}
+
+                        // Record Movement
+                        try {
+                            $stmtMov->execute([
+                                $it['productId'],
+                                $basePiecesAdded,
+                                $it['unitCost'],
+                                (string)$invoiceId,
+                                "تحديث مخزن ({$it['quantity']} {$it['unitName']}) عبر تعديل فاتورة شراء #{$invoiceNumber}",
+                                $userId,
+                                $now
+                            ]);
+                        } catch (Exception $movErr) {}
+                    }
+                }
+            }
+
+            $pdo->commit();
+            sendRes(['status' => 'success', 'invoiceId' => $invoiceId, 'invoiceNumber' => $invoiceNumber]);
+
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            sendErr('فشل تعديل فاتورة الشراء: ' . $e->getMessage());
+        }
+        break;
+
     case 'add_invoice_payment':
         $invoiceId = (int)($input['invoiceId'] ?? 0);
         $amount = max(0.01, (float)($input['amount'] ?? 0));

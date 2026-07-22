@@ -37,6 +37,7 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<PurchaseInvoice | null>(null);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // New Invoice Form state
@@ -412,6 +413,7 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
     setIsSaving(true);
     try {
       const payload: Partial<PurchaseInvoice> = {
+        id: editingInvoiceId || undefined,
         supplierId: selectedSupplierId,
         invoiceNumber: invoiceNumberInput,
         notes: notesInput,
@@ -425,14 +427,16 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
         items: invoiceItems
       };
 
-      const result = await ApiService.addPurchaseInvoice(payload);
+      const result = editingInvoiceId
+        ? await ApiService.updatePurchaseInvoice(payload)
+        : await ApiService.addPurchaseInvoice(payload);
 
       if (result.success) {
         await loadData();
         if (onRefreshData) onRefreshData();
         setIsCreateModalOpen(false);
         resetInvoiceForm();
-        alert(status === 'confirmed' ? 'تم اعتماد فاتورة الشراء وتحديث الحسابات والمخزون بنجاح ✅' : 'تم حفظ الفاتورة كمسودة 📝');
+        alert(editingInvoiceId ? 'تم تعديل وتحديث فاتورة الشراء والحسابات بنجاح ✅' : (status === 'confirmed' ? 'تم اعتماد فاتورة الشراء وتحديث الحسابات والمخزون بنجاح ✅' : 'تم حفظ الفاتورة كمسودة 📝'));
       } else {
         alert(result.message || 'فشل حفظ الفاتورة.');
       }
@@ -479,6 +483,7 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
   };
 
   const resetInvoiceForm = () => {
+    setEditingInvoiceId(null);
     setSelectedSupplierId('');
     setInvoiceNumberInput('');
     setNotesInput('');
@@ -494,6 +499,32 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
     setItemQuantity('1');
     setItemUnitCost('0');
     setItemNewSalePrice('');
+  };
+
+  const handleOpenEditInvoice = (inv: PurchaseInvoice) => {
+    setEditingInvoiceId(inv.id);
+    setSelectedSupplierId(inv.supplierId);
+    setInvoiceNumberInput(inv.invoiceNumber || '');
+    setNotesInput(inv.notes || '');
+    setPaidAmountInput(inv.paidAmount ? String(inv.paidAmount) : '');
+    setDiscountAmountInput(inv.discountAmount ? String(inv.discountAmount) : '0');
+    setFreightAmountInput(inv.freightAmount ? String(inv.freightAmount) : '0');
+    setWalletTypeInput(inv.walletType || 'drawer');
+    setInvoiceImageBase64(inv.invoiceImagePath || '');
+    setInvoiceItems((inv.items || []).map(it => ({
+      productId: it.productId || '',
+      productName: it.productName,
+      unitName: it.unitName || 'قطعة',
+      barcode: it.barcode || '',
+      quantity: it.quantity,
+      unitCost: it.unitCost,
+      totalCost: it.totalCost,
+      conversionFactor: it.conversionFactor || 1,
+      newSalePrice: it.newSalePrice || undefined,
+      lastCostPrice: it.lastCostPrice || undefined,
+      updateStock: it.updateStock !== undefined ? Boolean(it.updateStock) : true
+    })));
+    setIsCreateModalOpen(true);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -617,6 +648,7 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button onClick={() => { setSelectedInvoice(inv); setIsViewModalOpen(true); }} className="px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white rounded-xl font-bold text-[11px] transition cursor-pointer">معاينة 📄</button>
+                        <button onClick={() => handleOpenEditInvoice(inv)} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-xl font-bold text-[11px] transition cursor-pointer">تعديل ✏️</button>
                         {inv.status === 'confirmed' && inv.remainingAmount > 0 && (
                           <button onClick={() => { setSelectedInvoice(inv); setPaymentAmountInput(''); setIsPaymentModalOpen(true); }} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white rounded-xl font-bold text-[11px] transition cursor-pointer">تسديد دفعة 💳</button>
                         )}
@@ -646,7 +678,9 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
             {/* Header */}
             <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
               <div>
-                <h3 className="text-2xl font-black text-slate-900">فاتورة شراء جديدة 🧾</h3>
+                <h3 className="text-2xl font-black text-slate-900">
+                  {editingInvoiceId ? `تعديل فاتورة الشراء #${invoiceNumberInput || editingInvoiceId} ✏️` : 'فاتورة شراء جديدة 🧾'}
+                </h3>
                 <p className="text-[10px] font-bold text-slate-400 mt-0.5">ادخل الأصناف بسرعة باستخدام الباركود أو لوحة المفاتيح (F2 للبحث)</p>
               </div>
               <button onClick={() => setIsCreateModalOpen(false)} className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 font-bold flex items-center justify-center">✕</button>

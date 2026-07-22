@@ -134,6 +134,7 @@ try {
         // --- موديول فواتير الشراء الحسابي ---
         case 'get_purchase_invoices':
         case 'add_purchase_invoice':
+        case 'update_purchase_invoice':
         case 'add_invoice_payment':
             require_once 'api_purchases.php';
             break;
