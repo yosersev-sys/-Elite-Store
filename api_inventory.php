@@ -322,13 +322,24 @@ switch ($action) {
             }
         }
 
+        $initialBatches = isset($input['batches']) && is_array($input['batches']) ? $input['batches'] : [];
+        $initQty = max(0, (float)($input['stockQuantity'] ?? 0));
+        if (empty($initialBatches) && $initQty > 0) {
+            $initialBatches[] = [
+                'id' => 'batch_' . time() . '_' . rand(100, 999),
+                'quantity' => $initQty,
+                'wholesalePrice' => (float)($input['wholesalePrice'] ?? 0),
+                'createdAt' => time() * 1000
+            ];
+        }
+
         $pdo->beginTransaction();
         try {
             $stmt = $pdo->prepare("INSERT INTO products (id, name, description, price, wholesalePrice, categoryId, supplierId, images, stockQuantity, unit, barcode, batches, reorderLevel, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             $stmt->execute([
                 $productId, $input['name'], $input['description'] ?? '', $input['price'] ?? 0.00, $input['wholesalePrice'] ?? 0.00,
                 $input['categoryId'], $input['supplierId'] ?? null, json_encode($images),
-                $input['stockQuantity'] ?? 0, $input['unit'] ?? 'piece', $barcode, '[]', $reorderLevel, time()*1000
+                $initQty, $input['unit'] ?? 'piece', $barcode, json_encode($initialBatches), $reorderLevel, time()*1000
             ]);
             
             if (!empty($input['units']) && is_array($input['units'])) {

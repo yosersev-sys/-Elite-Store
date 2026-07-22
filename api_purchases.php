@@ -417,6 +417,33 @@ switch ($action) {
                             }
                         } catch (Exception $prcErr) {}
 
+                        // Record Batch in product's batches history (تاريخ دفعات التوريد)
+                        try {
+                            $stmtGetB = $pdo->prepare("SELECT batches FROM products WHERE id = ?");
+                            $stmtGetB->execute([$it['productId']]);
+                            $prodBRow = $stmtGetB->fetch(PDO::FETCH_ASSOC);
+
+                            $existingBatches = [];
+                            if ($prodBRow && !empty($prodBRow['batches'])) {
+                                $decodedB = json_decode($prodBRow['batches'], true);
+                                if (is_array($decodedB)) {
+                                    $existingBatches = $decodedB;
+                                }
+                            }
+
+                            $newBatch = [
+                                'id' => 'batch_pur_' . $invoiceId . '_' . time() . '_' . rand(100, 999),
+                                'quantity' => (float)$basePiecesAdded,
+                                'wholesalePrice' => (float)$baseUnitCost,
+                                'createdAt' => (float)$now
+                            ];
+
+                            $existingBatches[] = $newBatch;
+
+                            $pdo->prepare("UPDATE products SET batches = ? WHERE id = ?")
+                                ->execute([json_encode($existingBatches), $it['productId']]);
+                        } catch (Exception $btcErr) {}
+
                         // Record Movement safely
                         try {
                             $stmtMov->execute([
