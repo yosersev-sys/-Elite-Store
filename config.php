@@ -185,4 +185,40 @@ try {
             date BIGINT NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+
+    // 5. Table: inventory_movements
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS inventory_movements (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            productId VARCHAR(100) NOT NULL,
+            type VARCHAR(50) NOT NULL,
+            quantity DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            unitCost DECIMAL(10,2) NULL,
+            referenceType VARCHAR(50) NULL,
+            referenceId VARCHAR(100) NULL,
+            notes TEXT NULL,
+            userId VARCHAR(100) NULL,
+            createdAt BIGINT NOT NULL DEFAULT 0,
+            INDEX idx_mov_product (productId),
+            INDEX idx_mov_created (createdAt)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    $movCols = [
+        'productId' => 'VARCHAR(100) NOT NULL',
+        'type' => 'VARCHAR(50) NOT NULL',
+        'quantity' => 'DECIMAL(10,2) NOT NULL DEFAULT 0.00',
+        'unitCost' => 'DECIMAL(10,2) NULL',
+        'referenceType' => 'VARCHAR(50) NULL',
+        'referenceId' => 'VARCHAR(100) NULL',
+        'notes' => 'TEXT NULL',
+        'userId' => 'VARCHAR(100) NULL',
+        'createdAt' => 'BIGINT NOT NULL DEFAULT 0'
+    ];
+    foreach ($movCols as $col => $def) {
+        $chk = $pdo->query("SHOW COLUMNS FROM inventory_movements LIKE '$col'")->fetch();
+        if (!$chk) {
+            $pdo->exec("ALTER TABLE inventory_movements ADD COLUMN $col $def");
+        }
+    }
 } catch (Exception $schemaErr) {}

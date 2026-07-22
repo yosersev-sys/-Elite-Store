@@ -382,8 +382,10 @@ switch ($action) {
 
                 // B. Update Supplier Debt with remainingAmount
                 if ($remainingAmount > 0) {
-                    $newSupplierBalance = (float)$supplier['balance'] + $remainingAmount;
-                    $pdo->prepare("UPDATE suppliers SET balance = ? WHERE id = ?")->execute([$newSupplierBalance, $supplierId]);
+                    try {
+                        $newSupplierBalance = (float)($supplier['balance'] ?? 0) + $remainingAmount;
+                        $pdo->prepare("UPDATE suppliers SET balance = ? WHERE id = ?")->execute([$newSupplierBalance, $supplierId]);
+                    } catch (Exception $supErr) {}
                 }
 
                 // C. Update Inventory & Movements
@@ -398,29 +400,35 @@ switch ($action) {
                         $basePiecesAdded = round($it['quantity'] * $factor, 2);
 
                         // Increase Product Stock (by base pieces)
-                        $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ? WHERE id = ?")
-                            ->execute([$basePiecesAdded, $it['productId']]);
+                        try {
+                            $pdo->prepare("UPDATE products SET stockQuantity = stockQuantity + ? WHERE id = ?")
+                                ->execute([$basePiecesAdded, $it['productId']]);
+                        } catch (Exception $stkErr) {}
 
                         // Update Wholesale Cost Price & optionally Retail Sale Price if provided
                         $baseUnitCost = round($it['unitCost'] / $factor, 2);
-                        if (!empty($it['newSalePrice']) && $it['newSalePrice'] > 0) {
-                            $pdo->prepare("UPDATE products SET wholesalePrice = ?, price = ? WHERE id = ?")
-                                ->execute([$baseUnitCost, $it['newSalePrice'], $it['productId']]);
-                        } else {
-                            $pdo->prepare("UPDATE products SET wholesalePrice = ? WHERE id = ?")
-                                ->execute([$baseUnitCost, $it['productId']]);
-                        }
+                        try {
+                            if (!empty($it['newSalePrice']) && $it['newSalePrice'] > 0) {
+                                $pdo->prepare("UPDATE products SET wholesalePrice = ?, price = ? WHERE id = ?")
+                                    ->execute([$baseUnitCost, $it['newSalePrice'], $it['productId']]);
+                            } else {
+                                $pdo->prepare("UPDATE products SET wholesalePrice = ? WHERE id = ?")
+                                    ->execute([$baseUnitCost, $it['productId']]);
+                            }
+                        } catch (Exception $prcErr) {}
 
-                        // Record Movement
-                        $stmtMov->execute([
-                            $it['productId'],
-                            $basePiecesAdded,
-                            $it['unitCost'],
-                            (string)$invoiceId,
-                            "إضافة مخزن ({$it['quantity']} {$it['unitName']}) عبر فاتورة شراء #{$invoiceNumber}",
-                            $userId,
-                            $now
-                        ]);
+                        // Record Movement safely
+                        try {
+                            $stmtMov->execute([
+                                $it['productId'],
+                                $basePiecesAdded,
+                                $it['unitCost'],
+                                (string)$invoiceId,
+                                "إضافة مخزن ({$it['quantity']} {$it['unitName']}) عبر فاتورة شراء #{$invoiceNumber}",
+                                $userId,
+                                $now
+                            ]);
+                        } catch (Exception $movErr) {}
                     }
                 }
             }
