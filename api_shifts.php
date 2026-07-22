@@ -4,11 +4,26 @@
  */
 if (!defined('DB_HOST')) exit;
 
-// التحقق وإضافة أعمدة التأكيد والاعتماد ديناميكياً لجدول الطلبات إذا لم تكن موجودة
+// التحقق وإضافة أعمدة التأكيد والاعتماد والدرج والمصروفات ديناميكياً إذا لم تكن موجودة
 try {
     $checkCols = $pdo->query("SHOW COLUMNS FROM orders LIKE 'confirmedShiftId'")->fetch();
     if (!$checkCols) {
         $pdo->exec("ALTER TABLE orders ADD COLUMN confirmedShiftId INT NULL");
+    }
+
+    $chkTxCat = $pdo->query("SHOW COLUMNS FROM drawer_transactions LIKE 'category'")->fetch();
+    if (!$chkTxCat) {
+        $pdo->exec("ALTER TABLE drawer_transactions ADD COLUMN category VARCHAR(100) NULL DEFAULT NULL");
+    }
+
+    $chkTxBal = $pdo->query("SHOW COLUMNS FROM drawer_transactions LIKE 'balanceAfter'")->fetch();
+    if (!$chkTxBal) {
+        $pdo->exec("ALTER TABLE drawer_transactions ADD COLUMN balanceAfter DECIMAL(10,2) NULL DEFAULT NULL");
+    }
+
+    $chkExpCat = $pdo->query("SHOW COLUMNS FROM expenses LIKE 'category'")->fetch();
+    if (!$chkExpCat) {
+        $pdo->exec("ALTER TABLE expenses ADD COLUMN category VARCHAR(100) NOT NULL DEFAULT 'عام'");
     }
 } catch (Exception $e) {
     // تجاهل أي خطأ مؤقت لتفادي التوقف

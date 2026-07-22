@@ -9,11 +9,45 @@ if (!isset($_SESSION['user']) || (($_SESSION['user']['role'] ?? '') !== 'admin' 
     sendErr('غير مصرح لك بالقيام بهذه العملية', 403);
 }
 
+// التحقق والتعديل التلقائي لجدول المصروفات والدرج لضمان وجود حقول category و balanceAfter
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS expenses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        category VARCHAR(100) NOT NULL DEFAULT 'عام',
+        paymentSource VARCHAR(20) DEFAULT 'drawer',
+        referenceNumber VARCHAR(100) NULL,
+        attachment TEXT NULL,
+        status VARCHAR(20) DEFAULT 'active',
+        shiftId INT NULL,
+        drawerTransactionId INT NULL,
+        userId VARCHAR(100) NULL,
+        notes TEXT NULL,
+        date BIGINT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $chkExpCat = $pdo->query("SHOW COLUMNS FROM expenses LIKE 'category'")->fetch();
+    if (!$chkExpCat) {
+        $pdo->exec("ALTER TABLE expenses ADD COLUMN category VARCHAR(100) NOT NULL DEFAULT 'عام'");
+    }
+
+    $chkTxCat = $pdo->query("SHOW COLUMNS FROM drawer_transactions LIKE 'category'")->fetch();
+    if (!$chkTxCat) {
+        $pdo->exec("ALTER TABLE drawer_transactions ADD COLUMN category VARCHAR(100) NULL DEFAULT NULL");
+    }
+
+    $chkTxBal = $pdo->query("SHOW COLUMNS FROM drawer_transactions LIKE 'balanceAfter'")->fetch();
+    if (!$chkTxBal) {
+        $pdo->exec("ALTER TABLE drawer_transactions ADD COLUMN balanceAfter DECIMAL(10,2) NULL DEFAULT NULL");
+    }
+} catch (Exception $e) {}
+
 switch ($action) {
     case 'add_expense':
         $title = trim($input['title'] ?? '');
         $amount = (float)($input['amount'] ?? 0);
-        $category = trim($input['category'] ?? '');
+        $category = trim($input['category'] ?? 'عام');
         $paymentSource = trim($input['paymentSource'] ?? 'drawer'); // 'drawer' or 'external'
         $referenceNumber = trim($input['referenceNumber'] ?? '');
         $attachment = trim($input['attachment'] ?? '');
@@ -26,7 +60,7 @@ switch ($action) {
             sendErr('يجب إدخال قيمة مصروف صحيحة أكبر من الصفر.');
         }
         if (empty($category)) {
-            sendErr('يرجى تحديد أو كتابة فئة المصروف.');
+            $category = 'عام';
         }
         if ($paymentSource !== 'drawer' && $paymentSource !== 'external') {
             sendErr('مصدر الدفع غير صحيح.');
@@ -54,38 +88,67 @@ switch ($action) {
 
             $newBalance = $currentBalance - $amount;
 
-            // 1. تسجيل حركة سحب بالدرج
-            $stmtTx = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId, category, balanceAfter) VALUES (?, 'withdrawal', ?, ?, ?, ?, 'expense', ?)");
-            $stmtTx->execute([
-                $shiftId,
-                $amount,
-                "مصروفات: {$title} (#{$category})",
-                $now,
-                $userId,
-                $newBalance
-            ]);
-            $drawerTransactionId = $pdo->lastInsertId();
+            // 1. تسجيل حركة سحب بالدرج مع حماية من غياب الأوردة
+            try {
+                $stmtTx = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId, category, balanceAfter) VALUES (?, 'withdrawal', ?, ?, ?, ?, 'expense', ?)");
+                $stmtTx->execute([
+                    $shiftId,
+                    $amount,
+                    "مصروفات: {$title} (#{$category})",
+                    $now,
+                    $userId,
+                    $newBalance
+                ]);
+                $drawerTransactionId = $pdo->lastInsertId();
+            } catch (Exception $txErr) {
+                $stmtTx = $pdo->prepare("INSERT INTO drawer_transactions (shiftId, type, amount, reason, createdAt, userId) VALUES (?, 'withdrawal', ?, ?, ?, ?)");
+                $stmtTx->execute([
+                    $shiftId,
+                    $amount,
+                    "مصروفات: {$title} (#{$category})",
+                    $now,
+                    $userId
+                ]);
+                $drawerTransactionId = $pdo->lastInsertId();
+            }
 
             // 2. تحديث رصيد الدرج بالوردية
             $pdo->prepare("UPDATE shifts SET currentCashBalance = ? WHERE id = ?")->execute([$newBalance, $shiftId]);
         }
 
-        // 3. إدراج سجل المصروف
-        $stmtExp = $pdo->prepare("INSERT INTO expenses (title, amount, category, paymentSource, referenceNumber, attachment, status, shiftId, drawerTransactionId, userId, notes, date) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)");
-        $stmtExp->execute([
-            $title,
-            $amount,
-            $category,
-            $paymentSource,
-            !empty($referenceNumber) ? $referenceNumber : null,
-            !empty($attachment) ? $attachment : null,
-            $shiftId,
-            $drawerTransactionId,
-            $userId,
-            !empty($notes) ? $notes : null,
-            $now
-        ]);
-        $expenseId = $pdo->lastInsertId();
+        // 3. إدراج سجل المصروف مع حماية الفئة
+        try {
+            $stmtExp = $pdo->prepare("INSERT INTO expenses (title, amount, category, paymentSource, referenceNumber, attachment, status, shiftId, drawerTransactionId, userId, notes, date) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)");
+            $stmtExp->execute([
+                $title,
+                $amount,
+                $category,
+                $paymentSource,
+                !empty($referenceNumber) ? $referenceNumber : null,
+                !empty($attachment) ? $attachment : null,
+                $shiftId,
+                $drawerTransactionId,
+                $userId,
+                !empty($notes) ? $notes : null,
+                $now
+            ]);
+            $expenseId = $pdo->lastInsertId();
+        } catch (Exception $expErr) {
+            $stmtExp = $pdo->prepare("INSERT INTO expenses (title, amount, paymentSource, referenceNumber, attachment, status, shiftId, drawerTransactionId, userId, notes, date) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)");
+            $stmtExp->execute([
+                $title,
+                $amount,
+                $paymentSource,
+                !empty($referenceNumber) ? $referenceNumber : null,
+                !empty($attachment) ? $attachment : null,
+                $shiftId,
+                $drawerTransactionId,
+                $userId,
+                !empty($notes) ? $notes : null,
+                $now
+            ]);
+            $expenseId = $pdo->lastInsertId();
+        }
 
         // 4. تسجيل في سجل التدقيق
         $sourceText = ($paymentSource === 'drawer') ? 'نقدي من الدرج' : 'خارجي/بنكي';
