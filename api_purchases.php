@@ -107,8 +107,8 @@ switch ($action) {
         $sql = "
             SELECT i.*, s.name as supplierName, s.phone as supplierPhone, u.name as userName
             FROM purchase_invoices i
-            LEFT JOIN suppliers s ON i.supplierId = s.id
-            LEFT JOIN users u ON i.userId = u.id
+            LEFT JOIN suppliers s ON CAST(i.supplierId AS CHAR) = CAST(s.id AS CHAR)
+            LEFT JOIN users u ON CAST(i.userId AS CHAR) = CAST(u.id AS CHAR)
         ";
         $params = [];
 

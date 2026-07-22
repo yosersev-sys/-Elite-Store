@@ -221,4 +221,12 @@ try {
             $pdo->exec("ALTER TABLE inventory_movements ADD COLUMN $col $def");
         }
     }
+
+    // Ensure userId is VARCHAR(100) on all tables to prevent MySQL Strict Mode integer conversion errors when userId is string (e.g. 'admin')
+    try {
+        $pdo->exec("ALTER TABLE purchase_invoices MODIFY COLUMN userId VARCHAR(100) NULL");
+        $pdo->exec("ALTER TABLE supplier_payments MODIFY COLUMN userId VARCHAR(100) NULL");
+        $pdo->exec("ALTER TABLE inventory_movements MODIFY COLUMN userId VARCHAR(100) NULL");
+        $pdo->exec("ALTER TABLE expenses MODIFY COLUMN userId VARCHAR(100) NULL");
+    } catch (Exception $modErr) {}
 } catch (Exception $schemaErr) {}
