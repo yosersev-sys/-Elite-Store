@@ -8,6 +8,95 @@ if (!isset($_SESSION['user']) || (($_SESSION['user']['role'] ?? '') !== 'admin' 
     sendErr('غير مصرح لك بالقيام بهذه العملية', 403);
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// الترقية الذاتية والتنفيئ التلقائي لجدول فواتير الشراء والمدفوعات بالخلفية
+// ═══════════════════════════════════════════════════════════════════
+try {
+    $uploadDir = __DIR__ . '/uploads/invoices';
+    if (!is_dir($uploadDir)) {
+        @mkdir($uploadDir, 0755, true);
+    }
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS purchase_invoices (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            invoiceNumber VARCHAR(100) NULL,
+            supplierId VARCHAR(100) NOT NULL,
+            totalAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            paidAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            remainingAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            discountAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            freightAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            status VARCHAR(20) NOT NULL DEFAULT 'draft',
+            invoiceImagePath VARCHAR(255) NULL,
+            notes TEXT NULL,
+            shiftId INT NULL,
+            userId VARCHAR(100) NULL,
+            createdAt BIGINT NOT NULL,
+            updatedAt BIGINT NOT NULL,
+            INDEX idx_pur_supplier (supplierId),
+            INDEX idx_pur_status (status),
+            INDEX idx_pur_created (createdAt)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    try {
+        $chkDis = $pdo->query("SHOW COLUMNS FROM purchase_invoices LIKE 'discountAmount'")->fetch();
+        if (!$chkDis) {
+            $pdo->exec("ALTER TABLE purchase_invoices ADD COLUMN discountAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+        }
+        $chkFre = $pdo->query("SHOW COLUMNS FROM purchase_invoices LIKE 'freightAmount'")->fetch();
+        if (!$chkFre) {
+            $pdo->exec("ALTER TABLE purchase_invoices ADD COLUMN freightAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+        }
+    } catch (Exception $e) {}
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS purchase_invoice_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            invoiceId INT NOT NULL,
+            productId VARCHAR(100) NULL,
+            productName VARCHAR(255) NOT NULL,
+            unitName VARCHAR(100) NULL,
+            barcode VARCHAR(100) NULL,
+            quantity DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+            unitCost DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            totalCost DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            conversionFactor DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+            newSalePrice DECIMAL(10,2) NULL,
+            lastCostPrice DECIMAL(10,2) NULL,
+            updateStock TINYINT(1) NOT NULL DEFAULT 1,
+            INDEX idx_item_invoice (invoiceId),
+            INDEX idx_item_product (productId)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    try {
+        $cols = ['unitName' => 'VARCHAR(100) NULL', 'barcode' => 'VARCHAR(100) NULL', 'conversionFactor' => 'DECIMAL(10,2) NOT NULL DEFAULT 1.00', 'newSalePrice' => 'DECIMAL(10,2) NULL', 'lastCostPrice' => 'DECIMAL(10,2) NULL'];
+        foreach ($cols as $colName => $colDef) {
+            $chkCol = $pdo->query("SHOW COLUMNS FROM purchase_invoice_items LIKE '$colName'")->fetch();
+            if (!$chkCol) {
+                $pdo->exec("ALTER TABLE purchase_invoice_items ADD COLUMN $colName $colDef");
+            }
+        }
+    } catch (Exception $e) {}
+
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS supplier_payments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            supplierId VARCHAR(100) NOT NULL,
+            amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            paymentMethod VARCHAR(50) NOT NULL DEFAULT 'cash',
+            referenceNumber VARCHAR(100) NULL,
+            notes TEXT NULL,
+            invoiceId INT NULL,
+            createdAt BIGINT NOT NULL,
+            userId VARCHAR(100) NULL,
+            INDEX idx_pay_supplier (supplierId)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+} catch (Exception $e) {}
+
 $userId = $_SESSION['user']['id'];
 $now = time() * 1000;
 
