@@ -1173,7 +1173,12 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
                 <h3 className="text-xl font-black text-slate-800">تفاصيل فاتورة الشراء #{selectedInvoice.invoiceNumber}</h3>
                 <p className="text-xs text-slate-400 font-bold">المورد: {selectedInvoice.supplierName}</p>
               </div>
-              <span className="px-3 py-1 bg-emerald-100 text-emerald-700 font-black rounded-full text-xs">{selectedInvoice.status}</span>
+              <span className={`px-3 py-1 rounded-full font-black text-xs ${
+                selectedInvoice.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' :
+                selectedInvoice.status === 'draft' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+              }`}>
+                {selectedInvoice.status === 'confirmed' ? 'معتمدة ✅' : selectedInvoice.status === 'draft' ? 'مسودة 📝' : 'ملغاة ❌'}
+              </span>
             </div>
 
             {viewInvoiceImages.length > 0 && (
