@@ -75,7 +75,9 @@ export interface PurchaseInvoice {
   status: 'draft' | 'confirmed' | 'cancelled';
   walletType?: 'drawer' | 'main_safe' | 'bank' | 'wallet';
   invoiceImage?: string;
+  invoiceImages?: string[];
   invoiceImagePath?: string;
+  invoiceImagePaths?: string[];
   notes?: string;
   shiftId?: number;
   userId?: number;

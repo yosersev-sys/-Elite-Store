@@ -49,7 +49,27 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
   const [discountAmountInput, setDiscountAmountInput] = useState('0');
   const [freightAmountInput, setFreightAmountInput] = useState('0');
   const [walletTypeInput, setWalletTypeInput] = useState<'drawer' | 'main_safe' | 'bank' | 'wallet'>('drawer');
-  const [invoiceImageBase64, setInvoiceImageBase64] = useState<string>('');
+  const [invoiceImagesBase64, setInvoiceImagesBase64] = useState<string[]>([]);
+
+  // Lightbox Zoom Modal State
+  const [zoomedImages, setZoomedImages] = useState<string[]>([]);
+  const [activeZoomedIndex, setActiveZoomedIndex] = useState<number | null>(null);
+
+  // ESC & Arrow keys listener for Lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeZoomedIndex === null) return;
+      if (e.key === 'Escape') {
+        setActiveZoomedIndex(null);
+      } else if (e.key === 'ArrowRight' && zoomedImages.length > 1) {
+        setActiveZoomedIndex(prev => (prev !== null ? (prev - 1 + zoomedImages.length) % zoomedImages.length : null));
+      } else if (e.key === 'ArrowLeft' && zoomedImages.length > 1) {
+        setActiveZoomedIndex(prev => (prev !== null ? (prev + 1) % zoomedImages.length : null));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeZoomedIndex, zoomedImages]);
 
   // Items for new invoice
   const [invoiceItems, setInvoiceItems] = useState<PurchaseInvoiceItem[]>([]);
@@ -424,7 +444,8 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
         discountAmount: invoiceMetrics.discount,
         freightAmount: invoiceMetrics.freight,
         walletType: walletTypeInput as any,
-        invoiceImage: invoiceImageBase64,
+        invoiceImagePaths: invoiceImagesBase64,
+        invoiceImage: invoiceImagesBase64[0] || '',
         items: invoiceItems
       };
 
@@ -492,7 +513,7 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
     setDiscountAmountInput('0');
     setFreightAmountInput('0');
     setWalletTypeInput('drawer');
-    setInvoiceImageBase64('');
+    setInvoiceImagesBase64([]);
     setInvoiceItems([]);
     setSelectedProduct(null);
     setSelectedUnitObj(null);
@@ -511,7 +532,23 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
     setDiscountAmountInput(inv.discountAmount ? String(inv.discountAmount) : '0');
     setFreightAmountInput(inv.freightAmount ? String(inv.freightAmount) : '0');
     setWalletTypeInput(inv.walletType || 'drawer');
-    setInvoiceImageBase64(inv.invoiceImagePath || '');
+
+    let initialImages: string[] = [];
+    if (inv.invoiceImagePaths && inv.invoiceImagePaths.length > 0) {
+      initialImages = inv.invoiceImagePaths;
+    } else if (inv.invoiceImagePath) {
+      try {
+        if (inv.invoiceImagePath.startsWith('[')) {
+          const parsed = JSON.parse(inv.invoiceImagePath);
+          if (Array.isArray(parsed)) initialImages = parsed;
+        }
+      } catch (e) {}
+      if (initialImages.length === 0 && inv.invoiceImagePath) {
+        initialImages = [inv.invoiceImagePath];
+      }
+    }
+    setInvoiceImagesBase64(initialImages);
+
     setInvoiceItems((inv.items || []).map(it => ({
       productId: it.productId || '',
       productName: it.productName,
@@ -528,15 +565,49 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
     setIsCreateModalOpen(true);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) return alert('حجم الصورة كبير جداً. الحد الأقصى 5 ميجابايت.');
-      const reader = new FileReader();
-      reader.onloadend = () => setInvoiceImageBase64(reader.result as string);
-      reader.readAsDataURL(file);
+  const handleMultipleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const fileArray = Array.from(files);
+      const oversized = fileArray.some(f => f.size > 10 * 1024 * 1024);
+      if (oversized) {
+        alert('إحدى الصور بحجم يتجاوز 10 ميجابايت. يرجى اختيار صور أصغر حجماً.');
+      }
+      const validFiles = fileArray.filter(f => f.size <= 10 * 1024 * 1024);
+      const promises = validFiles.map(file => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.all(promises).then(newImages => {
+        setInvoiceImagesBase64(prev => [...prev, ...newImages]);
+      });
     }
   };
+
+  const handleRemoveInvoiceImage = (index: number) => {
+    setInvoiceImagesBase64(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const viewInvoiceImages = useMemo(() => {
+    if (!selectedInvoice) return [];
+    if (selectedInvoice.invoiceImagePaths && selectedInvoice.invoiceImagePaths.length > 0) {
+      return selectedInvoice.invoiceImagePaths;
+    }
+    if (selectedInvoice.invoiceImagePath) {
+      try {
+        if (selectedInvoice.invoiceImagePath.startsWith('[')) {
+          const parsed = JSON.parse(selectedInvoice.invoiceImagePath);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+      return [selectedInvoice.invoiceImagePath];
+    }
+    return [];
+  }, [selectedInvoice]);
 
   return (
     <div className="space-y-8 animate-fadeIn font-Cairo text-right" dir="rtl">
@@ -694,29 +765,100 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
 
             <div className="overflow-y-auto no-scrollbar space-y-6 my-4 pr-1">
               
-              {/* SECTION 1: Supplier & Basic Data */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1">المورد المستلم منه (مطلوب)</label>
-                  <SearchableSupplierSelect
-                    suppliers={suppliers}
-                    value={selectedSupplierId}
-                    onChange={val => setSelectedSupplierId(val)}
-                    placeholder="اختر المورد..."
-                    allowAll={false}
-                    className="w-full"
-                    inputBgClass="bg-white"
-                  />
+              {/* SECTION 1: Supplier & Basic Data & Multi Image Upload */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">المورد المستلم منه (مطلوب)</label>
+                    <SearchableSupplierSelect
+                      suppliers={suppliers}
+                      value={selectedSupplierId}
+                      onChange={val => setSelectedSupplierId(val)}
+                      placeholder="اختر المورد..."
+                      allowAll={false}
+                      className="w-full"
+                      inputBgClass="bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">رقم الفاتورة الورقية (اختياري)</label>
+                    <input type="text" placeholder="مثال: INV-9821" value={invoiceNumberInput} onChange={e => setInvoiceNumberInput(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs outline-none" />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1">رقم الفاتورة الورقية (اختياري)</label>
-                  <input type="text" placeholder="مثال: INV-9821" value={invoiceNumberInput} onChange={e => setInvoiceNumberInput(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs outline-none" />
-                </div>
+                {/* Multiple Images Upload Component */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-3">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
+                    <label className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
+                      <span>📷</span>
+                      <span>صور الفاتورة الورقية (يمكن رفع عدة صور)</span>
+                      {invoiceImagesBase64.length > 0 && (
+                        <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2.5 py-0.5 rounded-full font-black">
+                          {invoiceImagesBase64.length} صور مرفقة
+                        </span>
+                      )}
+                    </label>
 
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1">صورة الفاتورة الورقية (اختياري)</label>
-                  <input type="file" accept="image/*" onChange={handleImageChange} className="w-full text-xs font-bold text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 cursor-pointer" />
+                    <label className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs cursor-pointer shadow-md transition-all flex items-center gap-1.5 active:scale-95">
+                      <span>＋ إضافة صور للفاتورة</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleMultipleImagesChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Images Thumbnails Grid */}
+                  {invoiceImagesBase64.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-1">
+                      {invoiceImagesBase64.map((img, idx) => (
+                        <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-900 aspect-square">
+                          <img
+                            src={img}
+                            alt={`فاتورة ${idx + 1}`}
+                            className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-all duration-300"
+                            onClick={() => {
+                              setZoomedImages(invoiceImagesBase64);
+                              setActiveZoomedIndex(idx);
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setZoomedImages(invoiceImagesBase64);
+                                setActiveZoomedIndex(idx);
+                              }}
+                              className="p-1.5 bg-white/90 hover:bg-white text-slate-900 rounded-full text-xs font-black shadow"
+                              title="معاينة وتكبير"
+                            >
+                              🔍
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveInvoiceImage(idx)}
+                              className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-xs font-black shadow"
+                              title="حذف الصورة"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <span className="absolute bottom-1 right-1 bg-slate-900/80 text-white text-[9px] font-black px-1.5 py-0.5 rounded">
+                            #{idx + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-4 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-xs font-bold flex flex-col items-center gap-1">
+                      <span>لم يتم إرفاق صور للفاتورة بعد</span>
+                      <span className="text-[10px] text-slate-400 font-normal">اضغط على زر "إضافة صور للفاتورة" لإرفاق صورة أو أكثر من الهاتف أو المعرض</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1034,9 +1176,47 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
               <span className="px-3 py-1 bg-emerald-100 text-emerald-700 font-black rounded-full text-xs">{selectedInvoice.status}</span>
             </div>
 
-            {selectedInvoice.invoiceImagePath && (
-              <div className="mb-6 rounded-2xl overflow-hidden border border-slate-200">
-                <img src={selectedInvoice.invoiceImagePath} alt="صورة الفاتورة" className="w-full max-h-72 object-contain bg-slate-900" />
+            {viewInvoiceImages.length > 0 && (
+              <div className="mb-6 space-y-2">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-black text-slate-700 text-xs flex items-center gap-1.5">
+                    <span>📷</span>
+                    <span>صور الفاتورة المرفقة ({viewInvoiceImages.length}):</span>
+                  </h4>
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
+                    انقر على أي صورة لفتحها وتكبيرها بالكامل 🔍
+                  </span>
+                </div>
+
+                <div className={`grid gap-3 ${viewInvoiceImages.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'}`}>
+                  {viewInvoiceImages.map((imgUrl, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        setZoomedImages(viewInvoiceImages);
+                        setActiveZoomedIndex(idx);
+                      }}
+                      className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 shadow-md cursor-pointer hover:border-indigo-500 transition-all duration-300 transform hover:-translate-y-0.5"
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`صورة الفاتورة ${idx + 1}`}
+                        className="w-full max-h-72 object-contain bg-slate-900 group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 text-white">
+                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-lg font-bold">
+                          🔍
+                        </div>
+                        <span className="text-xs font-black bg-slate-900/80 px-3 py-1 rounded-full">فتح الصورة بحجم كامل</span>
+                      </div>
+                      {viewInvoiceImages.length > 1 && (
+                        <span className="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] font-black px-2 py-0.5 rounded-full backdrop-blur-sm">
+                          صورة {idx + 1} من {viewInvoiceImages.length}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1073,6 +1253,100 @@ const PurchaseInvoicesTab: React.FC<PurchaseInvoicesTabProps> = ({
             </div>
 
             <button onClick={() => setIsViewModalOpen(false)} className="w-full py-3 bg-slate-900 text-white font-black rounded-2xl text-xs">إغلاق</button>
+          </div>
+        </div>
+      )}
+
+      {/* 8. FULLSCREEN LIGHTBOX / IMAGE ZOOM MODAL */}
+      {activeZoomedIndex !== null && zoomedImages.length > 0 && (
+        <div className="fixed inset-0 z-[5000] flex items-center justify-center p-2 sm:p-4 bg-slate-950/90 backdrop-blur-md animate-fadeIn">
+          {/* Backdrop Click */}
+          <div className="absolute inset-0" onClick={() => setActiveZoomedIndex(null)}></div>
+
+          <div className="relative z-10 w-full max-w-6xl max-h-[96vh] flex flex-col items-center justify-between pointer-events-auto">
+
+            {/* Lightbox Top Header */}
+            <div className="w-full flex items-center justify-between bg-slate-900/90 backdrop-blur-md px-5 py-3 rounded-2xl border border-slate-800 text-white mb-3 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📄</span>
+                <div>
+                  <h4 className="font-black text-sm text-white">معاينة صورة الفاتورة بحجم كامل</h4>
+                  <p className="text-[10px] text-slate-400 font-bold">
+                    صورة {activeZoomedIndex + 1} من {zoomedImages.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={zoomedImages[activeZoomedIndex]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-xs transition flex items-center gap-1.5"
+                  title="فتح في نافذة جديدة"
+                >
+                  <span>🔗</span>
+                  <span className="hidden sm:inline">رابط مباشر</span>
+                </a>
+                <button
+                  onClick={() => setActiveZoomedIndex(null)}
+                  className="w-9 h-9 rounded-xl bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white font-black flex items-center justify-center transition cursor-pointer"
+                  title="إغلاق (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Main Lightbox Canvas */}
+            <div className="relative w-full flex-1 flex items-center justify-center overflow-hidden min-h-[50vh] max-h-[82vh] rounded-3xl bg-slate-900/80 border border-slate-800/80 p-2 shadow-2xl">
+
+              {/* Prev Button */}
+              {zoomedImages.length > 1 && (
+                <button
+                  onClick={() => setActiveZoomedIndex((activeZoomedIndex - 1 + zoomedImages.length) % zoomedImages.length)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl bg-slate-900/90 hover:bg-indigo-600 text-white font-black text-xl flex items-center justify-center border border-slate-700 shadow-2xl transition cursor-pointer active:scale-95"
+                  title="الصورة السابقة (سهم يمين)"
+                >
+                  ▶
+                </button>
+              )}
+
+              {/* Full Image */}
+              <img
+                src={zoomedImages[activeZoomedIndex]}
+                alt={`صورة الفاتورة ${activeZoomedIndex + 1}`}
+                className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl animate-scaleUp select-none"
+              />
+
+              {/* Next Button */}
+              {zoomedImages.length > 1 && (
+                <button
+                  onClick={() => setActiveZoomedIndex((activeZoomedIndex + 1) % zoomedImages.length)}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-2xl bg-slate-900/90 hover:bg-indigo-600 text-white font-black text-xl flex items-center justify-center border border-slate-700 shadow-2xl transition cursor-pointer active:scale-95"
+                  title="الصورة التالية (سهم يسار)"
+                >
+                  ◀
+                </button>
+              )}
+            </div>
+
+            {/* Thumbnails strip */}
+            {zoomedImages.length > 1 && (
+              <div className="flex items-center gap-2 mt-3 overflow-x-auto max-w-full p-2 bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800">
+                {zoomedImages.map((img, i) => (
+                  <img
+                    key={i}
+                    src={img}
+                    alt={`مصغرة ${i + 1}`}
+                    onClick={() => setActiveZoomedIndex(i)}
+                    className={`w-14 h-14 object-cover rounded-xl border-2 cursor-pointer transition ${
+                      i === activeZoomedIndex ? 'border-indigo-500 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

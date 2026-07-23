@@ -49,6 +49,10 @@ try {
         if (!$chkFre) {
             $pdo->exec("ALTER TABLE purchase_invoices ADD COLUMN freightAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00");
         }
+        $chkImgCol = $pdo->query("SHOW COLUMNS FROM purchase_invoices LIKE 'invoiceImagePath'")->fetch();
+        if ($chkImgCol && strpos(strtolower($chkImgCol['Type']), 'varchar') !== false) {
+            $pdo->exec("ALTER TABLE purchase_invoices MODIFY COLUMN invoiceImagePath TEXT NULL");
+        }
     } catch (Exception $e) {}
 
     $pdo->exec("
@@ -100,6 +104,54 @@ try {
 $userId = $_SESSION['user']['id'];
 $now = time() * 1000;
 
+function processInvoiceImages($input, $existingPath = null) {
+    $rawImages = [];
+    if (isset($input['invoiceImagePaths']) && is_array($input['invoiceImagePaths'])) {
+        $rawImages = $input['invoiceImagePaths'];
+    } elseif (isset($input['invoiceImages']) && is_array($input['invoiceImages'])) {
+        $rawImages = $input['invoiceImages'];
+    } elseif (!empty($input['invoiceImage'])) {
+        if (is_array($input['invoiceImage'])) {
+            $rawImages = $input['invoiceImage'];
+        } else {
+            $rawImages = [$input['invoiceImage']];
+        }
+    }
+
+    if (empty($rawImages)) {
+        return $existingPath;
+    }
+
+    $savedPaths = [];
+    foreach ($rawImages as $raw) {
+        if (!is_string($raw)) continue;
+        $raw = trim($raw);
+        if (empty($raw)) continue;
+
+        if (strpos($raw, 'data:image') === 0) {
+            if (preg_match('/^data:image\/(\w+);base64,(.+)$/is', $raw, $matches)) {
+                $ext = strtolower($matches[1]);
+                $data = base64_decode($matches[2]);
+                if ($data !== false && in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
+                    $filename = 'inv_' . time() . '_' . rand(10000, 99999) . '.' . $ext;
+                    $uploadPath = __DIR__ . '/uploads/invoices/' . $filename;
+                    if (file_put_contents($uploadPath, $data)) {
+                        $savedPaths[] = 'uploads/invoices/' . $filename;
+                        usleep(1000);
+                    }
+                }
+            }
+        } elseif (strpos($raw, 'uploads/') === 0) {
+            $savedPaths[] = $raw;
+        }
+    }
+
+    if (count($savedPaths) === 0) {
+        return null;
+    }
+    return json_encode($savedPaths);
+}
+
 switch ($action) {
     case 'get_purchase_invoices':
         $supplierIdFilter = trim($_GET['supplierId'] ?? '');
@@ -128,6 +180,22 @@ switch ($action) {
             $inv['totalAmount'] = round((float)$inv['totalAmount'], 2);
             $inv['paidAmount'] = round((float)$inv['paidAmount'], 2);
             $inv['remainingAmount'] = round((float)$inv['remainingAmount'], 2);
+
+            // Images
+            $rawPath = $inv['invoiceImagePath'] ?? '';
+            $paths = [];
+            if (!empty($rawPath)) {
+                if (strpos($rawPath, '[') === 0) {
+                    $decoded = json_decode($rawPath, true);
+                    if (is_array($decoded)) {
+                        $paths = $decoded;
+                    }
+                } else {
+                    $paths = [$rawPath];
+                }
+            }
+            $inv['invoiceImagePaths'] = $paths;
+            $inv['invoiceImagePath'] = count($paths) > 0 ? $paths[0] : null;
 
             // Items
             $itemsStmt = $pdo->prepare("SELECT * FROM purchase_invoice_items WHERE invoiceId = ?");
@@ -232,26 +300,8 @@ switch ($action) {
 
         $remainingAmount = round($totalAmount - $paidAmount, 2);
 
-        // Handle Image Upload if Base64 provided
-        $invoiceImagePath = null;
-        if (!empty($rawImageBase64) && strpos($rawImageBase64, 'data:image') === 0) {
-            if (preg_match('/^data:image\/(\w+);base64,/', $rawImageBase64, $type)) {
-                $data = substr($rawImageBase64, strpos($rawImageBase64, ',') + 1);
-                $ext = strtolower($type[1]);
-                if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
-                    $data = base64_decode($data);
-                    if ($data !== false) {
-                        $filename = 'inv_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
-                        $uploadPath = __DIR__ . '/uploads/invoices/' . $filename;
-                        if (file_put_contents($uploadPath, $data)) {
-                            $invoiceImagePath = 'uploads/invoices/' . $filename;
-                        }
-                    }
-                }
-            }
-        } elseif (!empty($rawImageBase64) && strpos($rawImageBase64, 'uploads/') === 0) {
-            $invoiceImagePath = $rawImageBase64;
-        }
+        // Handle Images Upload (supports single or multiple images)
+        $invoiceImagePath = processInvoiceImages($input, null);
 
         // Get Active Shift
         $activeShift = $pdo->query("SELECT * FROM shifts WHERE status = 'open'")->fetch();
@@ -562,26 +612,8 @@ switch ($action) {
 
         $remainingAmount = round($totalAmount - $paidAmount, 2);
 
-        // Handle Image Upload
-        $invoiceImagePath = $oldInv['invoiceImagePath'];
-        if (!empty($rawImageBase64) && strpos($rawImageBase64, 'data:image') === 0) {
-            if (preg_match('/^data:image\/(\w+);base64,/', $rawImageBase64, $type)) {
-                $data = substr($rawImageBase64, strpos($rawImageBase64, ',') + 1);
-                $ext = strtolower($type[1]);
-                if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
-                    $data = base64_decode($data);
-                    if ($data !== false) {
-                        $filename = 'inv_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
-                        $uploadPath = __DIR__ . '/uploads/invoices/' . $filename;
-                        if (file_put_contents($uploadPath, $data)) {
-                            $invoiceImagePath = 'uploads/invoices/' . $filename;
-                        }
-                    }
-                }
-            }
-        } elseif (!empty($rawImageBase64) && strpos($rawImageBase64, 'uploads/') === 0) {
-            $invoiceImagePath = $rawImageBase64;
-        }
+        // Handle Images Upload (supports single or multiple images)
+        $invoiceImagePath = processInvoiceImages($input, $oldInv['invoiceImagePath']);
 
         $activeShift = $pdo->query("SELECT * FROM shifts WHERE status = 'open'")->fetch();
         $shiftId = $activeShift ? (int)$activeShift['id'] : null;
